@@ -92,6 +92,8 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/reports/summary',                        handler: handleReportSummary,middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/users',                                  handler: handleListUsers,    middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/users',                                  handler: handleInviteUser,   middleware:[requireAuth, requireOperatorAdmin] },
+  { method:'GET',  pattern:'/api/v1/invitations',                            handler: handleListInvitations, middleware:[requireAuth, requireOperatorAdmin] },
+  { method:'DELETE', pattern:'/api/v1/invitations/:token',                   handler: handleRevokeInvitation, middleware:[requireAuth, requireOperatorAdmin] },
 
   // ── Weimi proxy ───────────────────────────────────────────────────────────
   { method:'GET',  pattern:'/api/v1/weimi/devices',                          handler: handleWeimiDevices, middleware:[requireAuth] },
@@ -673,6 +675,55 @@ function handleChangePassword(req, res) {
   req.user.password = newPassword; // TODO: bcrypt
   req.user.passwordChangedAt = new Date().toISOString();
   ok(res, { message: 'Password changed' });
+}
+
+/**
+ * GET /api/v1/invitations
+ * Lists pending invitations the user is allowed to see.
+ *   - AG admin sees all pending invitations
+ *   - Operator admin sees invitations to their own operator
+ */
+function handleListInvitations(req, res) {
+  const now = Date.now();
+  const list = [];
+  for (const inv of invitations.values()) {
+    if (inv.consumedAt) continue;      // skip accepted invitations
+    if (inv.expiresAt < now) continue; // skip expired
+    if (req.user.role !== 'ag_admin' && inv.operatorId !== req.user.operatorId) continue;
+    const inviter = users.find(u => u.id === inv.inviterId);
+    list.push({
+      token:        inv.token,
+      email:        inv.email,
+      name:         inv.name,
+      role:         inv.role,
+      operatorId:   inv.operatorId,
+      operatorName: operators[inv.operatorId]?.name || null,
+      invitedBy:    inviter?.name || 'unknown',
+      createdAt:    new Date(inv.createdAt).toISOString(),
+      expiresAt:    new Date(inv.expiresAt).toISOString(),
+    });
+  }
+  list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  ok(res, list, { total: list.length });
+}
+
+/**
+ * DELETE /api/v1/invitations/:token
+ * Revoke a pending invitation. The invitee can no longer use the link.
+ */
+function handleRevokeInvitation(req, res) {
+  const inv = invitations.get(req.params.token);
+  if (!inv) return notFound(res, 'Invitation not found');
+  if (inv.consumedAt) return badRequest(res, 'Invitation has already been accepted');
+
+  // Permission: AG admin can revoke any; operator admin can revoke own operator's
+  if (req.user.role !== 'ag_admin' && inv.operatorId !== req.user.operatorId) {
+    return json(res, 403, { error: 'Forbidden' });
+  }
+
+  invitations.delete(req.params.token);
+  console.log(`[INVITE] ${req.user.name} revoked invitation for ${inv.email}`);
+  ok(res, { revoked: true, email: inv.email });
 }
 
 // ─── Operator handlers ────────────────────────────────────────────────────────
