@@ -1,0 +1,2218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snarl &amp; Sopi — AG Vending Operator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream:#FAF7F2; --cream-deep:#F0E8DA; --cream-shadow:#E8DFD0;
+  --ink:#1A1A1A; --ink-soft:#3A3A3A;
+  --bronze:#8B6B3E; --bronze-light:#B8946B; --bronze-bg:#F7F0E6;
+  --clay:#D4CCBE; --line:#E8E2D8; --muted:#8A8275; --muted-2:#6B6B6B;
+  --alert:#B8471F; --alert-bg:#FAEEE9;
+  --success:#4A6B2E; --success-bg:#EBF2E6;
+  --warn-ink:#7A4E1A; --warn-bg:#F9F0E2;
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'Geist',system-ui,sans-serif;
+  --mono:'Geist Mono',monospace;
+  --r:10px; --rlg:16px; --rsm:6px; --sw:224px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--cream-shadow);color:var(--ink);min-height:100vh;display:flex;font-size:14px;}
+
+/* LOGIN SCREEN */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;width:100%;background:var(--cream-shadow);}
+.login-card{background:var(--cream);border:.5px solid var(--line);border-radius:var(--rlg);padding:40px 36px;width:360px;box-shadow:0 4px 24px rgba(0,0,0,.06);}
+.login-brand{font-family:var(--serif);font-style:italic;font-size:26px;font-weight:500;margin-bottom:4px;}
+.login-sub{font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin-bottom:32px;}
+.login-err{background:var(--alert-bg);color:var(--alert);border-radius:var(--rsm);padding:9px 12px;font-size:12px;margin-bottom:14px;display:none;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sw);min-width:var(--sw);background:var(--cream);border-right:1px solid var(--line);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s;}
+.sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--line);}
+.sb-wordmark{font-family:var(--serif);font-style:italic;font-weight:500;font-size:20px;letter-spacing:-.3px;}
+.sb-sub{font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+.sb-section{padding:16px 20px 5px;font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--clay);}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 14px;margin:1px 8px;border-radius:var(--rsm);cursor:pointer;font-size:13px;color:var(--muted-2);transition:all .12s;user-select:none;}
+.nav-item:hover{background:var(--cream-deep);color:var(--ink);}
+.nav-item.active{background:var(--ink);color:var(--cream);}
+.nav-icon{font-size:13px;width:16px;text-align:center;}
+.nav-badge{margin-left:auto;background:var(--alert);color:#fff;border-radius:999px;padding:1px 7px;font-size:9px;font-family:var(--mono);}
+.nav-item.active .nav-badge{background:rgba(250,247,242,.22);}
+.sb-footer{margin-top:auto;padding:14px;border-top:1px solid var(--line);}
+.user-row{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--cream-deep);border-radius:var(--r);border:.5px solid var(--line);cursor:pointer;}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--cream);display:flex;align-items:center;justify-content:center;font-size:10px;font-family:var(--mono);flex-shrink:0;}
+
+/* MAIN */
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;}
+.topbar{display:flex;align-items:center;gap:14px;padding:13px 26px;border-bottom:1px solid var(--line);background:var(--cream);position:sticky;top:0;z-index:50;}
+.hamburger{display:none;background:none;border:none;color:var(--ink);font-size:17px;cursor:pointer;}
+.tb-title{font-family:var(--serif);font-style:italic;font-weight:500;font-size:21px;letter-spacing:-.2px;}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:9px;}
+.tb-btn{width:34px;height:34px;border-radius:50%;background:#fff;border:.5px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.notif-pip{position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--alert);border:1.5px solid #fff;}
+.content{padding:26px;flex:1;}
+
+/* PANELS */
+.panel{background:var(--cream);border:.5px solid var(--line);border-radius:var(--rlg);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:.5px solid var(--line);}
+.ph-title{font-family:var(--serif);font-style:italic;font-size:17px;font-weight:500;letter-spacing:-.2px;}
+.ph-action{font-size:11.5px;color:var(--bronze);cursor:pointer;font-weight:500;font-family:var(--mono);}
+
+/* GRIDS */
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:22px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:15px;margin-bottom:20px;}
+.mb{margin-bottom:20px;}
+
+/* STATS */
+.stat{background:var(--cream);border:.5px solid var(--line);border-radius:var(--rlg);padding:17px 19px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.stat-lbl{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
+.stat-val{font-family:var(--serif);font-style:italic;font-size:32px;font-weight:500;line-height:1;letter-spacing:-1px;margin-bottom:7px;}
+.stat-sub{font-size:11px;color:var(--muted);}
+.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-family:var(--mono);font-size:10.5px;font-weight:500;}
+.pill-up{background:var(--success-bg);color:var(--success);}
+.pill-dn{background:var(--alert-bg);color:var(--alert);}
+.pill-warn{background:var(--warn-bg);color:var(--warn-ink);}
+.pill-bz{background:var(--bronze-bg);color:var(--bronze);}
+.pill-dark{background:var(--ink);color:var(--cream);}
+.pill-out{background:transparent;border:.5px solid var(--line);color:var(--ink-soft);}
+
+/* TABLE */
+.tw{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{padding:9px 18px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:.5px solid var(--line);background:var(--cream-deep);white-space:nowrap;}
+td{padding:12px 18px;border-bottom:.5px solid var(--line);vertical-align:middle;color:var(--ink-soft);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(240,232,218,.3);}
+.tid{font-family:var(--mono);font-size:10.5px;color:var(--muted);}
+.tname{font-weight:500;font-size:13px;color:var(--ink);margin-top:1px;}
+.tsub{font-size:11px;color:var(--muted);}
+
+/* STATUS */
+.sdot{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;}
+.d{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.d-on{background:var(--success);box-shadow:0 0 0 3px rgba(74,107,46,.12);}
+.d-off{background:var(--alert);}
+.d-warn{background:#B8860B;box-shadow:0 0 0 3px rgba(184,134,11,.12);}
+
+/* FILL BAR */
+.fb{width:72px;}
+.fb-t{height:4px;border-radius:2px;background:var(--cream-shadow);overflow:hidden;}
+.fb-i{height:100%;border-radius:2px;}
+.fb-p{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;}
+
+/* ALERTS */
+.al-item{display:flex;align-items:flex-start;gap:12px;padding:13px 18px;border-bottom:.5px solid var(--line);cursor:pointer;transition:background .1s;}
+.al-item:last-child{border-bottom:none;}
+.al-item:hover{background:var(--cream-deep);}
+.al-pip{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.al-body{flex:1;}
+.al-title{font-size:13px;font-weight:500;color:var(--ink);}
+.al-meta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:2px;letter-spacing:.2px;}
+.al-time{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;padding-top:2px;}
+
+/* CHART */
+.bars{display:flex;align-items:flex-end;gap:5px;height:80px;}
+.bc{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.bar{width:100%;border-radius:3px 3px 0 0;cursor:pointer;transition:opacity .15s;}
+.bar:hover{opacity:.7;}
+.bl{font-family:var(--mono);font-size:8.5px;color:var(--muted);letter-spacing:.3px;}
+
+/* PRODUCT ROW */
+.pr{display:flex;align-items:center;gap:11px;padding:10px 18px;border-bottom:.5px solid var(--line);}
+.pr:last-child{border-bottom:none;}
+.pr-thumb{width:34px;height:34px;border-radius:var(--rsm);display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--cream-deep);border:.5px solid var(--line);flex-shrink:0;}
+.pr-name{font-size:13px;font-weight:500;color:var(--ink);}
+.pr-sku{font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:1px;}
+.pr-right{margin-left:auto;text-align:right;}
+.sv{font-family:var(--mono);font-size:12.5px;font-weight:500;}
+.sv-ok{color:var(--success);}
+.sv-low{color:var(--alert);}
+
+/* TABS */
+.tabs{display:flex;gap:3px;background:var(--cream-deep);border:.5px solid var(--line);border-radius:999px;padding:3px;}
+.tab{padding:5px 13px;border-radius:999px;font-size:12px;cursor:pointer;color:var(--muted);font-weight:500;transition:all .12s;}
+.tab.active{background:var(--ink);color:var(--cream);}
+
+/* FORM */
+.field{margin-bottom:14px;}
+.fl{font-family:var(--mono);font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.fi{width:100%;background:var(--cream-deep);border:.5px solid var(--line);border-radius:var(--rsm);padding:8px 12px;font-size:13px;color:var(--ink-soft);font-family:var(--sans);}
+.fi:focus{outline:none;border-color:var(--bronze-light);}
+.fi.mono{font-family:var(--mono);}
+select.fi{cursor:pointer;}
+
+/* TOGGLE */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:.5px solid var(--line);}
+.toggle-row:last-child{border-bottom:none;}
+.tgl-label{font-size:13px;font-weight:500;}
+.tgl-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.tgl{position:relative;width:38px;height:22px;flex-shrink:0;}
+.tgl input{opacity:0;width:0;height:0;}
+.tgl-track{position:absolute;inset:0;border-radius:999px;background:var(--clay);transition:background .2s;cursor:pointer;}
+.tgl input:checked + .tgl-track{background:var(--ink);}
+.tgl-thumb{position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none;}
+.tgl input:checked ~ .tgl-thumb{transform:translateX(16px);}
+
+/* HERO EDITOR */
+.hero-slot{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:.5px solid var(--line);}
+.hero-slot:last-child{border-bottom:none;}
+.hero-pos{font-family:var(--mono);font-size:10px;color:var(--muted);width:48px;flex-shrink:0;text-transform:uppercase;letter-spacing:.5px;}
+.hero-tag-input{background:var(--cream-deep);border:.5px solid var(--line);border-radius:var(--rsm);padding:5px 9px;font-family:var(--serif);font-style:italic;font-size:13px;color:var(--bronze);width:80px;}
+.hero-prod-input{flex:1;background:var(--cream-deep);border:.5px solid var(--line);border-radius:var(--rsm);padding:5px 9px;font-size:12px;color:var(--ink-soft);font-family:var(--mono);}
+
+/* SLOT GRID */
+.slot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;padding:14px 18px;}
+.slot-cell{border:.5px solid var(--line);border-radius:var(--rsm);padding:7px 6px;text-align:center;background:var(--cream-deep);cursor:pointer;transition:border-color .12s;}
+.slot-cell:hover{border-color:var(--bronze-light);}
+.slot-cell.occupied{background:#fff;}
+.slot-cell.low{border-color:#B8860B;}
+.slot-cell.empty{opacity:.45;}
+.slot-code{font-family:var(--mono);font-size:9px;letter-spacing:.5px;color:var(--muted);}
+.slot-name{font-size:9.5px;font-weight:500;color:var(--ink);margin-top:3px;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.slot-stock{font-family:var(--mono);font-size:9px;margin-top:3px;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--ink);color:var(--cream);border:none;border-radius:999px;padding:8px 18px;font-size:12.5px;font-weight:500;cursor:pointer;font-family:var(--sans);white-space:nowrap;}
+.btn:hover{opacity:.88;}
+.btn-ghost{background:transparent;color:var(--ink);border:.5px solid var(--clay);}
+.btn-bronze{background:var(--bronze);}
+.btn-full{width:100%;justify-content:space-between;padding:10px 18px;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+
+/* REPORT CARD */
+.rc{background:var(--cream-deep);border:.5px solid var(--line);border-radius:var(--r);padding:16px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+.rc:hover{border-color:var(--bronze-light);box-shadow:0 2px 8px rgba(139,107,62,.08);}
+.rc-icon{font-size:20px;margin-bottom:8px;}
+.rc-title{font-size:13px;font-weight:600;}
+.rc-sub{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;}
+
+/* BRAND PREVIEW */
+.brand-preview{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink);background:var(--cream-deep);border:.5px solid var(--line);border-radius:var(--rsm);padding:7px 12px;margin-top:8px;}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(26,26,26,.45);z-index:200;backdrop-filter:blur(3px);align-items:center;justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal-card{background:var(--cream);border-radius:var(--rlg);padding:28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.12);}
+.modal-title{font-family:var(--serif);font-style:italic;font-size:22px;font-weight:500;margin-bottom:16px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:var(--cream);border-radius:999px;padding:10px 20px;font-size:13px;font-weight:500;z-index:300;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+/* SHDR */
+.shd{display:flex;align-items:center;justify-content:space-between;margin-bottom:17px;flex-wrap:wrap;gap:10px;}
+.shd-sub{font-size:12px;color:var(--muted);}
+
+/* MAP */
+.map-ph{height:150px;background:radial-gradient(ellipse at 30% 60%,rgba(184,150,107,.1) 0%,transparent 60%),var(--cream-deep);margin:14px 18px;border-radius:var(--r);border:.5px dashed var(--clay);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;color:var(--muted);font-size:12px;position:relative;overflow:hidden;}
+.mpin{position:absolute;width:9px;height:9px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.15);}
+
+/* PAGE */
+.page{display:none;}
+.page.active{display:block;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(26,26,26,.4);z-index:99;backdrop-filter:blur(2px);}
+.overlay.show{display:block;}
+
+/* APP SHELL */
+.app-shell{display:none;width:100%;}
+.app-shell.show{display:flex;}
+
+/* RESPONSIVE */
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr);}.g21{grid-template-columns:1fr;}}
+@media(max-width:820px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.1);}
+  .main{margin-left:0;}.hamburger{display:flex;}
+  .g2,.g21{grid-template-columns:1fr;}
+  .content{padding:16px;}.topbar{padding:11px 16px;}
+}
+@media(max-width:520px){.g4{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     INVITATION ACCEPT
+══════════════════════════════════════════ -->
+<div class="login-wrap" id="invite-screen" style="display:none">
+  <div class="login-card">
+    <div class="login-brand">Snarl &amp; Sopi</div>
+    <div class="login-sub">activate your account</div>
+    <div id="invite-loading" style="text-align:center;padding:20px 0;color:var(--muted)">Loading invitation…</div>
+    <div id="invite-form" style="display:none">
+      <div style="background:var(--cream-deep);border-radius:var(--rsm);padding:12px 14px;margin-bottom:18px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:3px">You've been invited to manage</div>
+        <div id="invite-operator-name" style="font-family:var(--serif);font-style:italic;font-size:18px;font-weight:500"></div>
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="invite-email"></span>
+          <span class="pill pill-bz btn-sm" id="invite-role-pill"></span>
+        </div>
+      </div>
+      <div class="login-err" id="invite-err">Failed to set password.</div>
+      <div class="field"><div class="fl">choose password</div><input class="fi" id="invite-pw1" type="password" placeholder="at least 8 characters" autocomplete="new-password"></div>
+      <div class="field"><div class="fl">confirm password</div><input class="fi" id="invite-pw2" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+      <button class="btn btn-full" onclick="acceptInvite()" style="margin-top:8px"><span>activate account</span><span>→</span></button>
+    </div>
+    <div id="invite-error-screen" style="display:none;text-align:center;padding:20px 0">
+      <div style="font-size:14px;color:var(--alert);margin-bottom:10px">Invitation invalid</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:18px" id="invite-error-msg">This invitation link has expired or has already been used.</div>
+      <a href="?" style="font-size:13px;color:var(--bronze);text-decoration:none">→ go to sign in</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     LOGIN
+══════════════════════════════════════════ -->
+<div class="login-wrap" id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">Snarl &amp; Sopi</div>
+    <div class="login-sub">AG Vending · Operator</div>
+    <div class="login-err" id="login-err">Rangt netfang eða lykilorð.</div>
+    <div class="field"><div class="fl">email</div><input class="fi" id="login-email" type="email" placeholder="sky@agvending.is" autocomplete="username"></div>
+    <div class="field"><div class="fl">password</div><input class="fi" id="login-pw" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn btn-full" onclick="doLogin()" style="margin-top:8px"><span>sign in</span><span>→</span></button>
+    <div style="margin-top:16px;font-size:11px;color:var(--muted);text-align:center">demo: any email · password <span style="font-family:var(--mono)">demo</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     APP SHELL
+══════════════════════════════════════════ -->
+<div class="app-shell" id="app-shell">
+
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-wordmark">Snarl &amp; Sopi</div>
+    <div class="sb-sub">AG Vending · Operator</div>
+  </div>
+  <div class="sb-section">overview</div>
+  <div class="nav-item active" onclick="go('dashboard',this)"><span class="nav-icon">◈</span> Dashboard</div>
+  <div class="nav-item" onclick="go('machines',this)"><span class="nav-icon">⬡</span> Machines <span class="nav-badge" id="nb-machines">4</span></div>
+  <div class="nav-item" onclick="go('alerts',this)"><span class="nav-icon">◉</span> Alerts <span class="nav-badge" id="nb-alerts">3</span></div>
+  <div class="nav-item ag-only" onclick="go('operators',this)" style="display:none"><span class="nav-icon">⌬</span> Operators</div>
+  <div class="sb-section">kiosk control</div>
+  <div class="nav-item" onclick="go('catalog',this)"><span class="nav-icon">▣</span> Catalog &amp; Slots</div>
+  <div class="nav-item" onclick="go('hero',this)"><span class="nav-icon">✦</span> Hero &amp; Featured</div>
+  <div class="nav-item" onclick="go('display',this)"><span class="nav-icon">▭</span> Display Settings</div>
+  <div class="sb-section">commerce</div>
+  <div class="nav-item" onclick="go('orders',this)"><span class="nav-icon">◧</span> Orders</div>
+  <div class="nav-item" onclick="go('reports',this)"><span class="nav-icon">◫</span> Reports</div>
+  <div class="sb-section">system</div>
+  <div class="nav-item" onclick="go('users',this)"><span class="nav-icon">◎</span> Users</div>
+  <div class="nav-item" onclick="go('settings',this)"><span class="nav-icon">⊞</span> Settings</div>
+  <div class="sb-footer">
+    <div class="user-row" onclick="doLogout()">
+      <div class="avatar" id="sb-avatar">SK</div>
+      <div><div style="font-size:12px;font-weight:500" id="sb-name">Sky K.</div><div style="font-family:var(--mono);font-size:9.5px;color:var(--muted)" id="sb-role">super admin</div></div>
+      <span style="margin-left:auto;color:var(--muted);font-size:11px">sign out</span>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+    <div class="tb-title" id="page-title">dashboard.</div>
+    <div class="tb-right">
+      <div class="tb-btn" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])">&#128276;<div class="notif-pip" id="notif-pip"></div></div>
+      <div class="tb-btn" title="Weimi sync blocked — Weimi only accepts requests from registered Android devices. Stock data updates automatically via the kiosk app." style="opacity:0.4;cursor:not-allowed">&#8635;</div>
+      <div class="tb-btn" title="Export data" onclick="exportData()">&#8681;</div>
+      <span id="backend-status" style="font-family:var(--mono);font-size:10px;color:var(--muted);cursor:help" title="checking...">○ checking</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="page active" id="page-dashboard">
+      <div class="g4" id="dash-stats"></div>
+      <div class="g21">
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title">revenue, last 7 days.</div>
+            <div class="tabs"><div class="tab active">7D</div><div class="tab">30D</div><div class="tab">90D</div></div>
+          </div>
+          <div style="padding:18px 18px 8px">
+            <div class="bars" id="rev-bars"></div>
+          </div>
+          <div style="display:flex;gap:22px;padding:13px 18px;border-top:.5px solid var(--line)" id="rev-summary"></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title">alerts.</div><div class="ph-action" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])">view all →</div></div>
+          <div id="dash-alerts"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="ph-title">machines overview.</div><div class="ph-action" onclick="go('machines',document.querySelectorAll('.nav-item')[1])">view all →</div></div>
+        <div class="tw"><table><thead><tr><th>device</th><th>location / operator</th><th>status</th><th>stock fill</th><th>today sales</th><th>kiosk</th><th>last seen</th></tr></thead><tbody id="dash-machines"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ═══ MACHINES ═══ -->
+    <div class="page" id="page-machines">
+      <div class="shd">
+        <div class="shd-sub" id="machines-sub"></div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+          <div class="tabs"><div class="tab active" onclick="filterMachines('all',this)">all</div><div class="tab" onclick="filterMachines('online',this)">online</div><div class="tab" onclick="filterMachines('offline',this)">offline</div><div class="tab" onclick="filterMachines('warning',this)">warning</div></div>
+          <button class="btn btn-sm" onclick="openAddMachine()">+ add machine</button>
+        </div>
+      </div>
+      <div class="panel mb">
+        <div class="ph"><div class="ph-title">locations.</div></div>
+        <div class="map-ph">
+          <div class="mpin" style="background:var(--success);top:38%;left:44%"></div>
+          <div class="mpin" style="background:var(--alert);top:26%;left:63%"></div>
+          <div class="mpin" style="background:var(--success);top:54%;left:29%"></div>
+          <div class="mpin" style="background:#B8860B;top:34%;left:24%"></div>
+          <div class="mpin" style="background:var(--success);top:59%;left:71%"></div>
+          <span style="font-size:16px">&#128506;</span>
+          <span>machine locations — Reykjavík area</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="ph-title">all machines.</div></div>
+        <div class="tw"><table><thead><tr><th>device code</th><th>name / location</th><th>status</th><th>stock</th><th>today sales</th><th>kiosk</th><th>operator name</th><th>actions</th></tr></thead><tbody id="machines-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ═══ ALERTS ═══ -->
+    <div class="page" id="page-alerts">
+      <div class="shd">
+        <div class="shd-sub" id="alerts-sub"></div>
+        <div class="tabs"><div class="tab active" onclick="filterAlerts('all',this)">all</div><div class="tab" onclick="filterAlerts('offline',this)">offline</div><div class="tab" onclick="filterAlerts('stock',this)">stock</div><div class="tab" onclick="filterAlerts('payment',this)">payment</div><div class="tab" onclick="filterAlerts('kiosk',this)">kiosk</div></div>
+      </div>
+      <div class="panel"><div class="ph"><div class="ph-title">all alerts.</div></div><div id="alerts-list"></div></div>
+    </div>
+
+    <!-- ═══ CATALOG & SLOTS ═══ -->
+    <div class="page" id="page-catalog">
+      <div class="shd">
+        <div class="shd-sub">machine: <strong id="catalog-machine-label">Gamli Gerpla (62160487)</strong></div>
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+          <div class="tabs" id="catalog-machine-tabs"></div>
+          <div title="Weimi sync not available from browser — stock data comes from kiosk app" style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:5px 0">stock via kiosk app ↓</div>
+          <button class="btn btn-sm" onclick="openAddProduct()">+ add product</button>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="panel" id="catalog-slots-panel"></div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="panel" id="catalog-products-panel"></div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">product flags.</div></div>
+            <div style="padding:12px 18px;font-size:12px;color:var(--muted);line-height:1.7">
+              <strong style="color:var(--ink)">hidden</strong> — never shown regardless of stock.<br>
+              <strong style="color:var(--ink)">hideWhenEmpty</strong> — auto-hides when stock = 0 (default on).<br>
+              <strong style="color:var(--ink)">featured</strong> — bronze dot on card; eligible for hero zone.<br>
+              <strong style="color:var(--ink)">displayOrder</strong> — controls grid sort order.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ HERO & FEATURED ═══ -->
+    <div class="page" id="page-hero">
+      <div class="shd"><div class="shd-sub">controls the hero zone and featured products shown on each kiosk</div></div>
+      <div class="g2">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="panel">
+            <div class="ph"><div class="ph-title">select machine.</div></div>
+            <div style="padding:14px 18px">
+              <div class="field"><div class="fl">machine</div><select class="fi" id="hero-machine-select" onchange="renderHeroPage()"></select></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">hero zone toggles.</div></div>
+            <div style="padding:14px 18px" id="hero-toggles"></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">featured products.</div><div class="ph-action" onclick="addFeaturedSlot()">+ add slot</div></div>
+            <div style="padding:8px 0 0;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;display:grid;grid-template-columns:48px 1fr 90px 60px;gap:0;padding:6px 18px;border-bottom:.5px solid var(--line)">
+              <div>slot</div><div>goodsId</div><div>tag</div><div></div>
+            </div>
+            <div id="featured-slots"></div>
+            <div style="padding:12px 18px 14px;font-size:11.5px;color:var(--muted)">goodsId from Weimi portal · tag is the italic label shown in the kiosk hero tile</div>
+            <div style="padding:0 18px 16px"><button class="btn btn-full" onclick="saveFeatured()"><span>save featured products</span><span>→</span></button></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="panel">
+            <div class="ph"><div class="ph-title">kiosk preview.</div></div>
+            <div style="padding:16px 18px">
+              <div style="background:var(--cream-deep);border-radius:var(--r);border:.5px solid var(--line);padding:10px 14px;font-size:11px;color:var(--muted-2);text-align:center;margin-bottom:12px;font-family:var(--mono)">browse screen — hero zone</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px" id="hero-preview"></div>
+              <div style="font-size:11px;color:var(--muted);text-align:center">applied on next kiosk app load</div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">ad region.</div></div>
+            <div style="padding:14px 18px">
+              <div class="field"><div class="fl">current content</div>
+                <div style="background:linear-gradient(135deg,#EFC9A6,#D8A574);border-radius:var(--rsm);height:68px;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:14px;color:#3D1F0F;margin-bottom:8px" id="ad-preview-label">fylkir · íþróttadrykkur</div>
+              </div>
+              <div class="field"><div class="fl">upload new image / video</div>
+                <div class="fi" style="border-style:dashed;text-align:center;color:var(--muted);cursor:pointer;padding:14px">drag &amp; drop or click to upload</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DISPLAY SETTINGS ═══ -->
+    <div class="page" id="page-display">
+      <div class="shd"><div class="shd-sub">controls <span style="font-family:var(--mono);font-size:11px;background:var(--cream-deep);padding:1px 6px;border-radius:3px">MachineSettings</span> served to the kiosk on each startup</div></div>
+      <div class="g2">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="panel">
+            <div class="ph"><div class="ph-title">machine.</div></div>
+            <div style="padding:14px 18px"><div class="field"><div class="fl">machine</div><select class="fi" id="display-machine-select" onchange="renderDisplayPage()"></select></div></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">identity &amp; language.</div></div>
+            <div style="padding:14px 18px">
+              <div class="field">
+                <div class="fl">operator name (kiosk brand line)</div>
+                <input class="fi" id="ds-operatorName" oninput="updateBrandPreview()">
+                <div class="brand-preview" id="ds-brand-preview">Snarl &amp; Sopi — AG Vending</div>
+              </div>
+              <div class="field"><div class="fl">support email</div><input class="fi" id="ds-supportEmail"></div>
+              <div class="field"><div class="fl">custom support message</div><input class="fi" id="ds-supportMsg" placeholder="leave blank for default"></div>
+              <div class="field"><div class="fl">default language</div>
+                <select class="fi" id="ds-defaultLanguage">
+                  <option value="Icelandic">Icelandic (IS)</option>
+                  <option value="English">English (EN)</option>
+                  <option value="Polish">Polish (PL)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">idle screen.</div></div>
+            <div style="padding:14px 18px">
+              <div class="toggle-row">
+                <div><div class="tgl-label">show idle screen</div><div class="tgl-sub">returns to browse after timeout</div></div>
+                <label class="tgl"><input type="checkbox" id="ds-showIdleScreen"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+              </div>
+              <div class="field" style="margin-top:12px"><div class="fl">idle timeout (seconds)</div><input class="fi mono" id="ds-idleTimeoutSeconds" type="number" min="10"></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="panel">
+            <div class="ph"><div class="ph-title">hardware.</div></div>
+            <div style="padding:14px 18px">
+              <div class="toggle-row">
+                <div><div class="tgl-label">heated glass</div></div>
+                <label class="tgl"><input type="checkbox" id="ds-hasHeatedGlass"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+              </div>
+              <div class="toggle-row">
+                <div><div class="tgl-label">heated glass default on</div></div>
+                <label class="tgl"><input type="checkbox" id="ds-heatedGlassDefaultOn"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+              </div>
+              <div class="toggle-row">
+                <div><div class="tgl-label">LED strips</div></div>
+                <label class="tgl"><input type="checkbox" id="ds-hasLedStrips"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+              </div>
+              <div class="field" style="margin-top:12px"><div class="fl">LED brightness (0–10)</div><input class="fi mono" id="ds-ledBrightness" type="number" min="0" max="10"></div>
+              <div class="field"><div class="fl">motor serial port</div><input class="fi mono" id="ds-motorSerialPort"></div>
+              <div class="field"><div class="fl">control board address</div><input class="fi mono" id="ds-controlBoardAddress" type="number"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><div class="ph-title">save.</div></div>
+            <div style="padding:14px 18px">
+              <button class="btn btn-full" onclick="saveDisplaySettings()"><span>save &amp; push to kiosk</span><span>→</span></button>
+              <div style="font-size:11px;color:var(--muted);margin-top:9px;text-align:center">applied on next kiosk app startup</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ORDERS ═══ -->
+    <div class="page" id="page-orders">
+      <div class="shd">
+        <div class="shd-sub" id="orders-sub"></div>
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+          <div class="tabs"><div class="tab active" onclick="filterOrders('all',this)">all</div><div class="tab" onclick="filterOrders('success',this)">success</div><div class="tab" onclick="filterOrders('failed',this)">failed</div><div class="tab" onclick="filterOrders('refunded',this)">refunded</div></div>
+
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="ph-title">transactions.</div><div class="ph-action" onclick="exportOrders()">export CSV →</div></div>
+        <div class="tw"><table><thead><tr><th>tradeNo</th><th>device</th><th>amount</th><th>payment</th><th>status</th><th>time</th></tr></thead><tbody id="orders-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ═══ REPORTS ═══ -->
+    <div class="page" id="page-reports">
+      <div class="shd"><div class="shd-sub">operational summary · all machines</div></div>
+      <div class="g4 mb" id="report-stats"></div>
+      <div class="panel">
+        <div class="ph"><div class="ph-title">revenue by machine.</div></div>
+        <div class="tw"><table><thead><tr><th>machine</th><th>location</th><th>orders</th><th>revenue</th><th>avg order</th></tr></thead><tbody id="report-table"></tbody></table></div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="panel">
+          <div class="ph"><div class="ph-title">export.</div></div>
+          <div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:11px">
+            <div class="rc" onclick="exportOrders()"><div class="rc-icon">📊</div><div class="rc-title">Sales CSV</div><div class="rc-sub">All orders with amounts and status</div></div>
+            <div class="rc" onclick="exportMachines()"><div class="rc-icon">📦</div><div class="rc-title">Machines JSON</div><div class="rc-sub">All machine settings and stock</div></div>
+            <div class="rc" onclick="exportAll()"><div class="rc-icon">💾</div><div class="rc-title">Full Backup</div><div class="rc-sub">All data as JSON — import later</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ OPERATORS (AG Vending only) ═══ -->
+    <div class="page" id="page-operators">
+      <div class="shd">
+        <div class="shd-sub" id="operators-sub">Customer operators with access to the dashboard</div>
+        <button class="btn btn-sm" onclick="openAddOperator()">+ add operator</button>
+      </div>
+      <div class="panel">
+        <div class="tw"><table><thead><tr><th>operator</th><th>machines</th><th>users</th><th>contact email</th><th></th></tr></thead><tbody id="operators-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ═══ USERS ═══ -->
+    <div class="page" id="page-users">
+      <div class="shd"><div class="shd-sub" id="users-sub"></div><button class="btn btn-sm" onclick="openAddUser()">+ invite user</button></div>
+      <div class="panel">
+        <div class="tw"><table><thead><tr><th>name</th><th>email</th><th>role</th><th>access</th><th>last active</th><th></th></tr></thead><tbody id="users-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ═══ SETTINGS ═══ -->
+    <div class="page" id="page-settings">
+      <div class="g2">
+        <div class="panel">
+          <div class="ph"><div class="ph-title">weimi api.</div></div>
+          <div style="padding:16px 18px">
+            <div class="field"><div class="fl">app ID</div><input class="fi mono" id="cfg-appId"></div>
+            <div class="field"><div class="fl">secret key</div><input class="fi mono" id="cfg-secretKey" type="password"></div>
+            <div class="field"><div class="fl">endpoint</div>
+              <select class="fi mono" id="cfg-endpoint">
+                <option value="test">TEST — http://api.weimi24.com/v2022/third-center-web</option>
+                <option value="prod">PRODUCTION — https://micron.weimi24.com/v8/third-center-web</option>
+              </select>
+            </div>
+            <button class="btn btn-full" onclick="saveApiSettings()"><span>save API settings</span><span>→</span></button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title">open issues.</div></div>
+          <div style="padding:14px 18px;display:flex;flex-direction:column;gap:12px">
+            <div style="padding:11px 13px;background:var(--alert-bg);border-radius:var(--rsm);border-left:3px solid var(--alert)">
+              <div style="font-size:12.5px;font-weight:600;color:var(--alert);margin-bottom:3px">online-status problem</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Machines running the kiosk app show as "offline" in Weimi portal. Contact Weimi support before deployment.</div>
+            </div>
+            <div style="padding:11px 13px;background:var(--warn-bg);border-radius:var(--rsm);border-left:3px solid #B8860B">
+              <div style="font-size:12.5px;font-weight:600;color:var(--warn-ink);margin-bottom:3px">hardcoded operator name</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Kiosk app still hardcodes "AG Vending" in VendingViewModel. Needs backend integration to resolve dynamically.</div>
+            </div>
+            <div style="padding:11px 13px;background:var(--cream-deep);border-radius:var(--rsm);border-left:3px solid var(--clay)">
+              <div style="font-size:12.5px;font-weight:600;margin-bottom:3px">62160042 &amp; 62160043 unsupported</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Non-standard cabinet layout. Kiosk app blocks these. Investigate before removing block.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- MODALS -->
+<div class="modal-bg" id="modal-machine">
+  <div class="modal-card">
+    <div class="modal-title" id="modal-machine-title">add machine.</div>
+    <div class="field"><div class="fl">device code (8 digits)</div><input class="fi mono" id="m-deviceCode" placeholder="62160000"></div>
+    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" placeholder="Gamli Gerpla"></div>
+    <div class="field"><div class="fl">location</div><input class="fi" id="m-location" placeholder="City Plaza B1"></div>
+    <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" placeholder="AG Vending"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-full" onclick="saveMachine()"><span>save machine</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-machine')">cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-user">
+  <div class="modal-card">
+    <div class="modal-title">invite user.</div>
+    <div class="field"><div class="fl">name</div><input class="fi" id="u-name" placeholder="Anna S."></div>
+    <div class="field"><div class="fl">email</div><input class="fi" id="u-email" placeholder="anna@example.is" type="email"></div>
+    <div class="field" id="u-operator-field" style="display:none">
+      <div class="fl">operator</div>
+      <select class="fi" id="u-operator"></select>
+    </div>
+    <div class="field"><div class="fl">role</div>
+      <select class="fi" id="u-role">
+        <option value="operator_admin">operator admin</option>
+        <option value="operator_manager">manager</option>
+        <option value="operator_viewer">viewer</option>
+        <option value="ag_admin" class="ag-only-option">AG Vending admin</option>
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--muted);background:var(--cream-deep);padding:10px 12px;border-radius:var(--rsm);margin-bottom:8px">
+      An invitation email will be sent. The user clicks the link to set their own password.
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-full" onclick="saveUser()"><span>send invitation</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-user')">cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA LAYER — localStorage persistence
+// ═══════════════════════════════════════════════════════════════
+
+const STORE_KEY = 'snarl_sopi_ag_data_v6'; // v6 = invitations + onboarding
+
+// ═══════════════════════════════════════════════════════════════
+// BACKEND API LAYER
+// Calls the local Node.js backend at localhost:3000.
+// Falls back gracefully to localStorage data if backend is offline.
+// ═══════════════════════════════════════════════════════════════
+
+// API_BASE auto-detects: localhost when served from file://, same-origin when on Railway
+const API_BASE = (window.location.protocol === 'file:' || window.location.hostname === '')
+  ? 'http://localhost:3000'
+  : window.location.origin;
+let API_TOKEN = null;
+
+const API = {
+  async login(email, password) {
+    const r = await fetch(`${API_BASE}/api/v1/auth/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    return r.json();
+  },
+  async req(method, path, body) {
+    const opts = { method, headers: { 'Content-Type': 'application/json', ...(API_TOKEN ? { 'Authorization': `Bearer ${API_TOKEN}` } : {}) } };
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(`${API_BASE}${path}`, opts);
+    return r.json();
+  },
+  get:  (path)       => API.req('GET',  path),
+  post: (path, body) => API.req('POST', path, body),
+  put:  (path, body) => API.req('PUT',  path, body),
+  async isOnline() {
+    try { const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) }); return r.ok; }
+    catch { return false; }
+  },
+  async syncMachine(deviceCode) { return API.post(`/api/v1/weimi/sync/${deviceCode}`); },
+  async syncAllDevices()        { return API.get('/api/v1/weimi/devices'); },
+  async fetchOrders(params={})  { const qs=new URLSearchParams(params).toString(); return API.get(`/api/v1/weimi/orders${qs?'?'+qs:''}`); },
+  async pushSettings(deviceCode, settings) { return API.put(`/api/v1/machines/${deviceCode}/settings`, settings); },
+  async pushFeatured(deviceCode, featured) { return API.put(`/api/v1/machines/${deviceCode}/featured`, featured); },
+};
+
+let backendOnline = false;
+
+// Today sales cache — populated from backend when available
+let todaySalesCache = {}; // deviceCode → { orders, revenueKr }
+let todaySalesUTC   = null;
+
+async function refreshTodaySales() {
+  if (!backendOnline) return;
+  try {
+    const result = await API.get('/api/v1/orders/today');
+    if (result && result.ok && result.data) {
+      todaySalesCache = result.data.byMachine || {};
+      todaySalesUTC   = result.data.todayUTC  || null;
+    }
+  } catch(e) { /* silent — local fallback used */ }
+}
+
+function salesTodayKr(deviceCode) {
+  try {
+    // Backend cache is the source of truth when available
+    if (todaySalesCache[deviceCode] !== undefined) {
+      return todaySalesCache[deviceCode].revenueKr || 0;
+    }
+    // Fallback: local orders store (populated by kiosk app POSTs)
+    const t = todaySalesUTC || Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+    return (DB.orders||[]).filter(o=>o.deviceCode===deviceCode&&o.status===1&&o.createTime>=t).reduce((s,o)=>s+(o.amountKr||0),0);
+  } catch(e) { return 0; }
+}
+
+// Returns the cell HTML for today's sales — handles non-kiosk machines explicitly
+function salesTodayCell(m) {
+  // Non-kiosk machines (GR-WM22Z680, GR-WM22Z1260) don't run our app, no sales data
+  if (m.isKioskModel === false) {
+    return '<span style="color:var(--muted)" title="No app — sales not reported">n/a</span>';
+  }
+  if (!m.isOnline) {
+    return '<span style="color:var(--muted)">—</span>';
+  }
+  const kr = salesTodayKr(m.deviceCode);
+  if (kr === 0) {
+    return '<span style="color:var(--muted)">0 kr</span>';
+  }
+  return '<span style="font-family:var(--mono);font-size:12px">' + kr.toLocaleString('is-IS') + ' kr</span>';
+}
+
+async function checkBackend() {
+  backendOnline = await API.isOnline();
+  updateBackendIndicator();
+  return backendOnline;
+}
+function updateBackendIndicator() {
+  const el = document.getElementById('backend-status');
+  if (!el) return;
+  el.textContent = backendOnline ? '● live' : '○ offline';
+  el.style.color = backendOnline ? 'var(--success)' : 'var(--muted)';
+  el.title = backendOnline ? 'Backend running — data is live from Weimi' : 'Backend offline — showing saved data. Run: node src/server.js';
+}
+
+async function syncAllFromWeimi() {
+  if (!backendOnline) { showToast('Backend offline — start the server first'); return; }
+  showToast('Syncing from Weimi…');
+  try {
+    const devResult = await API.syncAllDevices();
+    if (devResult.ok && devResult.data) {
+      devResult.data.forEach(p => {
+        const code = p.deviceCode;
+        if (DB.machines[code]) {
+          DB.machines[code].isOnline       = p.isOnline  === 1 || p.isOnline  === true;
+          DB.machines[code].isRunning      = p.isRunning === 1 || p.isRunning === true;
+          DB.machines[code].totalCurrStock = p.totalCurrStock || DB.machines[code].totalCurrStock;
+          if (p.deviceName) DB.machines[code].deviceName = p.deviceName;
+        }
+      });
+      saveData();
+      showToast('✓ ' + devResult.data.length + ' machines synced from Weimi');
+    } else {
+      showToast('Weimi sync failed: ' + (devResult.error || devResult.detail || 'Unknown'));
+    }
+  } catch (e) { showToast('Sync error: ' + e.message); }
+  renderDashboard();
+  if (document.getElementById('page-machines').classList.contains('active')) renderMachines();
+}
+
+async function syncMachineProducts(deviceCode) {
+  if (!backendOnline) { showToast('Backend offline'); return; }
+  showToast('Syncing ' + deviceCode + ' from Weimi…');
+  try {
+    const result = await API.syncMachine(deviceCode);
+    if (result.ok && result.data) {
+      const d = result.data;
+      if (DB.machines[deviceCode]) {
+        DB.machines[deviceCode].isOnline       = d.isOnline;
+        DB.machines[deviceCode].totalCurrStock = d.totalStock;
+      }
+      const machineResult = await API.get('/api/v1/machines/' + deviceCode);
+      if (machineResult.ok && machineResult.data && machineResult.data.products) {
+        DB.machines[deviceCode].products = machineResult.data.products;
+        saveData();
+      }
+      showToast('✓ ' + d.productCount + ' products synced — ' + d.totalStock + ' units');
+    } else {
+      showToast('Sync failed: ' + (result.error || result.detail || 'Weimi error'));
+    }
+  } catch (e) { showToast('Sync error: ' + e.message); }
+  renderCatalog();
+}
+
+async function fetchLiveOrders(deviceCode) {
+  if (!backendOnline) { showToast('Backend offline'); return; }
+  showToast('Fetching live orders from Weimi…');
+  try {
+    const result = await API.fetchOrders(deviceCode ? { deviceCode } : {});
+    if (result.ok && result.data && result.data.length > 0) {
+      const existing = new Set(DB.orders.map(o => o.tradeNo));
+      const newOrders = result.data.filter(o => !existing.has(o.tradeNo));
+      DB.orders = [...newOrders, ...DB.orders];
+      saveData();
+      showToast('✓ ' + newOrders.length + ' new orders loaded from Weimi');
+      renderOrders();
+    } else if (result.ok) {
+      showToast('No new orders found');
+    } else {
+      showToast('Orders failed: ' + (result.error || result.detail || 'Weimi error'));
+    }
+  } catch (e) { showToast('Error: ' + e.message); }
+}
+
+
+
+const DEFAULT_DATA = {
+  session: null,
+  users: [
+    { id:'u1', name:'Sky K.',  email:'sky@agvending.is',  password:'demo', role:'super_admin', machineAccess:'all',     lastActiveAt: new Date().toISOString() },
+    { id:'u2', name:'Jane L.', email:'jane@agvending.is', password:'demo', role:'operator',    machineAccess:'group_a', lastActiveAt: new Date(Date.now()-2*3600000).toISOString() },
+    { id:'u3', name:'Mike R.', email:'mike@agvending.is', password:'demo', role:'technician',  machineAccess:'all',     lastActiveAt: new Date(Date.now()-86400000).toISOString() },
+  ],
+  machines: {
+    '82160788':{
+      deviceCode:'82160788',deviceName:"Hlaðdeild 1",location:"Fálkavellir 2",
+      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '82160787':{
+      deviceCode:'82160787',deviceName:"Crew 2",location:"Fálkavellir 2",
+      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '82160786':{
+      deviceCode:'82160786',deviceName:"Crew 1",location:"Fálkavellir 2",
+      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '82160785':{
+      deviceCode:'82160785',deviceName:"Crew 3",location:"Fálkavellir 2",
+      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '82160784':{
+      deviceCode:'82160784',deviceName:"Hlaðdeild 2",location:"Fálkavellir 2",
+      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '82160677':{
+      deviceCode:'82160677',deviceName:"Airport Associates",location:"",
+      operatorName:"IS10001",model:"GR-WM22Z1260",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '82160676':{
+      deviceCode:'82160676',deviceName:"Hólaskóli",location:"",
+      operatorName:"Holaskoli",model:"GR-WM22Z1260",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"Holaskoli",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '82160675':{
+      deviceCode:'82160675',deviceName:"Newrest",location:"Fálkavellir 2",
+      operatorName:"ICE",model:"GR-WM22Z1260",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '82160674':{
+      deviceCode:'82160674',deviceName:"Reykjalundur",location:"Reykjalundur, 270 Mosfellsbær",
+      operatorName:"Reykjalundur",model:"GR-WM22Z1260",isKioskModel:false,
+      isOnline:true,isRunning:true,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"Reykjalundur",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160493':{
+      deviceCode:'62160493',deviceName:"Skjól 1",location:"",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160492':{
+      deviceCode:'62160492',deviceName:"Valhúsaskóli",location:"",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160491':{
+      deviceCode:'62160491',deviceName:"Faxatorg",location:"Faxatorg",
+      operatorName:"AL",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"AL",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160490':{
+      deviceCode:'62160490',deviceName:"Keflavík",location:"Flugvellir 6",
+      operatorName:"KEF",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"KEF",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160489':{
+      deviceCode:'62160489',deviceName:"Valur II",location:"Hlíðarenda, 102 Reykjavík",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160488':{
+      deviceCode:'62160488',deviceName:"Evanger",location:"Gránugata 24, 580 Siglufjörður",
+      operatorName:"Evanger",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"Evanger",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160487':{
+      deviceCode:'62160487',deviceName:"Íþróttafélag Reykjavíkur",location:"ir@ir.is",
+      operatorName:"ÍR",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"ÍR",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160486':{
+      deviceCode:'62160486',deviceName:"Golfhermir",location:"Borgartún 24b",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160485':{
+      deviceCode:'62160485',deviceName:"Leiknir",location:"",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:false,isRunning:false,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160484':{
+      deviceCode:'62160484',deviceName:"Grótta hægri",location:"Suðurströnd 8, 170 Seltjarnarnes",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160483':{
+      deviceCode:'62160483',deviceName:"KR",location:"Frostaskjól",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160482':{
+      deviceCode:'62160482',deviceName:"Hótel Búrfell",location:"Holtagörðum, 104 Reykjavík",
+      operatorName:"Burfell",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"Burfell",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160481':{
+      deviceCode:'62160481',deviceName:"Klettatröð - IWO",location:"Klettatröð 10, 262 Reykjanesbær",
+      operatorName:"IWO",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IWO",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160480':{
+      deviceCode:'62160480',deviceName:"Stjarnan",location:"Smáratorg 3, 201 Kópavogur",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:false,isRunning:false,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160479':{
+      deviceCode:'62160479',deviceName:"Grótta vinstri",location:"Suðurströnd 8, 170 Seltjarnarnes",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160478':{
+      deviceCode:'62160478',deviceName:"Laugardagshöll",location:"",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160477':{
+      deviceCode:'62160477',deviceName:"Orkan Miklabraut N",location:"Miklabraut",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160476':{
+      deviceCode:'62160476',deviceName:"Mjódd",location:"Þönglabakki 4,109 Reykjavík",
+      operatorName:"Bus",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"Bus",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160475':{
+      deviceCode:'62160475',deviceName:"Dyrhólaey",location:"",
+      operatorName:"Dyrholar",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"Dyrholar",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160474':{
+      deviceCode:'62160474',deviceName:"12 Sporahúsið",location:"Vallarkór 12-14, 203 Kópavogur",
+      operatorName:"Alanó",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"Alanó",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160473':{
+      deviceCode:'62160473',deviceName:"F. Skautafélag Akureyrar",location:"",
+      operatorName:"FSA",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"FSA",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160472':{
+      deviceCode:'62160472',deviceName:"Fylkir 2",location:"Fylkisvegi",
+      operatorName:"Fylkir",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"Fylkir",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160043':{
+      deviceCode:'62160043',deviceName:"Valur I",location:"Hlíðarenda, 102 Reykjavík",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:true,isRunning:true,kioskVersion:'0.21',
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+    '62160042':{
+      deviceCode:'62160042',deviceName:"Gamli Gerpla",location:"",
+      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
+      isOnline:false,isRunning:false,kioskVersion:null,
+      totalCurrStock:0,maxStock:0,
+      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
+      featured:[],ads:[],products:[],productOverrides:{},
+      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
+    },
+  },
+  alerts: [
+    {id:'a1',type:'offline',severity:'critical',title:'Machine offline — Gamli Gerpla',detail:'62160042 · offline since 2026-05-19',deviceCode:'62160042',resolved:false,createdAt:new Date(Date.now()-4*86400000).toISOString()},
+    {id:'a2',type:'offline',severity:'critical',title:'Machine offline — Leiknir',detail:'62160485 · offline since 2026-02-20',deviceCode:'62160485',resolved:false,createdAt:new Date(Date.now()-90*86400000).toISOString()},
+    {id:'a3',type:'offline',severity:'warning',title:'Machine offline — Stjarnan',detail:'62160480 · offline since 2025-07-10',deviceCode:'62160480',resolved:false,createdAt:new Date(Date.now()-316*86400000).toISOString()},
+    {id:'a4',type:'kiosk',severity:'info',title:'Kiosk app v0.22 ready to deploy',detail:'VM-WM55DL machines on v0.21',deviceCode:null,resolved:false,createdAt:new Date(Date.now()-3*3600000).toISOString()},
+    {id:'a5',type:'config',severity:'warning',title:'Sub-operator name hardcoded in kiosk',detail:'VendingViewModel — needs backend integration',deviceCode:null,resolved:false,createdAt:new Date(Date.now()-6*3600000).toISOString()},
+  ],
+  orders: [], // Populated by kiosk app via POST /api/v1/machines/:deviceCode/sales
+  apiConfig:{ appId:'8c98f0207729893439e089e3703b6b37', secretKey:'', endpoint:'test' },
+  revenue: [12400,15800,10900,18200,14100,20400,18420],
+};
+
+function generateOrders() {
+  const prods = [
+    {name:'corny big súkkulaði',amt:29900}, {name:'fylkis brúsi',amt:38100},
+    {name:'ísey skyr',amt:34900}, {name:'powerade blár',amt:49900},
+    {name:'3× golfkúlur',amt:84900}, {name:'powerade gulur',amt:49900},
+    {name:'kaffi latte',amt:52500}, {name:'oat king nut',amt:49900},
+  ];
+  const devices = ['62160487','62160012','62160043','62160487','62160487','62160012'];
+  const orders = [];
+  for(let i=0;i<40;i++){
+    const p = prods[i%prods.length];
+    const status = i===2?2:i===4?3:1;
+    orders.push({
+      tradeNo:'SS'+Math.random().toString(36).substr(2,14),
+      deviceCode: devices[i%devices.length],
+      productName: p.name,
+      totalAmount: p.amt,
+      status,
+      statusLabel: {1:'success',2:'failed',3:'refunded'}[status],
+      amountKr: Math.round(p.amt/100),
+      createTime: Date.now() - i*7*60000,
+    });
+  }
+  return orders;
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      // Machines always start from DEFAULT_DATA (real Weimi data)
+      // Then overlay only operator-controlled fields saved previously:
+      // profile, featured, ads, settings, resolved alerts
+      const machines = JSON.parse(JSON.stringify(DEFAULT_DATA.machines));
+      const saved = d.machines || {};
+      Object.keys(machines).forEach(code => {
+        if (saved[code]) {
+          // Only restore fields the operator can edit — never stock/status
+          if (saved[code].profile)          machines[code].profile          = saved[code].profile;
+          if (saved[code].featured)         machines[code].featured         = saved[code].featured;
+          if (saved[code].ads)              machines[code].ads              = saved[code].ads;
+          if (saved[code].settings)         machines[code].settings         = saved[code].settings;
+          if (saved[code].productOverrides) machines[code].productOverrides = saved[code].productOverrides;
+        }
+      });
+      // Restore user-added machines (not in DEFAULT_DATA)
+      Object.keys(saved).forEach(code => {
+        if (!machines[code]) machines[code] = saved[code];
+      });
+      const alerts = d.alerts || DEFAULT_DATA.alerts;
+      return { ...DEFAULT_DATA, ...d, machines, alerts };
+    }
+  } catch(e) { console.warn('loadData error:', e); }
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+}
+
+function saveData() { try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch(e) { showToast('Storage full — export a backup'); } }
+
+let DB = loadData();
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+
+  // Try backend first
+  const online = await checkBackend();
+  if (online) {
+    try {
+      const result = await API.login(email, pw);
+      if (result.ok && result.data?.token) {
+        API_TOKEN = result.data.token;
+        const backendUser = result.data.user;
+        // Use the backend user directly — has operator info attached
+        let user = DB.users.find(u => u.email === email);
+        if (!user) {
+          user = { id: backendUser.id, name: backendUser.name, email, password: pw, role: backendUser.role, operatorId: backendUser.operatorId, operatorName: backendUser.operatorName, isAGVending: backendUser.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() };
+          DB.users.push(user);
+        } else {
+          // Refresh operator info from backend
+          user.operatorId   = backendUser.operatorId;
+          user.operatorName = backendUser.operatorName;
+          user.isAGVending  = backendUser.isAGVending;
+          user.role         = backendUser.role;
+        }
+        user.lastActiveAt = new Date().toISOString();
+        DB.session = user.id;
+        saveData();
+        bootApp(user);
+        return;
+      }
+    } catch(e) { /* fall through to local auth */ }
+  }
+
+  // Fallback: local auth
+  const user = DB.users.find(u => u.email===email && u.password===pw);
+  if(!user) { document.getElementById('login-err').style.display='block'; return; }
+  user.lastActiveAt = new Date().toISOString();
+  DB.session = user.id;
+  saveData();
+  bootApp(user);
+}
+document.getElementById('login-pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+function doLogout() {
+  DB.session = null; saveData();
+  document.getElementById('app-shell').classList.remove('show');
+  document.getElementById('login-screen').style.display='flex';
+}
+
+let currentUser = null;
+
+function bootApp(user) {
+  currentUser = user;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-shell').classList.add('show');
+  document.getElementById('sb-avatar').textContent = user.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('sb-name').textContent = user.name;
+  document.getElementById('sb-role').textContent = (user.operatorName || user.role.replace('_',' '));
+
+  // Show/hide AG-only menu items
+  const isAg = user.role === 'ag_admin';
+  document.querySelectorAll('.ag-only').forEach(el => {
+    el.style.display = isAg ? 'flex' : 'none';
+  });
+  populateMachineSelects();
+  renderDashboard();
+  renderAlertBadge();
+  // Check backend and auto-sync if available
+  checkBackend().then(online => {
+    if (online) {
+      updateBackendIndicator();
+      // Fetch today sales from backend and re-render dashboard with fresh data
+      refreshTodaySales().then(() => renderDashboard()).catch(() => {});
+    }
+  });
+}
+
+// ─── Invitation acceptance ────────────────────────────────────────────────────
+
+async function loadInvitation(token) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('invite-screen').style.display = 'flex';
+
+  try {
+    const r = await fetch(API_BASE + '/api/v1/invitations/' + encodeURIComponent(token));
+    const result = await r.json();
+
+    document.getElementById('invite-loading').style.display = 'none';
+
+    if (!r.ok || !result.ok) {
+      document.getElementById('invite-error-screen').style.display = 'block';
+      document.getElementById('invite-error-msg').textContent = result.error || 'This invitation link has expired or has already been used.';
+      return;
+    }
+
+    const inv = result.data;
+    document.getElementById('invite-operator-name').textContent = inv.operatorName || '—';
+    document.getElementById('invite-email').textContent = inv.email;
+    const roleLabels = {
+      ag_admin: 'AG Vending admin', operator_admin: 'admin',
+      operator_manager: 'manager', operator_viewer: 'viewer',
+    };
+    document.getElementById('invite-role-pill').textContent = roleLabels[inv.role] || inv.role;
+    document.getElementById('invite-form').style.display = 'block';
+
+    // Store token for accept
+    window._inviteToken = token;
+  } catch (e) {
+    document.getElementById('invite-loading').style.display = 'none';
+    document.getElementById('invite-error-screen').style.display = 'block';
+    document.getElementById('invite-error-msg').textContent = 'Could not load invitation. Backend may be offline.';
+  }
+}
+
+async function acceptInvite() {
+  const pw1 = document.getElementById('invite-pw1').value;
+  const pw2 = document.getElementById('invite-pw2').value;
+  const err = document.getElementById('invite-err');
+  err.style.display = 'none';
+
+  if (pw1.length < 8) {
+    err.textContent = 'Password must be at least 8 characters';
+    err.style.display = 'block';
+    return;
+  }
+  if (pw1 !== pw2) {
+    err.textContent = 'Passwords do not match';
+    err.style.display = 'block';
+    return;
+  }
+
+  try {
+    const r = await fetch(API_BASE + '/api/v1/invitations/' + encodeURIComponent(window._inviteToken) + '/accept', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw1 }),
+    });
+    const result = await r.json();
+    if (!r.ok || !result.ok) {
+      err.textContent = result.error || 'Activation failed';
+      err.style.display = 'block';
+      return;
+    }
+    // Successfully accepted — log in and boot the app
+    API_TOKEN = result.data.token;
+    const u = result.data.user;
+    let user = DB.users.find(x => x.email === u.email);
+    if (!user) {
+      user = { id: u.id, name: u.name, email: u.email, password: pw1, role: u.role, operatorId: u.operatorId, operatorName: u.operatorName, isAGVending: u.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() };
+      DB.users.push(user);
+    }
+    DB.session = user.id;
+    saveData();
+
+    // Clear the invite token from URL
+    history.replaceState(null, '', window.location.pathname);
+    document.getElementById('invite-screen').style.display = 'none';
+    bootApp(user);
+  } catch (e) {
+    err.textContent = 'Network error: ' + e.message;
+    err.style.display = 'block';
+  }
+}
+
+// Auto-login if session exists, OR show invitation if ?invite= param is present
+window.addEventListener('load', () => {
+  const params = new URLSearchParams(window.location.search);
+  const inviteToken = params.get('invite');
+  if (inviteToken) {
+    loadInvitation(inviteToken);
+    return;
+  }
+  if(DB.session) {
+    const user = DB.users.find(u=>u.id===DB.session);
+    if(user) { bootApp(user); return; }
+  }
+  document.getElementById('login-screen').style.display='flex';
+});
+
+// ═══════════════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════════════
+
+const PAGE_TITLES = {
+  dashboard:'dashboard.', machines:'machines.', alerts:'alerts.',
+  catalog:'catalog & slots.', hero:'hero & featured.', display:'display settings.',
+  orders:'orders.', reports:'reports.', users:'users.', settings:'settings.',
+  operators:'operators.'
+};
+
+function go(id, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('page-title').textContent = PAGE_TITLES[id];
+  if(el) el.classList.add('active');
+  closeSidebar();
+  window.scrollTo(0,0);
+  // Lazy render
+  if(id==='machines')  renderMachines();
+  if(id==='alerts')    renderAlerts();
+  if(id==='catalog')   renderCatalog();
+  if(id==='hero')      renderHeroPage();
+  if(id==='display')   renderDisplayPage();
+  if(id==='orders')    renderOrders();
+  if(id==='reports')   renderReports();
+  if(id==='users')     renderUsers();
+  if(id==='settings')  renderSettings();
+  if(id==='operators') renderOperators();
+}
+
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('show'); }
+function closeSidebar()  { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function pill(cls,text) { return `<span class="pill ${cls}">${text}</span>`; }
+function fmtTime(ts) { return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+function fmtDate(ts) { return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); }
+function timeAgo(ts) {
+  const d=(Date.now()-new Date(ts).getTime())/1000;
+  if(d<120) return 'just now'; if(d<3600) return Math.round(d/60)+'m ago';
+  if(d<86400) return Math.round(d/3600)+'h ago'; return Math.round(d/86400)+'d ago';
+}
+function stockColor(pct) { if(pct<20) return 'var(--alert)'; if(pct<40) return '#B8860B'; return 'var(--success)'; }
+function statusDot(m) {
+  if(!m.isOnline) return `<div class="sdot"><span class="d d-off"></span>offline</div>`;
+  if(!m.isRunning) return `<div class="sdot"><span class="d d-warn"></span>warning</div>`;
+  return `<div class="sdot"><span class="d d-on"></span>online</div>`;
+}
+function fillBar(curr, max) {
+  const pct = max>0?Math.round(curr/max*100):0;
+  return `<div class="fb"><div class="fb-t"><div class="fb-i" style="width:${pct}%;background:${stockColor(pct)}"></div></div><div class="fb-p">${pct}% · ${curr}/${max}</div></div>`;
+}
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+function renderAlertBadge() {
+  const n = DB.alerts.filter(a=>!a.resolved).length;
+  document.getElementById('nb-alerts').textContent = n;
+  document.getElementById('notif-pip').style.display = n>0?'block':'none';
+}
+
+function populateMachineSelects() {
+  const codes = Object.keys(DB.machines);
+  ['hero-machine-select','display-machine-select'].forEach(id=>{
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    sel.innerHTML = codes.filter(c=>!DB.machines[c].unsupported).map(c=>`<option value="${c}">${c} — ${DB.machines[c].deviceName}</option>`).join('');
+  });
+  const tabsEl = document.getElementById('catalog-machine-tabs');
+  if(tabsEl) {
+    tabsEl.innerHTML = codes.filter(c=>!DB.machines[c].unsupported).map((c,i)=>`<div class="tab${i===0?' active':''}" onclick="selectCatalogMachine('${c}',this)">${DB.machines[c].deviceName}</div>`).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+
+function renderDashboard() {
+  const ms     = Object.values(DB.machines);
+
+
+  const online = ms.filter(m=>m.isOnline).length;
+  const offline= ms.filter(m=>!m.isOnline).length;
+  const todayUTC = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+  const todayOrders = DB.orders.filter(o=>o.status===1 && o.createTime >= todayUTC);
+  const todayRev    = todayOrders.reduce((s,o)=>s+o.amountKr, 0);
+  const lowStock    = ms.reduce((s,m)=>s+(m.products||[]).filter(p=>p.stock<=2&&p.stock>0).length, 0);
+
+  document.getElementById('dash-stats').innerHTML =
+    '<div class="stat"><div class="stat-lbl">revenue today</div><div class="stat-val">'+todayRev.toLocaleString('is-IS')+' kr</div><div class="stat-sub" style="margin-top:5px">from kiosk app reports</div></div>' +
+    '<div class="stat"><div class="stat-lbl">active machines</div><div class="stat-val">'+online+'<span style="font-size:18px;font-style:normal;color:var(--muted)">/'+ ms.length+'</span></div><div>'+pill('pill-dn',offline+' offline')+'</div><div class="stat-sub" style="margin-top:5px">need attention</div></div>' +
+    '<div class="stat"><div class="stat-lbl">orders today</div><div class="stat-val">'+todayOrders.length+'</div><div class="stat-sub" style="margin-top:5px">from kiosk app reports</div></div>' +
+    '<div class="stat"><div class="stat-lbl">low stock slots</div><div class="stat-val">'+lowStock+'</div><div>'+pill('pill-warn',ms.filter(m=>(m.products||[]).some(p=>p.stock<=2)).length+' machines')+'</div><div class="stat-sub" style="margin-top:5px">require restock</div></div>';
+
+  const rev  = DB.revenue || [12400,15800,10900,18200,14100,20400,18420];
+  const maxR = Math.max(...rev);
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  document.getElementById('rev-bars').innerHTML = rev.map((r,i)=>
+    '<div class="bc"><div class="bar" style="height:'+Math.round(r/maxR*100)+'%;background:'+(i===6?'var(--bronze)':'var(--bronze-light)')+';opacity:'+(i===6?1:.7)+'"></div><div class="bl">'+days[i]+'</div></div>'
+  ).join('');
+  document.getElementById('rev-summary').innerHTML =
+    '<div><div class="stat-lbl" style="margin-bottom:3px">peak day</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500">Sunday</div></div>' +
+    '<div><div class="stat-lbl" style="margin-bottom:3px">avg / day</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500">'+Math.round(rev.reduce((a,b)=>a+b,0)/7).toLocaleString('is-IS')+' kr</div></div>' +
+    '<div><div class="stat-lbl" style="margin-bottom:3px">total</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--bronze)">'+rev.reduce((a,b)=>a+b,0).toLocaleString('is-IS')+' kr</div></div>';
+
+  const active   = DB.alerts.filter(a=>!a.resolved).slice(0,4);
+  const pipColor = {critical:'var(--alert)',warning:'#B8860B',info:'var(--bronze-light)'};
+  document.getElementById('dash-alerts').innerHTML = active.length ? active.map(a=>
+    '<div class="al-item" onclick="go(&quot;alerts&quot;,document.querySelectorAll(&quot;.nav-item&quot;)[2])">' +
+    '<div class="al-pip" style="background:'+(pipColor[a.severity]||'var(--clay)')+'"></div>' +
+    '<div class="al-body"><div class="al-title">'+a.title+'</div><div class="al-meta">'+a.detail+'</div></div>' +
+    '<div class="al-time">'+timeAgo(a.createdAt)+'</div></div>'
+  ).join('') : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">No active alerts</div>';
+
+  // Machine rows
+  const rows = ms.map(function(m) {
+    var sales = salesTodayCell(m);
+    var kiosk = m.kioskVersion
+      ? pill('pill-up','v'+m.kioskVersion)
+      : (m.isKioskModel === false ? pill('pill-out', m.model||'—') : pill('pill-warn','—'));
+    var op = (m.settings && m.settings.operatorName) || m.operatorName || '';
+    return '<tr>' +
+      '<td><div class="tid">'+m.deviceCode+'</div><div class="tname">'+(m.deviceName||'')+'</div></td>' +
+      '<td><div class="tname">'+(m.location||'')+'</div><div class="tsub">'+op+'</div></td>' +
+      '<td>'+statusDot(m)+'</td>' +
+      '<td>'+fillBar(m.totalCurrStock||0, m.maxStock||0)+'</td>' +
+      '<td>'+sales+'</td>' +
+      '<td>'+kiosk+'</td>' +
+      '<td style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">'+(m.isOnline?'just now':'offline')+'</td>' +
+      '</tr>';
+  });
+  document.getElementById('dash-machines').innerHTML = rows.join('');
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// MACHINES
+// ═══════════════════════════════════════════════════════════════
+
+let machineFilter = 'all';
+function filterMachines(f, el) { machineFilter=f; document.querySelectorAll('#page-machines .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderMachines(); }
+
+function renderMachines() {
+  let ms = Object.values(DB.machines);
+  if(machineFilter==='online')  ms = ms.filter(m=>m.isOnline&&m.isRunning);
+  if(machineFilter==='offline') ms = ms.filter(m=>!m.isOnline);
+  if(machineFilter==='warning') ms = ms.filter(m=>m.isOnline&&!m.isRunning);
+  const all = Object.values(DB.machines);
+  document.getElementById('machines-sub').innerHTML = `${all.length} machines · <span style="color:var(--success)">${all.filter(m=>m.isOnline).length} online</span> · <span style="color:var(--alert)">${all.filter(m=>!m.isOnline).length} offline</span> · ${all.filter(m=>m.unsupported).length} unsupported layout`;
+  document.getElementById('machines-table').innerHTML = ms.map(m=>{
+    const pct = m.maxStock>0?Math.round(m.totalCurrStock/m.maxStock*100):0;
+    return `<tr>
+      <td><span class="tid">${m.deviceCode}</span></td>
+      <td><div class="tname">${m.deviceName}</div><div class="tsub">${m.location}</div></td>
+      <td>${statusDot(m)}</td>
+      <td>${pill(pct<20?'pill-dn':pct<40?'pill-warn':'pill-up', pct+'%')}</td>
+      <td>${salesTodayCell(m)}</td>
+      <td>${m.kioskVersion?pill('pill-up','v'+m.kioskVersion):pill('pill-warn','unsupported')}</td>
+      <td style="font-family:var(--serif);font-style:italic;font-size:13px">${m.settings.operatorName}</td>
+      <td><div style="display:flex;gap:6px">
+        ${!m.unsupported?`<span class="pill pill-out" style="cursor:pointer" onclick="selectCatalogMachine('${m.deviceCode}');go('catalog',document.querySelectorAll('.nav-item')[3])">slots</span>`:''}
+        <span class="pill pill-out" style="cursor:pointer" onclick="openEditMachine('${m.deviceCode}')">edit</span>
+        ${m.unsupported?`<span class="pill pill-dn" style="cursor:pointer">diagnose</span>`:`<span class="pill pill-bz" style="cursor:pointer">restock</span>`}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ALERTS
+// ═══════════════════════════════════════════════════════════════
+
+let alertFilter = 'all';
+function filterAlerts(f,el) { alertFilter=f; document.querySelectorAll('#page-alerts .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderAlerts(); }
+
+function renderAlerts() {
+  let list = [...DB.alerts];
+  if(alertFilter!=='all') list = list.filter(a=>a.type===alertFilter);
+  const unread = DB.alerts.filter(a=>!a.resolved).length;
+  document.getElementById('alerts-sub').textContent = `${unread} unread · ${DB.alerts.length} total`;
+  const pipColor = {critical:'var(--alert)',warning:'#B8860B',info:'var(--bronze-light)',undefined:'var(--clay)'};
+  document.getElementById('alerts-list').innerHTML = list.map(a=>`
+    <div class="al-item" style="${a.resolved?'opacity:.5':''}">
+      <div class="al-pip" style="background:${pipColor[a.severity]||'var(--clay)'}"></div>
+      <div class="al-body"><div class="al-title">${a.title}</div><div class="al-meta">${a.detail}</div></div>
+      ${!a.resolved?`<span class="pill pill-out btn-sm" style="cursor:pointer;margin-right:8px" onclick="resolveAlert('${a.id}')">resolve</span>`:'<span class="pill pill-up btn-sm" style="margin-right:8px">resolved</span>'}
+      <div class="al-time">${timeAgo(a.createdAt)}</div>
+    </div>
+  `).join('') || '<div style="padding:20px;text-align:center;color:var(--muted)">No alerts</div>';
+}
+
+function resolveAlert(id) {
+  const a = DB.alerts.find(x=>x.id===id);
+  if(a) { a.resolved=true; a.resolvedAt=new Date().toISOString(); }
+  saveData(); renderAlerts(); renderAlertBadge(); showToast('Alert resolved');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CATALOG & SLOTS
+// ═══════════════════════════════════════════════════════════════
+
+let currentCatalogCode = Object.keys(DB.machines).find(c=>!DB.machines[c].unsupported) || '62160487';
+
+function selectCatalogMachine(code, tabEl) {
+  currentCatalogCode = code;
+  if(tabEl) { document.querySelectorAll('#catalog-machine-tabs .tab').forEach(t=>t.classList.remove('active')); tabEl.classList.add('active'); }
+  renderCatalog();
+}
+
+function renderCatalog() {
+  const m = DB.machines[currentCatalogCode];
+  if(!m) return;
+  document.getElementById('catalog-machine-label').textContent = `${m.deviceName} (${m.deviceCode})`;
+
+  const prods = m.products || [];
+  const low = prods.filter(p=>p.stock>0&&p.stock<=2).length;
+  const empty = prods.filter(p=>p.stock===0).length;
+
+  // Slot grid
+  document.getElementById('catalog-slots-panel').innerHTML = `
+    <div class="ph"><div class="ph-title">aisle layout.</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted)">${prods.length} products · ${m.totalCurrStock} units</div></div>
+    <div class="slot-grid">
+      ${prods.map(p=>{
+        const cls = p.stock===0?'empty':p.stock<=2?'low occupied':'occupied';
+        const col = p.stock===0?'var(--muted)':p.stock<=2?'#B8860B':'var(--success)';
+        return `<div class="slot-cell ${cls}" onclick="openEditProduct('${m.deviceCode}','${p.id}')">
+          <div class="slot-code">${p.slot}</div>
+          <div class="slot-name">${p.name}</div>
+          <div class="slot-stock" style="color:${col}">${p.stock}/${p.maxStock}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+
+  // Product list
+  const catEmoji = {Drinks:'🥤',Snacks:'🍫',Sweet:'🍬',Healthy:'💪',Coffee:'☕',Other:'📦'};
+  document.getElementById('catalog-products-panel').innerHTML = `
+    <div class="ph"><div class="ph-title">products.</div></div>
+    ${prods.map(p=>`
+      <div class="pr">
+        <div class="pr-thumb">${catEmoji[p.category]||'📦'}</div>
+        <div><div class="pr-name">${p.name}</div><div class="pr-sku">${p.slot} · ${p.category} · ${p.priceIsk} kr${p.featured?' · ✦ featured':''}</div></div>
+        <div class="pr-right">
+          <div class="sv ${p.stock===0?'sv-low':p.stock<=2?'sv-low':'sv-ok'}">${p.stock}</div>
+          <div style="font-size:10px;color:${p.stock===0?'var(--alert)':'var(--muted)'}">${p.stock===0?'hidden (empty)':p.stock<=2?'low stock':'in stock'}</div>
+        </div>
+        <span class="pill pill-out btn-sm" style="cursor:pointer;margin-left:10px" onclick="openEditProduct('${m.deviceCode}','${p.id}')">edit</span>
+      </div>
+    `).join('')}
+  `;
+}
+
+function openEditProduct(deviceCode, productId) {
+  const m = DB.machines[deviceCode];
+  const p = m.products.find(x=>x.id===productId);
+  if(!p) return;
+  const flags = ['hidden','hideWhenEmpty','featured'].map(f=>`
+    <div class="toggle-row">
+      <div><div class="tgl-label">${f}</div></div>
+      <label class="tgl"><input type="checkbox" id="ep-${f}" ${p[f]?'checked':''}><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+    </div>
+  `).join('');
+  const modal = document.getElementById('modal-machine');
+  modal.innerHTML = `<div class="modal-card">
+    <div class="modal-title">${p.name}</div>
+    <div class="field"><div class="fl">slot</div><input class="fi mono" id="ep-slot" value="${p.slot}"></div>
+    <div class="field"><div class="fl">price (kr)</div><input class="fi mono" id="ep-price" type="number" value="${p.priceIsk}"></div>
+    <div class="field"><div class="fl">stock</div><input class="fi mono" id="ep-stock" type="number" value="${p.stock}"></div>
+    <div class="field"><div class="fl">max stock</div><input class="fi mono" id="ep-maxStock" type="number" value="${p.maxStock}"></div>
+    <div style="margin:12px 0">${flags}</div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-full" onclick="saveProduct('${deviceCode}','${productId}')"><span>save</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-machine')">cancel</button>
+    </div>
+  </div>`;
+  modal.classList.add('show');
+}
+
+function saveProduct(deviceCode, productId) {
+  const m = DB.machines[deviceCode];
+  const p = m.products.find(x=>x.id===productId);
+  if(!p) return;
+  p.slot      = document.getElementById('ep-slot').value;
+  p.priceIsk  = parseInt(document.getElementById('ep-price').value)||p.priceIsk;
+  p.stock     = parseInt(document.getElementById('ep-stock').value)||0;
+  p.maxStock  = parseInt(document.getElementById('ep-maxStock').value)||p.maxStock;
+  p.hidden    = document.getElementById('ep-hidden').checked;
+  p.hideWhenEmpty = document.getElementById('ep-hideWhenEmpty').checked;
+  p.featured  = document.getElementById('ep-featured').checked;
+  m.totalCurrStock = m.products.reduce((s,x)=>s+x.stock,0);
+  m.updatedAt = new Date().toISOString();
+  saveData(); closeModal('modal-machine'); renderCatalog(); showToast('Product saved');
+}
+
+function openAddProduct() {
+  const m = DB.machines[currentCatalogCode];
+  const modal = document.getElementById('modal-machine');
+  modal.innerHTML = `<div class="modal-card">
+    <div class="modal-title">add product.</div>
+    <div class="field"><div class="fl">product name</div><input class="fi" id="np-name" placeholder="corny big brown"></div>
+    <div class="field"><div class="fl">slot (e.g. A1)</div><input class="fi mono" id="np-slot" placeholder="A1"></div>
+    <div class="field"><div class="fl">price (kr)</div><input class="fi mono" id="np-price" type="number" placeholder="299"></div>
+    <div class="field"><div class="fl">category</div>
+      <select class="fi" id="np-cat"><option>Drinks</option><option>Snacks</option><option>Sweet</option><option>Healthy</option><option>Coffee</option><option>Other</option></select>
+    </div>
+    <div class="field"><div class="fl">initial stock</div><input class="fi mono" id="np-stock" type="number" placeholder="10"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-full" onclick="addProduct()"><span>add product</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-machine')">cancel</button>
+    </div>
+  </div>`;
+  modal.classList.add('show');
+}
+
+function addProduct() {
+  const name  = document.getElementById('np-name').value.trim();
+  const slot  = document.getElementById('np-slot').value.trim();
+  const price = parseInt(document.getElementById('np-price').value)||0;
+  const cat   = document.getElementById('np-cat').value;
+  const stock = parseInt(document.getElementById('np-stock').value)||0;
+  if(!name||!slot) { showToast('Name and slot required'); return; }
+  const m = DB.machines[currentCatalogCode];
+  const id = name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  m.products.push({ id, slot, name, subtitle:'', priceIsk:price, category:cat, stock, maxStock:stock||10, featured:false, hidden:false, hideWhenEmpty:true, displayOrder:(m.products.length+1)*10 });
+  m.totalCurrStock = m.products.reduce((s,x)=>s+x.stock,0);
+  m.updatedAt = new Date().toISOString();
+  saveData(); closeModal('modal-machine'); renderCatalog(); showToast('Product added');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HERO & FEATURED
+// ═══════════════════════════════════════════════════════════════
+
+function renderHeroPage() {
+  const code = document.getElementById('hero-machine-select')?.value || Object.keys(DB.machines).find(c=>!DB.machines[c].unsupported);
+  if(!code) return;
+  const m = DB.machines[code];
+  if(!m) return;
+  const s = m.settings;
+
+  document.getElementById('hero-toggles').innerHTML = [
+    {key:'showAdRegion',label:'show ad region',sub:'MachineSettings.showAdRegion'},
+    {key:'showLeftHero',label:'show left hero tile',sub:'MachineSettings.showLeftHero'},
+    {key:'showRightHero',label:'show right hero tile',sub:'MachineSettings.showRightHero'},
+  ].map(t=>`<div class="toggle-row">
+    <div><div class="tgl-label">${t.label}</div><div class="tgl-sub">${t.sub}</div></div>
+    <label class="tgl"><input type="checkbox" data-hero-key="${t.key}" ${s[t.key]?'checked':''} onchange="saveHeroToggle('${code}','${t.key}',this.checked)"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+  </div>`).join('');
+
+  document.getElementById('featured-slots').innerHTML = (m.featured||[]).map((f,i)=>`
+    <div class="hero-slot" id="fs-${i}">
+      <div class="hero-pos">slot ${i+1}</div>
+      <input class="hero-prod-input" value="${f.goodsId}" placeholder="goodsId from Weimi" id="fs-gid-${i}">
+      <input class="hero-tag-input" value="${f.tag}" placeholder="tag" id="fs-tag-${i}">
+      <span class="pill pill-dn btn-sm" style="cursor:pointer" onclick="removeFeatured(${i})">✕</span>
+    </div>
+  `).join('') || '<div style="padding:14px 18px;color:var(--muted);font-size:12.5px">No featured products — click + add slot</div>';
+
+  renderHeroPreview(m);
+}
+
+function saveHeroToggle(code, key, val) {
+  DB.machines[code].settings[key] = val;
+  DB.machines[code].updatedAt = new Date().toISOString();
+  saveData(); showToast('Saved');
+}
+
+function addFeaturedSlot() {
+  const code = document.getElementById('hero-machine-select')?.value;
+  const m = DB.machines[code]; if(!m) return;
+  if(m.featured.length>=4) { showToast('Maximum 4 featured products'); return; }
+  m.featured.push({ goodsId:'', tag:'' });
+  saveData(); renderHeroPage();
+}
+
+function removeFeatured(i) {
+  const code = document.getElementById('hero-machine-select')?.value;
+  const m = DB.machines[code]; if(!m) return;
+  m.featured.splice(i,1);
+  saveData(); renderHeroPage();
+}
+
+function saveFeatured() {
+  const code = document.getElementById('hero-machine-select')?.value;
+  const m = DB.machines[code]; if(!m) return;
+  m.featured = m.featured.map((f,i)=>({
+    goodsId: document.getElementById('fs-gid-'+i)?.value?.trim()||f.goodsId,
+    tag:     document.getElementById('fs-tag-'+i)?.value?.trim()||f.tag,
+  }));
+  m.updatedAt = new Date().toISOString();
+  saveData(); renderHeroPage(); showToast('Featured products saved');
+}
+
+function renderHeroPreview(m) {
+  const pastelBg = ['linear-gradient(135deg,#F4E6D4,#EDD5BC)','linear-gradient(135deg,#EEDDEC,#E0C8DE)','linear-gradient(135deg,#DCEBDD,#C8DFC9)','linear-gradient(135deg,#DFE9F4,#C8D9EC)'];
+  const preview = document.getElementById('hero-preview');
+  if(!preview) return;
+  if(m.featured.length===0) { preview.innerHTML='<div style="grid-column:span 2;text-align:center;color:var(--muted);font-size:12px;padding:20px">No featured products</div>'; return; }
+  preview.innerHTML = m.featured.slice(0,2).map((f,i)=>`
+    <div style="background:${pastelBg[i]};border-radius:8px;padding:12px;min-height:80px">
+      <div style="font-family:var(--serif);font-style:italic;font-size:11px;color:var(--bronze);margin-bottom:3px">${f.tag||'tag'}</div>
+      <div style="font-size:11px;font-weight:500;color:var(--ink)">${f.goodsId?'product loaded on startup':'—'}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DISPLAY SETTINGS
+// ═══════════════════════════════════════════════════════════════
+
+function renderDisplayPage() {
+  const code = document.getElementById('display-machine-select')?.value || Object.keys(DB.machines).find(c=>!DB.machines[c].unsupported);
+  if(!code) return;
+  const s = DB.machines[code].settings;
+  const ids = ['operatorName','supportEmail','supportMsg','defaultLanguage','showIdleScreen','idleTimeoutSeconds','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','ledBrightness','motorSerialPort','controlBoardAddress'];
+  const map = {
+    'ds-operatorName':s.operatorName, 'ds-supportEmail':s.supportEmail,
+    'ds-supportMsg':s.supportCustomMessage, 'ds-defaultLanguage':s.defaultLanguage,
+    'ds-showIdleScreen':s.showIdleScreen, 'ds-idleTimeoutSeconds':s.idleTimeoutSeconds,
+    'ds-hasHeatedGlass':s.hasHeatedGlass, 'ds-heatedGlassDefaultOn':s.heatedGlassDefaultOn,
+    'ds-hasLedStrips':s.hasLedStrips, 'ds-ledBrightness':s.ledBrightness,
+    'ds-motorSerialPort':s.motorSerialPort, 'ds-controlBoardAddress':s.controlBoardAddress,
+  };
+  Object.entries(map).forEach(([id,val])=>{
+    const el=document.getElementById(id); if(!el) return;
+    if(typeof val==='boolean') el.checked=val; else el.value=val??'';
+  });
+  updateBrandPreview();
+}
+
+function updateBrandPreview() {
+  const name = document.getElementById('ds-operatorName')?.value?.trim()||'';
+  const prev = document.getElementById('ds-brand-preview');
+  if(prev) prev.textContent = name ? `Snarl & Sopi — ${name}` : 'Snarl & Sopi';
+}
+
+function saveDisplaySettings() {
+  const code = document.getElementById('display-machine-select')?.value;
+  if(!code) return;
+  const s = DB.machines[code].settings;
+  const get = id => document.getElementById(id);
+  s.operatorName        = get('ds-operatorName')?.value?.trim()||s.operatorName;
+  s.supportEmail        = get('ds-supportEmail')?.value?.trim()||s.supportEmail;
+  s.supportCustomMessage= get('ds-supportMsg')?.value||'';
+  s.defaultLanguage     = get('ds-defaultLanguage')?.value||s.defaultLanguage;
+  s.showIdleScreen      = get('ds-showIdleScreen')?.checked||false;
+  s.idleTimeoutSeconds  = parseInt(get('ds-idleTimeoutSeconds')?.value)||60;
+  s.hasHeatedGlass      = get('ds-hasHeatedGlass')?.checked||false;
+  s.heatedGlassDefaultOn= get('ds-heatedGlassDefaultOn')?.checked||false;
+  s.hasLedStrips        = get('ds-hasLedStrips')?.checked||false;
+  s.ledBrightness       = parseInt(get('ds-ledBrightness')?.value)||8;
+  s.motorSerialPort     = get('ds-motorSerialPort')?.value||s.motorSerialPort;
+  s.controlBoardAddress = parseInt(get('ds-controlBoardAddress')?.value)||0;
+  DB.machines[code].settings.operatorName && (DB.machines[code].updatedAt = new Date().toISOString());
+  saveData(); showToast('Settings saved — applied on next kiosk startup');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ORDERS
+// ═══════════════════════════════════════════════════════════════
+
+let orderFilter = 'all';
+function filterOrders(f,el) { orderFilter=f; document.querySelectorAll('#page-orders .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderOrders(); }
+
+function renderOrders() {
+  let list = [...DB.orders];
+  if(orderFilter!=='all') list = list.filter(o=>o.statusLabel===orderFilter);
+  const total = list.filter(o=>o.status===1).reduce((s,o)=>s+o.amountKr,0);
+  document.getElementById('orders-sub').innerHTML = `${list.length} orders · <span style="color:var(--bronze)">${total.toLocaleString('is-IS')} kr revenue</span>`;
+  document.getElementById('orders-table').innerHTML = list.slice(0,30).map(o=>`
+    <tr>
+      <td><span class="tid">${o.tradeNo.slice(0,16)}…</span></td>
+      <td>${DB.machines[o.deviceCode]?.deviceName||o.deviceCode}</td>
+      <td style="font-family:var(--mono)">${o.amountKr.toLocaleString('is-IS')} kr</td>
+      <td><span class="pill pill-out">Nayax card</span></td>
+      <td>${pill(o.status===1?'pill-up':o.status===2?'pill-dn':'pill-warn', o.statusLabel)}</td>
+      <td style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtTime(o.createTime)}</td>
+    </tr>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════════════════════
+
+function renderReports() {
+  const success = DB.orders.filter(o=>o.status===1);
+  const total   = success.reduce((s,o)=>s+o.amountKr,0);
+  const avg     = success.length?Math.round(total/success.length):0;
+  const refRate = DB.orders.length?Math.round(DB.orders.filter(o=>o.status===3).length/DB.orders.length*100):0;
+  document.getElementById('report-stats').innerHTML = `
+    <div class="stat"><div class="stat-lbl">total revenue</div><div class="stat-val">${total.toLocaleString('is-IS')} kr</div><div>${pill('pill-up','↑ 8.2%')}</div></div>
+    <div class="stat"><div class="stat-lbl">total orders</div><div class="stat-val">${DB.orders.length}</div><div>${pill('pill-up','↑ 3.4%')}</div></div>
+    <div class="stat"><div class="stat-lbl">avg order</div><div class="stat-val">${avg.toLocaleString('is-IS')} kr</div><div>${pill('pill-up','↑ 1.2%')}</div></div>
+    <div class="stat"><div class="stat-lbl">refund rate</div><div class="stat-val">${refRate}%</div><div>${pill('pill-up','↓ 0.1%')}</div></div>
+  `;
+  document.getElementById('report-table').innerHTML = Object.values(DB.machines).map(m=>{
+    const mOrders = DB.orders.filter(o=>o.deviceCode===m.deviceCode&&o.status===1);
+    const mRev = mOrders.reduce((s,o)=>s+o.amountKr,0);
+    const mAvg = mOrders.length?Math.round(mRev/mOrders.length):0;
+    return `<tr>
+      <td><div class="tname">${m.deviceName}</div></td>
+      <td>${m.location}</td>
+      <td style="font-family:var(--mono)">${mOrders.length}</td>
+      <td style="font-family:var(--mono)">${mRev.toLocaleString('is-IS')} kr</td>
+      <td style="font-family:var(--mono)">${mAvg.toLocaleString('is-IS')} kr</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// USERS
+// ═══════════════════════════════════════════════════════════════
+
+function renderOperators() {
+  // Only visible to ag_admin
+  if (!currentUser || currentUser.role !== 'ag_admin') {
+    document.getElementById('operators-table').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted)">Forbidden</td></tr>';
+    return;
+  }
+
+  if (backendOnline && API_TOKEN) {
+    API.get('/api/v1/operators').then(result => {
+      if (result.ok && result.data) {
+        renderOperatorsTable(result.data);
+      }
+    }).catch(()=>{});
+  } else {
+    document.getElementById('operators-table').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted)">Backend offline</td></tr>';
+  }
+}
+
+function renderOperatorsTable(list) {
+  document.getElementById('operators-sub').textContent = list.length + ' operators';
+  document.getElementById('operators-table').innerHTML = list.map(o => `
+    <tr>
+      <td><div class="tname">${o.name}</div>${o.isAGVending?'<div class="tsub" style="color:var(--bronze)">⌬ AG Vending</div>':''}</td>
+      <td style="font-family:var(--mono);font-size:12px">${o.machineCount || 0}</td>
+      <td style="font-family:var(--mono);font-size:12px">${o.userCount || 0}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${o.contactEmail || '—'}</td>
+      <td><span class="pill pill-out btn-sm" style="cursor:pointer">edit</span></td>
+    </tr>
+  `).join('');
+}
+
+function openAddOperator() {
+  const modal = document.getElementById('modal-user');
+  modal.innerHTML = `<div class="modal-card">
+    <div class="modal-title">add operator.</div>
+    <div class="field"><div class="fl">operator name</div><input class="fi" id="newop-name" placeholder="Fylkir"></div>
+    <div class="field"><div class="fl">contact email</div><input class="fi" id="newop-email" placeholder="info@fylkir.is"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-full" onclick="saveOperator()"><span>add operator</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-user')">cancel</button>
+    </div>
+  </div>`;
+  modal.classList.add('show');
+}
+
+async function saveOperator() {
+  const name  = document.getElementById('newop-name').value.trim();
+  const email = document.getElementById('newop-email').value.trim();
+  if (!name) { showToast('name required'); return; }
+  if (!backendOnline) { showToast('backend offline'); return; }
+  try {
+    const result = await API.post('/api/v1/operators', { name, contactEmail: email });
+    if (result.ok) {
+      closeModal('modal-user');
+      showToast('operator added');
+      renderOperators();
+    } else {
+      showToast('failed: ' + (result.error || 'unknown'));
+    }
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+async function renderUsers() {
+  // Fetch from backend if online, fall back to local DB
+  let userList = DB.users;
+  if (backendOnline && API_TOKEN) {
+    try {
+      const result = await API.get('/api/v1/users');
+      if (result.ok && result.data) userList = result.data;
+    } catch(e) {}
+  }
+  renderUsersTable(userList);
+}
+
+function renderUsersTable(userList) {
+  document.getElementById('users-sub').textContent = `${userList.length} team members`;
+  const rolePill = role => {
+    const map = { ag_admin:'pill-dark', operator_admin:'pill-bz', operator_manager:'pill-out', operator_viewer:'pill-out',
+                  super_admin:'pill-dark', operator:'pill-bz', technician:'pill-out' };
+    return pill(map[role] || 'pill-out', role.replace(/_/g,' '));
+  };
+  document.getElementById('users-table').innerHTML = userList.map(u=>`
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:9px"><div class="avatar" style="width:24px;height:24px;font-size:9px">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div><div style="font-weight:500;font-size:13px">${u.name}</div></div></td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${u.email}</td>
+      <td>${rolePill(u.role)}</td>
+      <td style="font-size:12.5px">${u.operatorName || u.machineAccess || '—'}</td>
+      <td style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${u.lastActiveAt?timeAgo(u.lastActiveAt):'never'}</td>
+      <td><span class="pill pill-out" style="cursor:pointer">edit</span></td>
+    </tr>
+  `).join('');
+}
+
+function openAddUser() {
+  // Populate operator dropdown — AG admins see all operators, others only their own
+  const sel = document.getElementById('u-operator');
+  const opField = document.getElementById('u-operator-field');
+  const isAg = currentUser && currentUser.role === 'ag_admin';
+
+  // Hide AG admin role option for non-AG users
+  document.querySelectorAll('.ag-only-option').forEach(el => {
+    el.style.display = isAg ? '' : 'none';
+  });
+
+  if (isAg && backendOnline) {
+    opField.style.display = 'block';
+    API.get('/api/v1/operators').then(result => {
+      if (result.ok && result.data) {
+        sel.innerHTML = result.data.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+      }
+    });
+  } else {
+    opField.style.display = 'none';
+  }
+
+  // Clear fields
+  document.getElementById('u-name').value = '';
+  document.getElementById('u-email').value = '';
+  document.getElementById('modal-user').classList.add('show');
+}
+
+async function saveUser() {
+  const name  = document.getElementById('u-name').value.trim();
+  const email = document.getElementById('u-email').value.trim();
+  const role  = document.getElementById('u-role').value;
+  const operatorSel = document.getElementById('u-operator');
+  const operatorId  = operatorSel && operatorSel.value ? operatorSel.value : undefined;
+
+  if (!name || !email) { showToast('Name and email required'); return; }
+  if (!backendOnline) { showToast('Backend offline — cannot send invitation'); return; }
+
+  try {
+    const body = { name, email, role };
+    if (operatorId) body.operatorId = operatorId;
+    const result = await API.post('/api/v1/users', body);
+    if (result.ok) {
+      closeModal('modal-user');
+      showToast('Invitation sent to ' + email);
+      // In dev mode, the token is returned for easy testing
+      if (result.data && result.data.token) {
+        const link = `${API_BASE}/?invite=${result.data.token}`;
+        console.log('[INVITE] Dev mode invite link:', link);
+      }
+      renderUsers();
+    } else {
+      showToast(result.error || 'Failed to send invitation');
+    }
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════════
+
+function renderSettings() {
+  document.getElementById('cfg-appId').value    = DB.apiConfig.appId||'';
+  document.getElementById('cfg-secretKey').value= DB.apiConfig.secretKey||'';
+  document.getElementById('cfg-endpoint').value = DB.apiConfig.endpoint||'test';
+}
+function saveApiSettings() {
+  DB.apiConfig.appId     = document.getElementById('cfg-appId').value.trim();
+  DB.apiConfig.secretKey = document.getElementById('cfg-secretKey').value.trim();
+  DB.apiConfig.endpoint  = document.getElementById('cfg-endpoint').value;
+  saveData(); showToast('API settings saved');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MACHINE MODALS
+// ═══════════════════════════════════════════════════════════════
+
+function openAddMachine() {
+  document.getElementById('modal-machine-title').textContent = 'add machine.';
+  document.getElementById('modal-machine').innerHTML = `<div class="modal-card">
+    <div class="modal-title">add machine.</div>
+    <div class="field"><div class="fl">device code (8 digits)</div><input class="fi mono" id="m-deviceCode" placeholder="62160000"></div>
+    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" placeholder="Gamli Gerpla"></div>
+    <div class="field"><div class="fl">location</div><input class="fi" id="m-location" placeholder="City Plaza B1"></div>
+    <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" value="AG Vending"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-full" onclick="saveMachine()"><span>add machine</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-machine')">cancel</button>
+    </div>
+  </div>`;
+  document.getElementById('modal-machine').classList.add('show');
+}
+
+function openEditMachine(code) {
+  const m = DB.machines[code];
+  document.getElementById('modal-machine').innerHTML = `<div class="modal-card">
+    <div class="modal-title">edit machine.</div>
+    <div class="field"><div class="fl">device code</div><input class="fi mono" id="m-deviceCode" value="${m.deviceCode}" readonly style="opacity:.6"></div>
+    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" value="${m.deviceName}"></div>
+    <div class="field"><div class="fl">location</div><input class="fi" id="m-location" value="${m.location}"></div>
+    <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" value="${m.settings.operatorName}"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-full" onclick="saveMachine('${code}')"><span>save changes</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-machine')">cancel</button>
+    </div>
+  </div>`;
+  document.getElementById('modal-machine').classList.add('show');
+}
+
+function saveMachine(existingCode) {
+  const code = document.getElementById('m-deviceCode')?.value?.trim();
+  const name = document.getElementById('m-deviceName')?.value?.trim();
+  const loc  = document.getElementById('m-location')?.value?.trim();
+  const op   = document.getElementById('m-operatorName')?.value?.trim();
+  if(!code||!name) { showToast('Device code and name required'); return; }
+  if(existingCode) {
+    const m = DB.machines[existingCode];
+    m.deviceName = name; m.location = loc||m.location;
+    m.settings.operatorName = op||m.settings.operatorName;
+    m.updatedAt = new Date().toISOString();
+  } else {
+    if(DB.machines[code]) { showToast('Device code already exists'); return; }
+    DB.machines[code] = {
+      deviceCode:code, deviceName:name, location:loc||'', isOnline:false, isRunning:false,
+      kioskVersion:null, totalCurrStock:0, maxStock:0,
+      settings:{ operatorName:op||'AG Vending', showAdRegion:true, showLeftHero:true, showRightHero:true,
+        showIdleScreen:false, idleTimeoutSeconds:60, defaultLanguage:'Icelandic',
+        availableLanguages:['Icelandic','English'], supportEmail:'hallo@snarlogsopi.is',
+        supportCustomMessage:'', hasHeatedGlass:true, heatedGlassDefaultOn:true,
+        hasLedStrips:true, ledBrightness:8, motorSerialPort:'/dev/ttyS3', controlBoardAddress:0 },
+      featured:[], products:[], updatedAt:new Date().toISOString(),
+    };
+  }
+  saveData(); closeModal('modal-machine'); populateMachineSelects(); renderMachines();
+  showToast(existingCode?'Machine updated':'Machine added');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════════
+
+function exportOrders() {
+  const rows = [['tradeNo','device','product','amountKr','status','time']];
+  DB.orders.forEach(o=>rows.push([o.tradeNo, o.deviceCode, o.productName||'', o.amountKr, o.statusLabel, new Date(o.createTime).toISOString()]));
+  downloadCSV(rows, 'snarl-sopi-orders.csv');
+}
+
+function exportMachines() {
+  const data = JSON.stringify(DB.machines, null, 2);
+  downloadFile(data, 'snarl-sopi-machines.json', 'application/json');
+}
+
+function exportAll() {
+  const data = JSON.stringify(DB, null, 2);
+  downloadFile(data, `snarl-sopi-backup-${new Date().toISOString().slice(0,10)}.json`, 'application/json');
+}
+
+function exportData() { exportAll(); }
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r=>r.map(c=>'"'+(String(c).replace(/"/g,'""'))+'"').join(',')).join('\n');
+  downloadFile(csv, filename, 'text/csv');
+}
+
+function downloadFile(content, filename, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content],{type}));
+  a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Downloading '+filename);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════════════
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('show'); }));
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "3.1.0",
+  "description": "Snarl & Sopi frá AG Vending — Operator Backend (multi-tenant, email invites)",
+  "main": "src/server.js",
+  "scripts": { "start": "node src/server.js", "dev": "node --watch src/server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4"
+  }
+}
