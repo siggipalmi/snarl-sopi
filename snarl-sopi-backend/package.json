@@ -1,9 +1,0 @@
-{
-  "name": "snarl-sopi-backend",
-  "version": "4.34.0",
-  "description": "Snarl & Sopi frá AG Vending — Operator Backend (shared price module: tap any price, apply across chosen machines)",
-  "main": "src/server.js",
-  "scripts": { "start": "node src/server.js", "dev": "node --watch src/server.js" },
-  "engines": { "node": ">=18" },
-  "dependencies": { "ws": "^8.18.0", "@sendgrid/mail": "^8.1.4", "better-sqlite3": "^11.3.0" }
-}
