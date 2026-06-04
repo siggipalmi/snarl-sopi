@@ -1,0 +1,9 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "4.40.0",
+  "description": "Snarl & Sopi frá AG Vending — Operator Backend (R2 image hosting + product API groundwork)",
+  "main": "src/server.js",
+  "scripts": { "start": "node src/server.js", "dev": "node --watch src/server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0", "@sendgrid/mail": "^8.1.4", "better-sqlite3": "^11.3.0", "@aws-sdk/client-s3": "^3.1061.0" }
+}
