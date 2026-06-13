@@ -506,6 +506,8 @@ const stmts = {
   listAllOrdersInRange: db.prepare(`SELECT * FROM orders
                                     WHERE createTime >= ? AND createTime < ? AND status = 1
                                     ORDER BY createTime ASC`),
+  debugOrdersByDevice:   db.prepare('SELECT tradeNo, status, statusLabel, totalAmount, amountKr, createTime FROM orders WHERE deviceCode = ? ORDER BY createTime DESC LIMIT ?'),
+  debugOrderStatusCounts: db.prepare('SELECT status, statusLabel, COUNT(*) n, MIN(createTime) minT, MAX(createTime) maxT, SUM(amountKr) sumKr, SUM(totalAmount) sumTotal FROM orders WHERE deviceCode = ? GROUP BY status, statusLabel'),
 
   // Complaints
   insertComplaint:   db.prepare(`INSERT INTO complaints
@@ -905,6 +907,8 @@ const storage = {
     if (!deviceCodes || deviceCodes.length === 0) return [];
     return stmts.listOrdersInRange.all(JSON.stringify(deviceCodes), fromMs, toMs);
   },
+  debugOrdersByDevice(deviceCode, limit) { return stmts.debugOrdersByDevice.all(deviceCode, limit || 15); },
+  debugOrderStatusCounts(deviceCode) { return stmts.debugOrderStatusCounts.all(deviceCode); },
   cleanupOldStockHistory(olderThanMs) {
     stmts.cleanupOldStockHistory.run(olderThanMs);
   },

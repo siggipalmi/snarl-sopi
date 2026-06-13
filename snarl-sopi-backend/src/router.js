@@ -107,6 +107,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/commands/history',    handler: handleCommandHistory, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/hardware',            handler: handleSetHardware,    middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/debug/commands',                           handler: handleDebugCommands,  middleware:[] },
+  { method:'GET',  pattern:'/api/v1/debug/orders',                             handler: handleDebugOrders,    middleware:[] },
 
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/weimi/sync',         handler: handleWeimiSyncOne, middleware:[requireAuth, requireMachineAccess] },
 
@@ -1037,6 +1038,31 @@ function handleDebugCommands(req, res) {
     pending: storage.listPendingCommands(deviceCode).map(fmt),
     recent: storage.listRecentCommands(deviceCode, 10).map(fmt),
   });
+}
+
+// GET /debug/orders?deviceCode=... — diagnostic: why does revenue-series show
+// nothing? Reveals stored order status values, amount scaling, and time range.
+function handleDebugOrders(req, res) {
+  const deviceCode = String(req.query.deviceCode || '').trim();
+  if (!deviceCode) return badRequest(res, 'deviceCode query param required');
+  const statusBreakdown = storage.debugOrderStatusCounts(deviceCode).map(r => ({
+    status: r.status,
+    statusLabel: r.statusLabel,
+    count: r.n,
+    sumAmountKr: r.sumKr,
+    sumTotalAmount: r.sumTotal,
+    earliest: r.minT ? new Date(r.minT).toISOString() : null,
+    latest: r.maxT ? new Date(r.maxT).toISOString() : null,
+  }));
+  const sample = storage.debugOrdersByDevice(deviceCode, 15).map(o => ({
+    tradeNo: o.tradeNo,
+    status: o.status,
+    statusLabel: o.statusLabel,
+    totalAmount: o.totalAmount,
+    amountKr: o.amountKr,
+    createTime: o.createTime ? new Date(o.createTime).toISOString() : null,
+  }));
+  json(res, 200, { deviceCode, now: new Date().toISOString(), statusBreakdown, sample });
 }
 
 // Is a product (by product code = goodsId) stocked in a machine's layout?
