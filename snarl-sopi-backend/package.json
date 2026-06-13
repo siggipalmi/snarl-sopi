@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "4.80.0",
+  "description": "Snarl & Sopi operator backend — v4.80 adds remote machine command queue (clear_aisle_fault / set_drop_sensor / query_channel_status) and per-machine drop-sensor mode in config (contract v0.5). Kiosk polls /commands, executes on motor board, posts results; 5-min pending expiry, first-result-wins idempotency, issuedBy audit.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
