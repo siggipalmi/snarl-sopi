@@ -4977,9 +4977,13 @@ function renderOperators() {
   }
 
   if (backendOnline && API_TOKEN) {
-    API.get('/api/v1/operators').then(result => {
-      if (result.ok && result.data) {
-        renderOperatorsTable(result.data);
+    Promise.all([API.get('/api/v1/operators'), API.get('/api/v1/machines').catch(()=>null)]).then(([ops, ms]) => {
+      if (ops && ops.ok && ops.data) {
+        _opMachines = {};
+        const mlist = (ms && ms.ok && Array.isArray(ms.data)) ? ms.data : [];
+        mlist.forEach(m => { const k = m.operatorId || '_unassigned'; (_opMachines[k] = _opMachines[k] || []).push(m); });
+        Object.keys(_opMachines).forEach(k => _opMachines[k].sort((a,b)=>String(a.deviceName||a.deviceCode).localeCompare(String(b.deviceName||b.deviceCode))));
+        renderOperatorsTable(ops.data);
       }
     }).catch(()=>{});
   } else {
@@ -4988,6 +4992,7 @@ function renderOperators() {
 }
 
 let _operatorsList = [];
+let _opMachines = {};   // operatorId -> [machineSummary] for the expandable rows
 let _opLogoDataUrl = null;   // pending logo upload (base64) for add/edit
 
 function renderOperatorsTable(list) {
@@ -5003,14 +5008,56 @@ function renderOperatorsTable(list) {
     const actions = (o.isAGVending
       ? `<span class="pill pill-out btn-sm" style="cursor:pointer" onclick="openEditOperator('${o.id}')">edit</span>`
       : `<span class="pill pill-out btn-sm" style="cursor:pointer" onclick="openEditOperator('${o.id}')">edit</span>&nbsp;<span class="pill pill-dn btn-sm" style="cursor:pointer" onclick="deleteOperator('${o.id}')">delete</span>`) + suspendPill;
+    const mlist = _opMachines[o.id] || [];
+    const hasM = mlist.length > 0;
+    const count = o.machineCount || mlist.length;
+    const chev = hasM
+      ? `<span id="chev-${o.id}" style="display:inline-block;width:14px;color:var(--muted);cursor:pointer" onclick="toggleOperatorMachines('${o.id}')">▸</span>`
+      : `<span style="display:inline-block;width:14px;color:var(--line)">·</span>`;
+    const nameSpan = hasM
+      ? `<span style="cursor:pointer" onclick="toggleOperatorMachines('${o.id}')">${rsEsc(o.name)}</span>`
+      : `<span>${rsEsc(o.name)}</span>`;
+    const countCell = hasM
+      ? `<span style="cursor:pointer;border-bottom:1px dotted var(--muted)" onclick="toggleOperatorMachines('${o.id}')">${count}</span>`
+      : `${count}`;
     return `<tr>
-      <td><div class="tname" style="display:flex;align-items:center">${logo}<span>${rsEsc(o.name)}</span></div>${o.isAGVending?'<div class="tsub" style="color:var(--bronze)">⌬ AG Vending</div>':''}${o.suspended?'<div class="tsub" style="color:var(--alert)">⊘ suspended</div>':''}</td>
-      <td style="font-family:var(--mono);font-size:12px">${o.machineCount || 0}</td>
+      <td><div class="tname" style="display:flex;align-items:center">${chev}${logo}${nameSpan}</div>${o.isAGVending?'<div class="tsub" style="color:var(--bronze)">⌬ AG Vending</div>':''}${o.suspended?'<div class="tsub" style="color:var(--alert)">⊘ suspended</div>':''}</td>
+      <td style="font-family:var(--mono);font-size:12px">${countCell}</td>
       <td style="font-family:var(--mono);font-size:12px">${o.userCount || 0}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${o.contactEmail || '—'}</td>
       <td>${actions}</td>
-    </tr>`;
+    </tr>
+    <tr id="opm-${o.id}" style="display:none"><td colspan="5" style="padding:0 12px 10px 30px;background:var(--cream)">${opMachinesHtml(o.id)}</td></tr>`;
   }).join('');
+}
+
+function opMachinesHtml(opId) {
+  const mlist = _opMachines[opId] || [];
+  if (!mlist.length) return '<div style="color:var(--muted);font-size:12px;padding:8px 0">no machines under this operator</div>';
+  return '<div style="display:flex;flex-direction:column;padding-top:6px">' + mlist.map(m => {
+    const online = !!m.isOnline;
+    const dot = `<span title="${online?'online':'offline'}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${online?'var(--success)':'var(--muted)'};flex:none"></span>`;
+    const stock = (m.maxStock > 0)
+      ? `<div style="flex:none;width:150px">${fillBar(m.totalCurrStock||0, m.maxStock)}</div>`
+      : `<span style="font-family:var(--mono);font-size:11px;color:var(--muted);flex:none;width:150px">no stock data</span>`;
+    const visit = m.lastVisitAt ? `<span style="font-size:11px;color:var(--muted);flex:none">restocked ${timeAgo(m.lastVisitAt)}</span>` : '';
+    return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:6px 0;border-top:.5px solid var(--line)">
+      ${dot}
+      <span style="flex:1 1 130px;min-width:80px;color:var(--ink);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rsEsc(m.deviceName||m.deviceCode)}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted);flex:none">${rsEsc(m.deviceCode)}</span>
+      ${stock}
+      ${visit}
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function toggleOperatorMachines(opId) {
+  const row = document.getElementById('opm-' + opId);
+  const chev = document.getElementById('chev-' + opId);
+  if (!row) return;
+  const open = row.style.display !== 'none';
+  row.style.display = open ? 'none' : '';
+  if (chev) chev.textContent = open ? '▸' : '▾';
 }
 
 function operatorFormHtml(mode, op) {
