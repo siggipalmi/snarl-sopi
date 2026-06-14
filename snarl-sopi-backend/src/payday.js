@@ -26,9 +26,9 @@ const CLIENT_ID     = process.env.PAYDAY_CLIENT_ID;
 const CLIENT_SECRET = process.env.PAYDAY_CLIENT_SECRET;
 
 // CONFIRM: resource paths + the param used to filter by customer.
-const PATH_INVOICES = process.env.PAYDAY_PATH_INVOICES || '/invoice';             // CONFIRM
-const PATH_PAYMENTS = process.env.PAYDAY_PATH_PAYMENTS || '/payment';             // CONFIRM
-const PATH_INVOICE_PDF = process.env.PAYDAY_PATH_INVOICE_PDF || '/invoice/{id}/pdf'; // CONFIRM
+const PATH_INVOICES = process.env.PAYDAY_PATH_INVOICES || '/invoices';            // confirmed
+const PATH_CUSTOMERS = process.env.PAYDAY_PATH_CUSTOMERS || '/customers';         // confirmed
+const PATH_INVOICE_PDF = process.env.PAYDAY_PATH_INVOICE_PDF || '/invoices/{id}/pdf'; // plural-consistent; verify via download
 const CUSTOMER_PARAM = process.env.PAYDAY_CUSTOMER_PARAM || 'customerId';         // CONFIRM
 
 function paydayConfigured() {
@@ -94,53 +94,62 @@ async function apiGet(path, query, { raw = false } = {}) {
   try { return JSON.parse(res.body.toString('utf8')); } catch (e) { throw new Error(`Payday GET ${path}: bad JSON`); }
 }
 
-// Pull a list, following pagination if present. CONFIRM: response envelope.
-async function listAll(path, customerId, extra = {}) {
+// Pull a list, following pagination via the `pages` field. Envelope keys confirmed
+// against the live API: invoices → {invoices,...}, customers → {customers,...}.
+async function listAll(path, query = {}) {
   const out = [];
-  let page = 1; const perpage = 100;
-  for (let i = 0; i < 50; i++) {                              // hard safety cap
-    const query = { [CUSTOMER_PARAM]: customerId, page, perpage, ...extra };
-    const json = await apiGet(path, query);
-    const rows = json.lines || json.data || json.items || json.results || (Array.isArray(json) ? json : []); // CONFIRM
+  let page = 1, pages = 1;
+  for (let i = 0; i < 60; i++) {                              // hard safety cap
+    const json = await apiGet(path, { ...query, page });
+    const rows = json.invoices || json.customers || json.payments || json.data || json.items || json.results || (Array.isArray(json) ? json : []);
     out.push(...rows);
-    const total = Number(json.total || json.totalCount || 0);
-    if (!rows.length || (total && out.length >= total) || rows.length < perpage) break;
+    pages = Number(json.pages || 1);
+    if (page >= pages || !rows.length) break;
     page++;
   }
   return out;
 }
 
 async function getCustomerInvoices(customerId) {
-  return listAll(PATH_INVOICES, customerId);
+  return listAll(PATH_INVOICES, { [CUSTOMER_PARAM]: customerId });
 }
-async function getCustomerPayments(customerId) {
-  return listAll(PATH_PAYMENTS, customerId);
+// Payday has no top-level /payments endpoint; payment status is carried on each
+// invoice (paidDate + status PAID). Kept as a no-op so older callers don't break.
+async function getCustomerPayments() { return []; }
+
+// Resolve a Payday customer from a kennitala by scanning /customers (no ssn filter
+// param exists; the customer list is small) and matching on ssn.
+async function findCustomerBySsn(ssn) {
+  const clean = String(ssn || '').replace(/\D/g, '');
+  if (!clean) return null;
+  const all = await listAll(PATH_CUSTOMERS, {});
+  return all.find(c => String(c.ssn || '').replace(/\D/g, '') === clean) || null;
 }
+
 async function getInvoicePdf(invoiceId) {
   return apiGet(PATH_INVOICE_PDF.replace('{id}', encodeURIComponent(invoiceId)), null, { raw: true });
 }
 
 /**
- * Merge invoices (debits) and payments (credits) into a chronological ledger
- * with a running balance. Field names are best-guess and CONFIRM-able; the
- * normaliser tolerates a few common spellings so a real sample needs only the
- * mapping tweaked, not the logic.
+ * Build a chronological ledger with a running balance from invoices alone.
+ * Payday exposes no /payments collection, so each invoice contributes a debit on
+ * its invoiceDate (+gross) and, when paid/credited, an offsetting credit on the
+ * paidDate/creditDate (−gross). Cancelled invoices are skipped. Returns newest-first.
  */
-function buildLedger(invoices = [], payments = []) {
-  const num  = v => Number(v || 0);
-  const when = o => o.date || o.createdAt || o.created || o.issuedAt || o.paymentDate || o.dueDate || null;
+function buildLedger(invoices = []) {
+  const num = v => Number(v || 0);
   const moves = [];
   for (const inv of invoices) {
-    moves.push({ ts: when(inv), kind: 'invoice',
-      ref: inv.number || inv.invoiceNumber || inv.id,
-      desc: inv.description || inv.subject || 'Invoice',
-      amount: num(inv.total || inv.amount || inv.totalAmount) });          // debit (+)
-  }
-  for (const pay of payments) {
-    moves.push({ ts: when(pay), kind: 'payment',
-      ref: pay.number || pay.id,
-      desc: pay.description || 'Payment',
-      amount: -Math.abs(num(pay.amount || pay.total)) });                  // credit (−)
+    const status = String(inv.status || '').toUpperCase();
+    if (inv.cancelledDate || status === 'CANCELLED') continue;
+    const gross = num(inv.amountIncludingVat != null ? inv.amountIncludingVat : (inv.total || inv.amount));
+    const ref = inv.number != null ? inv.number : inv.id;
+    moves.push({ ts: inv.invoiceDate || inv.created || inv.dueDate || null, kind: 'invoice', ref, desc: inv.description || '', amount: gross });
+    if (inv.paidDate || status === 'PAID') {
+      moves.push({ ts: inv.paidDate || inv.invoiceDate || null, kind: 'payment', ref, desc: '', amount: -Math.abs(gross) });
+    } else if (inv.creditDate || status === 'CREDITED' || inv.refundDate || status === 'REFUNDED') {
+      moves.push({ ts: inv.creditDate || inv.refundDate || null, kind: 'credit', ref, desc: '', amount: -Math.abs(gross) });
+    }
   }
   moves.sort((a, b) => new Date(a.ts || 0) - new Date(b.ts || 0));         // oldest→newest
   let bal = 0;
@@ -240,6 +249,6 @@ async function debugProbe(customerId, ssn) {
 }
 
 module.exports = {
-  paydayConfigured, getCustomerInvoices, getCustomerPayments, getInvoicePdf, buildLedger, debugProbe,
-  _meta: { API_BASE, TOKEN_URL, PATH_INVOICES, PATH_PAYMENTS, PATH_INVOICE_PDF, CUSTOMER_PARAM },
+  paydayConfigured, getCustomerInvoices, getCustomerPayments, findCustomerBySsn, getInvoicePdf, buildLedger, debugProbe,
+  _meta: { API_BASE, TOKEN_URL, PATH_INVOICES, PATH_CUSTOMERS, PATH_INVOICE_PDF, CUSTOMER_PARAM },
 };

@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "4.99.0",
-  "description": "Snarl & Sopi operator backend — v4.99: Payday probe deep-tests the invoice→customer filter param and the customer→ssn filter param using a real record from /invoices (self-contained). Confirmed: invoices=/invoices (envelope key invoices, amount=amountIncludingVat, status UPPERCASE, invoiceDate/dueDate/paidDate), no /payments endpoint (payments embedded per invoice), customers=/customers. Includes v4.96 Billing portal.",
+  "version": "5.00.0",
+  "description": "Snarl & Sopi operator backend — v5.00: Payday billing portal goes live against the real API. Invoices via GET /invoices?customerId=<guid> (amount=amountIncludingVat, status UPPERCASE, invoiceDate/finalDueDate/paidDate); ledger derived from invoices alone (no /payments endpoint); kennitala→customer-id auto-resolved by scanning /customers; operator link saves report whether a Payday customer matched. Bilingual Billing page + debug probe retained.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

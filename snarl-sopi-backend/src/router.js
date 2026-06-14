@@ -2048,15 +2048,28 @@ async function uploadBase64Image(b64, typeHint, keyBase) {
 // ── Operator billing portal (read-only Payday) ──────────────────────────────
 
 // PUT /operators/:operatorId/payday-link — AG-admin links an operator to its Payday customer.
-function handleSetPaydayLink(req, res) {
-  const id = req.params.operatorId;
-  const op = operators[id] || storage.getOperator(id);
-  if (!op) return notFound(res, 'Operator not found');
-  const kennitala = String((req.body && req.body.kennitala) || '').replace(/[\s-]/g, '').trim() || null;
-  const paydayCustomerId = String((req.body && req.body.paydayCustomerId) || '').trim() || null;
-  storage.setOperatorPaydayLink(id, kennitala, paydayCustomerId);
-  if (operators[id]) { operators[id].kennitala = kennitala; operators[id].paydayCustomerId = paydayCustomerId; }
-  ok(res, { operatorId: id, kennitala, paydayCustomerId });
+async function handleSetPaydayLink(req, res) {
+  try {
+    const id = req.params.operatorId;
+    const op = operators[id] || storage.getOperator(id);
+    if (!op) return notFound(res, 'Operator not found');
+    const kennitala = String((req.body && req.body.kennitala) || '').replace(/[\s-]/g, '').trim() || null;
+    let paydayCustomerId = String((req.body && req.body.paydayCustomerId) || '').trim() || null;
+    let resolved = false, matchedName = null, lookupError = null;
+    const payday = require('./payday');
+    // If only a kennitala was given, resolve the Payday customer id automatically.
+    if (!paydayCustomerId && kennitala && payday.paydayConfigured()) {
+      try {
+        const cust = await payday.findCustomerBySsn(kennitala);
+        if (cust && cust.id) { paydayCustomerId = cust.id; resolved = true; matchedName = cust.name || null; }
+      } catch (e) { lookupError = String(e.message || e); }
+    }
+    storage.setOperatorPaydayLink(id, kennitala, paydayCustomerId);
+    if (operators[id]) { operators[id].kennitala = kennitala; operators[id].paydayCustomerId = paydayCustomerId; }
+    ok(res, { operatorId: id, kennitala, paydayCustomerId, resolved, matchedName, lookupError });
+  } catch (e) {
+    json(res, 500, { ok: false, error: String((e && e.message) || e) });
+  }
 }
 
 // Normalise a Payday invoice to the shape the portal renders. Field names are
@@ -2064,13 +2077,15 @@ function handleSetPaydayLink(req, res) {
 function _normInvoice(inv) {
   const n = v => Number(v || 0);
   return {
-    id: inv.id || inv.invoiceId,
-    number: inv.number || inv.invoiceNumber || inv.id,
-    issuedAt: inv.issuedAt || inv.date || inv.createdAt || inv.created || null,
-    dueDate: inv.dueDate || inv.finalDueDate || null,
-    amount: n(inv.total || inv.amount || inv.totalAmount),
-    lateFee: n(inv.lateCharge || inv.lateFee || inv.interest || 0),
+    id: inv.id,
+    number: inv.number != null ? inv.number : inv.id,
+    issuedAt: inv.invoiceDate || inv.created || null,
+    dueDate: inv.finalDueDate || inv.dueDate || null,
+    paidDate: inv.paidDate || null,
+    amount: n(inv.amountIncludingVat != null ? inv.amountIncludingVat : (inv.total || inv.amount)),
+    lateFee: 0,                                   // Payday carries no discrete late-fee amount on the invoice
     status: String(inv.status || '').toLowerCase(),
+    currency: inv.currencyCode || 'ISK',
   };
 }
 
@@ -2097,11 +2112,8 @@ async function handleOperatorLedger(req, res) {
     const op = storage.getOperator(req.params.operatorId);
     if (!op) return notFound(res, 'Operator not found');
     if (!op.paydayCustomerId) return ok(res, { configured: true, linked: false, movements: [], balance: 0 });
-    const [inv, pay] = await Promise.all([
-      payday.getCustomerInvoices(op.paydayCustomerId),
-      payday.getCustomerPayments(op.paydayCustomerId),
-    ]);
-    const movements = payday.buildLedger(inv, pay);
+    const inv = await payday.getCustomerInvoices(op.paydayCustomerId);
+    const movements = payday.buildLedger(inv);
     ok(res, { configured: true, linked: true, movements, balance: movements.length ? movements[0].balance : 0 });
   } catch (e) {
     ok(res, { configured: true, linked: true, error: String(e.message || e), movements: [], balance: 0 });

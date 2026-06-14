@@ -5418,15 +5418,21 @@ async function saveEditOperator(id) {
     const result = await API.put('/api/v1/operators/' + encodeURIComponent(id), body);
     if (!result.ok) { showToast('failed: ' + (result.error || 'unknown')); return; }
     // Also persist the Payday billing link (fields present in edit mode; AG-admin-only page).
+    let linkMsg = '';
     const ktEl = document.getElementById('op-kennitala');
     const pidEl = document.getElementById('op-payday-id');
     if (ktEl || pidEl) {
-      await API.put('/api/v1/operators/' + encodeURIComponent(id) + '/payday-link', {
-        kennitala: ktEl ? ktEl.value.trim() : '',
-        paydayCustomerId: pidEl ? pidEl.value.trim() : '',
-      }).catch(() => {});
+      const kt = ktEl ? ktEl.value.trim() : '';
+      const pid = pidEl ? pidEl.value.trim() : '';
+      try {
+        const lr = await API.put('/api/v1/operators/' + encodeURIComponent(id) + '/payday-link', { kennitala: kt, paydayCustomerId: pid });
+        if (lr && lr.ok && lr.data) {
+          if (lr.data.resolved) linkMsg = ' · Payday: ' + (lr.data.matchedName || 'linked');
+          else if (kt && !lr.data.paydayCustomerId) linkMsg = ' · no Payday match for that kennitala';
+        }
+      } catch (e) {}
     }
-    closeModal('modal-dyn'); showToast('operator updated'); renderOperators();
+    closeModal('modal-dyn'); showToast('operator updated' + linkMsg); renderOperators();
   } catch (e) { showToast('error: ' + e.message); }
 }
 
