@@ -323,31 +323,32 @@ function _rawCall(method, url, headers, bodyStr) {
  */
 async function rawOrdersDiagnostic({ deviceCode = '62160043' } = {}) {
   const { appId, secretKey, baseUrl } = getCredentials({ endpoint: 'prod' });
+  deviceCode = String(deviceCode).trim();
   const today = new Date();
-  const weekAgo = new Date(Date.now() - 7 * 86400000);
-  const d = x => x.toISOString().slice(0, 10);
+  const monthAgo = new Date(Date.now() - 30 * 86400000);
+  const d  = x => x.toISOString().slice(0, 10);                    // yyyy-MM-dd
+  const dt = x => x.toISOString().slice(0, 19).replace('T', ' ');  // yyyy-MM-dd HH:mm:ss
+  const qs = p => Object.entries(p).map(([k, val]) => `${encodeURIComponent(k)}=${encodeURIComponent(val)}`).join('&');
+  // Endpoint is GET-only (POST → 405), and GET with deviceCode alone returns an
+  // empty list — so try GET with date range + pagination, a few param spellings.
+  const gp = p => ({ name: 'GET ' + qs(p), params: p, path: `/ext/query-order-list?${qs(p)}` });
 
   const variants = [
-    { name: 'GET ?deviceCode',            method: 'GET',  params: { deviceCode },
-      path: `/ext/query-order-list?deviceCode=${deviceCode}` },
-    { name: 'GET ?deviceCode&tradeNo=',   method: 'GET',  params: { deviceCode, tradeNo: '' },
-      path: `/ext/query-order-list?deviceCode=${deviceCode}&tradeNo=` },
-    { name: 'POST current/size/device',   method: 'POST', params: { current: 1, size: 20, deviceCode } },
-    { name: 'POST device+dates',          method: 'POST', params: { current: 1, size: 20, deviceCode, startDate: d(weekAgo), endDate: d(today) } },
+    gp({ deviceCode }),
+    gp({ deviceCode, current: 1, size: 20 }),
+    gp({ deviceCode, startDate: d(monthAgo), endDate: d(today) }),
+    gp({ deviceCode, startTime: dt(monthAgo), endTime: dt(today) }),
+    gp({ deviceCode, current: 1, size: 20, startDate: d(monthAgo), endDate: d(today) }),
+    gp({ deviceCode, current: 1, size: 20, startTime: dt(monthAgo), endTime: dt(today) }),
+    gp({ deviceCode, beginTime: dt(monthAgo), endTime: dt(today) }),
   ];
 
   const out = [];
   for (const v of variants) {
     const headers = buildHeaders(appId, secretKey, v.params);
-    let url, body = null;
-    if (v.method === 'GET') {
-      url = `${baseUrl}${v.path}`;
-    } else {
-      url = `${baseUrl}/ext/query-order-list`;
-      body = canonicalJson(v.params);
-    }
-    const res = await _rawCall(v.method, url, headers, body);
-    out.push({ variant: v.name, method: v.method, url, ...res });
+    const url = `${baseUrl}${v.path}`;
+    const res = await _rawCall('GET', url, headers, null);
+    out.push({ variant: v.name, method: 'GET', url, ...res });
   }
   return { deviceCode, baseUrl, variants: out };
 }
