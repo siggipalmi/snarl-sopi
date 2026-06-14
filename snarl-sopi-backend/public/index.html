@@ -329,6 +329,44 @@ select.fi{cursor:pointer;}
 .ag-logo-sb{width:120px;height:30px;background-position:left center;margin-bottom:2px;}
 .ag-logo-login{width:150px;height:38px;background-position:center;margin:0 auto 6px;}
   .col-nayax { display: none; }  /* Nayax on hold — delete this rule to re-show the column */
+/* ── billing portal (operator lease invoices + ledger) ── */
+#page-billing .bl-oprow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 2px;}
+#page-billing select.bl-opsel{font-family:var(--sans);font-size:14px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:180px;}
+#page-billing .bl-opnote{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--bronze);border:1px solid var(--cream-deep);background:#fff;border-radius:999px;padding:3px 9px;}
+#page-billing .bl-summary{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:6px 0 18px;}
+#page-billing .bl-sum-lab{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+#page-billing .bl-sum-bal{font-family:var(--mono);font-weight:600;font-size:28px;line-height:1.1;margin-top:3px;}
+#page-billing .bl-sum-bal.due{color:var(--alert);}
+#page-billing .bl-sum-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+#page-billing .bl-sum-acct{text-align:right;}
+#page-billing .bl-sum-acct .nm{font-family:var(--serif);font-style:italic;font-size:22px;}
+#page-billing .bl-sum-acct .kt{font-family:var(--mono);font-size:11px;color:var(--muted);}
+#page-billing .bl-inv{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:9px;}
+#page-billing .bl-inv-period{font-weight:600;font-size:15px;}
+#page-billing .bl-inv-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+#page-billing .bl-inv-meta .mono{font-family:var(--mono);color:#6f675a;}
+#page-billing .bl-inv-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+#page-billing .bl-inv-amt{font-family:var(--mono);font-weight:600;font-size:15px;white-space:nowrap;}
+#page-billing .bl-pill{font-family:var(--mono);font-size:10px;letter-spacing:.04em;border-radius:999px;padding:3px 9px;white-space:nowrap;border:1px solid transparent;}
+#page-billing .bl-pill-paid{color:var(--success);background:#EEF2E6;border-color:#D7E2C5;}
+#page-billing .bl-pill-due{color:var(--bronze);background:#F4ECDD;border-color:#E7D7BC;}
+#page-billing .bl-pill-over{color:#fff;background:var(--alert);}
+#page-billing .bl-late{color:var(--alert);font-family:var(--mono);}
+#page-billing .bl-dl{font-family:var(--mono);font-size:11px;color:var(--bronze);background:#fff;border:1px solid var(--cream-deep);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap;}
+#page-billing .bl-dl:hover{background:#F4ECDD;}
+#page-billing .bl-led-head,#page-billing .bl-led{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 14px;}
+#page-billing .bl-led-head{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-bottom:6px;}
+#page-billing .bl-led{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;}
+#page-billing .bl-led-desc{font-size:13px;}
+#page-billing .bl-led-date{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:1px;}
+#page-billing .bl-led-amt{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap;min-width:84px;}
+#page-billing .bl-led-amt.credit{color:var(--success);}
+#page-billing .bl-led-bal{font-family:var(--mono);font-size:13px;font-weight:600;text-align:right;white-space:nowrap;min-width:84px;}
+#page-billing .bl-col-lab{justify-self:end;}
+#page-billing .bl-actions{display:flex;justify-content:flex-end;margin-top:12px;}
+#page-billing .bl-state{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 20px;text-align:center;color:var(--muted);}
+#page-billing .bl-state .big{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);margin-bottom:6px;}
+#page-billing .bl-foot{font-size:11px;color:var(--muted);text-align:center;margin-top:22px;font-family:var(--mono);}
 </style>
 
 </head>
@@ -405,6 +443,7 @@ select.fi{cursor:pointer;}
   <div class="nav-item" onclick="go('expiry',this)"><span class="nav-icon">◷</span> <span data-i18n="nav.expiry">Expiry</span></div>
   <div class="sb-section" data-i18n="group.commerce">commerce</div>
   <div class="nav-item" onclick="go('orders',this)"><span class="nav-icon">◧</span> <span data-i18n="nav.orders">Orders</span></div>
+  <div class="nav-item" onclick="go('billing',this)"><span class="nav-icon">▤</span> <span data-i18n="nav.billing">Billing</span></div>
   <div class="nav-item" onclick="go('complaints',this)"><span class="nav-icon">⚠</span> <span data-i18n="nav.complaints">Complaints</span> <span class="nav-badge" id="nb-complaints" style="display:none">0</span></div>
   <div class="nav-item" onclick="go('reports',this)"><span class="nav-icon">◫</span> <span data-i18n="nav.reports">Reports</span></div>
   <div class="sb-section" data-i18n="group.system">system</div>
@@ -438,6 +477,13 @@ select.fi{cursor:pointer;}
   <div class="content">
 
     <div class="page" id="page-help"></div>
+    <div class="page" id="page-billing">
+      <div class="shd">
+        <div class="shd-sub" data-i18n="billing.sub">your lease invoices &amp; account statement</div>
+        <div id="billing-oppick"></div>
+      </div>
+      <div id="billing-body"></div>
+    </div>
 
     <!-- ═══ DASHBOARD ═══ -->
     <div class="page active" id="page-dashboard">
@@ -1151,6 +1197,17 @@ const I18N = {
     'nav.dashboard':'Dashboard','nav.machines':'Machines','nav.alerts':'Alerts','nav.operators':'Operators',
     'nav.catalog':'Catalog & Slots','nav.hero':'Hero & Featured','nav.display':'Display Settings',
     'nav.orders':'Orders','nav.complaints':'Complaints','nav.reports':'Reports','nav.users':'Users','nav.settings':'Settings','nav.help':'Help',
+    'nav.billing':'Billing','title.billing':'Billing','billing.sub':'your lease invoices & account statement','billing.operator':'Operator',
+    'billing.invoices':'invoices','billing.ledger':'ledger','billing.outstanding':'Outstanding balance','billing.settled':'All settled',
+    'billing.invUnpaid':'{n} unpaid','billing.invOverdue':'· {n} overdue','billing.noUnpaid':'nothing outstanding','billing.machines':'machines',
+    'billing.paid':'paid','billing.unpaid':'unpaid','billing.due':'due','billing.overdue':'overdue','billing.lateFee':'incl. {amt} late fee',
+    'billing.issued':'issued','billing.lease':'Machine lease','billing.movement':'Movement','billing.amount':'Amount','billing.balance':'Balance',
+    'billing.payment':'Payment received','billing.statement':'Download statement','billing.pdf':'PDF',
+    'billing.foot':'Read-only · invoices & ledger come from Payday','billing.loading':'Loading…',
+    'billing.empty':'No invoices yet.','billing.emptySub':'Invoices appear here once Payday issues them.',
+    'billing.notConfigured':'Billing isn’t connected yet.','billing.notConfiguredSub':'Payday credentials haven’t been set on the server.',
+    'billing.notLinked':'Not linked to Payday yet.','billing.notLinkedSub':'Add this operator’s kennitala under Operators → edit.',
+    'billing.error':'Couldn’t load from Payday.','billing.pdfErr':'Couldn’t download that invoice.',
     'shell.operatorPortal':'Operator portal','shell.signOut':'sign out',
     'title.dashboard':'dashboard.','title.machines':'machines.','title.alerts':'alerts.','title.catalog':'catalog & slots.',
     'title.hero':'hero & featured.','title.display':'display settings.','title.orders':'orders.','title.reports':'reports.',
@@ -1188,6 +1245,17 @@ const I18N = {
     'nav.dashboard':'Mælaborð','nav.machines':'Vélar','nav.alerts':'Viðvaranir','nav.operators':'Rekstraraðilar',
     'nav.catalog':'Vörur & hólf','nav.hero':'Áberandi vörur','nav.display':'Skjástillingar',
     'nav.orders':'Pantanir','nav.complaints':'Kvartanir','nav.reports':'Skýrslur','nav.users':'Notendur','nav.settings':'Stillingar','nav.help':'Hjálp',
+    'nav.billing':'Reikningar','title.billing':'Reikningar','billing.sub':'leigureikningar og hreyfingayfirlit','billing.operator':'Rekstraraðili',
+    'billing.invoices':'reikningar','billing.ledger':'hreyfingar','billing.outstanding':'Staða í dag','billing.settled':'Engin skuld',
+    'billing.invUnpaid':'{n} ógreiddir','billing.invOverdue':'· {n} í vanskilum','billing.noUnpaid':'ekkert ógreitt','billing.machines':'vélar',
+    'billing.paid':'greitt','billing.unpaid':'ógreitt','billing.due':'eindagi','billing.overdue':'í vanskilum','billing.lateFee':'með {amt} dráttargjaldi',
+    'billing.issued':'útgefið','billing.lease':'Vélaleiga','billing.movement':'Hreyfing','billing.amount':'Upphæð','billing.balance':'Staða',
+    'billing.payment':'Innborgun','billing.statement':'Sækja yfirlit','billing.pdf':'PDF',
+    'billing.foot':'Skrifvarið · reikningar og hreyfingar koma frá Payday','billing.loading':'Hleð…',
+    'billing.empty':'Engir reikningar enn.','billing.emptySub':'Reikningar birtast hér þegar Payday gefur þá út.',
+    'billing.notConfigured':'Innheimta ekki tengd enn.','billing.notConfiguredSub':'Payday-aðgangur hefur ekki verið settur á þjóninn.',
+    'billing.notLinked':'Ekki tengt við Payday enn.','billing.notLinkedSub':'Bættu við kennitölu undir Rekstraraðilar → breyta.',
+    'billing.error':'Tókst ekki að sækja frá Payday.','billing.pdfErr':'Tókst ekki að sækja reikninginn.',
     'shell.operatorPortal':'Rekstrargátt','shell.signOut':'útskrá',
     'title.dashboard':'mælaborð.','title.machines':'vélar.','title.alerts':'viðvaranir.','title.catalog':'vörur & hólf.',
     'title.hero':'áberandi vörur.','title.display':'skjástillingar.','title.orders':'pantanir.','title.reports':'skýrslur.',
@@ -2025,7 +2093,7 @@ async function bootApp(user) {
 
   populateMachineSelects();
   // Open the page or machine named in the URL hash (so refresh returns here); else dashboard.
-  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','complaints','reports','users','settings','help'];
+  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','complaints','reports','users','settings','help'];
   const route = parseHash();
   if (route.page === 'machine' && route.param && DB.machines[route.param]) {
     openMachineDetail(route.param, true);
@@ -2042,7 +2110,7 @@ async function bootApp(user) {
 window.addEventListener('hashchange', () => {
   if (!currentUser) return;
   const route = parseHash();
-  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','complaints','reports','users','settings','help'];
+  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','complaints','reports','users','settings','help'];
   if (route.page === 'machine' && route.param) {
     const onThis = _mdDeviceCode === route.param && document.getElementById('page-machinedetail').classList.contains('active');
     if (!onThis && DB.machines[route.param]) openMachineDetail(route.param, true);
@@ -2203,6 +2271,7 @@ function go(id, el) {
   if(id==='hero')      renderHeroPage();
   if(id==='display')   renderDisplayPage();
   if(id==='expiry')    renderExpiry();
+  if(id==='billing')   renderBilling();
   if(id==='orders')    renderOrders();
   if(id==='reports')   renderReports();
   if(id==='users')     renderUsers();
@@ -5108,6 +5177,159 @@ function toggleOperatorMachines(opId) {
   if (chev) chev.textContent = open ? '▸' : '▾';
 }
 
+// ════════ Billing portal (read-only operator lease invoices + ledger from Payday) ════════
+let _blOpId = null;      // operator currently shown (AG admin can switch)
+let _blTab = 'invoices';
+let _blData = null;      // stashed for downloads
+
+function blTargetOperator() {
+  if (currentUser?.role === 'ag_admin') {
+    if (_blOpId) return _blOpId;
+    const linked = _operatorsCache.find(o => o.paydayCustomerId);
+    return (linked || _operatorsCache[0] || {}).id || null;
+  }
+  return currentUser?.operatorId || null;
+}
+
+async function renderBilling() {
+  const body = document.getElementById('billing-body');
+  const pick = document.getElementById('billing-oppick');
+  if (!body) return;
+
+  if (currentUser?.role === 'ag_admin') {
+    if (!_operatorsCache.length) { try { await loadOperators(); } catch (e) {} }
+    const cur = blTargetOperator(); _blOpId = cur;
+    if (pick) pick.innerHTML = '<div class="bl-oprow"><select class="bl-opsel" onchange="onBillingOp(this.value)">' +
+      _operatorsCache.map(o => `<option value="${o.id}"${o.id === cur ? ' selected' : ''}>${rsEsc(o.name)}</option>`).join('') +
+      '</select><span class="bl-opnote">' + t('billing.operator') + ' · AG</span></div>';
+  } else if (pick) { pick.innerHTML = ''; }
+
+  const opId = blTargetOperator();
+  if (!opId) { body.innerHTML = `<div class="bl-state"><div class="big">${t('billing.notLinked')}</div>${t('billing.notLinkedSub')}</div>`; return; }
+
+  body.innerHTML = `<div class="bl-state">${t('billing.loading')}</div>`;
+  let invRes, ledRes;
+  try {
+    [invRes, ledRes] = await Promise.all([
+      API.get('/api/v1/operators/' + encodeURIComponent(opId) + '/invoices'),
+      API.get('/api/v1/operators/' + encodeURIComponent(opId) + '/ledger'),
+    ]);
+  } catch (e) {
+    body.innerHTML = `<div class="bl-state"><div class="big">${t('billing.error')}</div>${rsEsc(String(e.message || e))}</div>`; return;
+  }
+  const inv = (invRes && invRes.data) || {};
+  const led = (ledRes && ledRes.data) || {};
+  if (inv.configured === false) { body.innerHTML = `<div class="bl-state"><div class="big">${t('billing.notConfigured')}</div>${t('billing.notConfiguredSub')}</div>`; return; }
+  if (inv.linked === false)     { body.innerHTML = `<div class="bl-state"><div class="big">${t('billing.notLinked')}</div>${t('billing.notLinkedSub')}</div>`; return; }
+  if (inv.error)                { body.innerHTML = `<div class="bl-state"><div class="big">${t('billing.error')}</div>${rsEsc(inv.error)}</div>`; return; }
+
+  const invoices = inv.invoices || [];
+  const movements = led.movements || [];
+  const balance = Number(led.balance || 0);
+  const opMeta = _operatorsCache.find(o => o.id === opId) || { name: currentUser?.operatorName || '', id: opId };
+  _blData = { opId, movements, opName: opMeta.name || '' };
+
+  const unpaid = invoices.filter(i => !blPaid(i));
+  const overdue = invoices.filter(i => blOverdue(i));
+  const due = balance > 0;
+  let sub;
+  if (!unpaid.length) sub = t('billing.noUnpaid');
+  else { sub = t('billing.invUnpaid').replace('{n}', unpaid.length); if (overdue.length) sub += ' ' + t('billing.invOverdue').replace('{n}', overdue.length); }
+  const ktLine = (opMeta.kennitala ? 'kt. ' + blKt(opMeta.kennitala) : '') +
+    (opMeta.machineCount != null ? (opMeta.kennitala ? ' · ' : '') + opMeta.machineCount + ' ' + t('billing.machines') : '');
+
+  const summary = `<div class="bl-summary">
+    <div><div class="bl-sum-lab">${t('billing.outstanding')}</div>
+      <div class="bl-sum-bal${due ? ' due' : ''}">${due ? blKr(balance) : t('billing.settled')}</div>
+      <div class="bl-sum-sub">${sub}</div></div>
+    <div class="bl-sum-acct"><div class="nm">${rsEsc(opMeta.name || '')}</div><div class="kt">${ktLine}</div></div></div>`;
+
+  const tabs = `<div class="tabs"><div class="tab${_blTab === 'invoices' ? ' active' : ''}" onclick="onBillingTab('invoices')">${t('billing.invoices')}</div><div class="tab${_blTab === 'ledger' ? ' active' : ''}" onclick="onBillingTab('ledger')">${t('billing.ledger')}</div></div>`;
+
+  const invPanel = invoices.length
+    ? invoices.map(i => blInvRow(opId, i)).join('')
+    : `<div class="bl-state"><div class="big">${t('billing.empty')}</div>${t('billing.emptySub')}</div>`;
+
+  const ledPanel = movements.length
+    ? `<div class="bl-led-head"><div>${t('billing.movement')}</div><div class="bl-col-lab">${t('billing.amount')}</div><div class="bl-col-lab">${t('billing.balance')}</div></div>` +
+      movements.map(blLedRow).join('') +
+      `<div class="bl-actions"><button class="bl-dl" onclick="blDownloadStatement('${opId}')">↓ ${t('billing.statement')}</button></div>`
+    : `<div class="bl-state">${t('billing.empty')}</div>`;
+
+  body.innerHTML = summary + tabs +
+    `<div id="bl-panel-invoices" style="${_blTab === 'invoices' ? '' : 'display:none'}">${invPanel}</div>` +
+    `<div id="bl-panel-ledger" style="${_blTab === 'ledger' ? '' : 'display:none'}">${ledPanel}</div>` +
+    `<div class="bl-foot">${t('billing.foot')}</div>`;
+}
+
+function blPaid(i) { return /paid|greitt|settled/.test(i.status || ''); }
+function blOverdue(i) {
+  if (blPaid(i)) return false;
+  if (/overdue|vansk/.test(i.status || '')) return true;
+  if (i.dueDate) { const d = new Date(i.dueDate); if (!isNaN(d) && d < new Date()) return true; }
+  return false;
+}
+function blInvRow(opId, i) {
+  const paid = blPaid(i), over = blOverdue(i);
+  const pill = paid ? `<span class="bl-pill bl-pill-paid">${t('billing.paid')}</span>`
+    : over ? `<span class="bl-pill bl-pill-over">${t('billing.overdue')}</span>`
+    : `<span class="bl-pill bl-pill-due">${t('billing.unpaid')}${i.dueDate ? ' · ' + t('billing.due') + ' ' + blDate(i.dueDate) : ''}</span>`;
+  const late = i.lateFee > 0 ? ` · <span class="bl-late">${t('billing.lateFee').replace('{amt}', blKr(i.lateFee))}</span>` : '';
+  const num = (i.number != null && i.number !== '') ? '#' + rsEsc(String(i.number)) : '';
+  const period = t('billing.lease') + (i.issuedAt ? ' — ' + blMonth(i.issuedAt) : '');
+  return `<div class="bl-inv"><div class="bl-inv-main">
+      <div class="bl-inv-period">${period}</div>
+      <div class="bl-inv-meta"><span class="mono">${num}</span>${i.issuedAt ? ' · ' + t('billing.issued') + ' ' + blDate(i.issuedAt) : ''}${late}</div>
+    </div><div class="bl-inv-right">${pill}<div class="bl-inv-amt">${blKr(i.amount)}</div>${i.id ? `<button class="bl-dl" onclick="blDownloadPdf('${opId}','${rsEsc(String(i.id))}')">↓ ${t('billing.pdf')}</button>` : ''}</div></div>`;
+}
+function blLedRow(m) {
+  const credit = m.amount < 0;
+  const amt = (credit ? '−' : '+') + blNum(Math.abs(m.amount));
+  return `<div class="bl-led"><div><div class="bl-led-date">${m.ts ? blDate(m.ts) : ''}</div><div class="bl-led-desc">${rsEsc(blLedDesc(m))}</div></div>` +
+    `<div class="bl-led-amt${credit ? ' credit' : ''}">${amt}</div><div class="bl-led-bal">${blNum(m.balance)}</div></div>`;
+}
+function blLedDesc(m) {
+  if (m.kind === 'payment') return t('billing.payment') + (m.ref ? ' — #' + m.ref : '');
+  return (m.desc && m.desc !== 'Invoice' ? m.desc : t('billing.lease')) + (m.ref ? ' — #' + m.ref : '');
+}
+function onBillingOp(id) { _blOpId = id; renderBilling(); }
+function onBillingTab(tab) {
+  _blTab = tab;
+  const ip = document.getElementById('bl-panel-invoices'), lp = document.getElementById('bl-panel-ledger');
+  if (ip) ip.style.display = tab === 'invoices' ? '' : 'none';
+  if (lp) lp.style.display = tab === 'ledger' ? '' : 'none';
+  const tabs = document.querySelectorAll('#page-billing .tabs .tab');
+  tabs.forEach(x => x.classList.remove('active'));
+  if (tabs[0] && tab === 'invoices') tabs[0].classList.add('active');
+  if (tabs[1] && tab === 'ledger') tabs[1].classList.add('active');
+}
+function blNum(n) { return Math.round(Number(n || 0)).toLocaleString('de-DE'); } // dot thousands
+function blKr(n) { return 'kr. ' + blNum(n); }
+function blKt(k) { k = String(k || '').replace(/\D/g, ''); return k.length === 10 ? k.slice(0, 6) + '-' + k.slice(6) : k; }
+function blDate(s) { const d = new Date(s); if (isNaN(d)) return rsEsc(String(s)); return d.toLocaleDateString(LANG === 'is' ? 'is-IS' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+function blMonth(s) { const d = new Date(s); if (isNaN(d)) return ''; return d.toLocaleDateString(LANG === 'is' ? 'is-IS' : 'en-GB', { month: 'long', year: 'numeric' }); }
+async function blDownloadPdf(opId, invoiceId) {
+  try {
+    const r = await fetch(API_BASE + '/api/v1/operators/' + encodeURIComponent(opId) + '/invoices/' + encodeURIComponent(invoiceId) + '/pdf', { headers: API_TOKEN ? { Authorization: 'Bearer ' + API_TOKEN } : {} });
+    if (!r.ok) { showToast(t('billing.pdfErr')); return; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'invoice-' + invoiceId + '.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch (e) { showToast(t('billing.pdfErr')); }
+}
+function blDownloadStatement(opId) {
+  const d = _blData; if (!d || !d.movements) return;
+  const rows = [['date', 'description', 'amount', 'balance']];
+  d.movements.slice().reverse().forEach(m => {
+    rows.push([m.ts ? new Date(m.ts).toISOString().slice(0, 10) : '', blLedDesc(m).replace(/[",]/g, ' '), Math.round(m.amount), Math.round(m.balance)]);
+  });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'statement-' + (d.opName || opId) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 function operatorFormHtml(mode, op) {
   op = op || {};
   const logoPreview = op.logoUrl ? `<img src="${rsEsc(op.logoUrl)}" alt="" style="max-width:90px;max-height:90px;border:.5px solid var(--line);border-radius:8px;background:var(--cream-deep);padding:4px">` : '';
@@ -5117,6 +5339,12 @@ function operatorFormHtml(mode, op) {
     <div class="field"><div class="fl">address</div><input class="fi" id="op-address" placeholder="Dalshraun 3, 220 Hafnarfjörður" value="${rsEsc(op.address||'')}"></div>
     <div class="field"><div class="fl">customer contact email <span style="color:var(--muted);font-weight:400">· shown on the machine screen</span></div><input class="fi" id="op-email" type="email" placeholder="info@fylkir.is" value="${rsEsc(op.contactEmail||'')}"></div>
     <div class="field"><div class="fl">contact phone</div><input class="fi" id="op-phone" placeholder="+354 …" value="${rsEsc(op.contactPhone||'')}"></div>
+    ${mode === 'edit' ? `
+    <div style="border-top:.5px solid var(--line);margin:14px 0 10px;padding-top:12px">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Payday billing link</div>
+      <div class="field"><div class="fl">kennitala</div><input class="fi" id="op-kennitala" inputmode="numeric" placeholder="5901693399" value="${rsEsc(op.kennitala||'')}"></div>
+      <div class="field"><div class="fl">Payday customer id <span style="color:var(--muted);font-weight:400">· optional · UUID from Payday</span></div><input class="fi" id="op-payday-id" placeholder="leave blank to match by kennitala" value="${rsEsc(op.paydayCustomerId||'')}"></div>
+    </div>` : ''}
     <div class="field"><div class="fl">logo <span style="color:var(--muted);font-weight:400">· optional</span></div>
       <input type="file" id="op-logo" accept="image/*" onchange="onOpLogo(this)" style="font-size:12px;color:var(--muted)">
       <div id="op-logo-preview" style="margin-top:8px">${logoPreview}</div>
@@ -5188,8 +5416,17 @@ async function saveEditOperator(id) {
   if (!backendOnline) { showToast('backend offline'); return; }
   try {
     const result = await API.put('/api/v1/operators/' + encodeURIComponent(id), body);
-    if (result.ok) { closeModal('modal-dyn'); showToast('operator updated'); renderOperators(); }
-    else showToast('failed: ' + (result.error || 'unknown'));
+    if (!result.ok) { showToast('failed: ' + (result.error || 'unknown')); return; }
+    // Also persist the Payday billing link (fields present in edit mode; AG-admin-only page).
+    const ktEl = document.getElementById('op-kennitala');
+    const pidEl = document.getElementById('op-payday-id');
+    if (ktEl || pidEl) {
+      await API.put('/api/v1/operators/' + encodeURIComponent(id) + '/payday-link', {
+        kennitala: ktEl ? ktEl.value.trim() : '',
+        paydayCustomerId: pidEl ? pidEl.value.trim() : '',
+      }).catch(() => {});
+    }
+    closeModal('modal-dyn'); showToast('operator updated'); renderOperators();
   } catch (e) { showToast('error: ' + e.message); }
 }
 

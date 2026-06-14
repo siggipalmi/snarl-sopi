@@ -108,6 +108,7 @@ const routes = [
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/hardware',            handler: handleSetHardware,    middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/debug/commands',                           handler: handleDebugCommands,  middleware:[] },
   { method:'GET',  pattern:'/api/v1/debug/orders',                             handler: handleDebugOrders,    middleware:[] },
+  { method:'GET',  pattern:'/api/v1/debug/payday',                             handler: handleDebugPayday,    middleware:[] },
 
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/weimi/sync',         handler: handleWeimiSyncOne, middleware:[requireAuth, requireMachineAccess] },
 
@@ -1074,6 +1075,15 @@ function handleDebugOrders(req, res) {
 
 // GET /debug/weimi-orders?deviceCode=... — read-only: what Weimi returns for
 // this device's orders (raw), to see whether the sync has anything to import.
+async function handleDebugPayday(req, res) {
+  try {
+    const customerId = String(req.query.customerId || '').trim() || null;
+    ok(res, await require('./payday').debugProbe(customerId));
+  } catch (e) {
+    ok(res, { error: String((e && e.message) || e) });
+  }
+}
+
 async function handleDebugWeimiOrders(req, res) {
   const deviceCode = String(req.query.deviceCode || '').trim();
   if (!deviceCode) return badRequest(res, 'deviceCode query param required');

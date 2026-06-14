@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "4.95.0",
-  "description": "Snarl & Sopi backend v4.95 — signup onboarding: POST /operators/provision (X-Provision-Key auth) creates an operator from the leasing Zap, links it to its Payday customer, and emails the onboarding invite via the existing SendGrid invite flow. Idempotent on kennitala/customer id. Set PROVISION_KEY in Railway to enable.",
+  "version": "4.96.0",
+  "description": "Snarl & Sopi operator backend — v4.96: bilingual Billing portal (operator lease invoices + ledger, read-only from Payday, AG-admin operator picker, invoice PDF + statement CSV download), operator Payday-link field (kennitala + customer id), and /api/v1/debug/payday probe to confirm the live Payday connection.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

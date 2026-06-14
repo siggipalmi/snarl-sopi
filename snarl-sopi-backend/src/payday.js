@@ -148,7 +148,46 @@ function buildLedger(invoices = [], payments = []) {
   return moves.reverse();                                                   // newest first for display
 }
 
+// Read-only probe for setup: confirms the token works and shows the raw shape of
+// invoices/payments so field mappings can be locked. Never returns the token value.
+function _redact(obj) {
+  const o = {};
+  for (const k of Object.keys(obj || {})) {
+    const v = obj[k];
+    o[k] = (typeof v === 'string' && v.length > 48) ? v.slice(0, 48) + '…' : (v && typeof v === 'object' ? '{…}' : v);
+  }
+  return o;
+}
+async function debugProbe(customerId) {
+  const out = { configured: paydayConfigured(), apiBase: API_BASE, tokenUrl: TOKEN_URL, customerParam: CUSTOMER_PARAM };
+  if (!out.configured) { out.note = 'Set PAYDAY_CLIENT_ID + PAYDAY_CLIENT_SECRET in Railway'; return out; }
+  try {
+    const body = JSON.stringify({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
+    const res = await httpsRequest('POST', TOKEN_URL, { 'Content-Type': 'application/json', 'Api-Version': API_VER, 'Content-Length': Buffer.byteLength(body) }, body);
+    let j = {}; try { j = JSON.parse(res.body.toString('utf8')); } catch (e) {}
+    const field = j.token ? 'token' : j.accessToken ? 'accessToken' : j.access_token ? 'access_token' : null;
+    out.token = { httpStatus: res.status, responseKeys: Object.keys(j || {}), tokenField: field };
+    if (!field) { out.token.bodyPreview = res.body.toString('utf8').slice(0, 200); return out; }
+  } catch (e) { out.token = { error: String(e.message || e) }; return out; }
+  if (!customerId) { out.note = 'add &customerId=… to also probe invoices + payments'; return out; }
+  const probe = async (path) => {
+    try {
+      const raw = await apiGet(path, { [CUSTOMER_PARAM]: customerId, page: 1, perpage: 5 });
+      const arr = Array.isArray(raw) ? raw : (raw.lines || raw.data || raw.items || raw.results || raw.invoices || raw.payments || null);
+      return {
+        topLevelKeys: Array.isArray(raw) ? '(array)' : Object.keys(raw || {}),
+        rowsFound: Array.isArray(arr) ? arr.length : null,
+        firstKeys: (arr && arr[0]) ? Object.keys(arr[0]) : [],
+        firstSample: (arr && arr[0]) ? _redact(arr[0]) : null,
+      };
+    } catch (e) { return { error: String(e.message || e) }; }
+  };
+  out.invoices = await probe(PATH_INVOICES);
+  out.payments = await probe(PATH_PAYMENTS);
+  return out;
+}
+
 module.exports = {
-  paydayConfigured, getCustomerInvoices, getCustomerPayments, getInvoicePdf, buildLedger,
+  paydayConfigured, getCustomerInvoices, getCustomerPayments, getInvoicePdf, buildLedger, debugProbe,
   _meta: { API_BASE, TOKEN_URL, PATH_INVOICES, PATH_PAYMENTS, PATH_INVOICE_PDF, CUSTOMER_PARAM },
 };
