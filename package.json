@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "4.83.0",
+  "description": "Snarl & Sopi backend v4.83 — hardening fixes: API layer now degrades gracefully on non-JSON responses (Railway cold-start after redeploy no longer crashes revenue/performance/sold-out widgets with the cryptic Safari error); timeAgo + sold-out date parsing made Safari-safe; dashboard top stats now 2x2 on mobile too.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
