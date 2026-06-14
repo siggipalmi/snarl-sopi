@@ -158,7 +158,7 @@ function _redact(obj) {
   }
   return o;
 }
-async function debugProbe(customerId) {
+async function debugProbe(customerId, ssn) {
   const out = { configured: paydayConfigured(), apiBase: API_BASE, tokenUrl: TOKEN_URL, customerParam: CUSTOMER_PARAM };
   if (!out.configured) { out.note = 'Set PAYDAY_CLIENT_ID + PAYDAY_CLIENT_SECRET in Railway'; return out; }
   try {
@@ -169,21 +169,47 @@ async function debugProbe(customerId) {
     out.token = { httpStatus: res.status, responseKeys: Object.keys(j || {}), tokenField: field };
     if (!field) { out.token.bodyPreview = res.body.toString('utf8').slice(0, 200); return out; }
   } catch (e) { out.token = { error: String(e.message || e) }; return out; }
-  if (!customerId) { out.note = 'add &customerId=… to also probe invoices + payments'; return out; }
-  const probe = async (path) => {
-    try {
-      const raw = await apiGet(path, { [CUSTOMER_PARAM]: customerId, page: 1, perpage: 5 });
-      const arr = Array.isArray(raw) ? raw : (raw.lines || raw.data || raw.items || raw.results || raw.invoices || raw.payments || null);
-      return {
-        topLevelKeys: Array.isArray(raw) ? '(array)' : Object.keys(raw || {}),
-        rowsFound: Array.isArray(arr) ? arr.length : null,
-        firstKeys: (arr && arr[0]) ? Object.keys(arr[0]) : [],
-        firstSample: (arr && arr[0]) ? _redact(arr[0]) : null,
-      };
-    } catch (e) { return { error: String(e.message || e) }; }
+  // Discover the real list endpoints empirically (Weimi-style). No customer filter needed to find the path;
+  // bare GET returns the default first page, which is enough to read the field shape.
+  const scan = async (candidates) => {
+    const tried = [];
+    for (const p of candidates) {
+      try {
+        const raw = await apiGet(p, null);
+        const arr = Array.isArray(raw) ? raw : (raw.lines || raw.data || raw.items || raw.results || raw.invoices || raw.payments || raw.records || null);
+        tried.push({ path: p, status: 200,
+          topLevelKeys: Array.isArray(raw) ? '(array)' : Object.keys(raw || {}),
+          rowsFound: Array.isArray(arr) ? arr.length : null,
+          firstKeys: (arr && arr[0]) ? Object.keys(arr[0]) : [],
+          firstSample: (arr && arr[0]) ? _redact(arr[0]) : null });
+        return tried; // stop at first success
+      } catch (e) {
+        const m = String(e.message || e); const code = (m.match(/HTTP (\d+)/) || [])[1];
+        tried.push({ path: p, status: code ? Number(code) : m });
+      }
+    }
+    return tried;
   };
-  out.invoices = await probe(PATH_INVOICES);
-  out.payments = await probe(PATH_PAYMENTS);
+  out.invoiceScan = await scan(['/invoices', '/invoice', '/sales/invoices', '/salesInvoices', '/v1/invoices', '/api/invoices']);
+  out.paymentScan = await scan(['/payments', '/payment', '/sales/payments', '/v1/payments']);
+  // Customers: confirm the resource + which query param looks one up by kennitala (ssn),
+  // so an operator only needs to enter the ssn and we resolve their Payday id automatically.
+  out.customerScan = await scan(['/customers', '/customer', '/clients']);
+  const custPath = (out.customerScan.find(t => t.status === 200) || {}).path;
+  if (ssn && custPath) {
+    const cssn = String(ssn).replace(/\D/g, '');
+    out.customerLookup = [];
+    for (const param of ['ssn', 'query', 'search', 'q']) {
+      try {
+        const raw = await apiGet(custPath, { [param]: cssn });
+        const arr = Array.isArray(raw) ? raw : (raw.lines || raw.data || raw.items || raw.results || raw.customers || raw.records || null);
+        const hit = arr && arr[0];
+        out.customerLookup.push({ param, rowsFound: Array.isArray(arr) ? arr.length : null, match: hit ? { id: hit.id, ssn: hit.ssn, name: hit.name } : null });
+      } catch (e) { const m = String(e.message || e); const code = (m.match(/HTTP (\d+)/) || [])[1]; out.customerLookup.push({ param, status: code ? Number(code) : m }); }
+    }
+  } else if (custPath) {
+    out.note = 'add &ssn=<kennitala> to also test customer-by-ssn lookup';
+  }
   return out;
 }
 

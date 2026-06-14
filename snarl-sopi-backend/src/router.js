@@ -1078,7 +1078,8 @@ function handleDebugOrders(req, res) {
 async function handleDebugPayday(req, res) {
   try {
     const customerId = String(req.query.customerId || '').trim() || null;
-    ok(res, await require('./payday').debugProbe(customerId));
+    const ssn = String(req.query.ssn || '').trim() || null;
+    ok(res, await require('./payday').debugProbe(customerId, ssn));
   } catch (e) {
     ok(res, { error: String((e && e.message) || e) });
   }
