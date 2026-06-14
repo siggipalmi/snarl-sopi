@@ -166,6 +166,11 @@ const routes = [
   { method:'PUT',  pattern:'/api/v1/operators/:operatorId',                  handler: handleUpdateOperator,middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'POST', pattern:'/api/v1/operators',                              handler: handleCreateOperator,middleware:[requireAuth, requireAgAdmin] },
   { method:'DELETE',pattern:'/api/v1/operators/:operatorId',                 handler: handleDeleteOperator,middleware:[requireAuth, requireAgAdmin] },
+  // Operator billing portal (read-only Payday).
+  { method:'PUT',  pattern:'/api/v1/operators/:operatorId/payday-link',      handler: handleSetPaydayLink,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices',         handler: handleOperatorInvoices, middleware:[requireAuth, requireOperatorAccess] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/ledger',           handler: handleOperatorLedger,   middleware:[requireAuth, requireOperatorAccess] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices/:invoiceId/pdf', handler: handleOperatorInvoicePdf, middleware:[requireAuth, requireOperatorAccess] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/users',            handler: handleOperatorUsers, middleware:[requireAuth, requireOperatorAccess] },
   { method:'POST', pattern:'/api/v1/operators/:operatorId/users',            handler: handleInviteToOperator, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
 
@@ -2025,6 +2030,84 @@ async function uploadBase64Image(b64, typeHint, keyBase) {
   const ext = /png/.test(contentType) ? 'png' : /webp/.test(contentType) ? 'webp'
             : /svg/.test(contentType) ? 'svg' : /gif/.test(contentType) ? 'gif' : 'jpg';
   return r2.putObject(`${keyBase}-${Date.now()}.${ext}`, buf, contentType);
+}
+
+// ── Operator billing portal (read-only Payday) ──────────────────────────────
+
+// PUT /operators/:operatorId/payday-link — AG-admin links an operator to its Payday customer.
+function handleSetPaydayLink(req, res) {
+  const id = req.params.operatorId;
+  const op = operators[id] || storage.getOperator(id);
+  if (!op) return notFound(res, 'Operator not found');
+  const kennitala = String((req.body && req.body.kennitala) || '').replace(/[\s-]/g, '').trim() || null;
+  const paydayCustomerId = String((req.body && req.body.paydayCustomerId) || '').trim() || null;
+  storage.setOperatorPaydayLink(id, kennitala, paydayCustomerId);
+  if (operators[id]) { operators[id].kennitala = kennitala; operators[id].paydayCustomerId = paydayCustomerId; }
+  ok(res, { operatorId: id, kennitala, paydayCustomerId });
+}
+
+// Normalise a Payday invoice to the shape the portal renders. Field names are
+// tolerant + CONFIRM-able against a real response.
+function _normInvoice(inv) {
+  const n = v => Number(v || 0);
+  return {
+    id: inv.id || inv.invoiceId,
+    number: inv.number || inv.invoiceNumber || inv.id,
+    issuedAt: inv.issuedAt || inv.date || inv.createdAt || inv.created || null,
+    dueDate: inv.dueDate || inv.finalDueDate || null,
+    amount: n(inv.total || inv.amount || inv.totalAmount),
+    lateFee: n(inv.lateCharge || inv.lateFee || inv.interest || 0),
+    status: String(inv.status || '').toLowerCase(),
+  };
+}
+
+// GET /operators/:operatorId/invoices
+async function handleOperatorInvoices(req, res) {
+  const payday = require('./payday');
+  try {
+    if (!payday.paydayConfigured()) return ok(res, { configured: false, linked: false, invoices: [] });
+    const op = storage.getOperator(req.params.operatorId);
+    if (!op) return notFound(res, 'Operator not found');
+    if (!op.paydayCustomerId) return ok(res, { configured: true, linked: false, invoices: [] });
+    const raw = await payday.getCustomerInvoices(op.paydayCustomerId);
+    ok(res, { configured: true, linked: true, invoices: raw.map(_normInvoice) });
+  } catch (e) {
+    ok(res, { configured: true, linked: true, error: String(e.message || e), invoices: [] });
+  }
+}
+
+// GET /operators/:operatorId/ledger
+async function handleOperatorLedger(req, res) {
+  const payday = require('./payday');
+  try {
+    if (!payday.paydayConfigured()) return ok(res, { configured: false, linked: false, movements: [], balance: 0 });
+    const op = storage.getOperator(req.params.operatorId);
+    if (!op) return notFound(res, 'Operator not found');
+    if (!op.paydayCustomerId) return ok(res, { configured: true, linked: false, movements: [], balance: 0 });
+    const [inv, pay] = await Promise.all([
+      payday.getCustomerInvoices(op.paydayCustomerId),
+      payday.getCustomerPayments(op.paydayCustomerId),
+    ]);
+    const movements = payday.buildLedger(inv, pay);
+    ok(res, { configured: true, linked: true, movements, balance: movements.length ? movements[0].balance : 0 });
+  } catch (e) {
+    ok(res, { configured: true, linked: true, error: String(e.message || e), movements: [], balance: 0 });
+  }
+}
+
+// GET /operators/:operatorId/invoices/:invoiceId/pdf — stream the Payday PDF.
+async function handleOperatorInvoicePdf(req, res) {
+  const payday = require('./payday');
+  try {
+    if (!payday.paydayConfigured()) return json(res, 503, { ok: false, error: 'Payday not configured' });
+    const op = storage.getOperator(req.params.operatorId);
+    if (!op || !op.paydayCustomerId) return notFound(res, 'Operator not linked to Payday');
+    const pdf = await payday.getInvoicePdf(req.params.invoiceId);
+    res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="invoice-${req.params.invoiceId}.pdf"` });
+    res.end(pdf);
+  } catch (e) {
+    json(res, 502, { ok: false, error: String(e.message || e) });
+  }
 }
 
 async function handleUpdateOperator(req, res) {

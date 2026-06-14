@@ -313,6 +313,10 @@ ensureColumn('products', 'perishable',     'INTEGER');   // 1 = track expiry
 ensureColumn('operators', 'address', 'TEXT');
 ensureColumn('operators', 'logoUrl', 'TEXT');
 ensureColumn('operators', 'suspended', 'INTEGER');
+// Billing link: an operator maps to a Payday customer by kennitala (the human
+// match key) and customer id (the UUID the Payday API actually queries with).
+ensureColumn('operators', 'kennitala',        'TEXT');
+ensureColumn('operators', 'paydayCustomerId', 'TEXT');
 
 // ─── Statements (prepared once for speed) ─────────────────────────────────────
 
@@ -668,6 +672,10 @@ const storage = {
   getOperator(id)      { return rowToOperator(stmts.getOperator.get(id)); },
   listOperators()      { return stmts.listOperators.all().map(rowToOperator); },
   setOperatorSuspended(id, val) { db.prepare('UPDATE operators SET suspended = ? WHERE id = ?').run(val ? 1 : 0, id); },
+  setOperatorPaydayLink(id, kennitala, paydayCustomerId) {
+    db.prepare('UPDATE operators SET kennitala = ?, paydayCustomerId = ? WHERE id = ?')
+      .run(kennitala || null, paydayCustomerId || null, id);
+  },
   upsertOperator(op) {
     stmts.upsertOperator.run({
       id: op.id, name: op.name,
