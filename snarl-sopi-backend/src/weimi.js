@@ -303,10 +303,11 @@ function _rawCall(method, url, headers, bodyStr) {
           httpStatus: res.statusCode,
           weimiCode: json?.code ?? null,
           weimiMsg: json?.msg ?? null,
-          listLen: Array.isArray(json?.list) ? json.list.length
+          listLen: Array.isArray(json?.data?.list) ? json.data.list.length
                  : Array.isArray(json?.data?.records) ? json.data.records.length
+                 : Array.isArray(json?.list) ? json.list.length
                  : Array.isArray(json?.data) ? json.data.length : null,
-          bodyPreview: data.slice(0, 600),
+          bodyPreview: data.slice(0, 800),
         });
       });
     });
@@ -329,43 +330,31 @@ async function rawOrdersDiagnostic({ deviceCode = '62160043' } = {}) {
   const d  = x => x.toISOString().slice(0, 10);                    // yyyy-MM-dd
   const dt = x => x.toISOString().slice(0, 19).replace('T', ' ');  // yyyy-MM-dd HH:mm:ss
   const enc = v => encodeURIComponent(v);
-  // Build JSON from ORDERED [k,v] pairs (preserve order, do not sort).
-  const jsonOrdered    = pairs => '{' + pairs.map(([k, v]) => `${JSON.stringify(k)}:${typeof v === 'number' ? v : JSON.stringify(v)}`).join(',') + '}';
-  const jsonOrderedStr = pairs => '{' + pairs.map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(String(v))}`).join(',') + '}';
-  const qsOrdered      = pairs => pairs.map(([k, v]) => `${k}=${enc(v)}`).join('&');
-
+  const qsOrdered = pairs => pairs.map(([k, v]) => `${k}=${enc(v)}`).join('&');
   const SD = d(monthAgo), ED = d(today), ST = dt(monthAgo), ET = dt(today);
-  const setFull   = [['deviceCode', deviceCode], ['current', 1], ['size', 20], ['startTime', ST], ['endTime', ET]];
-  const setDates  = [['deviceCode', deviceCode], ['startDate', SD], ['endDate', ED]];
-  const setDatesT = [['deviceCode', deviceCode], ['startTime', ST], ['endTime', ET]];
-  const setPage   = [['deviceCode', deviceCode], ['current', 1], ['size', 20]];
 
-  // Multi-param GET fails with "Signature error". Hypothesis: Weimi rebuilds the
-  // signed paramJson in QUERY-STRING ORDER, while canonicalJson sorts keys. Test
-  // signing strategies for the same URL: order / order-as-strings / sorted / deviceOnly.
+  // CONFIRMED: this endpoint signs deviceCode ONLY (signing extra params → Signature
+  // error; signing just deviceCode succeeds). So filter params go in the URL unsigned.
+  // Sweep param spellings to find which actually returns orders (list or records).
   const variants = [
-    { name: 'deviceCode only (sorted) [control-good]', pairs: [['deviceCode', deviceCode]], sign: 'sorted' },
-    { name: 'full set · sign=ORDER',      pairs: setFull,  sign: 'order' },
-    { name: 'full set · sign=ORDER-STR',  pairs: setFull,  sign: 'order-str' },
-    { name: 'full set · sign=SORTED [control-bad]', pairs: setFull, sign: 'sorted' },
-    { name: 'full set · sign=deviceOnly', pairs: setFull,  sign: 'deviceOnly' },
-    { name: 'startDate/endDate · sign=ORDER', pairs: setDates,  sign: 'order' },
-    { name: 'startTime/endTime · sign=ORDER', pairs: setDatesT, sign: 'order' },
-    { name: 'pagination only · sign=ORDER',   pairs: setPage,   sign: 'order' },
+    [['deviceCode', deviceCode]],
+    [['deviceCode', deviceCode], ['current', 1], ['size', 20]],
+    [['deviceCode', deviceCode], ['current', 1], ['size', 20], ['startDate', SD], ['endDate', ED]],
+    [['deviceCode', deviceCode], ['startDate', SD], ['endDate', ED]],
+    [['deviceCode', deviceCode], ['startTime', ST], ['endTime', ET]],
+    [['deviceCode', deviceCode], ['current', 1], ['size', 20], ['startTime', ST], ['endTime', ET]],
+    [['deviceCode', deviceCode], ['beginTime', ST], ['endTime', ET]],
   ];
 
+  const paramJson = canonicalJson({ deviceCode }); // sign deviceCode only (the working scheme)
   const out = [];
-  for (const v of variants) {
-    let paramJson;
-    if (v.sign === 'sorted')          paramJson = canonicalJson(Object.fromEntries(v.pairs));
-    else if (v.sign === 'order')      paramJson = jsonOrdered(v.pairs);
-    else if (v.sign === 'order-str')  paramJson = jsonOrderedStr(v.pairs);
-    else /* deviceOnly */             paramJson = canonicalJson({ deviceCode });
-    const headers = buildPostHeaders(appId, secretKey, paramJson); // signs the exact paramJson string
-    const url = `${baseUrl}/ext/query-order-list?${qsOrdered(v.pairs)}`;
+  for (const pairs of variants) {
+    const headers = buildPostHeaders(appId, secretKey, paramJson);
+    const url = `${baseUrl}/ext/query-order-list?${qsOrdered(pairs)}`;
     const res = await _rawCall('GET', url, headers, null);
-    out.push({ variant: v.name, signedParamJson: paramJson, url, ...res });
+    out.push({ urlParams: qsOrdered(pairs), ...res });
   }
+  return { deviceCode, baseUrl, signedParamJson: paramJson, variants: out };
   return { deviceCode, baseUrl, variants: out };
 }
 
