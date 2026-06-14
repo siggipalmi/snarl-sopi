@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "4.90.0",
-  "description": "Snarl & Sopi backend v4.90 — Weimi GET signature confirmed deviceCode-only; rawOrdersDiagnostic now signs deviceCode-only and sweeps URL filter param spellings (startDate/endDate, startTime/endTime, current/size) to find which returns orders. Fixed list-length counter. Incl v4.86 favicon + mobile fixes.",
+  "version": "4.92.0",
+  "description": "Snarl & Sopi backend v4.92 — machine detail now pushes a history entry, so the iOS swipe-back gesture / Safari back arrow returns to the machines list; replaces (no stacking) when switching between machines, and renders without duplicating history on back/forward and on deep-link load. Builds on v4.91 #machine/<code> routing.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
