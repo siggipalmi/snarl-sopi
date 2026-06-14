@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "5.02.0",
-  "description": "Snarl & Sopi operator backend — v5.02: harden Payday link — only a real UUID is accepted as paydayCustomerId; a kennitala typed into either field is resolved to the customer id, and a non-UUID stored value now shows not-linked instead of a 400. Fixes GET /invoices HTTP 400 from a kennitala saved into the customer-id field.",
+  "version": "5.03.0",
+  "description": "Snarl & Sopi operator backend — v5.03: billing ledger fix — credit/refund movements were borrowing the lease label (looked like duplicated charges); now labeled distinctly. Added a Refresh button + cache-buster so the ledger re-pulls live from Payday on demand. Builds on v5.02 Payday link hardening.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

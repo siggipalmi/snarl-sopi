@@ -1202,7 +1202,7 @@ const I18N = {
     'billing.invUnpaid':'{n} unpaid','billing.invOverdue':'· {n} overdue','billing.noUnpaid':'nothing outstanding','billing.machines':'machines',
     'billing.paid':'paid','billing.unpaid':'unpaid','billing.due':'due','billing.overdue':'overdue','billing.lateFee':'incl. {amt} late fee',
     'billing.issued':'issued','billing.lease':'Machine lease','billing.movement':'Movement','billing.amount':'Amount','billing.balance':'Balance',
-    'billing.payment':'Payment received','billing.statement':'Download statement','billing.pdf':'PDF',
+    'billing.payment':'Payment received','billing.credit':'Credit / refund','billing.refresh':'Refresh','billing.statement':'Download statement','billing.pdf':'PDF',
     'billing.foot':'Read-only · invoices & ledger come from Payday','billing.loading':'Loading…',
     'billing.empty':'No invoices yet.','billing.emptySub':'Invoices appear here once Payday issues them.',
     'billing.notConfigured':'Billing isn’t connected yet.','billing.notConfiguredSub':'Payday credentials haven’t been set on the server.',
@@ -1250,7 +1250,7 @@ const I18N = {
     'billing.invUnpaid':'{n} ógreiddir','billing.invOverdue':'· {n} í vanskilum','billing.noUnpaid':'ekkert ógreitt','billing.machines':'vélar',
     'billing.paid':'greitt','billing.unpaid':'ógreitt','billing.due':'eindagi','billing.overdue':'í vanskilum','billing.lateFee':'með {amt} dráttargjaldi',
     'billing.issued':'útgefið','billing.lease':'Vélaleiga','billing.movement':'Hreyfing','billing.amount':'Upphæð','billing.balance':'Staða',
-    'billing.payment':'Innborgun','billing.statement':'Sækja yfirlit','billing.pdf':'PDF',
+    'billing.payment':'Innborgun','billing.credit':'Kredit / endurgreiðsla','billing.refresh':'Endurhlaða','billing.statement':'Sækja yfirlit','billing.pdf':'PDF',
     'billing.foot':'Skrifvarið · reikningar og hreyfingar koma frá Payday','billing.loading':'Hleð…',
     'billing.empty':'Engir reikningar enn.','billing.emptySub':'Reikningar birtast hér þegar Payday gefur þá út.',
     'billing.notConfigured':'Innheimta ekki tengd enn.','billing.notConfiguredSub':'Payday-aðgangur hefur ekki verið settur á þjóninn.',
@@ -5210,9 +5210,10 @@ async function renderBilling() {
   body.innerHTML = `<div class="bl-state">${t('billing.loading')}</div>`;
   let invRes, ledRes;
   try {
+    const cb = '?_=' + Date.now();
     [invRes, ledRes] = await Promise.all([
-      API.get('/api/v1/operators/' + encodeURIComponent(opId) + '/invoices'),
-      API.get('/api/v1/operators/' + encodeURIComponent(opId) + '/ledger'),
+      API.get('/api/v1/operators/' + encodeURIComponent(opId) + '/invoices' + cb),
+      API.get('/api/v1/operators/' + encodeURIComponent(opId) + '/ledger' + cb),
     ]);
   } catch (e) {
     body.innerHTML = `<div class="bl-state"><div class="big">${t('billing.error')}</div>${rsEsc(String(e.message || e))}</div>`; return;
@@ -5256,7 +5257,9 @@ async function renderBilling() {
       `<div class="bl-actions"><button class="bl-dl" onclick="blDownloadStatement('${opId}')">↓ ${t('billing.statement')}</button></div>`
     : `<div class="bl-state">${t('billing.empty')}</div>`;
 
-  body.innerHTML = summary + tabs +
+  const refreshBar = `<div style="display:flex;justify-content:flex-end;margin:-8px 0 10px"><button class="bl-dl" onclick="renderBilling()">↻ ${t('billing.refresh')}</button></div>`;
+
+  body.innerHTML = summary + refreshBar + tabs +
     `<div id="bl-panel-invoices" style="${_blTab === 'invoices' ? '' : 'display:none'}">${invPanel}</div>` +
     `<div id="bl-panel-ledger" style="${_blTab === 'ledger' ? '' : 'display:none'}">${ledPanel}</div>` +
     `<div class="bl-foot">${t('billing.foot')}</div>`;
@@ -5289,8 +5292,11 @@ function blLedRow(m) {
     `<div class="bl-led-amt${credit ? ' credit' : ''}">${amt}</div><div class="bl-led-bal">${blNum(m.balance)}</div></div>`;
 }
 function blLedDesc(m) {
-  if (m.kind === 'payment') return t('billing.payment') + (m.ref ? ' — #' + m.ref : '');
-  return (m.desc && m.desc !== 'Invoice' ? m.desc : t('billing.lease')) + (m.ref ? ' — #' + m.ref : '');
+  const ref = m.ref ? ' · #' + m.ref : '';
+  if (m.kind === 'payment') return t('billing.payment') + ref;
+  if (m.kind === 'credit')  return t('billing.credit') + ref;
+  const base = (m.desc && m.desc !== 'Invoice') ? m.desc : t('billing.lease');
+  return base + ref;
 }
 function onBillingOp(id) { _blOpId = id; renderBilling(); }
 function onBillingTab(tab) {
