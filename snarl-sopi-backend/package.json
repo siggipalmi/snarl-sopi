@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "4.94.0",
-  "description": "Snarl & Sopi backend v4.94 — corrected Payday auth to the real flow: POST clientId/clientSecret to /auth/token for a 24h Bearer token (no refresh token). Needs only PAYDAY_CLIENT_ID + PAYDAY_CLIENT_SECRET. Billing portal foundation otherwise as v4.93.",
+  "version": "4.95.0",
+  "description": "Snarl & Sopi backend v4.95 — signup onboarding: POST /operators/provision (X-Provision-Key auth) creates an operator from the leasing Zap, links it to its Payday customer, and emails the onboarding invite via the existing SendGrid invite flow. Idempotent on kennitala/customer id. Set PROVISION_KEY in Railway to enable.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

@@ -171,6 +171,8 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices',         handler: handleOperatorInvoices, middleware:[requireAuth, requireOperatorAccess] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/ledger',           handler: handleOperatorLedger,   middleware:[requireAuth, requireOperatorAccess] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices/:invoiceId/pdf', handler: handleOperatorInvoicePdf, middleware:[requireAuth, requireOperatorAccess] },
+  // Signup automation: the leasing Zap calls this after creating the Payday customer.
+  { method:'POST', pattern:'/api/v1/operators/provision',                     handler: handleProvisionOperator, middleware:[] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/users',            handler: handleOperatorUsers, middleware:[requireAuth, requireOperatorAccess] },
   { method:'POST', pattern:'/api/v1/operators/:operatorId/users',            handler: handleInviteToOperator, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
 
@@ -2108,6 +2110,54 @@ async function handleOperatorInvoicePdf(req, res) {
   } catch (e) {
     json(res, 502, { ok: false, error: String(e.message || e) });
   }
+}
+
+// POST /operators/provision — called by the signup Zap after it creates the Payday
+// customer. Creates the operator (idempotent on kennitala / customer id), links it
+// to Payday, and sends the onboarding invite email. Authenticated by a shared key
+// (header X-Provision-Key), not a user session, since the caller is the automation.
+async function handleProvisionOperator(req, res) {
+  const KEY = process.env.PROVISION_KEY;
+  if (!KEY) return json(res, 503, { ok: false, error: 'Provisioning disabled (PROVISION_KEY not set)' });
+  if ((req.headers['x-provision-key'] || '') !== KEY) return json(res, 401, { ok: false, error: 'Invalid provision key' });
+
+  const b = req.body || {};
+  const name = String(b.name || '').trim();
+  const emailAddr = String(b.email || '').trim();
+  if (!name || !emailAddr) return badRequest(res, 'name and email are required');
+  const kennitala = String(b.kennitala || '').replace(/[\s-]/g, '').trim() || null;
+  const paydayCustomerId = String(b.paydayCustomerId || '').trim() || null;
+
+  // Idempotent: a matching operator (same kennitala or Payday customer) means the
+  // Zap already ran — return it without creating a duplicate or re-emailing.
+  const existing = Object.values(operators).find(o =>
+    (kennitala && o.kennitala === kennitala) ||
+    (paydayCustomerId && o.paydayCustomerId === paydayCustomerId));
+  if (existing) return ok(res, { operatorId: existing.id, created: false, invited: false, note: 'Operator already exists' });
+
+  const slug = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  let id = `op_${slug || Date.now()}`;
+  if (operators[id]) id = `${id}-${Math.random().toString(36).slice(2, 6)}`;
+
+  operators[id] = {
+    id, name, isAGVending: false,
+    contactEmail: emailAddr, contactPhone: String(b.contactPhone || ''),
+    address: '', logoUrl: '', kennitala, paydayCustomerId,
+    createdAt: new Date().toISOString(),
+  };
+  storage.upsertOperator(operators[id]);
+  storage.setOperatorPaydayLink(id, kennitala, paydayCustomerId);
+
+  const invite = createInvitation({ email: emailAddr, name, role: 'operator_admin', operatorId: id, inviterId: null, machineAccess: 'all' });
+  const inviteUrl = `${process.env.APP_URL || ''}/?invite=${invite.token}`;
+  let invited = true;
+  try {
+    await email.sendInvitation({ to: emailAddr, name, inviterName: 'AG Vending', operatorName: name, role: 'operator_admin', inviteToken: invite.token });
+  } catch (e) { invited = false; console.warn('[PROVISION] invite email failed:', e.message); }
+
+  console.log(`[PROVISION] operator ${name} (${id}) created; invite ${invited ? 'sent' : 'NOT sent'} → ${emailAddr}`);
+  ok(res, { operatorId: id, created: true, invited, linked: Boolean(kennitala || paydayCustomerId), inviteUrl });
 }
 
 async function handleUpdateOperator(req, res) {
