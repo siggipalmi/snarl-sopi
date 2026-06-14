@@ -195,20 +195,46 @@ async function debugProbe(customerId, ssn) {
   // Customers: confirm the resource + which query param looks one up by kennitala (ssn),
   // so an operator only needs to enter the ssn and we resolve their Payday id automatically.
   out.customerScan = await scan(['/customers', '/customer', '/clients']);
-  const custPath = (out.customerScan.find(t => t.status === 200) || {}).path;
-  if (ssn && custPath) {
-    const cssn = String(ssn).replace(/\D/g, '');
-    out.customerLookup = [];
-    for (const param of ['ssn', 'query', 'search', 'q']) {
-      try {
-        const raw = await apiGet(custPath, { [param]: cssn });
-        const arr = Array.isArray(raw) ? raw : (raw.lines || raw.data || raw.items || raw.results || raw.customers || raw.records || null);
-        const hit = arr && arr[0];
-        out.customerLookup.push({ param, rowsFound: Array.isArray(arr) ? arr.length : null, match: hit ? { id: hit.id, ssn: hit.ssn, name: hit.name } : null });
-      } catch (e) { const m = String(e.message || e); const code = (m.match(/HTTP (\d+)/) || [])[1]; out.customerLookup.push({ param, status: code ? Number(code) : m }); }
-    }
-  } else if (custPath) {
-    out.note = 'add &ssn=<kennitala> to also test customer-by-ssn lookup';
+
+  // Deep tests (self-contained): use a real customer taken from the first invoice to learn
+  // (a) the invoice→customer field shape, (b) which param filters /invoices by customer,
+  // (c) which param filters /customers by ssn. No external input needed.
+  const invPath = (out.invoiceScan.find(t => t.status === 200) || {}).path;
+  if (invPath) {
+    try {
+      const sample = await apiGet(invPath, { page: 1 });
+      const firstInv = ((sample && sample.invoices) || (Array.isArray(sample) ? sample : []))[0];
+      const cust = firstInv && firstInv.customer;
+      const cid = cust && cust.id;
+      const cssn = (cust && cust.ssn) ? String(cust.ssn).replace(/\D/g, '') : null;
+      out.invoiceCustomerShape = cust ? { keys: Object.keys(cust), id: cust.id, ssn: cust.ssn, name: cust.name }
+        : (firstInv ? 'customer field missing' : 'no invoices on page 1');
+      out.invoicePaymentsShape = (firstInv && firstInv.payments && typeof firstInv.payments === 'object')
+        ? { keys: Object.keys(firstInv.payments) } : (firstInv ? String(firstInv.payments) : null);
+
+      if (cid) {
+        out.invoiceFilterTest = [];
+        for (const param of ['customerId', 'customer', 'payorId']) {
+          try {
+            const raw = await apiGet(invPath, { [param]: cid, page: 1 });
+            const arr = (raw && raw.invoices) || [];
+            const allMatch = arr.length > 0 && arr.every(iv => iv.customer && iv.customer.id === cid);
+            out.invoiceFilterTest.push({ param, total: raw && raw.total, returned: arr.length, allMatch });
+          } catch (e) { const m = String(e.message || e); const c = (m.match(/HTTP (\d+)/) || [])[1]; out.invoiceFilterTest.push({ param, status: c ? Number(c) : m }); }
+        }
+      }
+      if (cssn) {
+        out.customerFilterTest = [];
+        for (const param of ['ssn', 'kennitala', 'query', 'search', 'name']) {
+          try {
+            const raw = await apiGet('/customers', { [param]: cssn, page: 1 });
+            const arr = (raw && raw.customers) || [];
+            const allMatch = arr.length > 0 && arr.every(c => String(c.ssn || '').replace(/\D/g, '') === cssn);
+            out.customerFilterTest.push({ param, total: raw && raw.total, returned: arr.length, allMatch });
+          } catch (e) { const m = String(e.message || e); const c = (m.match(/HTTP (\d+)/) || [])[1]; out.customerFilterTest.push({ param, status: c ? Number(c) : m }); }
+        }
+      }
+    } catch (e) { out.deepError = String(e.message || e); }
   }
   return out;
 }
