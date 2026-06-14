@@ -2048,16 +2048,24 @@ async function uploadBase64Image(b64, typeHint, keyBase) {
 // ── Operator billing portal (read-only Payday) ──────────────────────────────
 
 // PUT /operators/:operatorId/payday-link — AG-admin links an operator to its Payday customer.
+const _isGuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || '').trim());
+
 async function handleSetPaydayLink(req, res) {
   try {
     const id = req.params.operatorId;
     const op = operators[id] || storage.getOperator(id);
     if (!op) return notFound(res, 'Operator not found');
-    const kennitala = String((req.body && req.body.kennitala) || '').replace(/[\s-]/g, '').trim() || null;
-    let paydayCustomerId = String((req.body && req.body.paydayCustomerId) || '').trim() || null;
+    let kennitala = String((req.body && req.body.kennitala) || '').replace(/[\s-]/g, '').trim() || null;
+    const pidRaw = String((req.body && req.body.paydayCustomerId) || '').trim();
+    // Only accept a genuine UUID as the customer id. If a kennitala was typed into
+    // that field by mistake, fold it back into the kennitala and resolve from there.
+    let paydayCustomerId = _isGuid(pidRaw) ? pidRaw : null;
+    if (!paydayCustomerId && !kennitala && /^\d{6,12}$/.test(pidRaw.replace(/\D/g, ''))) {
+      kennitala = pidRaw.replace(/\D/g, '');
+    }
     let resolved = false, matchedName = null, lookupError = null;
     const payday = require('./payday');
-    // If only a kennitala was given, resolve the Payday customer id automatically.
+    // If we don't yet have a UUID but have a kennitala, resolve the Payday customer id.
     if (!paydayCustomerId && kennitala && payday.paydayConfigured()) {
       try {
         const cust = await payday.findCustomerBySsn(kennitala);
@@ -2096,7 +2104,7 @@ async function handleOperatorInvoices(req, res) {
     if (!payday.paydayConfigured()) return ok(res, { configured: false, linked: false, invoices: [] });
     const op = storage.getOperator(req.params.operatorId);
     if (!op) return notFound(res, 'Operator not found');
-    if (!op.paydayCustomerId) return ok(res, { configured: true, linked: false, invoices: [] });
+    if (!op.paydayCustomerId || !_isGuid(op.paydayCustomerId)) return ok(res, { configured: true, linked: false, invoices: [] });
     const raw = await payday.getCustomerInvoices(op.paydayCustomerId);
     ok(res, { configured: true, linked: true, invoices: raw.map(_normInvoice) });
   } catch (e) {
@@ -2111,7 +2119,7 @@ async function handleOperatorLedger(req, res) {
     if (!payday.paydayConfigured()) return ok(res, { configured: false, linked: false, movements: [], balance: 0 });
     const op = storage.getOperator(req.params.operatorId);
     if (!op) return notFound(res, 'Operator not found');
-    if (!op.paydayCustomerId) return ok(res, { configured: true, linked: false, movements: [], balance: 0 });
+    if (!op.paydayCustomerId || !_isGuid(op.paydayCustomerId)) return ok(res, { configured: true, linked: false, movements: [], balance: 0 });
     const inv = await payday.getCustomerInvoices(op.paydayCustomerId);
     const movements = payday.buildLedger(inv);
     ok(res, { configured: true, linked: true, movements, balance: movements.length ? movements[0].balance : 0 });

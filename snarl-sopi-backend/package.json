@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "5.01.0",
-  "description": "Snarl & Sopi operator backend — v5.01: fix rowToOperator dropping kennitala/paydayCustomerId (and address/logoUrl) on every read — these were saved to SQLite but stripped on the way out, so the operator link prefilled blank and the billing portal saw no paydayCustomerId. Now they round-trip. Builds on v5.00 live Payday integration.",
+  "version": "5.02.0",
+  "description": "Snarl & Sopi operator backend — v5.02: harden Payday link — only a real UUID is accepted as paydayCustomerId; a kennitala typed into either field is resolved to the customer id, and a non-UUID stored value now shows not-linked instead of a 400. Fixes GET /invoices HTTP 400 from a kennitala saved into the customer-id field.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
