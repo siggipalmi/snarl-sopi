@@ -297,4 +297,16 @@ function lastSync(deviceCode) {
   };
 }
 
-module.exports = { syncStatusAll, syncDeviceProducts, syncOrders, syncMachine, syncAll, populateFromWeimi, lastSync };
+// Read-only probe: what does Weimi actually return for this device's orders?
+// Used by the /debug/weimi-orders diagnostic — does not write to the DB.
+async function debugQueryOrders(deviceCode) {
+  const list = await weimi.queryOrders(WEIMI_CFG, { deviceCode });
+  const arr = list || [];
+  return {
+    deviceCode,
+    fetched: arr.length,
+    sample: arr.slice(0, 5),
+  };
+}
+
+module.exports = { syncStatusAll, syncDeviceProducts, syncOrders, syncMachine, syncAll, populateFromWeimi, lastSync, debugQueryOrders };

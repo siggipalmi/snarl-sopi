@@ -108,6 +108,7 @@ const routes = [
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/hardware',            handler: handleSetHardware,    middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/debug/commands',                           handler: handleDebugCommands,  middleware:[] },
   { method:'GET',  pattern:'/api/v1/debug/orders',                             handler: handleDebugOrders,    middleware:[] },
+  { method:'GET',  pattern:'/api/v1/debug/weimi-orders',                       handler: handleDebugWeimiOrders, middleware:[] },
 
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/weimi/sync',         handler: handleWeimiSyncOne, middleware:[requireAuth, requireMachineAccess] },
 
@@ -1063,6 +1064,19 @@ function handleDebugOrders(req, res) {
     createTime: o.createTime ? new Date(o.createTime).toISOString() : null,
   }));
   json(res, 200, { deviceCode, now: new Date().toISOString(), statusBreakdown, sample });
+}
+
+// GET /debug/weimi-orders?deviceCode=... — read-only: what Weimi returns for
+// this device's orders (raw), to see whether the sync has anything to import.
+async function handleDebugWeimiOrders(req, res) {
+  const deviceCode = String(req.query.deviceCode || '').trim();
+  if (!deviceCode) return badRequest(res, 'deviceCode query param required');
+  try {
+    const out = await require('./weimiSync').debugQueryOrders(deviceCode);
+    json(res, 200, out);
+  } catch (e) {
+    json(res, 200, { deviceCode, error: String((e && e.message) || e) });
+  }
 }
 
 // Is a product (by product code = goodsId) stocked in a machine's layout?

@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "4.83.0",
-  "description": "Snarl & Sopi backend v4.83 — hardening fixes: API layer now degrades gracefully on non-JSON responses (Railway cold-start after redeploy no longer crashes revenue/performance/sold-out widgets with the cryptic Safari error); timeAgo + sold-out date parsing made Safari-safe; dashboard top stats now 2x2 on mobile too.",
+  "version": "4.87.0",
+  "description": "Snarl & Sopi backend v4.87 — added read-only /debug/weimi-orders probe to diagnose empty revenue (shows what Weimi returns for a device order query). Includes v4.86 favicon + mobile-overflow fixes.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
