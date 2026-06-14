@@ -614,13 +614,17 @@ function machineToRow(m) {
 function rowToOperator(row) {
   if (!row) return null;
   return {
-    id:           row.id,
-    name:         row.name,
-    isAGVending:  !!row.isAGVending,
-    contactEmail: row.contactEmail || '',
-    contactPhone: row.contactPhone || '',
-    suspended:    !!row.suspended,
-    createdAt:    row.createdAt,
+    id:               row.id,
+    name:             row.name,
+    isAGVending:      !!row.isAGVending,
+    contactEmail:     row.contactEmail || '',
+    contactPhone:     row.contactPhone || '',
+    address:          row.address || '',
+    logoUrl:          row.logoUrl || '',
+    suspended:        !!row.suspended,
+    kennitala:        row.kennitala || null,
+    paydayCustomerId: row.paydayCustomerId || null,
+    createdAt:        row.createdAt,
   };
 }
 
