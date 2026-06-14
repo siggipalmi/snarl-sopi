@@ -443,10 +443,10 @@ select.fi{cursor:pointer;}
   <div class="nav-item" onclick="go('expiry',this)"><span class="nav-icon">◷</span> <span data-i18n="nav.expiry">Expiry</span></div>
   <div class="sb-section" data-i18n="group.commerce">commerce</div>
   <div class="nav-item" onclick="go('orders',this)"><span class="nav-icon">◧</span> <span data-i18n="nav.orders">Orders</span></div>
-  <div class="nav-item" onclick="go('billing',this)"><span class="nav-icon">▤</span> <span data-i18n="nav.billing">Billing</span></div>
   <div class="nav-item" onclick="go('complaints',this)"><span class="nav-icon">⚠</span> <span data-i18n="nav.complaints">Complaints</span> <span class="nav-badge" id="nb-complaints" style="display:none">0</span></div>
   <div class="nav-item" onclick="go('reports',this)"><span class="nav-icon">◫</span> <span data-i18n="nav.reports">Reports</span></div>
   <div class="sb-section" data-i18n="group.system">system</div>
+  <div class="nav-item" onclick="go('billing',this)"><span class="nav-icon">▤</span> <span data-i18n="nav.billing">Billing</span></div>
   <div class="nav-item" onclick="go('users',this)"><span class="nav-icon">◎</span> <span data-i18n="nav.users">Users</span></div>
   <div class="nav-item" onclick="go('help',this)"><span class="nav-icon">?</span> <span data-i18n="nav.help">Help</span></div>
   <div class="nav-item ag-only" onclick="go('settings',this)" style="display:none"><span class="nav-icon">⊞</span> <span data-i18n="nav.settings">Settings</span></div>
@@ -1202,7 +1202,7 @@ const I18N = {
     'billing.invUnpaid':'{n} unpaid','billing.invOverdue':'· {n} overdue','billing.noUnpaid':'nothing outstanding','billing.machines':'machines',
     'billing.paid':'paid','billing.unpaid':'unpaid','billing.due':'due','billing.overdue':'overdue','billing.lateFee':'incl. {amt} late fee',
     'billing.issued':'issued','billing.lease':'Machine lease','billing.movement':'Movement','billing.amount':'Amount','billing.balance':'Balance',
-    'billing.payment':'Payment received','billing.credit':'Credit / refund','billing.refresh':'Refresh','billing.statement':'Download statement','billing.pdf':'PDF',
+    'billing.payment':'Payment received','billing.credit':'Credit / refund','billing.invoiceRow':'Invoice','billing.refresh':'Refresh','billing.statement':'Download statement','billing.pdf':'PDF',
     'billing.foot':'Read-only · invoices & ledger come from Payday','billing.loading':'Loading…',
     'billing.empty':'No invoices yet.','billing.emptySub':'Invoices appear here once Payday issues them.',
     'billing.notConfigured':'Billing isn’t connected yet.','billing.notConfiguredSub':'Payday credentials haven’t been set on the server.',
@@ -1250,7 +1250,7 @@ const I18N = {
     'billing.invUnpaid':'{n} ógreiddir','billing.invOverdue':'· {n} í vanskilum','billing.noUnpaid':'ekkert ógreitt','billing.machines':'vélar',
     'billing.paid':'greitt','billing.unpaid':'ógreitt','billing.due':'eindagi','billing.overdue':'í vanskilum','billing.lateFee':'með {amt} dráttargjaldi',
     'billing.issued':'útgefið','billing.lease':'Vélaleiga','billing.movement':'Hreyfing','billing.amount':'Upphæð','billing.balance':'Staða',
-    'billing.payment':'Innborgun','billing.credit':'Kredit / endurgreiðsla','billing.refresh':'Endurhlaða','billing.statement':'Sækja yfirlit','billing.pdf':'PDF',
+    'billing.payment':'Innborgun','billing.credit':'Kredit / endurgreiðsla','billing.invoiceRow':'Reikningur','billing.refresh':'Endurhlaða','billing.statement':'Sækja yfirlit','billing.pdf':'PDF',
     'billing.foot':'Skrifvarið · reikningar og hreyfingar koma frá Payday','billing.loading':'Hleð…',
     'billing.empty':'Engir reikningar enn.','billing.emptySub':'Reikningar birtast hér þegar Payday gefur þá út.',
     'billing.notConfigured':'Innheimta ekki tengd enn.','billing.notConfiguredSub':'Payday-aðgangur hefur ekki verið settur á þjóninn.',
@@ -5292,11 +5292,9 @@ function blLedRow(m) {
     `<div class="bl-led-amt${credit ? ' credit' : ''}">${amt}</div><div class="bl-led-bal">${blNum(m.balance)}</div></div>`;
 }
 function blLedDesc(m) {
-  const ref = m.ref ? ' · #' + m.ref : '';
-  if (m.kind === 'payment') return t('billing.payment') + ref;
-  if (m.kind === 'credit')  return t('billing.credit') + ref;
-  const base = (m.desc && m.desc !== 'Invoice') ? m.desc : t('billing.lease');
-  return base + ref;
+  if (m.kind === 'payment') return t('billing.payment') + (m.ref ? ' · #' + m.ref : '');
+  if (m.kind === 'credit')  return t('billing.credit') + (m.ref ? ' · #' + m.ref : '');
+  return t('billing.invoiceRow') + (m.ref ? ' #' + m.ref : '');   // ignore Payday's free-text description
 }
 function onBillingOp(id) { _blOpId = id; renderBilling(); }
 function onBillingTab(tab) {

@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "5.03.0",
-  "description": "Snarl & Sopi operator backend — v5.03: billing ledger fix — credit/refund movements were borrowing the lease label (looked like duplicated charges); now labeled distinctly. Added a Refresh button + cache-buster so the ledger re-pulls live from Payday on demand. Builds on v5.02 Payday link hardening.",
+  "version": "5.04.0",
+  "description": "Snarl & Sopi operator backend — v5.04: ledger invoice rows now read \"Invoice #<num>\" instead of echoing Payday's stale free-text description (which carried the Aug #187 adjustment text across later invoices). Billing nav moved into the System group. Builds on v5.03.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
