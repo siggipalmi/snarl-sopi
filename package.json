@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.06.0",
+  "description": "Snarl & Sopi operator backend — v5.06: deal product targeting upgraded from free text to a catalog typeahead. New GET /api/v1/products/search (name/barcode, ≥3 chars) returns thumbnail, current resale price, and live stock count (summed from slot_stock, scoped to the deal's selected machines when set). Composer shows a predictive dropdown + selected-product chips. Builds on v5.05 deals engine.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
