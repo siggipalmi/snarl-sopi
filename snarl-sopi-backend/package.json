@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "5.07.0",
-  "description": "Snarl & Sopi operator backend — v5.07: combo deals rebuilt as product groups (pick one from each of up to 3 groups → fixed price or % off), each group using the catalog typeahead; the \"specific machines\" scope picker is now searchable with a live match count. Product picker generalised to work per-target. Builds on v5.06.",
+  "version": "5.08.0",
+  "description": "Snarl & Sopi operator backend — v5.08: fix empty machine scope picker in deals — the list was guarded on window.DB (DB is a lexical global, so window.DB was undefined → always empty). Now reads DB directly and hydrates the fleet on demand if Deals is opened before Machines. Builds on v5.07.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

@@ -5488,7 +5488,10 @@ function dlSetType(t) {
 function dlSetApplies(k) { const g = document.getElementById('dl-applies-group'); const p = document.getElementById('dl-applies-products'); if (g) g.style.display = k === 'group' ? '' : 'none'; if (p) p.style.display = k === 'products' ? '' : 'none'; }
 function dlSetScope(k) { const m = document.getElementById('dl-scope-machines'); if (m) m.style.display = k === 'machines' ? '' : 'none'; if (k === 'machines') dlMachFilter(''); }
 function dlSetSchedule(k) { const dts = document.getElementById('dl-sched-dates'); const hrs = document.getElementById('dl-sched-hours'); if (dts) dts.style.display = k === 'dates' ? 'flex' : 'none'; if (hrs) hrs.style.display = k === 'hours' ? '' : 'none'; }
-function dlOpenModal(id) {
+async function dlOpenModal(id) {
+  if (DB && DB.machines && !Object.keys(DB.machines).length && typeof hydrateMachinesFromBackend === 'function') {
+    try { await hydrateMachinesFromBackend(); } catch (e) {}
+  }
   const d = id ? _dealsList.find(x => x.id === id) : null;
   _dlEditId = d ? d.id : null;
   _dlType = d ? d.type : 'markdown';
@@ -5514,7 +5517,7 @@ function dlComposerHtml(d) {
   const t = _dlType;
   const sel = (v, opts) => opts.map(o => `<option value="${o[0]}"${o[0] === v ? ' selected' : ''}>${o[1]}</option>`).join('');
   const show = cond => cond ? '' : 'display:none';
-  const machines = Object.entries((window.DB && DB.machines) ? DB.machines : {}).map(([code, m]) => {
+  const machines = Object.entries((DB && DB.machines) ? DB.machines : {}).map(([code, m]) => {
     const nm = (m && (m.deviceName || (m.settings && m.settings.machineLabel))) || code;
     const ck = (s.kind === 'machines' && (s.machines || []).includes(code)) ? ' checked' : '';
     const hay = (nm + ' ' + code).toLowerCase();
