@@ -169,6 +169,10 @@ const routes = [
   { method:'DELETE',pattern:'/api/v1/operators/:operatorId',                 handler: handleDeleteOperator,middleware:[requireAuth, requireAgAdmin] },
   // Operator billing portal (read-only Payday).
   { method:'PUT',  pattern:'/api/v1/operators/:operatorId/payday-link',      handler: handleSetPaydayLink,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',    pattern:'/api/v1/deals',                                 handler: handleListDeals,  middleware:[requireAuth] },
+  { method:'POST',   pattern:'/api/v1/deals',                                 handler: handleCreateDeal, middleware:[requireAuth, requireAgAdmin] },
+  { method:'PUT',    pattern:'/api/v1/deals/:id',                             handler: handleUpdateDeal, middleware:[requireAuth, requireAgAdmin] },
+  { method:'DELETE', pattern:'/api/v1/deals/:id',                             handler: handleDeleteDeal, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices',         handler: handleOperatorInvoices, middleware:[requireAuth, requireOperatorAccess] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/ledger',           handler: handleOperatorLedger,   middleware:[requireAuth, requireOperatorAccess] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices/:invoiceId/pdf', handler: handleOperatorInvoicePdf, middleware:[requireAuth, requireOperatorAccess] },
@@ -2049,6 +2053,72 @@ async function uploadBase64Image(b64, typeHint, keyBase) {
 
 // PUT /operators/:operatorId/payday-link — AG-admin links an operator to its Payday customer.
 const _isGuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || '').trim());
+
+const _DEAL_TYPES = ['markdown', 'expiry', 'multibuy', 'combo'];
+function dealStatus(d) {
+  if (!d.enabled) return 'paused';
+  const s = d.schedule || {}; const now = new Date();
+  if (s.kind === 'dates') {
+    if (s.start && new Date(s.start) > now) return 'scheduled';
+    if (s.end && new Date(s.end + 'T23:59:59') < now) return 'ended';
+  }
+  return 'active';
+}
+// Bump configVersion on the machines a deal targets so kiosks re-fetch (config uses 304-on-version).
+function bumpDealsConfig(d) {
+  try {
+    const sc = (d && d.scope) || { kind: 'fleet' };
+    const all = storage.listMachines();
+    const targets = (sc.kind === 'machines' && Array.isArray(sc.machines))
+      ? all.filter(m => sc.machines.includes(m.deviceCode))
+      : all;
+    targets.forEach(m => { try { touchConfig(m); } catch (e) {} });
+  } catch (e) { /* best-effort */ }
+}
+function handleListDeals(req, res) {
+  const list = storage.listDeals().map(d => ({ ...d, status: dealStatus(d) }));
+  ok(res, list, { total: list.length });
+}
+function handleCreateDeal(req, res) {
+  const b = req.body || {};
+  if (!b.name) return badRequest(res, 'name required');
+  if (!_DEAL_TYPES.includes(b.type)) return badRequest(res, 'invalid deal type');
+  const id = 'deal_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const d = storage.upsertDeal({
+    id, name: b.name, type: b.type, enabled: b.enabled !== false,
+    config: b.config || {}, appliesTo: b.appliesTo || { kind: 'all' },
+    scope: b.scope || { kind: 'fleet' }, schedule: b.schedule || { kind: 'always' }, stackable: !!b.stackable,
+  });
+  bumpDealsConfig(d);
+  created(res, { ...d, status: dealStatus(d) });
+}
+function handleUpdateDeal(req, res) {
+  const ex = storage.getDeal(req.params.id);
+  if (!ex) return notFound(res, 'Deal not found');
+  const b = req.body || {};
+  if (b.type && !_DEAL_TYPES.includes(b.type)) return badRequest(res, 'invalid deal type');
+  const d = storage.upsertDeal({
+    id: ex.id,
+    name: b.name !== undefined ? b.name : ex.name,
+    type: b.type || ex.type,
+    enabled: b.enabled !== undefined ? b.enabled : ex.enabled,
+    config: b.config || ex.config,
+    appliesTo: b.appliesTo || ex.appliesTo,
+    scope: b.scope || ex.scope,
+    schedule: b.schedule || ex.schedule,
+    stackable: b.stackable !== undefined ? b.stackable : ex.stackable,
+    createdAt: ex.createdAt,
+  });
+  bumpDealsConfig(d);
+  ok(res, { ...d, status: dealStatus(d) });
+}
+function handleDeleteDeal(req, res) {
+  const ex = storage.getDeal(req.params.id);
+  if (!ex) return notFound(res, 'Deal not found');
+  storage.deleteDeal(req.params.id);
+  bumpDealsConfig(ex);
+  ok(res, { deleted: true, id: req.params.id });
+}
 
 async function handleSetPaydayLink(req, res) {
   try {

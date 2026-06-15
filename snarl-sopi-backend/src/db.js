@@ -439,6 +439,7 @@ function buildConfigResponse(machine) {
     gridOrder: Array.isArray(cfg.gridOrder) ? cfg.gridOrder : [],
     featured: (machine.featured || []).slice().sort((a,b) => a.order - b.order),
     ads: machine.ads || [],
+    deals: storage.activeDealsForMachine(machine.deviceCode) || [],
     hardware: { dropSensor: cfg.dropSensor === 'on' ? 'on' : 'off' },
     configVersion: machine.configVersion,
   };

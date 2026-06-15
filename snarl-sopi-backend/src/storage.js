@@ -264,6 +264,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_batches_slot   ON product_batches(deviceCode, goodsId);
   CREATE INDEX IF NOT EXISTS idx_batches_expiry ON product_batches(expiryDate);
 
+  CREATE TABLE IF NOT EXISTS deals (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    type        TEXT NOT NULL,            -- markdown | expiry | multibuy | combo
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    config      TEXT,                     -- JSON, type-specific
+    appliesTo   TEXT,                     -- JSON { kind, group?, products? }
+    scope       TEXT,                     -- JSON { kind:'fleet'|'machines', machines? }
+    schedule    TEXT,                     -- JSON { kind:'always'|'dates'|'hours', start?, end?, days?, from?, to? }
+    stackable   INTEGER NOT NULL DEFAULT 0,
+    createdAt   TEXT,
+    updatedAt   TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_deals_enabled ON deals(enabled);
+
   -- Remote command queue (contract v0.5). Backend stores intent; the kiosk
   -- polls, runs it on the motor board, and posts the result back.
   CREATE TABLE IF NOT EXISTS machine_commands (
@@ -540,6 +555,17 @@ const stmts = {
                                      VALUES (@id, @deviceCode, @goodsId, @expiryDate, @quantity, @addedAt, @addedBy)`),
   setPerishable:        db.prepare('UPDATE products SET perishable = ?, updatedAt = ? WHERE goodsId = ?'),
 
+  // Discounts & deals
+  listDeals:   db.prepare('SELECT * FROM deals ORDER BY createdAt DESC'),
+  getDeal:     db.prepare('SELECT * FROM deals WHERE id = ?'),
+  deleteDeal:  db.prepare('DELETE FROM deals WHERE id = ?'),
+  upsertDeal:  db.prepare(`INSERT INTO deals (id,name,type,enabled,config,appliesTo,scope,schedule,stackable,createdAt,updatedAt)
+                           VALUES (@id,@name,@type,@enabled,@config,@appliesTo,@scope,@schedule,@stackable,@createdAt,@updatedAt)
+                           ON CONFLICT(id) DO UPDATE SET
+                             name=excluded.name, type=excluded.type, enabled=excluded.enabled,
+                             config=excluded.config, appliesTo=excluded.appliesTo, scope=excluded.scope,
+                             schedule=excluded.schedule, stackable=excluded.stackable, updatedAt=excluded.updatedAt`),
+
   // Remote command queue
   insertCommand:        db.prepare(`INSERT INTO machine_commands (id, deviceCode, type, params, status, issuedBy, issuedAt)
                                      VALUES (@id, @deviceCode, @type, @params, 'pending', @issuedBy, @issuedAt)`),
@@ -626,6 +652,41 @@ function rowToOperator(row) {
     paydayCustomerId: row.paydayCustomerId || null,
     createdAt:        row.createdAt,
   };
+}
+
+function rowToDeal(r) {
+  if (!r) return null;
+  const j = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (e) { return d; } };
+  return {
+    id: r.id, name: r.name, type: r.type, enabled: !!r.enabled,
+    config: j(r.config, {}), appliesTo: j(r.appliesTo, { kind: 'all' }),
+    scope: j(r.scope, { kind: 'fleet' }), schedule: j(r.schedule, { kind: 'always' }),
+    stackable: !!r.stackable, createdAt: r.createdAt, updatedAt: r.updatedAt,
+  };
+}
+// Is a deal's schedule live right now? (server clock; Iceland runs on UTC year-round)
+function dealInSchedule(s, now) {
+  if (!s || s.kind === 'always') return true;
+  if (s.kind === 'dates') {
+    if (s.start && new Date(s.start) > now) return false;
+    if (s.end && new Date(s.end + 'T23:59:59') < now) return false;
+    return true;
+  }
+  if (s.kind === 'hours') {
+    const dow = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][now.getDay()];
+    if (Array.isArray(s.days) && s.days.length && !s.days.includes(dow)) return false;
+    const toM = t => { const m = /^(\d{1,2}):(\d{2})$/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+    const hm = now.getHours() * 60 + now.getMinutes();
+    const f = toM(s.from), t = toM(s.to);
+    if (f != null && t != null) { if (f <= t) { if (hm < f || hm > t) return false; } else { if (hm < f && hm > t) return false; } }
+    return true;
+  }
+  return true;
+}
+function dealScopeMatches(sc, deviceCode) {
+  if (!sc || sc.kind === 'fleet') return true;
+  if (sc.kind === 'machines') return Array.isArray(sc.machines) && sc.machines.includes(deviceCode);
+  return true;
 }
 
 function rowToInvitation(row) {
@@ -974,6 +1035,25 @@ const storage = {
   // Expiry batches (dated stock per slot for short-life products)
   listBatchesForSlot(deviceCode, goodsId) { return stmts.listBatchesForSlot.all(deviceCode, goodsId); },
   listAllBatches() { return stmts.listAllBatches.all(); },
+
+  // Discounts & deals
+  listDeals() { return stmts.listDeals.all().map(rowToDeal); },
+  getDeal(id) { return rowToDeal(stmts.getDeal.get(id)); },
+  deleteDeal(id) { stmts.deleteDeal.run(id); },
+  upsertDeal(d) {
+    const now = new Date().toISOString();
+    stmts.upsertDeal.run({
+      id: d.id, name: d.name || '', type: d.type || 'markdown', enabled: d.enabled ? 1 : 0,
+      config: JSON.stringify(d.config || {}), appliesTo: JSON.stringify(d.appliesTo || { kind: 'all' }),
+      scope: JSON.stringify(d.scope || { kind: 'fleet' }), schedule: JSON.stringify(d.schedule || { kind: 'always' }),
+      stackable: d.stackable ? 1 : 0, createdAt: d.createdAt || now, updatedAt: now,
+    });
+    return this.getDeal(d.id);
+  },
+  activeDealsForMachine(deviceCode) {
+    const now = new Date();
+    return this.listDeals().filter(d => d.enabled && dealInSchedule(d.schedule, now) && dealScopeMatches(d.scope, deviceCode));
+  },
   replaceBatchesForSlot(deviceCode, goodsId, batches, addedBy) {
     const tx = db.transaction((rows) => {
       stmts.deleteBatchesForSlot.run(deviceCode, goodsId);

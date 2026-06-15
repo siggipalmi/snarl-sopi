@@ -367,6 +367,49 @@ select.fi{cursor:pointer;}
 #page-billing .bl-state{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 20px;text-align:center;color:var(--muted);}
 #page-billing .bl-state .big{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);margin-bottom:6px;}
 #page-billing .bl-foot{font-size:11px;color:var(--muted);text-align:center;margin-top:22px;font-family:var(--mono);}
+/* ── discounts & deals ── */
+#page-deals .dl-gate{display:flex;gap:10px;background:#F6EEDD;border:1px solid #E7D7BC;border-radius:12px;padding:11px 13px;margin:0 0 14px;font-size:12.5px;color:#6f5a36;}
+#page-deals .dl-gate .dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-top:5px;}
+#page-deals .dl-gate b{color:var(--bronze);}
+#page-deals .dl-deal{display:flex;background:#fff;border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-bottom:11px;}
+#page-deals .dl-spine{flex:0 0 6px;}
+#page-deals .dl-spine.markdown{background:var(--bronze);}
+#page-deals .dl-spine.expiry{background:var(--warn);}
+#page-deals .dl-spine.multibuy{background:var(--success);}
+#page-deals .dl-spine.combo{background:#6E5A86;}
+#page-deals .dl-body{flex:1;padding:13px 15px;min-width:0;}
+#page-deals .dl-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+#page-deals .dl-name{font-weight:600;font-size:15px;}
+#page-deals .dl-type{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+#page-deals .dl-math{font-family:var(--mono);font-size:13px;color:var(--ink);margin-top:9px;background:var(--cream);border:1px solid var(--line);border-radius:8px;padding:7px 10px;display:inline-block;}
+#page-deals .dl-meta{font-size:12px;color:var(--muted);margin-top:9px;display:flex;flex-wrap:wrap;gap:6px 14px;}
+#page-deals .dl-meta .k{color:#6f675a;}
+#page-deals .dl-pill{font-family:var(--mono);font-size:10px;letter-spacing:.04em;border-radius:999px;padding:3px 9px;white-space:nowrap;border:1px solid transparent;}
+#page-deals .dl-pill.active{color:var(--success);background:#EEF2E6;border-color:#D7E2C5;}
+#page-deals .dl-pill.scheduled{color:var(--bronze);background:#F4ECDD;border-color:#E7D7BC;}
+#page-deals .dl-pill.ended,#page-deals .dl-pill.paused{color:var(--muted);background:#F1ECE2;border-color:#E3DACB;}
+#page-deals .dl-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#6E5A86;background:#EEEAF3;border:1px solid #DAD0E6;border-radius:999px;padding:2px 7px;}
+#page-deals .dl-rowact{display:flex;gap:10px;margin-top:11px;}
+#page-deals .dl-rowact button{font-family:var(--mono);font-size:11px;background:none;border:none;cursor:pointer;padding:0;}
+#page-deals .dl-rowact .edit{color:var(--bronze);}
+#page-deals .dl-rowact .del{color:var(--alert);}
+#page-deals .dl-empty{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 20px;text-align:center;color:var(--muted);}
+#page-deals .dl-empty .big{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);margin-bottom:6px;}
+/* composer (in modal) */
+.dl-chips{display:flex;gap:7px;flex-wrap:wrap;}
+.dl-chip{font-family:var(--mono);font-size:11.5px;color:var(--ink);background:var(--cream);border:1px solid var(--line);border-radius:9px;padding:8px 11px;cursor:pointer;}
+.dl-chip.on{background:var(--bronze);color:#fff;border-color:var(--bronze);}
+.dl-tier{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-top:7px;}
+.dl-tier input{font-family:var(--mono);}
+.dl-tier .del{font-family:var(--mono);font-size:13px;color:var(--muted);cursor:pointer;text-align:center;}
+.dl-tierhead{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:6px;}
+.dl-addtier{font-family:var(--mono);font-size:11px;color:var(--bronze);background:none;border:1px dashed var(--cream-deep);border-radius:8px;padding:7px 10px;margin-top:8px;cursor:pointer;width:100%;}
+.dl-machines{max-height:150px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--cream);}
+.dl-machines label{display:flex;gap:8px;align-items:center;font-size:13px;padding:3px 0;}
+.dl-days{display:flex;gap:5px;flex-wrap:wrap;}
+.dl-day{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:7px;padding:6px 9px;cursor:pointer;background:var(--cream);}
+.dl-day.on{background:var(--bronze);color:#fff;border-color:var(--bronze);}
+.dl-stack{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:13px;border-top:1px solid var(--line);padding-top:12px;}
 </style>
 
 </head>
@@ -441,6 +484,7 @@ select.fi{cursor:pointer;}
   <div class="nav-item" onclick="go('hero',this)"><span class="nav-icon">✦</span> <span data-i18n="nav.hero">Hero &amp; Featured</span></div>
   <div class="nav-item" onclick="go('display',this)"><span class="nav-icon">▭</span> <span data-i18n="nav.display">Display Settings</span></div>
   <div class="nav-item" onclick="go('expiry',this)"><span class="nav-icon">◷</span> <span data-i18n="nav.expiry">Expiry</span></div>
+  <div class="nav-item ag-only" onclick="go('deals',this)" style="display:none"><span class="nav-icon">%</span> <span data-i18n="nav.deals">Deals</span></div>
   <div class="sb-section" data-i18n="group.commerce">commerce</div>
   <div class="nav-item" onclick="go('orders',this)"><span class="nav-icon">◧</span> <span data-i18n="nav.orders">Orders</span></div>
   <div class="nav-item" onclick="go('complaints',this)"><span class="nav-icon">⚠</span> <span data-i18n="nav.complaints">Complaints</span> <span class="nav-badge" id="nb-complaints" style="display:none">0</span></div>
@@ -483,6 +527,16 @@ select.fi{cursor:pointer;}
         <div id="billing-oppick"></div>
       </div>
       <div id="billing-body"></div>
+    </div>
+    <div class="page" id="page-deals">
+      <div class="shd">
+        <div class="shd-sub">markdowns, multi-buys &amp; combos — applied by the kiosks at point of sale</div>
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+          <div class="tabs"><div class="tab active" onclick="dlFilter('all',this)">all</div><div class="tab" onclick="dlFilter('active',this)">active</div><div class="tab" onclick="dlFilter('scheduled',this)">scheduled</div><div class="tab" onclick="dlFilter('ended',this)">ended</div></div>
+          <div class="ph-action" style="margin-left:auto" onclick="dlOpenModal()">+ new deal →</div>
+        </div>
+      </div>
+      <div id="deals-body"></div>
     </div>
 
     <!-- ═══ DASHBOARD ═══ -->
@@ -1197,7 +1251,7 @@ const I18N = {
     'nav.dashboard':'Dashboard','nav.machines':'Machines','nav.alerts':'Alerts','nav.operators':'Operators',
     'nav.catalog':'Catalog & Slots','nav.hero':'Hero & Featured','nav.display':'Display Settings',
     'nav.orders':'Orders','nav.complaints':'Complaints','nav.reports':'Reports','nav.users':'Users','nav.settings':'Settings','nav.help':'Help',
-    'nav.billing':'Billing','title.billing':'Billing','billing.sub':'your lease invoices & account statement','billing.operator':'Operator',
+    'nav.deals':'Deals','title.deals':'Discounts & deals','nav.billing':'Billing','title.billing':'Billing','billing.sub':'your lease invoices & account statement','billing.operator':'Operator',
     'billing.invoices':'invoices','billing.ledger':'ledger','billing.outstanding':'Outstanding balance','billing.settled':'All settled',
     'billing.invUnpaid':'{n} unpaid','billing.invOverdue':'· {n} overdue','billing.noUnpaid':'nothing outstanding','billing.machines':'machines',
     'billing.paid':'paid','billing.unpaid':'unpaid','billing.due':'due','billing.overdue':'overdue','billing.lateFee':'incl. {amt} late fee',
@@ -1245,7 +1299,7 @@ const I18N = {
     'nav.dashboard':'Mælaborð','nav.machines':'Vélar','nav.alerts':'Viðvaranir','nav.operators':'Rekstraraðilar',
     'nav.catalog':'Vörur & hólf','nav.hero':'Áberandi vörur','nav.display':'Skjástillingar',
     'nav.orders':'Pantanir','nav.complaints':'Kvartanir','nav.reports':'Skýrslur','nav.users':'Notendur','nav.settings':'Stillingar','nav.help':'Hjálp',
-    'nav.billing':'Reikningar','title.billing':'Reikningar','billing.sub':'leigureikningar og hreyfingayfirlit','billing.operator':'Rekstraraðili',
+    'nav.deals':'Tilboð','title.deals':'Afslættir og tilboð','nav.billing':'Reikningar','title.billing':'Reikningar','billing.sub':'leigureikningar og hreyfingayfirlit','billing.operator':'Rekstraraðili',
     'billing.invoices':'reikningar','billing.ledger':'hreyfingar','billing.outstanding':'Staða í dag','billing.settled':'Engin skuld',
     'billing.invUnpaid':'{n} ógreiddir','billing.invOverdue':'· {n} í vanskilum','billing.noUnpaid':'ekkert ógreitt','billing.machines':'vélar',
     'billing.paid':'greitt','billing.unpaid':'ógreitt','billing.due':'eindagi','billing.overdue':'í vanskilum','billing.lateFee':'með {amt} dráttargjaldi',
@@ -2093,7 +2147,7 @@ async function bootApp(user) {
 
   populateMachineSelects();
   // Open the page or machine named in the URL hash (so refresh returns here); else dashboard.
-  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','complaints','reports','users','settings','help'];
+  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','complaints','reports','users','settings','help','deals'];
   const route = parseHash();
   if (route.page === 'machine' && route.param && DB.machines[route.param]) {
     openMachineDetail(route.param, true);
@@ -2110,7 +2164,7 @@ async function bootApp(user) {
 window.addEventListener('hashchange', () => {
   if (!currentUser) return;
   const route = parseHash();
-  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','complaints','reports','users','settings','help'];
+  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','complaints','reports','users','settings','help','deals'];
   if (route.page === 'machine' && route.param) {
     const onThis = _mdDeviceCode === route.param && document.getElementById('page-machinedetail').classList.contains('active');
     if (!onThis && DB.machines[route.param]) openMachineDetail(route.param, true);
@@ -2246,7 +2300,7 @@ function parseHash() {
 
 function go(id, el) {
   // AG-only pages: operators can't reach these even by direct navigation.
-  if ((id === 'settings' || id === 'operators') && currentUser?.role !== 'ag_admin') {
+  if ((id === 'settings' || id === 'operators' || id === 'deals') && currentUser?.role !== 'ag_admin') {
     showToast('Not available for your account');
     id = 'dashboard'; el = null;
   }
@@ -2272,6 +2326,7 @@ function go(id, el) {
   if(id==='display')   renderDisplayPage();
   if(id==='expiry')    renderExpiry();
   if(id==='billing')   renderBilling();
+  if(id==='deals')     renderDeals();
   if(id==='orders')    renderOrders();
   if(id==='reports')   renderReports();
   if(id==='users')     renderUsers();
@@ -5332,6 +5387,175 @@ function blDownloadStatement(opId) {
   const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'statement-' + (d.opName || opId) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+// ════════ Discounts & deals (config; enforced by kiosks at point of sale) ════════
+let _dealsList = [], _dlFilter = 'all', _dlType = 'markdown', _dlDays = [], _dlEditId = null;
+
+async function renderDeals() {
+  const body = document.getElementById('deals-body'); if (!body) return;
+  body.innerHTML = '<div class="dl-empty">Loading…</div>';
+  try { const r = await API.get('/api/v1/deals'); _dealsList = (r && r.data) || []; }
+  catch (e) { body.innerHTML = '<div class="dl-empty"><div class="big">Couldn’t load deals.</div>' + rsEsc(String(e.message || e)) + '</div>'; return; }
+  dlRenderList();
+}
+function dlFilter(f, el) {
+  _dlFilter = f;
+  document.querySelectorAll('#page-deals .tabs .tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  dlRenderList();
+}
+function dlRenderList() {
+  const body = document.getElementById('deals-body'); if (!body) return;
+  const gate = '<div class="dl-gate"><span class="dot"></span><div><b>Single-item markdowns</b> (price cuts, expiry markdowns) go live on kiosks now. <b>Multi-buy &amp; combo</b> are applied at checkout, so they switch on once kiosk checkout ships — you can set them up now either way.</div></div>';
+  let list = _dealsList.slice();
+  if (_dlFilter !== 'all') list = list.filter(d => d.status === _dlFilter);
+  if (!list.length) { body.innerHTML = gate + '<div class="dl-empty"><div class="big">No deals here yet.</div>Tap “+ new deal” to create one.</div>'; return; }
+  body.innerHTML = gate + list.map(dlCard).join('');
+}
+function dlCard(d) {
+  const checkout = (d.type === 'multibuy' || d.type === 'combo') ? ' &nbsp;·&nbsp; <span class="dl-tag">applies at checkout</span>' : '';
+  const typeLabel = { markdown: 'Price markdown', expiry: 'Expiry markdown · automatic', multibuy: 'Multi-buy', combo: 'Combo' }[d.type] || d.type;
+  return `<div class="dl-deal"><div class="dl-spine ${d.type}"></div><div class="dl-body">
+    <div class="dl-top"><div><div class="dl-name">${rsEsc(d.name)}</div><div class="dl-type">${typeLabel}${checkout}</div></div>
+      <span class="dl-pill ${d.status}">${d.status}</span></div>
+    <div class="dl-math">${dlMathSummary(d)}</div>
+    <div class="dl-meta">${dlMetaLine(d)}</div>
+    <div class="dl-rowact"><button class="edit" onclick="dlOpenModal('${d.id}')">edit</button><button class="del" onclick="dlDelete('${d.id}')">delete</button></div>
+  </div></div>`;
+}
+function dlMathSummary(d) {
+  const c = d.config || {};
+  if (d.type === 'markdown') { if (c.mode === 'percent') return `−${c.value || 0}% off shelf price`; if (c.mode === 'fixed') return `−kr. ${c.value || 0} off`; if (c.mode === 'price') return `set price kr. ${c.value || 0}`; return '—'; }
+  if (d.type === 'expiry') { const ts = c.tiers || []; if (!ts.length) return 'no tiers set'; return ts.map(t => `${t.daysLeft === 0 ? 'same day' : t.daysLeft + 'd'} → −${t.percent}%`).join(' · '); }
+  if (d.type === 'multibuy') return `buy ${c.qty || 0} → kr. ${c.totalKr || 0}`;
+  if (d.type === 'combo') return `${(c.items || []).join(' + ') || 'items'} → kr. ${c.priceKr || 0}`;
+  return '—';
+}
+function dlMetaLine(d) {
+  const a = d.appliesTo || {}, s = d.scope || {}, sc = d.schedule || {};
+  const appliesTxt = a.kind === 'group' ? ('group: ' + (a.group || '')) : a.kind === 'products' ? (((a.products || []).length) + ' products') : a.kind === 'all_perishable' ? 'all perishables' : 'all products';
+  const scopeTxt = s.kind === 'machines' ? (((s.machines || []).length) + ' machines') : 'whole fleet';
+  let schedTxt = 'always';
+  if (sc.kind === 'dates') schedTxt = (sc.start || '…') + ' – ' + (sc.end || '…');
+  else if (sc.kind === 'hours') schedTxt = ((sc.days || []).join('/') || 'daily') + ' ' + (sc.from || '') + '–' + (sc.to || '');
+  return `<span><span class="k">applies to</span> ${rsEsc(appliesTxt)}</span><span><span class="k">where</span> ${scopeTxt}</span><span><span class="k">runs</span> ${rsEsc(schedTxt)}</span>`;
+}
+function dlTierRow(t) {
+  t = t || { daysLeft: 0, percent: 0 };
+  return `<div class="dl-tier"><input class="fi dl-tier-days" type="number" value="${t.daysLeft != null ? t.daysLeft : ''}" placeholder="0 = same day"><input class="fi dl-tier-pct" type="number" value="${t.percent != null ? t.percent : ''}" placeholder="%"><div class="del" onclick="dlDelTier(this)">✕</div></div>`;
+}
+function dlAddTier() { const c = document.getElementById('dl-tiers'); if (c) c.insertAdjacentHTML('beforeend', dlTierRow({ daysLeft: 1, percent: 20 })); }
+function dlDelTier(el) { const r = el.closest('.dl-tier'); if (r) r.remove(); }
+function dlToggleDay(el, dy) { const i = _dlDays.indexOf(dy); if (i > -1) { _dlDays.splice(i, 1); el.classList.remove('on'); } else { _dlDays.push(dy); el.classList.add('on'); } }
+function dlSetType(t) {
+  _dlType = t;
+  document.querySelectorAll('.dl-chips .dl-chip').forEach(ch => { const oc = ch.getAttribute('onclick') || ''; ch.classList.toggle('on', oc.indexOf("'" + t + "'") > -1); });
+  ['markdown', 'expiry', 'multibuy', 'combo'].forEach(k => { const el = document.getElementById('dl-sec-' + k); if (el) el.style.display = (k === t) ? '' : 'none'; });
+  if (t === 'expiry') { const c = document.getElementById('dl-tiers'); if (c && !c.children.length) c.innerHTML = [{ daysLeft: 5, percent: 15 }, { daysLeft: 2, percent: 30 }, { daysLeft: 0, percent: 50 }].map(dlTierRow).join(''); }
+}
+function dlSetApplies(k) { const g = document.getElementById('dl-applies-group'); const p = document.getElementById('dl-applies-products'); if (g) g.style.display = k === 'group' ? '' : 'none'; if (p) p.style.display = k === 'products' ? '' : 'none'; }
+function dlSetScope(k) { const m = document.getElementById('dl-scope-machines'); if (m) m.style.display = k === 'machines' ? '' : 'none'; }
+function dlSetSchedule(k) { const dts = document.getElementById('dl-sched-dates'); const hrs = document.getElementById('dl-sched-hours'); if (dts) dts.style.display = k === 'dates' ? 'flex' : 'none'; if (hrs) hrs.style.display = k === 'hours' ? '' : 'none'; }
+function dlOpenModal(id) {
+  const d = id ? _dealsList.find(x => x.id === id) : null;
+  _dlEditId = d ? d.id : null;
+  _dlType = d ? d.type : 'markdown';
+  _dlDays = (d && d.schedule && d.schedule.kind === 'hours' && Array.isArray(d.schedule.days)) ? d.schedule.days.slice() : [];
+  const modal = document.getElementById('modal-dyn');
+  modal.innerHTML = dlComposerHtml(d || {});
+  modal.classList.add('show');
+}
+function dlComposerHtml(d) {
+  d = d || {}; const c = d.config || {}, a = d.appliesTo || { kind: 'all' }, s = d.scope || { kind: 'fleet' }, sc = d.schedule || { kind: 'always' };
+  const t = _dlType;
+  const sel = (v, opts) => opts.map(o => `<option value="${o[0]}"${o[0] === v ? ' selected' : ''}>${o[1]}</option>`).join('');
+  const show = cond => cond ? '' : 'display:none';
+  const machines = Object.entries((window.DB && DB.machines) ? DB.machines : {}).map(([code, m]) => {
+    const nm = (m && (m.deviceName || (m.settings && m.settings.machineLabel))) || code;
+    const ck = (s.kind === 'machines' && (s.machines || []).includes(code)) ? ' checked' : '';
+    return `<label><input type="checkbox" value="${code}"${ck}> ${rsEsc(nm)} <span style="color:var(--muted);font-family:var(--mono);font-size:11px">${code}</span></label>`;
+  }).join('') || '<div style="color:var(--muted);font-size:12px">No machines loaded.</div>';
+  const tiers = (t === 'expiry' && (c.tiers || []).length) ? c.tiers : (t === 'expiry' ? [{ daysLeft: 5, percent: 15 }, { daysLeft: 2, percent: 30 }, { daysLeft: 0, percent: 50 }] : []);
+  const tierRows = tiers.map(dlTierRow).join('');
+  const dayChips = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'].map(dy => `<div class="dl-day${_dlDays.includes(dy) ? ' on' : ''}" onclick="dlToggleDay(this,'${dy}')">${dy}</div>`).join('');
+  return `<div class="modal-card" style="max-height:88vh;overflow-y:auto">
+    <div class="modal-title">${_dlEditId ? 'edit deal.' : 'new deal.'}</div>
+    <div class="field"><div class="fl">deal type</div><div class="dl-chips">
+      <div class="dl-chip${t === 'markdown' ? ' on' : ''}" onclick="dlSetType('markdown')">Price markdown</div>
+      <div class="dl-chip${t === 'expiry' ? ' on' : ''}" onclick="dlSetType('expiry')">Expiry markdown</div>
+      <div class="dl-chip${t === 'multibuy' ? ' on' : ''}" onclick="dlSetType('multibuy')">Multi-buy</div>
+      <div class="dl-chip${t === 'combo' ? ' on' : ''}" onclick="dlSetType('combo')">Combo</div>
+    </div></div>
+    <div class="field"><div class="fl">name</div><input class="fi" id="dl-name" value="${rsEsc(d.name || '')}" placeholder="e.g. Best-before clear-out"></div>
+    <div class="field"><div class="fl">applies to</div>
+      <select class="fi" id="dl-applies-kind" onchange="dlSetApplies(this.value)">${sel(a.kind, [['all', 'All products'], ['all_perishable', 'All perishables'], ['group', 'A product group'], ['products', 'Specific products']])}</select>
+      <div id="dl-applies-group" style="margin-top:8px;${show(a.kind === 'group')}"><input class="fi" id="dl-applies-group-v" value="${rsEsc(a.group || '')}" placeholder="group / category name"></div>
+      <div id="dl-applies-products" style="margin-top:8px;${show(a.kind === 'products')}"><input class="fi" id="dl-applies-products-v" value="${rsEsc((a.products || []).join(', '))}" placeholder="barcodes or names, comma-separated"></div>
+    </div>
+    <div id="dl-sec-markdown" class="field" style="${show(t === 'markdown')}"><div class="fl">markdown</div>
+      <div style="display:flex;gap:8px"><select class="fi" id="dl-md-mode" style="flex:1.2">${sel(c.mode || 'percent', [['percent', '% off'], ['fixed', 'kr. off'], ['price', 'set price kr.']])}</select>
+        <input class="fi" id="dl-md-value" type="number" style="flex:1" value="${c.value != null ? c.value : ''}" placeholder="0"></div></div>
+    <div id="dl-sec-expiry" class="field" style="${show(t === 'expiry')}"><div class="fl">automatic markdown by days to best-before</div>
+      <div class="dl-tierhead"><div>days left ≤</div><div>discount %</div><div></div></div>
+      <div id="dl-tiers">${tierRows}</div>
+      <button type="button" class="dl-addtier" onclick="dlAddTier()">+ add tier</button></div>
+    <div id="dl-sec-multibuy" class="field" style="${show(t === 'multibuy')}"><div class="fl">multi-buy</div>
+      <div style="display:flex;gap:8px;align-items:center">buy <input class="fi" id="dl-mb-qty" type="number" style="width:70px" value="${c.qty != null ? c.qty : ''}" placeholder="2"> for kr. <input class="fi" id="dl-mb-total" type="number" style="width:110px" value="${c.totalKr != null ? c.totalKr : ''}" placeholder="500"></div></div>
+    <div id="dl-sec-combo" class="field" style="${show(t === 'combo')}"><div class="fl">combo</div>
+      <input class="fi" id="dl-combo-items" value="${rsEsc((c.items || []).join(', '))}" placeholder="items, comma-separated (e.g. Sandwich, Drink)">
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">for kr. <input class="fi" id="dl-combo-price" type="number" style="width:120px" value="${c.priceKr != null ? c.priceKr : ''}" placeholder="990"></div></div>
+    <div class="field"><div class="fl">where</div>
+      <select class="fi" id="dl-scope-kind" onchange="dlSetScope(this.value)">${sel(s.kind, [['fleet', 'Whole fleet'], ['machines', 'Specific machines']])}</select>
+      <div id="dl-scope-machines" class="dl-machines" style="margin-top:8px;${show(s.kind === 'machines')}">${machines}</div></div>
+    <div class="field"><div class="fl">runs</div>
+      <select class="fi" id="dl-sched-kind" onchange="dlSetSchedule(this.value)">${sel(sc.kind, [['always', 'Always on'], ['dates', 'Date range'], ['hours', 'Days & hours']])}</select>
+      <div id="dl-sched-dates" style="margin-top:8px;display:${sc.kind === 'dates' ? 'flex' : 'none'};gap:8px"><input class="fi" id="dl-sched-start" type="date" value="${sc.start || ''}"><input class="fi" id="dl-sched-end" type="date" value="${sc.end || ''}"></div>
+      <div id="dl-sched-hours" style="margin-top:8px;${show(sc.kind === 'hours')}"><div class="dl-days">${dayChips}</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">from <input class="fi" id="dl-sched-from" type="time" style="width:120px" value="${sc.from || ''}"> to <input class="fi" id="dl-sched-to" type="time" style="width:120px" value="${sc.to || ''}"></div></div></div>
+    <label class="dl-stack"><input type="checkbox" id="dl-stackable"${d.stackable ? ' checked' : ''}> <span><b style="color:var(--ink)">Allow stacking</b> with other deals. Off by default — the customer gets the single best discount.</span></label>
+    <label class="dl-stack" style="border-top:none;padding-top:4px"><input type="checkbox" id="dl-enabled"${d.enabled === false ? '' : ' checked'}> <span>Active (uncheck to pause without deleting)</span></label>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-full" onclick="dlSave()"><span>${_dlEditId ? 'save deal' : 'create deal'}</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-dyn')">cancel</button>
+    </div>
+  </div>`;
+}
+function dlCollect() {
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const body = { name: (v('dl-name') || '').trim(), type: _dlType, enabled: document.getElementById('dl-enabled').checked, stackable: document.getElementById('dl-stackable').checked };
+  const ak = v('dl-applies-kind'); const applies = { kind: ak };
+  if (ak === 'group') applies.group = (v('dl-applies-group-v') || '').trim();
+  if (ak === 'products') applies.products = (v('dl-applies-products-v') || '').split(',').map(s => s.trim()).filter(Boolean);
+  body.appliesTo = applies;
+  if (_dlType === 'markdown') body.config = { mode: v('dl-md-mode'), value: Number(v('dl-md-value') || 0) };
+  else if (_dlType === 'expiry') body.config = { tiers: [...document.querySelectorAll('#dl-tiers .dl-tier')].map(r => ({ daysLeft: Number(r.querySelector('.dl-tier-days').value || 0), percent: Number(r.querySelector('.dl-tier-pct').value || 0) })).filter(t => t.percent > 0) };
+  else if (_dlType === 'multibuy') body.config = { qty: Number(v('dl-mb-qty') || 0), totalKr: Number(v('dl-mb-total') || 0) };
+  else if (_dlType === 'combo') body.config = { items: (v('dl-combo-items') || '').split(',').map(s => s.trim()).filter(Boolean), priceKr: Number(v('dl-combo-price') || 0) };
+  const sk = v('dl-scope-kind'); const scope = { kind: sk };
+  if (sk === 'machines') scope.machines = [...document.querySelectorAll('#dl-scope-machines input:checked')].map(i => i.value);
+  body.scope = scope;
+  const schk = v('dl-sched-kind'); const sch = { kind: schk };
+  if (schk === 'dates') { sch.start = v('dl-sched-start') || null; sch.end = v('dl-sched-end') || null; }
+  if (schk === 'hours') { sch.days = _dlDays.slice(); sch.from = v('dl-sched-from') || null; sch.to = v('dl-sched-to') || null; }
+  body.schedule = sch;
+  return body;
+}
+async function dlSave() {
+  const body = dlCollect();
+  if (!body.name) { showToast('name required'); return; }
+  if (!backendOnline) { showToast('backend offline'); return; }
+  try {
+    const r = _dlEditId ? await API.put('/api/v1/deals/' + encodeURIComponent(_dlEditId), body) : await API.post('/api/v1/deals', body);
+    if (r && r.ok) { closeModal('modal-dyn'); showToast(_dlEditId ? 'deal updated' : 'deal created'); renderDeals(); }
+    else showToast('failed: ' + ((r && r.error) || 'unknown'));
+  } catch (e) { showToast('error: ' + e.message); }
+}
+async function dlDelete(id) {
+  const d = _dealsList.find(x => x.id === id);
+  if (!confirm('Delete "' + (d ? d.name : 'this deal') + '"?\n\nThis can’t be undone.')) return;
+  try { const r = await API.req('DELETE', '/api/v1/deals/' + encodeURIComponent(id)); if (r && r.ok) { showToast('deal deleted'); renderDeals(); } else showToast('failed'); }
+  catch (e) { showToast('error: ' + e.message); }
 }
 
 function operatorFormHtml(mode, op) {
