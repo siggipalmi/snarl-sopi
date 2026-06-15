@@ -426,6 +426,15 @@ select.fi{cursor:pointer;}
 .dl-prodempty{padding:10px;font-size:12px;color:var(--muted);text-align:center;}
 .dl-pchip{display:inline-flex;align-items:center;gap:7px;font-size:12px;background:var(--cream);border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 10px;margin:0 6px 6px 0;}
 .dl-pchip .x{color:var(--alert);cursor:pointer;font-family:var(--mono);padding:0 2px;}
+.grp{border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px;background:#FCFAF6;}
+.grp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.grp-title{font-weight:600;font-size:13px;}
+.grp-title .any{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--bronze);margin-left:6px;}
+.grp-x{font-family:var(--mono);font-size:11px;color:var(--alert);cursor:pointer;background:none;border:none;}
+.grp .pchips{margin-bottom:8px;}
+.dl-machines .dl-mrow{display:flex;gap:8px;align-items:center;font-size:13px;padding:4px 2px;}
+.dl-machines .dl-mrow .code{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);}
+.dl-mcount{font-family:var(--mono);font-size:10px;color:var(--muted);margin:6px 0 5px;}
 </style>
 
 </head>
@@ -5407,7 +5416,7 @@ function blDownloadStatement(opId) {
 
 // ════════ Discounts & deals (config; enforced by kiosks at point of sale) ════════
 let _dealsList = [], _dlFilter = 'all', _dlType = 'markdown', _dlDays = [], _dlEditId = null;
-let _dlProducts = [], _dlProdResults = [], _dlProdTimer = null;
+let _dlPick = {}, _dlPickResults = {}, _dlPickTimer = {}, _dlComboN = 2, _dlComboMode = 'price';
 
 async function renderDeals() {
   const body = document.getElementById('deals-body'); if (!body) return;
@@ -5446,7 +5455,12 @@ function dlMathSummary(d) {
   if (d.type === 'markdown') { if (c.mode === 'percent') return `−${c.value || 0}% off shelf price`; if (c.mode === 'fixed') return `−kr. ${c.value || 0} off`; if (c.mode === 'price') return `set price kr. ${c.value || 0}`; return '—'; }
   if (d.type === 'expiry') { const ts = c.tiers || []; if (!ts.length) return 'no tiers set'; return ts.map(t => `${t.daysLeft === 0 ? 'same day' : t.daysLeft + 'd'} → −${t.percent}%`).join(' · '); }
   if (d.type === 'multibuy') return `buy ${c.qty || 0} → kr. ${c.totalKr || 0}`;
-  if (d.type === 'combo') return `${(c.items || []).join(' + ') || 'items'} → kr. ${c.priceKr || 0}`;
+  if (d.type === 'combo') {
+    const g = (d.config && d.config.groups) || [], r = (d.config && d.config.reward) || {};
+    if (!g.length) return 'no groups set';
+    const reward = r.mode === 'percent' ? `−${r.value || 0}% off` : `kr. ${r.value || 0}`;
+    return g.map(grp => `1 of ${(grp.products || []).length}`).join(' + ') + ' → ' + reward;
+  }
   return '—';
 }
 function dlMetaLine(d) {
@@ -5472,21 +5486,28 @@ function dlSetType(t) {
   if (t === 'expiry') { const c = document.getElementById('dl-tiers'); if (c && !c.children.length) c.innerHTML = [{ daysLeft: 5, percent: 15 }, { daysLeft: 2, percent: 30 }, { daysLeft: 0, percent: 50 }].map(dlTierRow).join(''); }
 }
 function dlSetApplies(k) { const g = document.getElementById('dl-applies-group'); const p = document.getElementById('dl-applies-products'); if (g) g.style.display = k === 'group' ? '' : 'none'; if (p) p.style.display = k === 'products' ? '' : 'none'; }
-function dlSetScope(k) { const m = document.getElementById('dl-scope-machines'); if (m) m.style.display = k === 'machines' ? '' : 'none'; }
+function dlSetScope(k) { const m = document.getElementById('dl-scope-machines'); if (m) m.style.display = k === 'machines' ? '' : 'none'; if (k === 'machines') dlMachFilter(''); }
 function dlSetSchedule(k) { const dts = document.getElementById('dl-sched-dates'); const hrs = document.getElementById('dl-sched-hours'); if (dts) dts.style.display = k === 'dates' ? 'flex' : 'none'; if (hrs) hrs.style.display = k === 'hours' ? '' : 'none'; }
 function dlOpenModal(id) {
   const d = id ? _dealsList.find(x => x.id === id) : null;
   _dlEditId = d ? d.id : null;
   _dlType = d ? d.type : 'markdown';
   _dlDays = (d && d.schedule && d.schedule.kind === 'hours' && Array.isArray(d.schedule.days)) ? d.schedule.days.slice() : [];
-  _dlProducts = (d && d.appliesTo && Array.isArray(d.appliesTo.products))
+  _dlPick = {}; _dlPickResults = {};
+  _dlPick['applies'] = (d && d.appliesTo && Array.isArray(d.appliesTo.products))
     ? d.appliesTo.products.map(p => typeof p === 'string' ? { goodsId: p, name: p } : p)
     : [];
-  _dlProdResults = [];
+  if (d && d.type === 'combo' && d.config && Array.isArray(d.config.groups) && d.config.groups.length) {
+    _dlComboN = Math.min(3, d.config.groups.length);
+    for (let i = 0; i < _dlComboN; i++) _dlPick['g' + i] = (d.config.groups[i].products || []).map(p => typeof p === 'string' ? { goodsId: p, name: p } : p);
+    _dlComboMode = (d.config.reward && d.config.reward.mode) || 'price';
+  } else { _dlComboN = 2; _dlPick['g0'] = []; _dlPick['g1'] = []; _dlComboMode = 'price'; }
   const modal = document.getElementById('modal-dyn');
   modal.innerHTML = dlComposerHtml(d || {});
   modal.classList.add('show');
-  dlRenderProdChips();
+  dlRenderProdChips('applies');
+  dlRenderComboGroups();
+  dlMachFilter('');
 }
 function dlComposerHtml(d) {
   d = d || {}; const c = d.config || {}, a = d.appliesTo || { kind: 'all' }, s = d.scope || { kind: 'fleet' }, sc = d.schedule || { kind: 'always' };
@@ -5496,7 +5517,8 @@ function dlComposerHtml(d) {
   const machines = Object.entries((window.DB && DB.machines) ? DB.machines : {}).map(([code, m]) => {
     const nm = (m && (m.deviceName || (m.settings && m.settings.machineLabel))) || code;
     const ck = (s.kind === 'machines' && (s.machines || []).includes(code)) ? ' checked' : '';
-    return `<label><input type="checkbox" value="${code}"${ck}> ${rsEsc(nm)} <span style="color:var(--muted);font-family:var(--mono);font-size:11px">${code}</span></label>`;
+    const hay = (nm + ' ' + code).toLowerCase();
+    return `<label class="dl-mrow" data-hay="${rsEsc(hay)}"><input type="checkbox" value="${code}"${ck}> ${rsEsc(nm)} <span class="code">${code}</span></label>`;
   }).join('') || '<div style="color:var(--muted);font-size:12px">No machines loaded.</div>';
   const tiers = (t === 'expiry' && (c.tiers || []).length) ? c.tiers : (t === 'expiry' ? [{ daysLeft: 5, percent: 15 }, { daysLeft: 2, percent: 30 }, { daysLeft: 0, percent: 50 }] : []);
   const tierRows = tiers.map(dlTierRow).join('');
@@ -5514,9 +5536,9 @@ function dlComposerHtml(d) {
       <select class="fi" id="dl-applies-kind" onchange="dlSetApplies(this.value)">${sel(a.kind, [['all', 'All products'], ['all_perishable', 'All perishables'], ['group', 'A product group'], ['products', 'Specific products']])}</select>
       <div id="dl-applies-group" style="margin-top:8px;${show(a.kind === 'group')}"><input class="fi" id="dl-applies-group-v" value="${rsEsc(a.group || '')}" placeholder="group / category name"></div>
       <div id="dl-applies-products" style="margin-top:8px;${show(a.kind === 'products')}">
-        <input class="fi" id="dl-prod-search" placeholder="type 3+ letters — name or barcode" oninput="dlProdSearch(this.value)" autocomplete="off">
-        <div id="dl-prod-results" class="dl-results" style="display:none"></div>
-        <div id="dl-prod-chips" style="margin-top:8px"></div>
+        <input class="fi" id="dl-psearch-applies" placeholder="type 3+ letters — name or barcode" oninput="dlProdSearch('applies',this.value)" autocomplete="off">
+        <div id="dl-pres-applies" class="dl-results" style="display:none"></div>
+        <div id="dl-pchips-applies" style="margin-top:8px"></div>
       </div>
     </div>
     <div id="dl-sec-markdown" class="field" style="${show(t === 'markdown')}"><div class="fl">markdown</div>
@@ -5528,12 +5550,19 @@ function dlComposerHtml(d) {
       <button type="button" class="dl-addtier" onclick="dlAddTier()">+ add tier</button></div>
     <div id="dl-sec-multibuy" class="field" style="${show(t === 'multibuy')}"><div class="fl">multi-buy</div>
       <div style="display:flex;gap:8px;align-items:center">buy <input class="fi" id="dl-mb-qty" type="number" style="width:70px" value="${c.qty != null ? c.qty : ''}" placeholder="2"> for kr. <input class="fi" id="dl-mb-total" type="number" style="width:110px" value="${c.totalKr != null ? c.totalKr : ''}" placeholder="500"></div></div>
-    <div id="dl-sec-combo" class="field" style="${show(t === 'combo')}"><div class="fl">combo</div>
-      <input class="fi" id="dl-combo-items" value="${rsEsc((c.items || []).join(', '))}" placeholder="items, comma-separated (e.g. Sandwich, Drink)">
-      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">for kr. <input class="fi" id="dl-combo-price" type="number" style="width:120px" value="${c.priceKr != null ? c.priceKr : ''}" placeholder="990"></div></div>
+    <div id="dl-sec-combo" class="field" style="${show(t === 'combo')}"><div class="fl">combo groups — customer picks one item from each</div>
+      <div id="dl-combo-groups"></div>
+      <button type="button" class="dl-addtier" id="dl-combo-add" onclick="dlComboAddGroup()">+ add another group (up to 3)</button>
+      <div class="fl" style="margin-top:14px">reward when one from each group is bought</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select class="fi" id="dl-combo-mode" style="width:auto">${sel(_dlComboMode, [['price', 'Fixed price kr.'], ['percent', '% off combo']])}</select>
+        <input class="fi" id="dl-combo-value" type="number" style="width:120px" value="${(c.reward && c.reward.value != null) ? c.reward.value : ''}" placeholder="490"></div></div>
     <div class="field"><div class="fl">where</div>
       <select class="fi" id="dl-scope-kind" onchange="dlSetScope(this.value)">${sel(s.kind, [['fleet', 'Whole fleet'], ['machines', 'Specific machines']])}</select>
-      <div id="dl-scope-machines" class="dl-machines" style="margin-top:8px;${show(s.kind === 'machines')}">${machines}</div></div>
+      <div id="dl-scope-machines" style="margin-top:8px;${show(s.kind === 'machines')}">
+        <input class="fi" id="dl-mach-search" placeholder="search machines by name or code" oninput="dlMachFilter(this.value)" autocomplete="off">
+        <div id="dl-mach-count" class="dl-mcount"></div>
+        <div class="dl-machines" id="dl-mach-list">${machines}</div></div></div>
     <div class="field"><div class="fl">runs</div>
       <select class="fi" id="dl-sched-kind" onchange="dlSetSchedule(this.value)">${sel(sc.kind, [['always', 'Always on'], ['dates', 'Date range'], ['hours', 'Days & hours']])}</select>
       <div id="dl-sched-dates" style="margin-top:8px;display:${sc.kind === 'dates' ? 'flex' : 'none'};gap:8px"><input class="fi" id="dl-sched-start" type="date" value="${sc.start || ''}"><input class="fi" id="dl-sched-end" type="date" value="${sc.end || ''}"></div>
@@ -5552,12 +5581,19 @@ function dlCollect() {
   const body = { name: (v('dl-name') || '').trim(), type: _dlType, enabled: document.getElementById('dl-enabled').checked, stackable: document.getElementById('dl-stackable').checked };
   const ak = v('dl-applies-kind'); const applies = { kind: ak };
   if (ak === 'group') applies.group = (v('dl-applies-group-v') || '').trim();
-  if (ak === 'products') applies.products = _dlProducts.map(p => ({ goodsId: p.goodsId, name: p.name, barcode: p.barcode || null }));
+  if (ak === 'products') applies.products = (_dlPick['applies'] || []).map(p => ({ goodsId: p.goodsId, name: p.name, barcode: p.barcode || null }));
   body.appliesTo = applies;
   if (_dlType === 'markdown') body.config = { mode: v('dl-md-mode'), value: Number(v('dl-md-value') || 0) };
   else if (_dlType === 'expiry') body.config = { tiers: [...document.querySelectorAll('#dl-tiers .dl-tier')].map(r => ({ daysLeft: Number(r.querySelector('.dl-tier-days').value || 0), percent: Number(r.querySelector('.dl-tier-pct').value || 0) })).filter(t => t.percent > 0) };
   else if (_dlType === 'multibuy') body.config = { qty: Number(v('dl-mb-qty') || 0), totalKr: Number(v('dl-mb-total') || 0) };
-  else if (_dlType === 'combo') body.config = { items: (v('dl-combo-items') || '').split(',').map(s => s.trim()).filter(Boolean), priceKr: Number(v('dl-combo-price') || 0) };
+  else if (_dlType === 'combo') {
+    const groups = [];
+    for (let i = 0; i < _dlComboN; i++) {
+      const ps = (_dlPick['g' + i] || []).map(p => ({ goodsId: p.goodsId, name: p.name, barcode: p.barcode || null }));
+      if (ps.length) groups.push({ products: ps });
+    }
+    body.config = { groups, reward: { mode: v('dl-combo-mode'), value: Number(v('dl-combo-value') || 0) } };
+  }
   const sk = v('dl-scope-kind'); const scope = { kind: sk };
   if (sk === 'machines') scope.machines = [...document.querySelectorAll('#dl-scope-machines input:checked')].map(i => i.value);
   body.scope = scope;
@@ -5587,52 +5623,94 @@ async function dlDelete(id) {
 function dlScopeMachinesCsv() {
   const el = document.getElementById('dl-scope-kind');
   if (!el || el.value !== 'machines') return '';
-  return [...document.querySelectorAll('#dl-scope-machines input:checked')].map(i => i.value).join(',');
+  return [...document.querySelectorAll('#dl-mach-list input:checked')].map(i => i.value).join(',');
 }
-function dlProdSearch(q) {
-  const box = document.getElementById('dl-prod-results');
-  clearTimeout(_dlProdTimer);
+// ── per-target product typeahead (pid: 'applies' or 'g0'/'g1'/'g2') ──
+function dlProdSearch(pid, q) {
+  const box = document.getElementById('dl-pres-' + pid);
+  clearTimeout(_dlPickTimer[pid]);
   const term = (q || '').trim();
   if (term.length < 3) { if (box) { box.style.display = 'none'; box.innerHTML = ''; } return; }
-  _dlProdTimer = setTimeout(async () => {
+  _dlPickTimer[pid] = setTimeout(async () => {
     try {
       const machines = dlScopeMachinesCsv();
       const r = await API.get('/api/v1/products/search?q=' + encodeURIComponent(term) + (machines ? '&machines=' + encodeURIComponent(machines) : ''));
-      _dlProdResults = (r && r.data) || [];
-    } catch (e) { _dlProdResults = []; }
-    dlRenderProdResults();
+      _dlPickResults[pid] = (r && r.data) || [];
+    } catch (e) { _dlPickResults[pid] = []; }
+    dlRenderProdResults(pid);
   }, 250);
 }
-function dlRenderProdResults() {
-  const box = document.getElementById('dl-prod-results'); if (!box) return;
+function dlRenderProdResults(pid) {
+  const box = document.getElementById('dl-pres-' + pid); if (!box) return;
+  const rows = _dlPickResults[pid] || [], sel = _dlPick[pid] || [];
   box.style.display = 'block';
-  if (!_dlProdResults.length) { box.innerHTML = '<div class="dl-prodempty">No matches.</div>'; return; }
-  box.innerHTML = _dlProdResults.map(p => {
-    const chosen = _dlProducts.some(x => String(x.goodsId) === String(p.goodsId));
+  if (!rows.length) { box.innerHTML = '<div class="dl-prodempty">No matches.</div>'; return; }
+  box.innerHTML = rows.map(p => {
+    const chosen = sel.some(x => String(x.goodsId) === String(p.goodsId));
     const img = p.imgUrl ? `<img src="${rsEsc(p.imgUrl)}" alt="">` : '<div class="noimg">no img</div>';
     const stk = p.stock != null ? p.stock : 0;
     const price = p.salePriceIsk != null ? 'kr. ' + p.salePriceIsk : 'no price';
-    return `<div class="dl-prodrow" onclick="dlProdAdd('${rsEsc(String(p.goodsId))}')">${img}
+    return `<div class="dl-prodrow" onclick="dlProdAdd('${pid}','${rsEsc(String(p.goodsId))}')">${img}
       <div class="pn"><div class="nm">${rsEsc(p.name || '')}${chosen ? ' ✓' : ''}</div><div class="bc">${rsEsc(p.barcode || p.goodsId || '')}</div></div>
       <div class="meta"><div class="stk${stk <= 0 ? ' low' : ''}">${stk} in stock</div><div class="pr">${price}</div></div></div>`;
   }).join('');
 }
-function dlProdAdd(goodsId) {
-  const p = _dlProdResults.find(x => String(x.goodsId) === String(goodsId));
-  if (p && !_dlProducts.some(x => String(x.goodsId) === String(p.goodsId))) _dlProducts.push({ goodsId: p.goodsId, name: p.name, barcode: p.barcode || null });
-  const s = document.getElementById('dl-prod-search'); if (s) s.value = '';
-  const box = document.getElementById('dl-prod-results'); if (box) { box.style.display = 'none'; box.innerHTML = ''; }
-  dlRenderProdChips();
+function dlProdAdd(pid, goodsId) {
+  const p = (_dlPickResults[pid] || []).find(x => String(x.goodsId) === String(goodsId));
+  if (!_dlPick[pid]) _dlPick[pid] = [];
+  if (p && !_dlPick[pid].some(x => String(x.goodsId) === String(p.goodsId))) _dlPick[pid].push({ goodsId: p.goodsId, name: p.name, barcode: p.barcode || null });
+  const s = document.getElementById('dl-psearch-' + pid); if (s) s.value = '';
+  const box = document.getElementById('dl-pres-' + pid); if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  dlRenderProdChips(pid);
 }
-function dlRenderProdChips() {
-  const c = document.getElementById('dl-prod-chips'); if (!c) return;
-  c.innerHTML = _dlProducts.length
-    ? _dlProducts.map(p => `<span class="dl-pchip">${rsEsc(p.name || p.goodsId)}<span class="x" onclick="dlProdRemove('${rsEsc(String(p.goodsId))}')">✕</span></span>`).join('')
+function dlRenderProdChips(pid) {
+  const c = document.getElementById('dl-pchips-' + pid); if (!c) return;
+  const sel = _dlPick[pid] || [];
+  c.innerHTML = sel.length
+    ? sel.map(p => `<span class="dl-pchip">${rsEsc(p.name || p.goodsId)}<span class="x" onclick="dlProdRemove('${pid}','${rsEsc(String(p.goodsId))}')">✕</span></span>`).join('')
     : '<span style="font-size:12px;color:var(--muted)">No products picked yet.</span>';
 }
-function dlProdRemove(goodsId) {
-  _dlProducts = _dlProducts.filter(x => String(x.goodsId) !== String(goodsId));
-  dlRenderProdChips();
+function dlProdRemove(pid, goodsId) {
+  _dlPick[pid] = (_dlPick[pid] || []).filter(x => String(x.goodsId) !== String(goodsId));
+  dlRenderProdChips(pid);
+}
+// ── combo groups ──
+function dlComboGroupBlock(i) {
+  return `<div class="grp" data-g="${i}">
+    <div class="grp-head"><div class="grp-title">Group ${i + 1} <span class="any">any one of</span></div>${_dlComboN > 1 ? `<button type="button" class="grp-x" onclick="dlComboRemoveGroup(${i})">remove</button>` : ''}</div>
+    <div id="dl-pchips-g${i}" class="pchips"></div>
+    <input class="fi" id="dl-psearch-g${i}" placeholder="add product — type 3+ letters" oninput="dlProdSearch('g${i}',this.value)" autocomplete="off">
+    <div id="dl-pres-g${i}" class="dl-results" style="display:none"></div>
+  </div>`;
+}
+function dlRenderComboGroups() {
+  const c = document.getElementById('dl-combo-groups'); if (!c) return;
+  let h = ''; for (let i = 0; i < _dlComboN; i++) h += dlComboGroupBlock(i);
+  c.innerHTML = h;
+  for (let i = 0; i < _dlComboN; i++) dlRenderProdChips('g' + i);
+  const add = document.getElementById('dl-combo-add'); if (add) { add.disabled = _dlComboN >= 3; add.style.opacity = _dlComboN >= 3 ? '.5' : ''; }
+}
+function dlComboAddGroup() {
+  if (_dlComboN >= 3) return;
+  if (!_dlPick['g' + _dlComboN]) _dlPick['g' + _dlComboN] = [];
+  _dlComboN++;
+  dlRenderComboGroups();
+}
+function dlComboRemoveGroup(i) {
+  const arr = []; for (let k = 0; k < _dlComboN; k++) arr.push(_dlPick['g' + k] || []);
+  arr.splice(i, 1);
+  _dlComboN = arr.length;
+  for (let k = 0; k < _dlComboN; k++) _dlPick['g' + k] = arr[k];
+  delete _dlPick['g' + _dlComboN];
+  dlRenderComboGroups();
+}
+// ── machine search filter ──
+function dlMachFilter(q) {
+  const term = (q || '').trim().toLowerCase();
+  const rows = [...document.querySelectorAll('#dl-mach-list .dl-mrow')];
+  let shown = 0;
+  rows.forEach(r => { const hay = r.getAttribute('data-hay') || ''; const m = !term || hay.indexOf(term) > -1; r.style.display = m ? '' : 'none'; if (m) shown++; });
+  const c = document.getElementById('dl-mach-count'); if (c) c.textContent = term ? (shown + ' of ' + rows.length + ' match') : (rows.length + ' machines');
 }
 
 function operatorFormHtml(mode, op) {

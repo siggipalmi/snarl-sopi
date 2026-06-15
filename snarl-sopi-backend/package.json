@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "5.06.0",
-  "description": "Snarl & Sopi operator backend — v5.06: deal product targeting upgraded from free text to a catalog typeahead. New GET /api/v1/products/search (name/barcode, ≥3 chars) returns thumbnail, current resale price, and live stock count (summed from slot_stock, scoped to the deal's selected machines when set). Composer shows a predictive dropdown + selected-product chips. Builds on v5.05 deals engine.",
+  "version": "5.07.0",
+  "description": "Snarl & Sopi operator backend — v5.07: combo deals rebuilt as product groups (pick one from each of up to 3 groups → fixed price or % off), each group using the catalog typeahead; the \"specific machines\" scope picker is now searchable with a live match count. Product picker generalised to work per-target. Builds on v5.06.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
