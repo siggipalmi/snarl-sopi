@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.10.0",
+  "description": "Snarl & Sopi operator backend — v5.10: lease-unit inventory + claim endpoint for the Zapier lease flow. New lease_units table (seeded from 40 physical units), POST /api/v1/leases/claim atomically claims the next available unit(s) per type (Einfaldur/Tvöfaldur/55\") and returns serial + Nayax blocks for the contract; GET /api/v1/leases/units for the dashboard. Builds on v5.09.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
