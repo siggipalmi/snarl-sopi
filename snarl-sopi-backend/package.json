@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "5.11.0",
-  "description": "Snarl & Sopi operator backend — v5.11: adds POST /api/v1/leases/free to reset a lease unit back to available (for clearing test claims). Builds on v5.10 lease-unit inventory + claim.",
+  "version": "5.12.0",
+  "description": "Snarl & Sopi operator backend — v5.12: extends POST /api/v1/leases/free with bulk modes — {assignedTo} frees all units for a name, {reseed:true} wipes and restores the exact starting inventory (40 units, 5 used). For cleaning up test claims. Builds on v5.11.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

@@ -344,8 +344,23 @@ function handleListLeaseUnits(req, res) {
  * Used to reset test claims. Secret-header protected like claim.
  */
 function handleLeaseFree(req, res) {
-  const machineId = (req.body && req.body.machineId || '').toString().trim();
-  if (!machineId) return badRequest(res, 'machineId is required');
+  const b = req.body || {};
+
+  // Mode 1: reseed — wipe and restore the exact starting inventory (test cleanup)
+  if (b.reseed === true || b.reseed === 'true') {
+    const n = storage.reseedLeaseUnits();
+    return ok(res, { reseeded: n });
+  }
+
+  // Mode 2: free all units assigned to a given name (clears a test batch)
+  if (b.assignedTo) {
+    const freed = storage.freeLeaseUnitsByAssignee(b.assignedTo.toString());
+    return ok(res, { freedByAssignee: b.assignedTo, count: freed });
+  }
+
+  // Mode 3: free a single unit by machineId
+  const machineId = (b.machineId || '').toString().trim();
+  if (!machineId) return badRequest(res, 'Provide machineId, assignedTo, or reseed:true');
   const unit = storage.getLeaseUnit(machineId);
   if (!unit) return json(res, 404, { error: 'Unknown machineId: ' + machineId });
   storage.freeLeaseUnit(machineId);

@@ -435,6 +435,10 @@ const stmts = {
   freeLeaseUnit: db.prepare(`UPDATE lease_units
       SET status='available', assignedTo=NULL, kennitala=NULL, assignedDate=NULL, updatedAt=@updatedAt
       WHERE machineId=@machineId`),
+  freeLeaseUnitsByAssignee: db.prepare(`UPDATE lease_units
+      SET status='available', assignedTo=NULL, kennitala=NULL, assignedDate=NULL, updatedAt=@updatedAt
+      WHERE assignedTo=@assignedTo`),
+  deleteAllLeaseUnits: db.prepare('DELETE FROM lease_units'),
 
   // Orders
   insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime)
@@ -865,6 +869,26 @@ const storage = {
   },
   freeLeaseUnit(machineId) {
     stmts.freeLeaseUnit.run({ machineId, updatedAt: new Date().toISOString() });
+  },
+  freeLeaseUnitsByAssignee(assignedTo) {
+    const r = stmts.freeLeaseUnitsByAssignee.run({ assignedTo, updatedAt: new Date().toISOString() });
+    return r.changes;
+  },
+  // Wipe and re-seed from the seed file — restores exact starting inventory.
+  reseedLeaseUnits() {
+    const seed = require('./data/lease-units-seed.json');
+    const tx = db.transaction(() => {
+      stmts.deleteAllLeaseUnits.run();
+      const now = new Date().toISOString();
+      seed.forEach(u => stmts.insertLeaseUnit.run({
+        machineId: u.machineId, nayaxId: u.nayaxId || '', type: u.type,
+        status: u.status || 'available',
+        assignedTo: u.assignedTo || null, kennitala: u.kennitala || null,
+        assignedDate: u.assignedDate || null, createdAt: now, updatedAt: now,
+      }));
+    });
+    tx();
+    return seed.length;
   },
   // Atomically claim N available units per type. wants = { 'Einfaldur':2, '55"':1 }
   claimLeaseUnits(wants, assignedTo, kennitala) {
