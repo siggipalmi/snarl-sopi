@@ -212,6 +212,7 @@ const routes = [
 
   // Lease-unit assignment (Zapier lease flow — secret-header auth)
   { method:'POST', pattern:'/api/v1/leases/claim', handler: handleLeaseClaim,     middleware:[requireLeaseKey] },
+  { method:'POST', pattern:'/api/v1/leases/free',  handler: handleLeaseFree,      middleware:[requireLeaseKey] },
   // Dashboard read (operator auth)
   { method:'GET',  pattern:'/api/v1/leases/units', handler: handleListLeaseUnits, middleware:[requireAuth, requireAgAdmin] },
 ];
@@ -335,6 +336,20 @@ function handleLeaseClaim(req, res) {
 /** GET /api/v1/leases/units — dashboard view (operator auth) */
 function handleListLeaseUnits(req, res) {
   ok(res, { units: storage.listLeaseUnits() });
+}
+
+/**
+ * POST /api/v1/leases/free
+ * Body: { machineId }  — returns a single unit to 'available' (clears assignee).
+ * Used to reset test claims. Secret-header protected like claim.
+ */
+function handleLeaseFree(req, res) {
+  const machineId = (req.body && req.body.machineId || '').toString().trim();
+  if (!machineId) return badRequest(res, 'machineId is required');
+  const unit = storage.getLeaseUnit(machineId);
+  if (!unit) return json(res, 404, { error: 'Unknown machineId: ' + machineId });
+  storage.freeLeaseUnit(machineId);
+  ok(res, { freed: machineId, unit: storage.getLeaseUnit(machineId) });
 }
 
 /**
