@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.15.0",
+  "description": "Snarl & Sopi operator backend — v5.15: (1) Deals \"New deal\" is now a prominent bronze pill. (2) Fix expiry \"track\" toggle 404 \"Product not found\": products that exist in machine stock but not the catalog now get a minimal catalog row (name pulled from stock) on first toggle, so perishable can be stored. Builds on v5.14.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
