@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.18.0",
+  "description": "Snarl & Sopi operator backend — v5.18: lease inventory dashboard page (top-operator only) — summary by type, type/status filters + search, per-unit list with Free action, and a guarded Reset-to-baseline. Adds ag-admin routes POST /leases/units/:machineId/free and POST /leases/reseed (the existing secret-key /leases/free stays for the Zap). Builds on v5.17.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
