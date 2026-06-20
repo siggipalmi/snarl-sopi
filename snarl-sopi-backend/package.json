@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.16.0",
+  "description": "Snarl & Sopi operator backend — v5.16: deal stock + idle resolver now read current stock from the machine layout (planogram currStock) — the same source the catalog/expiry views use — instead of the slot_stock table, which is empty on machines that are not syncing. Fixes the deal editor showing \"0 in stock\" and expiry/markdown idle cards being dropped for in-stock products; price/name/image fall back to the layout when the catalog row has none. Builds on v5.15.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
