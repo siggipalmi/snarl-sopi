@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.37.0",
+  "description": "Snarl & Sopi operator backend — v5.37: combo builder now lets operators name each group (optional label, e.g. drykkur/snakk); label persists in deal config and flows through offers[].groups[].label for the kiosk pairing prompt. Cumulative over v5.36.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
