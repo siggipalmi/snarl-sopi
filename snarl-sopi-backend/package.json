@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.38.0",
+  "description": "Snarl & Sopi operator backend — v5.38: remote cooling control. set_temp/set_cooling/defrost command types via the pull-queue, a POST /cooling endpoint with server-side 1-15C range guard that stores intended setpoint/on-off per machine, and a Cooling block in the machine Controls panel (setpoint apply, cooling on/off with confirm, defrost) with board-confirmed results in command history. Cumulative over v5.37.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
