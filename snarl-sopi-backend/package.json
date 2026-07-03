@@ -1,0 +1,19 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.45.0",
+  "description": "Snarl & Sopi operator backend — v5.45: fleet-table behind flag now counts only a healthy, rolling target. A machine on the highest non-halted, non-rejected build reads up to date (green) even if a higher halted/rejected build exists; behind shows only when a publishable healthy build is newer. Rejected-build badge stays as history. Cumulative over v5.44.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "@aws-sdk/client-s3": "^3.1061.0"
+  }
+}
