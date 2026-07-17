@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.50.0",
+  "description": "Snarl & Sopi operator backend — v5.50: product image review list is now persistent and exportable. clearedPct is stored per product, a review endpoint rebuilds the check/manual lists from stored state (so they survive a reload rather than living only in the last run report), the Settings panel shows them with thumbnails on a transparency checkerboard, and there is a CSV export with proper quoting for Icelandic names. Cumulative over v5.49.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
