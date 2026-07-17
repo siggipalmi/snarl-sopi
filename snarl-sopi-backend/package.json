@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.54.0",
+  "description": "Snarl and Sopi operator backend v5.54: fixes product image uploads intermittently doing nothing. The editor read the chosen file with FileReader (async) but saved with whatever the variable held at that instant, so clicking save before the read finished sent no image at all: the backend saved the other fields and returned a clean success, so the modal closed with no error while the image never changed. Save now awaits the pending read, refuses to save when a chosen file has not loaded, and surfaces read errors instead of failing silently. Cumulative over v5.53.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
