@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.55.0",
+  "description": "Snarl and Sopi operator backend v5.55: diagnostics for product images that will not update. The image save now logs each step with the number of catalog rows actually changed (rowsChanged 0 means the write matched no row and vanished, which is now logged loudly and surfaced as a warning instead of reporting success). Adds GET /api/v1/debug/product?q=name which shows the catalog row(s), the ids each row is keyed on, what every machine planogram carries, and whether the dashboard is editing an id no catalog row owns. Cumulative over v5.54.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
