@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.49.0",
+  "description": "Snarl & Sopi operator backend — v5.49: clean product backgrounds so the kiosk tile colour wraps the product. New clean-backgrounds job re-processes every image still flagged imageHasBackground from its original source with white knockout (edge flood-fill keeps white inside the product), reports heavy clears for human review and lists non-white backdrops that need manual replacement, with thumbnail review in the dashboard. Originals retained so it is reversible. Cumulative over v5.48.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
