@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.51.0",
+  "description": "Snarl & Sopi operator backend — v5.51: fixes product image edits silently not sticking. handleUpdateProduct previously looked up and saved to Weimi FIRST and returned early on any failure, so an uploaded image was hosted but never recorded (and products stubbed from the planogram, which do not exist in Weimi, could not be edited at all). The image is now normalized, hosted and written to our catalog BEFORE any Weimi call, and Weimi lookup/save are best-effort: rejections or outages become warnings surfaced in the editor rather than losing the edit. Cumulative over v5.50.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
