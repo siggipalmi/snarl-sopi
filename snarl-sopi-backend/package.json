@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.60.0",
+  "description": "Snarl and Sopi operator backend v5.60: combo and multibuy near-miss hints on /quote for a checkout nudge. When a basket is exactly one item short of completing a combo (or an N-for-total multibuy), the quote now returns a comboNearMiss array with the add-on price, the missing group label, and in-stock cheapest-first candidate goodsIds. The add-on price is computed from the same reward math as pricing so it equals what the customer pays after tapping, only emitted when completing the deal beats base price, and the field is absent when there is no hint. Read-only, folded into the existing /quote, no basket mutation. Cumulative over v5.59.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
