@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.66.0",
+  "description": "Snarl and Sopi operator backend v5.66: catalog dedupe. New POST /api/v1/products/dedupe removes orphaned duplicate catalog rows (the unreferenced second copy of a product that exists under two goodsIds). Dry-run by default (returns exactly what it would delete); only acts on body confirm DELETE. Each candidate is re-checked for references at delete time, so a keeper or any row referenced by stock, sales, history or planograms is never removed, only true zero-reference orphans. Deletes are safe because nothing foreign-keys products. Cumulative over v5.65.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
