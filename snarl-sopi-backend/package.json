@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.63.0",
+  "description": "Snarl and Sopi operator backend v5.63: fixes the operator-provision 502. The invitations table has inviterId NOT NULL, but self-service provisioning (the Zapier signup path) creates invites with no human inviter, so the null inviterId threw a NOT NULL constraint error AFTER the operator row was written, killing the request with no response (surfacing as a platform 502 while still leaving an operator created). Self-service invites now use a system sentinel inviter, and the provision writes are wrapped so any storage failure returns a clean 500 with a logged reason instead of a silent 502. Cumulative over v5.62.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
