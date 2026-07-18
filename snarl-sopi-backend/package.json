@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.59.0",
+  "description": "Snarl and Sopi operator backend v5.59: fixes newly uploaded images showing unknown resolution. handleUpdateProduct writes the image row up to three times (initial save, then re-asserts after the Weimi round-trip), and the later re-asserts called setProductImage without the source dimensions, nulling the value that the first write had recorded. All setProductImage call sites that write a fresh image now pass srcW/srcH, so uploads record their source resolution immediately. Cumulative over v5.58.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
