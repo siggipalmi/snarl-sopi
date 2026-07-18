@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.58.0",
+  "description": "Snarl and Sopi operator backend v5.58: product image resolution report. Records each image source width/height before it is squared to 800x800 (stored size is uniform and useless for spotting grainy images, so source size is what matters). New resolution list in Settings, sorted smallest-first with thumbnails and a tiny/small/ok/good grade, plus CSV export, so small upscaled images can be replaced worst-first. A backfill job measures dimensions for images hosted before this by re-fetching their retained original. Cumulative over v5.57.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
