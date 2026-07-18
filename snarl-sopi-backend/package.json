@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.62.0",
+  "description": "Snarl and Sopi operator backend v5.62: fixes operator provisioning returning 502. The invite email was sent with a blocking await and no timeout, so a slow or hung SendGrid call held the HTTP request open until the platform edge timed out and returned 502, even though the operator was created. The email now has a 12s timeout and is sent without blocking the response: the endpoint returns created:true and inviteQueued:true immediately, and the email outcome is logged (with the invite URL on failure). Cumulative over v5.61.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
