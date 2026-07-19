@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.67.0",
+  "description": "Snarl and Sopi operator backend v5.67: receipt to net cost prices (feature A). New receipts and receipt_lines tables store full supplier receipt detail (supplier, kt, date, number, VSK breakdown, per-line pack/qty/price). New products.costPriceNetIsk column holds per-single-unit net cost (VSK excluded); the existing gross costPriceIsk is left untouched. New POST /api/v1/receipts/extract reads a receipt photo or PDF via Claude vision into normalized lines, divides packs down to single units, strips VSK on gross retail prices, matches each line to a product (barcode then name), and runs a current-cost sanity check that flags clean-factor mismatches. GET /api/v1/receipts and /receipts/:id list and re-decorate drafts for review; POST /api/v1/receipts/:id/confirm writes net cost to matched products and marks the receipt confirmed. The profit report now prefers costPriceNetIsk when present and falls back to netting down the legacy gross cost. Cumulative over v5.66.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
