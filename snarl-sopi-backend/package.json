@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.72.0",
+  "description": "Snarl and Sopi operator backend v5.72: fixes draft-product cost transfer. When a receipt draft is finished into a real product, the parked net cost is now transferred explicitly and self-reports the outcome in the create response (draftResolved: netCostParked + netCostOnProduct read back). Also fixes the create-from-draft modal to prefill the cost field (gross, converted from the stored net) and pull draft data from an in-memory cache instead of scraping table cells (the scrape skipped the cost cell). Cumulative over v5.71 (product_drafts, deferred creation).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
