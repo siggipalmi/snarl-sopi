@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.69.0",
+  "description": "Snarl and Sopi operator backend v5.69: adds the Receipts tab to the operator UI (public/index.html) for the receipt-to-cost feature. New Receipts nav page: upload a supplier photo/PDF, which is downscaled client-side and sent to /api/v1/receipts/extract; the extracted lines render in a review table showing per-single-unit net cost (editable), auto-matches, candidate product buttons plus catalog search for unmatched lines, skip, and a cost-check verdict (confident/suggest/mismatch) per line. Confirm is blocked until every line is matched or skipped; confirming writes net costs and learns description aliases. Includes a recent-receipts history list. listReceipts now returns lineCount. Backend receipt logic unchanged from v5.68 (extract/confirm, learned aliases, size-aware matching, costPriceNetIsk, net-preferring profit report). Cumulative.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
