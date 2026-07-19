@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.68.0",
+  "description": "Snarl and Sopi operator backend v5.68: adds learned alias matching to the receipt cost feature (v5.67). New global receipt_aliases table maps a supplier line description to the product an operator confirmed it as; on confirm, each matched line is recorded. Receipt extraction now checks learned aliases FIRST (before barcode and tokenized name), giving a confident auto-match for descriptions seen before regardless of how terse the supplier name is, so repeat receipts are mostly pre-matched. Name matching uses size-aware tokenization (keeps 330/500/55 size numbers, drops pack counts) and auto-matches only a single clear candidate, else returns the top few for review. Cumulative over v5.67 (receipts/receipt_lines, costPriceNetIsk, extract/confirm routes, net-preferring profit report).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
