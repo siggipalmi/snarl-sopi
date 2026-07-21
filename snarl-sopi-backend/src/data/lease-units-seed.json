@@ -1,0 +1,322 @@
+[
+  {
+    "machineId": "8626020718",
+    "nayaxId": "0434334925282693",
+    "type": "Tvöfaldur",
+    "status": "used",
+    "assignedTo": "B11 Hótel",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020717",
+    "nayaxId": "0434334925281436",
+    "type": "Tvöfaldur",
+    "status": "used",
+    "assignedTo": "Hótel Vellir",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020716",
+    "nayaxId": "0434334825279735",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020715",
+    "nayaxId": "0434334925281528",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020714",
+    "nayaxId": "0434334925283145",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020713",
+    "nayaxId": "0434334825279741",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020712",
+    "nayaxId": "0434334825280320",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020711",
+    "nayaxId": "0434334925283074",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020710",
+    "nayaxId": "0434334925282983",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020709",
+    "nayaxId": "0434334925281476",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020708",
+    "nayaxId": "0434334925282679",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020707",
+    "nayaxId": "0434334825280186",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020706",
+    "nayaxId": "0434334825280357",
+    "type": "Tvöfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020623",
+    "nayaxId": "0434334825279882",
+    "type": "Einfaldur",
+    "status": "used",
+    "assignedTo": "Vinastræti",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020622",
+    "nayaxId": "0434334825280175",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020621",
+    "nayaxId": "0434334825280152",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020620",
+    "nayaxId": "0434334925281464",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020619",
+    "nayaxId": "0434334825280142",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020618",
+    "nayaxId": "0434334825279937",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020617",
+    "nayaxId": "0434334825279907",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020616",
+    "nayaxId": "0434334925281567",
+    "type": "Einfaldur",
+    "status": "used",
+    "assignedTo": "Eftir í Kína",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020615",
+    "nayaxId": "0434334925281555",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020614",
+    "nayaxId": "0434334925281488",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020613",
+    "nayaxId": "0434334825279964",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020612",
+    "nayaxId": "0434334825279966",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020611",
+    "nayaxId": "0434334925281399",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020610",
+    "nayaxId": "0434334925281511",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020609",
+    "nayaxId": "0434334925281479",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020608",
+    "nayaxId": "0434334925281585",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020607",
+    "nayaxId": "0434334925281484",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020606",
+    "nayaxId": "0434334925281394",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020605",
+    "nayaxId": "0434334925282943",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020604",
+    "nayaxId": "0434334825279754",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020603",
+    "nayaxId": "0434334925283144",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020602",
+    "nayaxId": "0434334925281313",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020601",
+    "nayaxId": "0434334925283204",
+    "type": "Einfaldur",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "8626020600",
+    "nayaxId": "0434334925283067",
+    "type": "Einfaldur",
+    "status": "used",
+    "assignedTo": "Eftir í Kína",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160485",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160480",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160492",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "available",
+    "assignedTo": "",
+    "kennitala": ""
+  }
+]
