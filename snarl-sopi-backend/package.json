@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.75.0",
+  "description": "Snarl and Sopi operator backend v5.75: fridge go-live fixes ahead of the first gravity fridge. Settlement records are now keyed per device (deviceCode, orderId) instead of by orderId alone: client order ids are only unique per machine, so two fridges opening a session in the same millisecond could silently overwrite one another and delete the other machine lines, corrupting the dispute audit trail. Includes a guarded migration for the earlier shape. Machine creation now accepts a model and persists the machine: previously a new fridge would silently register as a coil model and receive no fridge planogram, and the machine was only held in memory and lost on restart. Setting fridge baskets now rejects an enabled stocked basket with no resolvable unit weight, since the door exposes every basket at once. Cumulative over v5.74.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
