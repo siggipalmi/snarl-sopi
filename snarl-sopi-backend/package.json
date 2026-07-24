@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.74.0",
+  "description": "Snarl and Sopi operator backend v5.74: fixes fridge planogram updates being invisible to the machine. The planogram is delivered inside the config response and kiosks poll with If-None-Match on configVersion, but the basket PUT did not bump configVersion, so a planogram change returned 304 and never reached the machine. Setting baskets now touches config and returns the new configVersion. Cumulative over v5.73 (which merged gravity fridge support and the downloads page onto the v5.72 receipts line).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
