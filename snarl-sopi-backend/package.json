@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.80.0",
+  "description": "Snarl and Sopi operator backend v5.80: fixes fridge basket price changes via the dedicated price endpoint. POST products/price was a coil-only path that pushes prices to Weimi aisles, which a gravity fridge does not have, so a fridge price change either failed as not_stocked or never reached the fridge and never bumped configVersion. The endpoint is now fridge-aware: for a fridge it sets a per-basket price override (scoped to the targeted machine so other machines showing the same product are unaffected) and re-touches config so the machine re-polls within a cycle. Complements v5.79, which bumps config on the product-editor path. Cumulative over v5.79.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
