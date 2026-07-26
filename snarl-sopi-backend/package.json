@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.81.0",
+  "description": "Snarl and Sopi operator backend v5.81: adds a fridge planogram view to the dashboard machine-detail page for GR- machines. Shows baskets in their real physical shelves per cabinet (1-4, 5-8, 9-11, 12-14, 15-16) with product image, price (override vs inherited), unit weight and enabled state. A per-basket editor assigns a product via search picker (no id pasting), sets price (blank inherits catalog), measured unit weight, tolerance and enabled. A bulk-edit table sets all baskets at once. A recent-sessions panel shows settlements with mismatch flags. The coil price path and kiosk-designer action are hidden on fridges so the basket editor is the only price path. Product search now returns weightGrams for weight pre-fill. Cumulative over v5.80.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
