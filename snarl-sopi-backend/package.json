@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.82.0",
+  "description": "Snarl and Sopi operator backend v5.82: fixes a ReferenceError introduced in v5.81 that blanked the bays/planogram section for ALL machines. The new fridge routing call referenced a machine variable that was block-scoped to a try block above it and out of scope at the call site, so it threw for every machine and halted rendering of both coil bays and fridge baskets. Now reads the machine from DB.machines[code], which is in scope and carries model. Cumulative over v5.81.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
