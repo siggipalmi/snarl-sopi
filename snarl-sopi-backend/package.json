@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.87.0",
+  "description": "Snarl and Sopi operator backend v5.87: stock_history is now pruned (180-day retention) on the same 5-minute telemetry sweep that prunes telemetry (90-day). The cleanup statement existed but was never invoked, so stock_history grew unbounded. Confirms the poll path does not append: command-poll last-seen and app-version are keyed upserts (setMeta), one row per machine, so poll frequency has no storage cost. No APK binaries are stored; publish fetches and hashes in memory. Cumulative over v5.86.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
