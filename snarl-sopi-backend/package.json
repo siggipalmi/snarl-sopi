@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.85.0",
+  "description": "Snarl and Sopi operator backend v5.85: hardens app-release publishing. Publish now echoes the re-read stored release (so any store discrepancy is visible in the response, not just what was sent) and enforces forward-only versioning: a new release must have a strictly higher targetVersionCode than the current one for that app, rejecting the stale-version-with-new-APK mistake that silently disables the client rollback net. The rollout halt/resume handler now targets the correct app line (coil vs fridge) instead of always the coil release. Cumulative over v5.84.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
