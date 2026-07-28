@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.88.0",
+  "description": "Snarl and Sopi operator backend v5.88: serve OTA APKs from our own host instead of GitHub. Older kiosk tablets do not trust Lets Encrypt ISRG Root X2, which GitHubs asset host may chain to, so downloads failed with an unacceptable-certificate error while every other call to us (chaining to X1) worked. Publish now fetches the APK, stores it on the Railway volume (/data/apks) next to the DB, and returns our own /api/v1/app-release/:app/apk URL in the manifest, which the machine downloads unauthenticated over the TLS chain it already trusts. Because the fetch happens at publish and must succeed, a source URL that 404s now fails the publish instead of storing a release pointing at a dead artifact. A supplied sha256 that disagrees with the fetched bytes is rejected. Only the current APK per app is kept. Cumulative over v5.87.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
