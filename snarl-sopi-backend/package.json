@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.89.0",
+  "description": "Snarl and Sopi operator backend v5.89: the OTA publish form now has a coil/fridge app selector, so a fridge build can be published from the dashboard instead of a console call. Previously the form always targeted the coil line, so a fridge APK would have gone to the coil release. The selected app is passed to PUT app-release. Pairs with v5.88 (APKs served from our own host). Cumulative over v5.88.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
