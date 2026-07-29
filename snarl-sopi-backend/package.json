@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.91.0",
+  "description": "Snarl and Sopi operator backend v5.91: heal the OTA manifest apkUrl for releases already published. v5.90 only rewrote a relative stored path, but the live release had an absolute admin.agvending.is URL baked in at publish (v5.88/89), so the resolver skipped it and machines were still handed the untrusted custom-domain host. The app-update manifest now rebuilds the URL on the request origin whenever the release points at our own apk route (relative OR an absolute URL ending in it), leaving genuinely external URLs untouched. Result is always absolute (the fleet updater calls URL(apkUrl) directly). No re-publish needed; existing releases are healed at read time. Cumulative over v5.90.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
