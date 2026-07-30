@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.93.0",
+  "description": "Snarl and Sopi operator backend v5.93: app-update manifest supports an opt-in relative apkUrl. By default the manifest still returns an absolute APK URL rebuilt on the request origin (so it always matches the trusted host the machine polled, healing older releases with a stored admin.agvending.is URL). A client that resolves relative paths itself can request GET app-update?apkUrl=relative to receive the bare /api/v1/app-release/:app/apk path, which can never drift from the origin. Also confirms: the absolute-on-request-origin healing has been in place since v5.90/5.91 — a manifest still showing admin.agvending.is means an older build is deployed. Cumulative over v5.92 (check_update).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
