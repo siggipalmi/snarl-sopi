@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.95.0",
+  "description": "Snarl and Sopi operator backend v5.95: machine detail view reorganised into four tabs (Overview / Planogram-or-Bays / Activity / Controls) for a cleaner mobile experience. Overview leads with a quick-action grid (coil vs fridge actions, Weimi sync gated to ag_admin) plus empty slots and a new recently-sold-out panel scoped to the machine. All existing sections and their render wiring are preserved and relocated into tabs; the 2nd tab labels Planogram on fridges and Bays on coil. Adds a check_update quick action (enqueues the command added in v5.92). No backend/API change; this is a dashboard UI restructure. Cumulative over v5.94.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
