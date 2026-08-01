@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.94.0",
+  "description": "Snarl and Sopi operator backend v5.94: two new fridge complaint reasons with reason-aware alerting. expired_product and cooling_fault join the enum (now six: not_taken, wrong_quantity, returned_but_charged, expired_product, cooling_fault, other); lines stays required. Alerting is now differentiated: cooling_fault is food-safety and raises a CRITICAL alert on a SINGLE report (deduped per 6h) rather than waiting for a cluster; expired_product raises a warning at 2+ in 24h framed as stock rotation; the original charge-accuracy reasons keep the 3+/24h basket-calibration cluster alert. Added a reason-filtered complaint count. Cumulative over v5.93.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
