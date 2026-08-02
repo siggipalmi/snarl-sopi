@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "5.98.0",
+  "description": "Snarl and Sopi operator backend v5.98: machine detail Overview now shows the machines open alerts. A needs-attention panel at the top of Overview lists this machines unresolved alerts (critical first) with severity, age, detail and a resolve action, so the error badge on the machine list now has a destination when you tap in. Uses the existing GET /alerts?deviceCode=&resolved=false and POST /alerts/:id/resolve endpoints; no API change. Cumulative over v5.97.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
