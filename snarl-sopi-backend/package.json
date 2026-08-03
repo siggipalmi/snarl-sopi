@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.0.3",
+  "description": "Snarl and Sopi operator backend v6.0.3: align physicalSlot label decode with the kiosks canonical scheme. The dashboard computed slot labels assuming 16 positions per layer (1-16, 21-36); the kiosk uses 9 per layer with columnBaseZero (A1-A9, B21-B29, rejects col>9). This divergence at positions 10+ mislabeled bays, so clicking the bay you thought was A22 could act on a different physical bay. physicalSlot now uses 9/layer and returns the raw code for positions beyond 9, matching the kiosk exactly and giving an injective 1:1 label mapping. Row->code click wiring was verified correct in both grid and restock views. Cumulative over v6.0.2.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
