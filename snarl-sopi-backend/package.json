@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.0.6",
+  "description": "Snarl and Sopi operator backend v6.0.6: gridOrder is now an ordering hint rather than a whitelist. The kiosk renders its product grid from config gridOrder, which is the list saved by the kiosk designer; any product added to the machine after that save was never rendered even though it had stock and an enabled aisle (observed: 31 products in the stock map but only 28 in gridOrder, so three stocked products were invisible on the kiosk). Config now serves the operators saved order first and appends any stocked product missing from it, so new products always appear while the arranged order is preserved. Cumulative over v6.0.5.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
