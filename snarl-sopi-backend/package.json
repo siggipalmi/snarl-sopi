@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.2.0",
+  "description": "Snarl and Sopi operator backend v6.2: fridge complaints now email the operator, and the alerts endpoint no longer 500s. Two fixes: (1) GET /alerts crashed on any query because the alerts Proxy supports filter/map/find but not iteration, so spreading it threw not-iterable; it now reads from storage directly, which also repairs the needs-attention panel on machine detail. (2) Fridge complaints stored fine and raised alerts but never sent mail, because only the coil handler called the notifier. Fridge complaints now notify the operator using the same recipient rule (operator contactEmail, then an operator_admin user, then AG Vending), via a dedicated fridge template that leads with the complaint reason and includes a spot cabinet-temperature reading with the age of that reading and whether it is above the configured maximum. Cooling-fault mail is marked urgent. Cumulative over v6.1.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
