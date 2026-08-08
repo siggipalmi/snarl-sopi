@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.9.1",
+  "description": "Snarl and Sopi operator backend v6.9.1: three corrections from the fridge team. The shelf price-tag buttons were shown on coil machines and hidden on fridges, which was backwards — the fridge is the machine with the unreachable tags — so they now appear on both. read_temp is removed entirely, command type, button and function: the board exposes no temperature source through the SDK (getTemplate silent at all addresses, getAllDeviceStatus static, getEleInfo 0x47 is electrical metering), so an allow-listed command with no possible handler would only be a dead control. tempReporting, tempMaxC and tempDwellMin are now settable through the machine settings endpoint with tempReporting validated to auto, expected or unsupported, so a board with no temperature source can be marked as such and the panel says so plainly. The kiosk log window rises from 4000 to 20000 lines per machine and is tunable via KIOSK_LOG_MAX_LINES; at 400 lines per five-minute post the old cap held under an hour of history. Cumulative over v6.9.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
