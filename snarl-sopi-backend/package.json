@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.15.0",
+  "description": "Snarl and Sopi operator backend v6.15: refuse a keyless build to a machine that has not migrated its key. A generic build carries no baked-in machine key, so a machine still depending on one would install it and immediately 401 into a hard-failed connection needing a site visit — and that is unrecoverable remotely. A release can now be published with requiresStoredKey true, and the app-update manifest withholds it from any machine whose last config_health did not report keySource stored, treating never-reported as not-migrated since a machine that was offline during the migration is exactly the one at risk. Per-machine builds are unaffected, so the migration rollout itself still reaches the existing fleet. The dashboard already warned about this; the manifest guard makes the mistake impossible rather than merely visible. Cumulative over v6.14.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
