@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.17.0",
+  "description": "Snarl and Sopi operator backend v6.17: alert on repeated invalid machine-key attempts. A machine presenting a wrong key cannot authenticate anything — not sales, not the config poll, not the command queue that config_health rides on — so it cannot report its own state, and a key mistyped at setup produces silence indistinguishable from a machine that is switched off. The 401s are the only evidence it leaves, so they are now counted per device: five within fifteen minutes raises a critical alert and emails the operator, telling them the typed key is wrong and to re-read it with show key, deduped for six hours and cleared the moment the machine authenticates successfully. Attempts against an unregistered device code raise a warning instead, since that is either a machine being set up or something probing the API. Cumulative over v6.16.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
