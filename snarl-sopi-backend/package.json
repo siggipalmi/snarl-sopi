@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "5.72.0",
-  "description": "Snarl and Sopi operator backend v5.72: fixes draft-product cost transfer. When a receipt draft is finished into a real product, the parked net cost is now transferred explicitly and self-reports the outcome in the create response (draftResolved: netCostParked + netCostOnProduct read back). Also fixes the create-from-draft modal to prefill the cost field (gross, converted from the stored net) and pull draft data from an in-memory cache instead of scraping table cells (the scrape skipped the cost cell). Cumulative over v5.71 (product_drafts, deferred creation).",
+  "version": "6.18.0",
+  "description": "Snarl and Sopi operator backend v6.18: a screen-poster editor, so ads stop being a console-only field. Ads were already served in config and validated on the backend, but there was no dashboard UI and no way to host an image for them, leaving it a hand-written PUT. The machine Overview now has a screen poster panel: upload an image, set how many seconds it shows, add optional overlay text, reorder or remove, and a toggle for whether the poster area appears on the screen at all. Adds POST /machines/:deviceCode/ads/upload which hosts the file on R2 and checks it against the kiosk ad region, which is HD landscape 16:9 — a poster off that ratio is reported back as croppable rather than silently accepted, and anything wider than 1920px is re-encoded down since the extra bytes cross a machine connection for no visible gain. Changes reach the machine at its next config poll, with no app update. Cumulative over v6.17.1.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

@@ -432,6 +432,31 @@ function userCanReassignWithin(user, operatorId) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Gravity-fridge model detection. The model string identifies both fridge-ness and size:
+// GR-WM22Z680 = single door (680mm wide, 16 baskets, cabinet A only), GR-WM22Z1260 = double
+// door (1260mm, 32 baskets across cabinets A+B that open together on one tap). Coil machines
+// are VM-*. Centralised here so nothing else string-matches models.
+function fridgeSpec(model) {
+  const m = String(model || '');
+  if (!m.startsWith('GR-')) return { isFridge: false, cabinets: [], basketCount: 0, doors: 0 };
+  const isDouble = m.includes('1260');
+  return isDouble
+    ? { isFridge: true, cabinets: ['A', 'B'], basketCount: 32, doors: 2 }
+    : { isFridge: true, cabinets: ['A'], basketCount: 16, doors: 1 };
+}
+
+function fridgeLanguageBlock(cfg) {
+  const LABELS = { is: 'Íslenska', en: 'English', pl: 'Polski' };
+  const ALL = ['is', 'en', 'pl'];
+  // Per-machine available set (default: Icelandic + English); default language settable per machine.
+  let available = Array.isArray(cfg.availableLanguageCodes) && cfg.availableLanguageCodes.length
+    ? cfg.availableLanguageCodes.filter(c => ALL.includes(c)) : ['is', 'en'];
+  if (!available.length) available = ['is'];
+  let def = ALL.includes(cfg.defaultLanguageCode) ? cfg.defaultLanguageCode : 'is';
+  if (!available.includes(def)) def = available[0];
+  return { default: def, available, labels: LABELS };
+}
+
 function buildConfigResponse(machine) {
   const HOUSE_EMAIL = 'hallo@snarlogsopi.is';
   const op = operators[machine.operatorId] || {};
@@ -453,24 +478,76 @@ function buildConfigResponse(machine) {
     },
     outOfService: !!cfg.outOfService,
     outOfServiceReason: cfg.outOfServiceReason || null,
+    // Language: codes are Android resource qualifiers (is/en/pl → res/values-<code>, with
+    // "is" falling through to the default res/values). Per-machine default so a workplace can
+    // open in Icelandic and a hotel in English. Labels are for a language-name UI if needed.
+    language: fridgeLanguageBlock(cfg),
     commands: {
       restartApp: cfg.restartAppAt || null,
       restartMachine: cfg.restartMachineAt || null,
     },
-    gridOrder: Array.isArray(cfg.gridOrder) ? cfg.gridOrder : [],
+    // gridOrder is an ORDERING HINT, not a whitelist. The saved order comes from the kiosk
+    // designer, but products added to the machine after that save would otherwise never render.
+    // So: keep the operator's saved order first, then append any stocked product missing from it.
+    gridOrder: (() => {
+      const saved = Array.isArray(cfg.gridOrder) ? cfg.gridOrder.map(String).filter(Boolean) : [];
+      const stockMap = storage.stockMapForMachine(machine.deviceCode) || {};
+      const seen = new Set(saved);
+      const extras = Object.keys(stockMap).filter(gid => gid && !seen.has(gid));
+      return saved.concat(extras);
+    })(),
     featured: (machine.featured || []).slice().sort((a,b) => a.order - b.order),
     ads: machine.ads || [],
     deals: storage.activeDealsForMachine(machine.deviceCode) || [],
     idle: storage.resolveIdleForMachine(machine.deviceCode) || { rotationSeconds: 6, attractTimeoutSeconds: 30, cards: [] },
     offers: storage.offersForMachine(machine.deviceCode) || [],
     stockSource: machine.stockSource || 'weimi',
+    // Aisles the operator has closed on our kiosk (customer can't buy; hidden from the grid).
+    // This is the durable source of truth the kiosk seeds from; set_aisle_enabled gives instant
+    // effect between config polls. Independent of Weimi's isEnable (which we can't write).
+    disabledAisles: Array.isArray(cfg.disabledAisles) ? cfg.disabledAisles : [],
     stock: storage.stockMapForMachine(machine.deviceCode),
     // goodsId → { url, hasBackground } for products whose images we host+normalized.
     // Absent goodsId = not migrated yet; kiosk keeps its existing image source for those.
     images: storage.imageMapForMachine(machine.deviceCode),
     hardware: { dropSensor: cfg.dropSensor === 'on' ? 'on' : 'off' },
+    ...fridgePlanogramBlock(machine),
     configVersion: machine.configVersion,
   };
+}
+
+// For fridge machines, build the per-basket planogram. Baskets store overrides; the product's
+// own name/image/price/weight are the defaults, so changing a product image once updates every
+// basket. Non-fridge machines get nothing (block absent), leaving coil config unchanged.
+function fridgePlanogramBlock(machine) {
+  const spec = fridgeSpec(machine.model);
+  if (!spec.isFridge) return {};
+  const DEFAULT_TOLERANCE_G = 15;
+  const baskets = storage.listFridgeBaskets(machine.deviceCode) || [];
+  const rows = baskets.map(b => {
+    const p = b.productId ? storage.getProduct(b.productId) : null;
+    const enabled = b.enabled !== 0 && !!b.productId;
+    const unitWeightG = b.unitWeightG != null ? b.unitWeightG : (p && p.weightGrams != null ? p.weightGrams : null);
+    const priceIsk = b.priceIsk != null ? b.priceIsk : (p && p.salePriceIsk != null ? p.salePriceIsk : null);
+    return {
+      cabinet: b.cabinet, basket: b.basket,
+      serialLockNum: b.serialLockNum != null ? b.serialLockNum : null,
+      productId: b.productId || null,
+      name: p ? p.name : null,
+      imageUrl: (p && p.imgUrl) || null,
+      priceIsk: priceIsk != null ? priceIsk : null,
+      unitWeightG: unitWeightG != null ? unitWeightG : null,
+      toleranceG: b.toleranceG != null ? b.toleranceG : DEFAULT_TOLERANCE_G,
+      measurementFlag: b.measurementFlag != null ? b.measurementFlag : 1,
+      // capacity/expectedCount are for low-stock alerts, restock guidance and shrinkage
+      // comparison ONLY. Charging is derived from weight and unitWeightG — the settlement
+      // recompute must never read expectedCount. Do not wire these into pricing.
+      capacity: b.capacity != null ? b.capacity : null,
+      expectedCount: b.expectedCount != null ? b.expectedCount : null,
+      enabled,
+    };
+  });
+  return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, baskets: rows } };
 }
 
 function touchConfig(machine) {
@@ -485,7 +562,7 @@ module.exports = {
   storage,
   provisionMachine, validateMachineKey, revokeKey,
   markKioskSeen, isKioskAlive,
-  buildConfigResponse, touchConfig,
+  buildConfigResponse, touchConfig, fridgeSpec,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,

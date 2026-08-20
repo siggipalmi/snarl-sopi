@@ -9,6 +9,7 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const { router } = require('./router');
+const email = require('./email');
 
 const PORT       = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -49,7 +50,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   // Static files for GET requests that aren't API routes
-  if (req.method === 'GET' && !req.url.startsWith('/api/') && req.url !== '/health') {
+  if (req.method === 'GET' && !req.url.startsWith('/api/') && req.url !== '/health' && !req.url.startsWith('/downloads')) {
     if (serveStatic(req, res)) return;
   }
 
@@ -79,6 +80,15 @@ server.listen(PORT, () => {
   // Start periodic Weimi sync (status + products + orders) so inventory, sales,
   // and stock history (which powers last-visit detection) stay fresh automatically.
   startWeimiAutoSync();
+  startDailyDigest();
+  startConfigHealthSweep();
+  // Mirror any charged fridge settlement that predates the orders-analytics link, so revenue,
+  // heatmap and top-products include fridge sales that were only recorded as settlements.
+  try {
+    const storage = require('./storage');
+    const n = storage.backfillFridgeOrders();
+    if (n > 0) console.log(`[STORAGE] backfilled ${n} fridge sale(s) into orders`);
+  } catch (e) { console.error('[STORAGE] fridge order backfill failed:', e && e.message); }
   console.log('Press Ctrl+C to stop.\n');
 });
 
@@ -88,6 +98,114 @@ server.listen(PORT, () => {
  * clicks, and accumulates stock-history snapshots so restocks (last-visit) are
  * detected automatically. Interval configurable via WEIMI_SYNC_INTERVAL_MS.
  */
+// ── Daily machine digest ──────────────────────────────────────────────────────
+// One email per opted-in machine, sent at the configured hour. Opt-in per machine, because a
+// machine whose stock counts have never been established would otherwise report everything as
+// empty every morning and train the operator to ignore the mail.
+// Iceland is UTC year-round with no DST, so server time and local time coincide.
+// ── Scheduled config health ───────────────────────────────────────────────────
+// config_health is on-request only kiosk-side, and the condition it detects — closed lanes the
+// kiosk couldn't decode, still taking money — can arise AFTER provisioning, from a config poll that
+// lands oddly or a restart. On a machine with no OTA, asking on a schedule is the only way to catch
+// that without a site visit. The command is read-only and touches no hardware.
+function startConfigHealthSweep() {
+  const EVERY_MS = 60 * 60 * 1000;                       // hourly
+  const tick = () => {
+    try {
+      const storage = require('./storage');
+      const { machines } = require('./db');
+      for (const m of Object.values(machines)) {
+        if (!m.isOnline) continue;                        // an offline machine just accrues a queue
+        if (m.isKioskModel === false) continue;           // no app to answer
+        // Only where it can tell us something: a machine with lanes closed is the case that matters.
+        const closed = (m.settings && Array.isArray(m.settings.disabledAisles)) ? m.settings.disabledAisles : [];
+        if (!closed.length) continue;
+        // Don't stack: skip if a health check is already pending for this machine.
+        const pending = (storage.listRecentCommands(m.deviceCode, 10) || [])
+          .some(c => c.type === 'config_health' && c.status === 'pending');
+        if (pending) continue;
+        storage.enqueueCommand({
+          id: 'cmd_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10),
+          deviceCode: m.deviceCode,
+          type: 'config_health',
+          params: JSON.stringify({}),
+          issuedBy: 'scheduled',
+          issuedAt: Date.now(),
+        });
+      }
+    } catch (e) {
+      console.error('[CONFIG-HEALTH] sweep failed:', e && e.message);
+    }
+  };
+  setTimeout(tick, 5 * 60 * 1000);                        // first sweep 5 min after boot
+  setInterval(tick, EVERY_MS).unref();
+}
+
+function startDailyDigest() {
+  const CHECK_MS = 5 * 60 * 1000;
+  let lastSentDay = {};                      // deviceCode -> YYYY-MM-DD, so an hour-long window sends once
+  const tick = async () => {
+    try {
+      const storage = require('./storage');
+      const { machines, operators } = require('./db');
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      const hour = now.getUTCHours();
+      for (const m of Object.values(machines)) {
+        const n = (m.settings && m.settings.notifications) || {};
+        if (!n.enabled) continue;                                  // opt-in
+        const sendHour = Number.isFinite(Number(n.sendHour)) ? Number(n.sendHour) : 7;
+        if (hour !== sendHour) continue;
+        if (lastSentDay[m.deviceCode] === today) continue;
+        lastSentDay[m.deviceCode] = today;
+
+        const lowStock = storage.lowStockForMachine(m.deviceCode, n.thresholds || {}, n.lowStockDefault);
+        const alerts = (storage.listAlerts() || []).filter(a => !a.resolved && a.deviceCode === m.deviceCode);
+        // Nothing wrong and nothing to restock → send nothing. A daily "all fine" email is noise,
+        // and noise is how an alert stops being read.
+        if (!lowStock.length && !alerts.length) continue;
+
+        const op = operators[m.operatorId];
+        const toEmail = (op && op.contactEmail && op.contactEmail.trim()) ? op.contactEmail.trim() : null;
+        if (!toEmail) continue;                                    // resolveOperatorEmail already alerts on this
+
+        let tempC = null, tempOver = false;
+        try {
+          const t = storage.latestTelemetry(m.deviceCode);
+          if (t && t.tempC != null) {
+            tempC = t.tempC;
+            const maxC = (m.settings && m.settings.tempMaxC != null) ? Number(m.settings.tempMaxC) : 8;
+            tempOver = tempC > maxC;
+          }
+        } catch (e) { /* temperature is a bonus */ }
+
+        await email.sendMachineDigest({
+          to: toEmail,
+          operatorName: (op && op.name) || 'AG Vending',
+          machineName: m.deviceName || m.deviceCode,
+          deviceCode: m.deviceCode,
+          status: {
+            online: !!m.isOnline,
+            lastSeenText: m.lastSeenAt ? new Date(m.lastSeenAt).toLocaleString('is-IS', { timeZone: 'Atlantic/Reykjavik' }) : null,
+            tempC, tempOver,
+            appVersion: m.kioskVersion || null,
+            todayIsk: (() => { const d = new Date(); d.setUTCHours(0,0,0,0); return storage.revenueSince(m.deviceCode, d.getTime()); })(),
+          },
+          lowStock, alerts,
+          dashboardUrl: (process.env.APP_URL || 'https://admin.agvending.is') + '/?page=machines&code=' + m.deviceCode,
+        }).catch(err => console.error(`[DIGEST] ${m.deviceCode} send failed:`, err && err.message));
+        console.log(`[DIGEST] sent for ${m.deviceCode}: ${lowStock.length} stock item(s), ${alerts.length} alert(s)`);
+      }
+      // Forget yesterday's marks so the map can't grow without bound.
+      for (const k of Object.keys(lastSentDay)) if (lastSentDay[k] !== today) delete lastSentDay[k];
+    } catch (e) {
+      console.error('[DIGEST] tick failed:', e && e.message);
+    }
+  };
+  setTimeout(tick, 60_000);                 // first check a minute after boot
+  setInterval(tick, CHECK_MS).unref();
+}
+
 function startWeimiAutoSync() {
   const weimiSync = require('./weimiSync');
   const INTERVAL_MS = Number(process.env.WEIMI_SYNC_INTERVAL_MS) || 30 * 60_000; // default 30 min

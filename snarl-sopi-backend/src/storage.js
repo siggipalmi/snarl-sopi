@@ -250,6 +250,78 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_slot_stock_device ON slot_stock(deviceCode);
 
+  -- Gravity-fridge planogram: one row per basket. cabinet A/B + basket number is the
+  -- physical address; productId FKs the catalog. Weight/price can override the product's
+  -- own values for edge cases but usually inherit. serialLockNum is opaque hardware data
+  -- passed through to the app unchanged.
+  CREATE TABLE IF NOT EXISTS fridge_baskets (
+    deviceCode      TEXT NOT NULL,
+    cabinet         TEXT NOT NULL,
+    basket          INTEGER NOT NULL,
+    serialLockNum   TEXT,
+    productId       TEXT,
+    priceIsk        INTEGER,
+    unitWeightG     INTEGER,
+    toleranceG      INTEGER,
+    measurementFlag INTEGER,
+    capacity        INTEGER,
+    expectedCount   INTEGER,
+    enabled         INTEGER NOT NULL DEFAULT 1,
+    updatedAt       INTEGER NOT NULL,
+    PRIMARY KEY (deviceCode, cabinet, basket)
+  );
+  CREATE INDEX IF NOT EXISTS idx_fridge_baskets_device ON fridge_baskets(deviceCode);
+
+  -- Fridge settlement audit trail. One row per session (keyed orderId, idempotent), with
+  -- child line rows. Report-only: the Nayax terminal already charged; this is for telemetry,
+  -- reconciliation and dispute resolution. Backend recomputes quantities from the planogram
+  -- and flags mismatches against the app's claimed values.
+  CREATE TABLE IF NOT EXISTS kiosk_logs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    deviceCode      TEXT NOT NULL,
+    atMs            INTEGER NOT NULL,      -- when the batch was posted
+    kioskAppVersion TEXT,
+    line            TEXT NOT NULL          -- one raw logcat line
+  );
+  CREATE INDEX IF NOT EXISTS idx_kiosk_logs_device ON kiosk_logs(deviceCode, id);
+
+  CREATE TABLE IF NOT EXISTS fridge_settlements (
+    orderId         TEXT NOT NULL,
+    deviceCode      TEXT NOT NULL,
+    startedAt       TEXT,
+    closedAt        TEXT,
+    cabinetsOpened  TEXT,
+    outcome         TEXT,
+    totalIsk        INTEGER,
+    recomputedIsk   INTEGER,
+    mismatch        INTEGER NOT NULL DEFAULT 0,
+    nayaxRef        TEXT,
+    anomalies       TEXT,
+    receivedAt      INTEGER NOT NULL,
+    updatedAt       INTEGER NOT NULL,
+    PRIMARY KEY (deviceCode, orderId)
+  );
+  CREATE INDEX IF NOT EXISTS idx_fridge_settlements_device ON fridge_settlements(deviceCode, receivedAt);
+
+  CREATE TABLE IF NOT EXISTS fridge_settlement_lines (
+    deviceCode      TEXT NOT NULL,
+    orderId         TEXT NOT NULL,
+    cabinet         TEXT,
+    basket          INTEGER,
+    productId       TEXT,
+    startWeightG    INTEGER,
+    endWeightG      INTEGER,
+    deltaG          INTEGER,
+    unitWeightG     INTEGER,
+    quantity        INTEGER,
+    recomputedQty   INTEGER,
+    priceIsk        INTEGER,
+    lineIsk         INTEGER,
+    lineMismatch    INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_fridge_lines_order ON fridge_settlement_lines(deviceCode, orderId);
+
+
   CREATE TABLE IF NOT EXISTS complaints (
     id              TEXT PRIMARY KEY,
     tradeNo         TEXT NOT NULL,
@@ -276,6 +348,26 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_complaints_status   ON complaints(status);
   CREATE INDEX IF NOT EXISTS idx_complaints_created  ON complaints(createdAt);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_complaints_trade ON complaints(tradeNo);
+
+  -- Fridge complaints: a disputed charge, referencing a settlement by orderId. Weight evidence
+  -- is NOT duplicated here — it lives on the settlement (keyed per device by orderId), which the
+  -- dashboard joins so an operator sees the disputed lines and the weight deltas together.
+  CREATE TABLE IF NOT EXISTS fridge_complaints (
+    id              TEXT PRIMARY KEY,
+    deviceCode      TEXT NOT NULL,
+    operatorId      TEXT,
+    orderId         TEXT NOT NULL,
+    reason          TEXT NOT NULL,          -- not_taken | wrong_quantity | returned_but_charged | other
+    linesJson       TEXT NOT NULL,          -- [{cabinet, basket, productId, quantity, lineIsk}]
+    note            TEXT,
+    customerEmail   TEXT,                    -- optional
+    kioskAppVersion TEXT,
+    status          TEXT NOT NULL DEFAULT 'open',
+    timestampMs     INTEGER NOT NULL,
+    createdAt       TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_fridge_complaints_device ON fridge_complaints(deviceCode, createdAt);
+  CREATE INDEX IF NOT EXISTS idx_fridge_complaints_order  ON fridge_complaints(deviceCode, orderId);
 
   -- Our own product attributes (weight, VSK rate, cost) that Weimi's catalog API
   -- does not store. Keyed by Weimi's internal goodsId (matches orders.goodsId).
@@ -470,6 +562,55 @@ ensureColumn('operators', 'paydayCustomerId', 'TEXT');
 // Idle-screen promo: a deal can be featured on the kiosk attract loop, in order.
 ensureColumn('deals', 'show_on_idle', 'INTEGER');
 ensureColumn('deals', 'idle_order',   'INTEGER');
+ensureColumn('fridge_baskets', 'capacity',      'INTEGER');  // max units a basket holds (alerts/restock only, never charging)
+ensureColumn('fridge_baskets', 'expectedCount', 'INTEGER');  // operator-set count (alerts/restock only, never charging)
+
+// Fridge settlements were first created with orderId as a GLOBAL primary key. Client order ids
+// are only unique per device (the app generates fr-<millis>), so two machines opening a session
+// in the same millisecond would collide — one settlement silently overwriting another, and
+// deleteFridgeLines would take the other machine's lines with it. That's silent corruption of a
+// dispute-resolution audit trail, so rebuild with a composite (deviceCode, orderId) key.
+// Guarded and wrapped: a failure here must never stop the server booting.
+(function migrateFridgeSettlementKey() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(fridge_settlements)').all();
+    if (!cols.length) return;                                   // table not created yet
+    if (cols.filter(c => c.pk > 0).length > 1) return;           // already composite
+    const n = db.prepare('SELECT COUNT(*) n FROM fridge_settlements').get().n;
+    console.log(`[MIGRATE] rebuilding fridge_settlements with per-device key (${n} row(s))`);
+    db.exec(`
+      CREATE TABLE fridge_settlements_new (
+        orderId TEXT NOT NULL, deviceCode TEXT NOT NULL, startedAt TEXT, closedAt TEXT,
+        cabinetsOpened TEXT, outcome TEXT, totalIsk INTEGER, recomputedIsk INTEGER,
+        mismatch INTEGER NOT NULL DEFAULT 0, nayaxRef TEXT, anomalies TEXT,
+        receivedAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+        PRIMARY KEY (deviceCode, orderId)
+      );
+      INSERT INTO fridge_settlements_new SELECT orderId, deviceCode, startedAt, closedAt,
+        cabinetsOpened, outcome, totalIsk, recomputedIsk, mismatch, nayaxRef, anomalies,
+        receivedAt, updatedAt FROM fridge_settlements;
+      DROP TABLE fridge_settlements;
+      ALTER TABLE fridge_settlements_new RENAME TO fridge_settlements;
+      CREATE INDEX IF NOT EXISTS idx_fridge_settlements_device ON fridge_settlements(deviceCode, receivedAt);
+    `);
+  } catch (e) { console.warn('[MIGRATE] fridge_settlements key migration skipped:', e.message); }
+})();
+
+// Lines gain deviceCode for the same reason (they were keyed by orderId alone). Backfilled from
+// the parent settlement where possible.
+(function migrateFridgeLinesDevice() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(fridge_settlement_lines)').all();
+    if (!cols.length) return;
+    if (cols.some(c => c.name === 'deviceCode')) return;
+    db.exec(`ALTER TABLE fridge_settlement_lines ADD COLUMN deviceCode TEXT`);
+    db.exec(`UPDATE fridge_settlement_lines SET deviceCode = (
+               SELECT s.deviceCode FROM fridge_settlements s WHERE s.orderId = fridge_settlement_lines.orderId
+             ) WHERE deviceCode IS NULL`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_fridge_lines_order ON fridge_settlement_lines(deviceCode, orderId)`);
+    console.log('[MIGRATE] fridge_settlement_lines: added deviceCode');
+  } catch (e) { console.warn('[MIGRATE] fridge lines migration skipped:', e.message); }
+})();
 
 // ─── Statements (prepared once for speed) ─────────────────────────────────────
 
@@ -567,6 +708,14 @@ const stmts = {
   insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime)
                                  VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime)`),
   getOrder:          db.prepare('SELECT * FROM orders WHERE tradeNo = ?'),
+  // Fridge sales arrive as settlements, not Weimi orders, and a settlement can be replayed on
+  // reconnect — so this must be an upsert or a repost would double-count revenue.
+  upsertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime)
+                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime)
+                                 ON CONFLICT(tradeNo) DO UPDATE SET
+                                   deviceCode=excluded.deviceCode, goodsId=excluded.goodsId, productName=excluded.productName,
+                                   totalAmount=excluded.totalAmount, amountKr=excluded.amountKr,
+                                   status=excluded.status, statusLabel=excluded.statusLabel, createTime=excluded.createTime`),
   listOrdersToday:   db.prepare('SELECT * FROM orders WHERE createTime >= ? AND createTime < ? AND status = 1'),
   listOrdersScoped:  db.prepare('SELECT * FROM orders WHERE deviceCode IN (SELECT value FROM json_each(?)) ORDER BY createTime DESC LIMIT ? OFFSET ?'),
   countOrdersScoped: db.prepare('SELECT COUNT(*) AS c FROM orders WHERE deviceCode IN (SELECT value FROM json_each(?))'),
@@ -621,6 +770,34 @@ const stmts = {
   getProduct:   db.prepare('SELECT * FROM products WHERE goodsId = ?'),
   setProductImageDims: db.prepare('UPDATE products SET imageSrcW=@imageSrcW, imageSrcH=@imageSrcH WHERE goodsId=@goodsId'),
   deleteProductRow: db.prepare('DELETE FROM products WHERE goodsId = ?'),
+
+  // ── Fridge planogram ──
+  listFridgeBaskets: db.prepare('SELECT * FROM fridge_baskets WHERE deviceCode = ? ORDER BY cabinet, basket'),
+  upsertFridgeBasket: db.prepare(`INSERT INTO fridge_baskets
+      (deviceCode, cabinet, basket, serialLockNum, productId, priceIsk, unitWeightG, toleranceG, measurementFlag, capacity, expectedCount, enabled, updatedAt)
+      VALUES (@deviceCode, @cabinet, @basket, @serialLockNum, @productId, @priceIsk, @unitWeightG, @toleranceG, @measurementFlag, @capacity, @expectedCount, @enabled, @updatedAt)
+      ON CONFLICT(deviceCode, cabinet, basket) DO UPDATE SET
+        serialLockNum=excluded.serialLockNum, productId=excluded.productId, priceIsk=excluded.priceIsk,
+        unitWeightG=excluded.unitWeightG, toleranceG=excluded.toleranceG, measurementFlag=excluded.measurementFlag,
+        capacity=excluded.capacity, expectedCount=excluded.expectedCount,
+        enabled=excluded.enabled, updatedAt=excluded.updatedAt`),
+  deleteFridgeBasket: db.prepare('DELETE FROM fridge_baskets WHERE deviceCode=? AND cabinet=? AND basket=?'),
+
+  // ── Fridge settlements ──
+  getFridgeSettlement: db.prepare('SELECT * FROM fridge_settlements WHERE deviceCode = ? AND orderId = ?'),
+  upsertFridgeSettlement: db.prepare(`INSERT INTO fridge_settlements
+      (orderId, deviceCode, startedAt, closedAt, cabinetsOpened, outcome, totalIsk, recomputedIsk, mismatch, nayaxRef, anomalies, receivedAt, updatedAt)
+      VALUES (@orderId, @deviceCode, @startedAt, @closedAt, @cabinetsOpened, @outcome, @totalIsk, @recomputedIsk, @mismatch, @nayaxRef, @anomalies, @receivedAt, @updatedAt)
+      ON CONFLICT(deviceCode, orderId) DO UPDATE SET
+        startedAt=excluded.startedAt, closedAt=excluded.closedAt, cabinetsOpened=excluded.cabinetsOpened,
+        outcome=excluded.outcome, totalIsk=excluded.totalIsk, recomputedIsk=excluded.recomputedIsk,
+        mismatch=excluded.mismatch, nayaxRef=excluded.nayaxRef, anomalies=excluded.anomalies, updatedAt=excluded.updatedAt`),
+  deleteFridgeLines: db.prepare('DELETE FROM fridge_settlement_lines WHERE deviceCode = ? AND orderId = ?'),
+  insertFridgeLine: db.prepare(`INSERT INTO fridge_settlement_lines
+      (deviceCode, orderId, cabinet, basket, productId, startWeightG, endWeightG, deltaG, unitWeightG, quantity, recomputedQty, priceIsk, lineIsk, lineMismatch)
+      VALUES (@deviceCode, @orderId, @cabinet, @basket, @productId, @startWeightG, @endWeightG, @deltaG, @unitWeightG, @quantity, @recomputedQty, @priceIsk, @lineIsk, @lineMismatch)`),
+  listFridgeSettlements: db.prepare('SELECT * FROM fridge_settlements WHERE deviceCode = ? ORDER BY receivedAt DESC LIMIT @lim'),
+  listFridgeLines: db.prepare('SELECT * FROM fridge_settlement_lines WHERE deviceCode = ? AND orderId = ?'),
   setProductImage: db.prepare(`UPDATE products SET imgUrl=@imgUrl, imageHasBackground=@imageHasBackground,
       weimiImgUrl=COALESCE(@weimiImgUrl, weimiImgUrl), imageNormalizedAt=@imageNormalizedAt,
       imageClearedPct=@imageClearedPct, imageSrcW=@imageSrcW, imageSrcH=@imageSrcH, updatedAt=@updatedAt
@@ -684,6 +861,7 @@ const stmts = {
   insertAlert:       db.prepare(`INSERT OR REPLACE INTO alerts (id, type, severity, title, detail, deviceCode, resolved, resolvedAt, createdAt)
                                  VALUES (@id, @type, @severity, @title, @detail, @deviceCode, @resolved, @resolvedAt, @createdAt)`),
   listAlerts:        db.prepare('SELECT * FROM alerts'),
+  openAlertCountsByDevice: db.prepare("SELECT deviceCode, COUNT(*) n FROM alerts WHERE resolved = 0 AND deviceCode IS NOT NULL AND severity IN ('warning','critical') GROUP BY deviceCode"),
   getAlert:          db.prepare('SELECT * FROM alerts WHERE id = ?'),
   resolveAlert:      db.prepare('UPDATE alerts SET resolved = 1, resolvedAt = ? WHERE id = ?'),
 
@@ -692,6 +870,13 @@ const stmts = {
                                  VALUES (@deviceCode, @at, @atMs, @cabinetTempC, @humidity, @evaporator, @statusOk, @receivedAt)`),
   telemetrySince:    db.prepare('SELECT atMs, cabinetTempC, statusOk FROM telemetry WHERE deviceCode = ? AND atMs >= ? ORDER BY atMs ASC'),
   pruneTelemetry:    db.prepare('DELETE FROM telemetry WHERE atMs < ?'),
+  insertKioskLog:    db.prepare('INSERT INTO kiosk_logs (deviceCode, atMs, kioskAppVersion, line) VALUES (?, ?, ?, ?)'),
+  listKioskLogs:     db.prepare('SELECT id, atMs, kioskAppVersion, line FROM kiosk_logs WHERE deviceCode = ? ORDER BY id DESC LIMIT ?'),
+  pruneKioskLogsAge: db.prepare('DELETE FROM kiosk_logs WHERE atMs < ?'),
+  // Rolling window per machine: keep the newest N rows, drop the rest. Age alone isn't enough —
+  // a chatty machine could fill the volume inside the retention window.
+  pruneKioskLogsCap: db.prepare(`DELETE FROM kiosk_logs WHERE deviceCode = ? AND id NOT IN (
+                                   SELECT id FROM kiosk_logs WHERE deviceCode = ? ORDER BY id DESC LIMIT ?)`),
 
   // Auth tokens (persistent across restarts so sessions survive redeploys)
   insertAuthToken:   db.prepare('INSERT INTO auth_tokens (token, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)'),
@@ -753,6 +938,7 @@ const stmts = {
                                     WHERE createTime >= ? AND createTime < ? AND status = 1
                                     ORDER BY createTime ASC`),
   debugOrdersByDevice:   db.prepare('SELECT tradeNo, status, statusLabel, totalAmount, amountKr, createTime FROM orders WHERE deviceCode = ? ORDER BY createTime DESC LIMIT ?'),
+  revenueSince: db.prepare('SELECT COALESCE(SUM(amountKr),0) kr FROM orders WHERE deviceCode = ? AND status = 1 AND createTime >= ?'),
   debugOrderStatusCounts: db.prepare('SELECT status, statusLabel, COUNT(*) n, MIN(createTime) minT, MAX(createTime) maxT, SUM(amountKr) sumKr, SUM(totalAmount) sumTotal FROM orders WHERE deviceCode = ? GROUP BY status, statusLabel'),
 
   // Complaints
@@ -763,6 +949,12 @@ const stmts = {
             @kioskAppVersion, @kioskOsLocale, @timestampMs, @createdAt)`),
   getComplaint:      db.prepare('SELECT * FROM complaints WHERE id = ?'),
   getComplaintByTradeNo: db.prepare('SELECT * FROM complaints WHERE tradeNo = ?'),
+  insertFridgeComplaint: db.prepare(`INSERT INTO fridge_complaints
+    (id, deviceCode, operatorId, orderId, reason, linesJson, note, customerEmail, kioskAppVersion, status, timestampMs, createdAt)
+    VALUES (@id, @deviceCode, @operatorId, @orderId, @reason, @linesJson, @note, @customerEmail, @kioskAppVersion, @status, @timestampMs, @createdAt)`),
+  listFridgeComplaints: db.prepare('SELECT * FROM fridge_complaints WHERE deviceCode = ? ORDER BY createdAt DESC LIMIT @lim'),
+  countFridgeComplaintsSince: db.prepare('SELECT COUNT(*) n FROM fridge_complaints WHERE deviceCode = ? AND timestampMs >= ?'),
+  countFridgeComplaintsSinceByReason: db.prepare('SELECT COUNT(*) n FROM fridge_complaints WHERE deviceCode = ? AND timestampMs >= ? AND reason = ?'),
   listComplaints:    db.prepare('SELECT * FROM complaints ORDER BY createdAt DESC'),
   listComplaintsByOp:db.prepare('SELECT * FROM complaints WHERE operatorId = ? ORDER BY createdAt DESC'),
   countComplaintsForMachineSince: db.prepare('SELECT COUNT(*) AS c FROM complaints WHERE deviceCode = ? AND timestampMs >= ?'),
@@ -1123,7 +1315,66 @@ const storage = {
       createTime: o.createTime,
     });
   },
+  // One-shot repair: settlements recorded before fridge sales were mirrored into `orders` have no
+  // analytics rows. Mirror any charged settlement that has no matching order. Safe to run on every
+  // boot — it only touches settlements with no order, and recordFridgeSale is itself idempotent.
+  backfillFridgeOrders() {
+    let made = 0;
+    try {
+      const rows = db.prepare(`SELECT s.* FROM fridge_settlements s
+        LEFT JOIN orders o ON o.tradeNo = s.orderId
+        WHERE o.tradeNo IS NULL AND s.outcome = 'charged' AND s.totalIsk > 0`).all();
+      for (const s of rows) {
+        const lines = stmts.listFridgeLines.all(s.deviceCode, s.orderId) || [];
+        this.recordFridgeSale(s, lines);
+        made++;
+      }
+    } catch (e) { console.error('[STORAGE] backfillFridgeOrders failed:', e && e.message); }
+    return made;
+  },
+
   getOrder(tradeNo)  { return stmts.getOrder.get(tradeNo); },
+
+  // A charged fridge settlement IS a sale, but it never passes through Weimi's order feed (Nayax
+  // charges directly), so nothing was writing it to `orders` — which is what every revenue view,
+  // the heatmap, top products and recent orders read from. Mirror the settlement into orders and
+  // order_items so fridge machines appear in the analytics alongside coil machines.
+  // Idempotent: a replayed settlement upserts the same tradeNo rather than adding revenue.
+  recordFridgeSale: db.transaction(function (settlement, lines) {
+    const createTime = (() => {
+      const t = settlement.closedAt ? Date.parse(settlement.closedAt) : NaN;
+      return Number.isFinite(t) ? t : (settlement.receivedAt || Date.now());
+    })();
+    const sold = (lines || []).filter(l => (l.quantity || 0) > 0 || (l.lineIsk || 0) > 0);
+    const nameOf = (productId) => {
+      if (!productId) return '';
+      try { const p = stmts.getProduct.get(productId); return (p && (p.name || p.goodsName)) || ''; }
+      catch (e) { return ''; }
+    };
+    const firstName = sold.length ? nameOf(sold[0].productId) : '';
+    const totalIsk = settlement.totalIsk || 0;
+    stmts.upsertOrder.run({
+      tradeNo: settlement.orderId,
+      deviceCode: settlement.deviceCode,
+      goodsId: sold.length === 1 ? (sold[0].productId || null) : null,
+      productName: sold.length === 1 ? firstName : (sold.length ? `${sold.length} items` : ''),
+      totalAmount: Math.round(totalIsk * 100),   // cents, matching the Weimi convention
+      amountKr: Math.round(totalIsk),
+      status: 1,                                  // charged and handed over
+      statusLabel: 'charged',
+      createTime,
+    });
+    sold.forEach((l, i) => {
+      stmts.upsertOrderItem.run({
+        tradeNo: settlement.orderId, lineIndex: i, deviceCode: settlement.deviceCode,
+        goodsId: l.productId || null,
+        productName: nameOf(l.productId),
+        payAmount: Math.round((l.lineIsk != null ? l.lineIsk : 0) * 100),
+        shipmentStatus: 1,
+        createTime,
+      });
+    });
+  }),
   listOrdersToday(sinceUTC, untilUTC) { return stmts.listOrdersToday.all(sinceUTC, untilUTC); },
   listOrdersScoped(deviceCodes, limit, offset) {
     return stmts.listOrdersScoped.all(JSON.stringify(deviceCodes), limit, offset);
@@ -1240,6 +1491,62 @@ const storage = {
     if (refs.total > 0) return { deleted: false, reason: 'referenced', refs };
     stmts.deleteProductRow.run(goodsId);
     return { deleted: true };
+  },
+
+  // ── Fridge planogram ──
+  listFridgeBaskets(deviceCode) { return stmts.listFridgeBaskets.all(deviceCode); },
+
+  // Which machines currently show this product — as a fridge basket, or in a coil planogram.
+  // Used to bump configVersion on a product change so the kiosk actually re-fetches (a product
+  // edit that a machine displays but never re-polls is invisible behind the config 304).
+  deviceCodesShowingProduct(goodsId) {
+    const out = new Set();
+    for (const m of this.listMachines()) {
+      // fridge baskets referencing the product
+      try {
+        for (const b of stmts.listFridgeBaskets.all(m.deviceCode)) {
+          if (b.productId === goodsId && b.enabled !== 0) { out.add(m.deviceCode); break; }
+        }
+      } catch (e) { /* non-fridge or no baskets */ }
+      // coil layout
+      try {
+        const lp = this.layoutProductsForDevice(m.deviceCode) || {};
+        if (lp[goodsId]) out.add(m.deviceCode);
+      } catch (e) { /* */ }
+    }
+    return Array.from(out);
+  },
+  upsertFridgeBasket(b) {
+    return stmts.upsertFridgeBasket.run({
+      deviceCode: b.deviceCode, cabinet: String(b.cabinet || 'A'), basket: Math.round(Number(b.basket)),
+      serialLockNum: b.serialLockNum != null ? String(b.serialLockNum) : null,
+      productId: b.productId || null,
+      priceIsk: b.priceIsk != null ? Math.round(Number(b.priceIsk)) : null,
+      unitWeightG: b.unitWeightG != null ? Math.round(Number(b.unitWeightG)) : null,
+      toleranceG: b.toleranceG != null ? Math.round(Number(b.toleranceG)) : null,
+      measurementFlag: b.measurementFlag != null ? (Number(b.measurementFlag) ? 1 : 0) : null,
+      capacity: b.capacity != null ? Math.round(Number(b.capacity)) : null,
+      expectedCount: b.expectedCount != null ? Math.round(Number(b.expectedCount)) : null,
+      enabled: b.enabled === false ? 0 : 1,
+      updatedAt: Date.now(),
+    });
+  },
+  deleteFridgeBasket(deviceCode, cabinet, basket) { return stmts.deleteFridgeBasket.run(deviceCode, String(cabinet), Math.round(Number(basket))); },
+
+  // ── Fridge settlements ──
+  getFridgeSettlement(deviceCode, orderId) {
+    const s = stmts.getFridgeSettlement.get(deviceCode, orderId);
+    if (!s) return null;
+    s.lines = stmts.listFridgeLines.all(deviceCode, orderId);
+    return s;
+  },
+  saveFridgeSettlement: db.transaction((settlement, lines) => {
+    stmts.upsertFridgeSettlement.run(settlement);
+    stmts.deleteFridgeLines.run(settlement.deviceCode, settlement.orderId);
+    for (const l of lines) stmts.insertFridgeLine.run(l);
+  }),
+  listFridgeSettlements(deviceCode, lim = 100) {
+    return stmts.listFridgeSettlements.all(deviceCode, { lim: Math.max(1, Math.min(lim, 500)) });
   },
 
   // Point a product at an image we host (normalized). Records the background mode the
@@ -1455,6 +1762,11 @@ const storage = {
     });
   },
   listAlerts()       { return stmts.listAlerts.all().map(r => ({ ...r, resolved: !!r.resolved })); },
+  openAlertCountsByDevice() {
+    const out = {};
+    for (const row of stmts.openAlertCountsByDevice.all()) out[row.deviceCode] = row.n;
+    return out;
+  },
   getAlert(id)       { const r = stmts.getAlert.get(id); return r ? { ...r, resolved: !!r.resolved } : null; },
   resolveAlert(id)   { stmts.resolveAlert.run(new Date().toISOString(), id); },
 
@@ -1559,6 +1871,10 @@ const storage = {
       }
     }
     try { stmts.pruneTelemetry.run(now - this._telemDefaults.retainDays * 86400000); } catch (e) {}
+    // stock_history has the same unbounded-growth risk and its cleanup existed but was never
+    // invoked — prune it on the same sweep, 180-day retention (longer than telemetry: it's the
+    // audit trail for stock movements/shrinkage, useful further back but not forever).
+    try { stmts.cleanupOldStockHistory.run(now - 180 * 86400000); } catch (e) {}
   },
 
   // Auth tokens
@@ -1657,6 +1973,24 @@ const storage = {
   },
 
   // Complaints
+  insertFridgeComplaint(c) {
+    stmts.insertFridgeComplaint.run({
+      id: c.id, deviceCode: c.deviceCode, operatorId: c.operatorId || null,
+      orderId: c.orderId, reason: c.reason, linesJson: JSON.stringify(c.lines || []),
+      note: c.note || null, customerEmail: c.customerEmail || null,
+      kioskAppVersion: c.kioskAppVersion || null, status: 'open',
+      timestampMs: c.timestampMs, createdAt: c.createdAt,
+    });
+  },
+  listFridgeComplaints(deviceCode, lim = 100) {
+    return stmts.listFridgeComplaints.all(deviceCode, { lim: Math.max(1, Math.min(lim, 500)) })
+      .map(r => ({ ...r, lines: (() => { try { return JSON.parse(r.linesJson); } catch (e) { return []; } })() }));
+  },
+  countFridgeComplaintsSince(deviceCode, sinceMs, reason) {
+    if (reason) return stmts.countFridgeComplaintsSinceByReason.get(deviceCode, sinceMs, reason).n;
+    return stmts.countFridgeComplaintsSince.get(deviceCode, sinceMs).n;
+  },
+
   insertComplaint(c) {
     stmts.insertComplaint.run({
       id: c.id, tradeNo: c.tradeNo, deviceCode: c.deviceCode,
@@ -1750,13 +2084,102 @@ const storage = {
   },
 
   // ── OTA app-update (single active release + per-machine version) ───────────
-  getAppRelease() { try { const raw = this.getMeta('app_release'); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } },
-  setAppRelease(rel) { this.setMeta('app_release', JSON.stringify(rel)); },
+  getAppRelease(appKey) {
+    // Per-app release line. appKey 'fridge' | 'coil' (default). Legacy single-release installs
+    // stored under 'app_release'; treat that as the coil line so nothing regresses.
+    const key = appKey === 'fridge' ? 'app_release_fridge' : 'app_release';
+    try { const raw = this.getMeta(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  },
+  setAppRelease(rel, appKey) {
+    const key = appKey === 'fridge' ? 'app_release_fridge' : 'app_release';
+    this.setMeta(key, JSON.stringify(rel));
+  },
+
+  // Downloads registry — a simple list of published packages (coil / fridge apps) that the
+  // on-site /downloads page lists. Stores link + metadata, never the binary (same as OTA).
+  listDownloads() { try { const raw = this.getMeta('downloads'); return raw ? JSON.parse(raw) : []; } catch (e) { return []; } },
+  setDownloads(list) { this.setMeta('downloads', JSON.stringify(Array.isArray(list) ? list : [])); },
   recordAppVersion(deviceCode, versionCode) {
     if (!deviceCode || versionCode == null || versionCode === '') return;
     const vc = Math.round(Number(versionCode));
     this.setMeta('appver:' + deviceCode, JSON.stringify({ vc: Number.isFinite(vc) ? vc : null, at: Date.now() }));
   },
+  // ── Remote kiosk logs ───────────────────────────────────────────────────────
+  // A placed machine has no durable shell: adb needs the local network, adb tcpip doesn't survive a
+  // reboot on these boards, and Android 11's wireless-debugging port changes on every restart. So
+  // the kiosk posts its own logcat lines and we keep a rolling window per machine.
+  KIOSK_LOG_RETENTION_MS: 7 * 24 * 3600 * 1000,
+  // At 400 lines per 5-minute post a machine can produce ~4,800 lines/hour, so a small cap buys under
+  // an hour of history — fine for a fault you're watching live, useless for one that happened
+  // overnight. 20,000 is roughly four hours at full rate, and most of a day once the noisiest lines
+  // are dropped from the relay filter. Tunable without a code change.
+  KIOSK_LOG_MAX_LINES: Number(process.env.KIOSK_LOG_MAX_LINES) || 20000,
+
+  appendKioskLogs: db.transaction(function (deviceCode, atMs, kioskAppVersion, lines) {
+    let n = 0;
+    for (const raw of lines) {
+      const line = String(raw == null ? '' : raw).slice(0, 2000);   // one pathological line can't blow up a row
+      if (!line) continue;
+      stmts.insertKioskLog.run(deviceCode, atMs, kioskAppVersion || null, line);
+      n++;
+    }
+    return n;
+  }),
+
+  listKioskLogs(deviceCode, limit) {
+    const n = Math.max(1, Math.min(2000, Number(limit) || 400));
+    // Newest-first from SQL, reversed so the caller reads them in chronological order.
+    return stmts.listKioskLogs.all(deviceCode, n).reverse();
+  },
+
+  pruneKioskLogs(deviceCode) {
+    try {
+      stmts.pruneKioskLogsAge.run(Date.now() - this.KIOSK_LOG_RETENTION_MS);
+      if (deviceCode) stmts.pruneKioskLogsCap.run(deviceCode, deviceCode, this.KIOSK_LOG_MAX_LINES);
+    } catch (e) { console.error('[STORAGE] pruneKioskLogs failed:', e && e.message); }
+  },
+
+  // ── Daily machine digest ────────────────────────────────────────────────────
+  // Stock low/out for a machine, in units — deliberately NOT a percentage. A gravity basket has no
+  // capacity the machine can measure (it's a physical fact about the shelf and the product), and a
+  // setting operators won't fill in is worse than none: it yields either silence or nonsense while
+  // looking configured. An absolute "alert at N left" is one number anyone can answer, and it means
+  // the same thing on a coil bay and a fridge basket.
+  // Revenue since a timestamp, successful orders only. Used by the daily digest.
+  revenueSince(deviceCode, sinceMs) {
+    try { return Number(stmts.revenueSince.get(deviceCode, sinceMs).kr) || 0; } catch (e) { return 0; }
+  },
+
+  lowStockForMachine(deviceCode, thresholds, defaultThreshold) {
+    const th = thresholds || {};
+    const def = Number.isFinite(Number(defaultThreshold)) ? Number(defaultThreshold) : 2;
+    const items = [];
+    const push = (goodsId, name, stock, where) => {
+      const limit = Number.isFinite(Number(th[goodsId])) ? Number(th[goodsId]) : def;
+      if (stock > limit) return;
+      items.push({ goodsId, name: name || ('#' + goodsId), stock, limit, where, soldOut: stock <= 0 });
+    };
+
+    // Coil: the layout blob, aggregated per product across its bays.
+    const lp = this.layoutProductsForDevice(deviceCode) || {};
+    for (const gid of Object.keys(lp)) push(gid, lp[gid].name, Number(lp[gid].stock) || 0, null);
+
+    // Fridge: one row per assigned basket, using the operator-set expectedCount.
+    try {
+      const baskets = this.listFridgeBaskets(deviceCode) || [];
+      for (const b of baskets) {
+        if (!b.productId || b.enabled === 0) continue;
+        if (b.expectedCount == null) continue;   // never counted — don't invent a shortage
+        let name = '';
+        try { const p = stmts.getProduct.get(b.productId); name = (p && p.name) || ''; } catch (e) {}
+        push(String(b.productId), name, Number(b.expectedCount) || 0, `${b.cabinet || 'A'}${b.basket}`);
+      }
+    } catch (e) { /* coil-only machine */ }
+
+    items.sort((a, b) => (a.soldOut === b.soldOut ? a.stock - b.stock : (a.soldOut ? -1 : 1)));
+    return items;
+  },
+
   getAppVersion(deviceCode) { try { const raw = this.getMeta('appver:' + deviceCode); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } },
   recordAppRevert(deviceCode, info) {
     this.setMeta('revert:' + deviceCode, JSON.stringify({

@@ -37,7 +37,7 @@ body{font-family:var(--sans);background:var(--cream-shadow);color:var(--ink);min
 
 /* SIDEBAR */
 .sidebar{width:var(--sw);min-width:var(--sw);background:var(--cream);border-right:1px solid var(--line);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s;}
-.sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--line);}
+.sb-logo{flex-shrink:0;padding:22px 20px 18px;border-bottom:1px solid var(--line);}
 .sb-wordmark{font-family:var(--serif);font-style:italic;font-weight:500;font-size:20px;letter-spacing:-.3px;}
 .sb-sub{font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin-top:4px;}
 .sb-section{padding:16px 20px 5px;font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--clay);}
@@ -47,7 +47,10 @@ body{font-family:var(--sans);background:var(--cream-shadow);color:var(--ink);min
 .nav-icon{font-size:13px;width:16px;text-align:center;}
 .nav-badge{margin-left:auto;background:var(--alert);color:#fff;border-radius:999px;padding:1px 7px;font-size:9px;font-family:var(--mono);}
 .nav-item.active .nav-badge{background:rgba(250,247,242,.22);}
-.sb-footer{margin-top:auto;padding:14px;border-top:1px solid var(--line);}
+.sb-nav{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;}
+.sb-nav::-webkit-scrollbar{width:6px;}
+.sb-nav::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
+.sb-footer{flex-shrink:0;padding:14px;border-top:1px solid var(--line);}
 .user-row{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--cream-deep);border-radius:var(--r);border:.5px solid var(--line);cursor:pointer;}
 .avatar{width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--cream);display:flex;align-items:center;justify-content:center;font-size:10px;font-family:var(--mono);flex-shrink:0;}
 
@@ -570,6 +573,7 @@ select.fi{cursor:pointer;}
     <div class="sb-sub" data-i18n="shell.operatorPortal">Operator portal</div>
     <div class="sb-sub" id="sb-version" style="font-family:var(--mono);font-size:9.5px;opacity:.6;margin-top:2px"></div>
   </div>
+  <div class="sb-nav">
   <div class="sb-section" data-i18n="group.overview">overview</div>
   <div class="nav-item active" onclick="go('dashboard',this)"><span class="nav-icon">◈</span> <span data-i18n="nav.dashboard">Dashboard</span></div>
   <div class="nav-item" onclick="go('machines',this)"><span class="nav-icon">⬡</span> <span data-i18n="nav.machines">Machines</span> <span class="nav-badge" id="nb-machines">4</span></div>
@@ -592,6 +596,7 @@ select.fi{cursor:pointer;}
   <div class="nav-item" onclick="go('help',this)"><span class="nav-icon">?</span> <span data-i18n="nav.help">Help</span></div>
   <div class="nav-item ag-only" onclick="go('settings',this)" style="display:none"><span class="nav-icon">⊞</span> <span data-i18n="nav.settings">Settings</span></div>
   <div class="nav-item ag-only" onclick="go('leases',this)" style="display:none"><span class="nav-icon">▣</span> <span data-i18n="nav.leases">Lease inventory</span></div>
+  </div>
   <div class="sb-footer">
     <div class="user-row" onclick="doLogout()">
       <div class="avatar" id="sb-avatar">SK</div>
@@ -643,10 +648,30 @@ select.fi{cursor:pointer;}
 
     <!-- ═══ DASHBOARD ═══ -->
     <div class="page active" id="page-dashboard">
-      <div id="dash-opfilter" style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:14px"></div>
-      <div class="g4" id="dash-stats"></div>
-      <div class="g21">
-        <div class="panel">
+      <div id="dash-opfilter" style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px"></div>
+
+      <!-- 1 ── today: the number checked many times a day -->
+      <div id="dash-today" style="background:var(--ink);color:var(--cream);border-radius:16px;padding:17px 17px 14px;margin-bottom:10px"></div>
+
+      <!-- 2 ── restock due -->
+      <div class="panel" style="margin-bottom:10px">
+        <div class="ph">
+          <div class="ph-title">restock due.</div>
+          <div class="ph-action" data-i18n="common.viewAll" onclick="go('machines',document.querySelectorAll('.nav-item')[1])">view all →</div>
+        </div>
+        <div id="dash-restock"></div>
+      </div>
+
+      <!-- 3 ── needs attention -->
+      <div class="panel" style="margin-bottom:10px">
+        <div class="ph"><div class="ph-title" data-i18n="dash.alerts">needs attention.</div><div class="ph-action" data-i18n="common.viewAll" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])">all alerts →</div></div>
+        <div id="dash-alerts"></div>
+      </div>
+
+      <!-- 4 ── analysis, collapsed -->
+      <details style="margin-bottom:10px">
+        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ revenue &amp; trends</summary>
+        <div class="panel" style="margin-top:8px">
           <div class="ph">
             <div class="ph-title" id="rev-chart-title">revenue, last 7 days.</div>
             <div class="tabs" id="rev-period-tabs">
@@ -660,13 +685,11 @@ select.fi{cursor:pointer;}
           </div>
           <div style="display:flex;gap:22px;padding:13px 18px;border-top:.5px solid var(--line)" id="rev-summary"></div>
         </div>
-        <div class="panel">
-          <div class="ph"><div class="ph-title" data-i18n="dash.alerts">alerts.</div><div class="ph-action" data-i18n="common.viewAll" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])">view all →</div></div>
-          <div id="dash-alerts"></div>
-        </div>
-      </div>
-      <div class="g21">
-        <div class="panel">
+      </details>
+
+      <details style="margin-bottom:10px">
+        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ machine performance</summary>
+        <div class="panel" style="margin-top:8px">
           <div class="ph">
             <div class="ph-title" data-i18n="dash.machinePerformance">machine performance.</div>
             <div class="tabs" id="comp-period-tabs">
@@ -677,7 +700,11 @@ select.fi{cursor:pointer;}
           </div>
           <div id="machine-comparison" style="padding:14px 18px 18px"></div>
         </div>
-        <div class="panel">
+      </details>
+
+      <details style="margin-bottom:10px">
+        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ currently sold out</summary>
+        <div class="panel" style="margin-top:8px">
           <div class="ph">
             <div class="ph-title" id="soldout-title">currently sold out.</div>
             <div class="tabs" id="soldout-tabs">
@@ -687,12 +714,7 @@ select.fi{cursor:pointer;}
           </div>
           <div id="soldout-content" style="max-height:340px;overflow:auto"></div>
         </div>
-      </div>
-
-      <div class="panel">
-        <div class="ph"><div class="ph-title" data-i18n="dash.machinesOverview">machines overview.</div><div class="ph-action" data-i18n="common.viewAll" onclick="go('machines',document.querySelectorAll('.nav-item')[1])">view all →</div></div>
-        <div class="tw"><table class="rtable rtable-dash"><thead><tr><th data-i18n="dash.th.device">device</th><th data-i18n="dash.th.locationOperator">location / operator</th><th data-i18n="common.status">status</th><th data-i18n="dash.th.stockFill">stock fill</th><th data-i18n="mch.th.lastVisit">last visit</th><th data-i18n="common.todaySales">today sales</th><th data-i18n="common.kiosk">kiosk</th><th class="col-nayax" data-i18n="common.nayax">nayax</th><th data-i18n="dash.th.lastSeen">last seen</th></tr></thead><tbody id="dash-machines"></tbody></table></div>
-      </div>
+      </details>
     </div>
 
     <!-- ═══ MACHINES ═══ -->
@@ -700,35 +722,60 @@ select.fi{cursor:pointer;}
       <div class="shd">
         <div class="shd-sub" id="machines-sub"></div>
         <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
-          <div class="tabs"><div class="tab active" onclick="filterMachines('all',this)" data-i18n="common.all">all</div><div class="tab" onclick="filterMachines('online',this)" data-i18n="common.online">online</div><div class="tab" onclick="filterMachines('offline',this)" data-i18n="common.offline">offline</div><div class="tab" onclick="filterMachines('warning',this)" data-i18n="common.warning">warning</div></div>
           <select id="machines-op-filter" class="fi" style="max-width:200px;display:none" onchange="machineOperatorFilter=this.value;renderMachines()"></select>
           <button class="btn btn-sm" onclick="openAddMachine()" data-i18n="mch.addMachine">+ add machine</button>
         </div>
       </div>
-      <div class="panel mb">
-        <div class="ph"><div class="ph-title" data-i18n="mch.locations">locations.</div></div>
-        <div class="map-ph">
-          <div class="mpin" style="background:var(--success);top:38%;left:44%"></div>
-          <div class="mpin" style="background:var(--alert);top:26%;left:63%"></div>
-          <div class="mpin" style="background:var(--success);top:54%;left:29%"></div>
-          <div class="mpin" style="background:#B8860B;top:34%;left:24%"></div>
-          <div class="mpin" style="background:var(--success);top:59%;left:71%"></div>
-          <span style="font-size:16px">&#128506;</span>
-          <span data-i18n="mch.mapCaption">machine locations — Reykjavík area</span>
+
+      <!-- search first -->
+      <div style="position:relative;margin-bottom:12px">
+        <input class="fi" id="mch-search" placeholder="find a machine — name or machine ID" oninput="mchSearch(this.value);renderMachines()" onfocus="mchSearch(this.value)" autocomplete="off" style="width:100%;padding:13px 16px;font-size:15px">
+        <div id="mch-search-results" class="dl-results" style="display:none;position:absolute;left:0;right:0;z-index:40"></div>
+      </div>
+
+      <!-- status filter + sort -->
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <div class="tabs" id="mch-status-tabs"><div class="tab active" onclick="filterMachines('all',this)" data-i18n="common.all">all</div><div class="tab" onclick="filterMachines('online',this)" data-i18n="common.online">online</div><div class="tab" onclick="filterMachines('offline',this)" data-i18n="common.offline">offline</div><div class="tab" onclick="filterMachines('warning',this)" data-i18n="common.warning">warning</div></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">sort</span>
+          <div class="tabs" id="mch-sort">
+            <div class="tab active" data-sort="restock" onclick="setMachineSort('restock',this)">restock age</div>
+            <div class="tab" data-sort="errors" onclick="setMachineSort('errors',this)">errors</div>
+            <div class="tab" data-sort="revenue" onclick="setMachineSort('revenue',this)">revenue</div>
+          </div>
         </div>
       </div>
-      <div class="panel">
-        <div class="ph"><div class="ph-title">revenue by period.</div><div style="display:flex;gap:8px"><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="1" onclick="setMachinesRevenuePeriod(1,this)">1D</button><button class="btn btn-sm btn-ghost mch-rev-btn active" data-days="7" onclick="setMachinesRevenuePeriod(7,this)">7D</button><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="30" onclick="setMachinesRevenuePeriod(30,this)">30D</button><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="90" onclick="setMachinesRevenuePeriod(90,this)">90D</button></div></div>
-        <div id="machines-revenue-chart" style="padding:18px;min-height:250px;color:var(--muted);display:flex;align-items:center;justify-content:center">loading…</div>
-      </div>
-      <div class="panel">
-        <div class="ph"><div class="ph-title" data-i18n="mch.allMachines">all machines.</div><div style="display:flex;gap:14px;align-items:center"><div class="ph-action" id="weimi-populate-action" data-i18n="mch.populateWeimi" onclick="populateFromWeimi()">＋ populate from Weimi</div><div class="ph-action" id="weimi-sync-action" data-i18n="mch.syncWeimi" onclick="syncAllWeimi()">⟳ sync all from Weimi</div></div></div>
-        <div style="position:relative;padding:0 18px 12px">
-          <input class="fi" id="mch-search" placeholder="find a machine — name or machine ID" oninput="mchSearch(this.value)" onfocus="mchSearch(this.value)" autocomplete="off" style="max-width:360px">
-          <div id="mch-search-results" class="dl-results" style="display:none;position:absolute;left:18px;right:18px;max-width:360px;z-index:40"></div>
+
+      <!-- the list -->
+      <div id="machines-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+
+      <!-- demoted: map + revenue overview -->
+      <details style="margin-top:6px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--bronze);padding:11px 0;list-style:none;text-align:center;border-top:1px solid var(--line)">▾ locations map &amp; revenue overview</summary>
+        <div class="panel mb" style="margin-top:10px">
+          <div class="ph"><div class="ph-title" data-i18n="mch.locations">locations.</div></div>
+          <div class="map-ph">
+            <div class="mpin" style="background:var(--success);top:38%;left:44%"></div>
+            <div class="mpin" style="background:var(--alert);top:26%;left:63%"></div>
+            <div class="mpin" style="background:var(--success);top:54%;left:29%"></div>
+            <div class="mpin" style="background:#B8860B;top:34%;left:24%"></div>
+            <div class="mpin" style="background:var(--success);top:59%;left:71%"></div>
+            <span style="font-size:16px">&#128506;</span>
+            <span data-i18n="mch.mapCaption">machine locations — Reykjavík area</span>
+          </div>
         </div>
-        <div class="tw"><table class="rtable"><thead><tr><th data-i18n="mch.th.machine">machine</th><th data-i18n="common.status">status</th><th data-i18n="common.stock">stock</th><th data-i18n="mch.th.lastVisit">last visit</th><th data-i18n="common.todaySales">today sales</th><th data-i18n="common.kiosk">kiosk</th><th class="col-nayax" data-i18n="common.nayax">nayax</th><th data-i18n="mch.th.operatorName">operator name</th><th data-i18n="common.actions">actions</th></tr></thead><tbody id="machines-table"></tbody></table></div>
-      </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title">revenue by period.</div><div style="display:flex;gap:8px"><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="1" onclick="setMachinesRevenuePeriod(1,this)">1D</button><button class="btn btn-sm btn-ghost mch-rev-btn active" data-days="7" onclick="setMachinesRevenuePeriod(7,this)">7D</button><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="30" onclick="setMachinesRevenuePeriod(30,this)">30D</button><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="90" onclick="setMachinesRevenuePeriod(90,this)">90D</button></div></div>
+          <div id="machines-revenue-chart" style="padding:18px;min-height:250px;color:var(--muted);display:flex;align-items:center;justify-content:center">loading…</div>
+        </div>
+        <div class="panel" style="margin-top:10px">
+          <div class="ph"><div class="ph-title">Weimi.</div></div>
+          <div style="padding:8px 18px 16px;display:flex;gap:14px;flex-wrap:wrap">
+            <div class="ph-action" id="weimi-populate-action" data-i18n="mch.populateWeimi" onclick="populateFromWeimi()">＋ populate from Weimi</div>
+            <div class="ph-action" id="weimi-sync-action" data-i18n="mch.syncWeimi" onclick="syncAllWeimi()">⟳ sync all from Weimi</div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <!-- ═══ MACHINE DETAIL ═══ -->
@@ -740,67 +787,168 @@ select.fi{cursor:pointer;}
           <div id="md-meta" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px"></div>
           <div id="md-operator" style="margin-top:6px"></div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-          <div style="display:flex;gap:8px;align-items:center">
-            <span class="pill pill-bz" style="cursor:pointer" onclick="openRestock(_mdDeviceCode)">restock</span>
-            <div class="ph-action" onclick="syncMachineWeimi(_mdDeviceCode)" style="cursor:pointer">⟳ sync from Weimi</div>
-          </div>
-          <div class="tabs" id="md-period-tabs">
-            <div class="tab"        data-days="1"  onclick="setMachineDetailPeriod(1, this)">1D</div>
-            <div class="tab"        data-days="7"  onclick="setMachineDetailPeriod(7, this)">7D</div>
-            <div class="tab active" data-days="30" onclick="setMachineDetailPeriod(30, this)">30D</div>
-            <div class="tab"        data-days="90" onclick="setMachineDetailPeriod(90, this)">90D</div>
-          </div>
-        </div>
+        <button class="btn btn-sm btn-ghost" onclick="openEditMachine(_mdDeviceCode)" style="flex-shrink:0">edit</button>
       </div>
-      <div class="g4 mb" id="md-stats"></div>
 
-      <div class="g21" style="margin-bottom:16px">
-        <div class="panel">
-          <div class="ph"><div class="ph-title" id="md-rev-title">revenue, last 30 days.</div></div>
-          <div style="padding:18px 18px 8px"><div class="bars" id="md-rev-bars"></div></div>
+      <!-- tab bar -->
+      <div id="md-health-banner" style="display:none;margin-bottom:12px"></div>
+
+      <div class="tabs" id="md-tabbar" style="margin:14px 0 16px;justify-content:space-between">
+        <div class="tab active" data-mdtab="overview" onclick="showMdTab('overview',this)">Overview</div>
+        <div class="tab" data-mdtab="layout" onclick="showMdTab('layout',this)" id="md-tab-layout">Planogram</div>
+        <div class="tab" data-mdtab="kiosk" onclick="openKioskDesigner(_mdDeviceCode)" id="md-tab-kiosk" style="display:none">Kiosk</div>
+        <div class="tab" data-mdtab="activity" onclick="showMdTab('activity',this)">Activity</div>
+        <div class="tab" data-mdtab="controls" onclick="showMdTab('controls',this)">Controls</div>
+        <div class="tab" data-mdtab="notifications" onclick="showMdTab('notifications',this)">Notifications</div>
+      </div>
+
+      <!-- ── OVERVIEW ── -->
+      <div class="md-tabpanel" data-panel="overview">
+        <div class="g4 mb" id="md-stats"></div>
+
+        <div class="panel" id="md-ads-panel" style="margin-bottom:16px">
+          <div class="ph">
+            <div class="ph-title">screen poster.</div>
+            <div class="ph-action" onclick="addAdSlot()">+ add</div>
+          </div>
+          <div id="md-ads" style="padding:14px 18px 16px"></div>
         </div>
-        <div class="panel">
+
+        <div class="panel" id="md-attention-panel" style="margin-bottom:16px;display:none">
+          <div class="ph"><div class="ph-title">needs attention.</div><div class="ph-action" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])">all alerts →</div></div>
+          <div id="md-attention" style="padding:0 4px"></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title">quick actions.</div></div>
+          <div id="md-actions" style="padding:4px 14px 16px"></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
           <div class="ph"><div class="ph-title">empty slots.</div></div>
           <div id="md-empty-slots" style="max-height:300px;overflow:auto"></div>
         </div>
+
+        <div class="panel">
+          <div class="ph"><div class="ph-title">recently sold out.</div><div class="ph-action" style="font-size:11px;color:var(--muted)">30d</div></div>
+          <div id="md-sold-out" style="max-height:300px;overflow:auto;padding:0 4px"></div>
+        </div>
       </div>
 
-      <div class="panel" style="margin-bottom:16px">
-        <div class="ph"><div class="ph-title">recent orders.</div><div class="ph-action" onclick="viewMachineOrders(_mdDeviceCode)">view all orders →</div></div>
-        <div class="tw"><table class="rtable"><thead><tr><th>order</th><th>items</th><th>amount</th><th>status</th><th>time</th></tr></thead><tbody id="md-recent-orders"></tbody></table></div>
+      <!-- ── PLANOGRAM / BAYS ── -->
+      <div class="md-tabpanel" data-panel="layout" style="display:none">
+        <div class="panel">
+          <div class="ph"><div class="ph-title" id="md-layout-title">bays &amp; layout.</div><div class="ph-action" id="md-layout-hint" style="font-size:11px;color:var(--muted)"></div></div>
+          <div id="md-layout" style="padding:18px"></div>
+        </div>
       </div>
 
-      <div class="panel" id="md-temp-panel" style="margin-bottom:16px">
-        <div class="ph">
-          <div class="ph-title">cabinet temperature.</div>
-          <div class="tabs" id="md-temp-tabs">
-            <div class="tab active" data-h="24"  onclick="setTempPeriod(24, this)">1D</div>
-            <div class="tab"        data-h="168" onclick="setTempPeriod(168, this)">7D</div>
+      <!-- ── ACTIVITY ── -->
+      <div class="md-tabpanel" data-panel="activity" style="display:none">
+        <div class="tabs" id="md-period-tabs" style="margin:0 auto 16px;width:fit-content">
+          <div class="tab"        data-days="1"  onclick="setMachineDetailPeriod(1, this)">1D</div>
+          <div class="tab"        data-days="7"  onclick="setMachineDetailPeriod(7, this)">7D</div>
+          <div class="tab active" data-days="30" onclick="setMachineDetailPeriod(30, this)">30D</div>
+          <div class="tab"        data-days="90" onclick="setMachineDetailPeriod(90, this)">90D</div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title" id="md-rev-title">revenue, last 30 days.</div></div>
+          <div style="padding:18px 18px 8px"><div class="bars" id="md-rev-bars"></div></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title">recent orders.</div><div class="ph-action" onclick="viewMachineOrders(_mdDeviceCode)">view all orders →</div></div>
+          <div class="tw"><table class="rtable"><thead><tr><th>order</th><th>items</th><th>amount</th><th>status</th><th>time</th></tr></thead><tbody id="md-recent-orders"></tbody></table></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title" id="md-heat-title">hourly heatmap (30d).</div></div>
+          <div id="md-heatmap" style="padding:18px"></div>
+        </div>
+
+        <div class="panel">
+          <div class="ph"><div class="ph-title" id="md-top-title">top products (30d).</div></div>
+          <div class="tw"><table class="rtable"><thead><tr><th>product</th><th>units</th><th>revenue</th></tr></thead><tbody id="md-top-products"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ── CONTROLS ── -->
+      <div class="md-tabpanel" data-panel="controls" style="display:none">
+        <div class="panel" id="md-temp-panel" style="margin-bottom:16px">
+          <div class="ph">
+            <div class="ph-title">cabinet temperature.</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="tabs" id="md-temp-tabs">
+                <div class="tab active" data-h="24"  onclick="setTempPeriod(24, this)">1D</div>
+                <div class="tab"        data-h="168" onclick="setTempPeriod(168, this)">7D</div>
+              </div>
+            </div>
+          </div>
+          <div id="md-temp-body" style="padding:16px 18px"></div>
+        </div>
+
+        <div class="panel" id="md-tags-panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title">shelf price tags.</div></div>
+          <div style="padding:14px 18px 16px">
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:11px">Pushes current prices to the LED shelf tags. Use force if a tag is showing the wrong price — it bypasses the machine's record of what it believes is already on each tag.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm" onclick="syncPriceTags(_mdDeviceCode,false)">sync price tags</button>
+              <button class="btn btn-sm btn-ghost" onclick="syncPriceTags(_mdDeviceCode,true)">force re-push all</button>
+            </div>
           </div>
         </div>
-        <div id="md-temp-body" style="padding:16px 18px"></div>
+
+        <div class="panel" id="md-controls-panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title">controls.</div></div>
+          <div id="md-controls" style="padding:14px 18px 16px"></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph">
+            <div class="ph-title">config health.</div>
+            <div style="display:flex;gap:12px">
+              <div class="ph-action" onclick="showMachineKey(_mdDeviceCode)">show key</div>
+              <div class="ph-action" onclick="migrateMachineKey(_mdDeviceCode)">migrate key</div>
+              <div class="ph-action" onclick="checkConfigHealth(_mdDeviceCode)">↻ ask the machine</div>
+            </div>
+          </div>
+          <div id="md-key-box" style="display:none;padding:0 18px 14px"></div>
+          <div style="padding:14px 18px 16px;font-size:12.5px;color:var(--muted)">Asks the kiosk which lanes it believes are closed, and whether it failed to decode any. Run this after closing lanes and before the machine takes money — the result appears as a banner at the top of this page.</div>
+        </div>
+
+        <div class="panel" id="md-dispense-panel" style="margin-bottom:16px">
+          <div class="ph">
+            <div class="ph-title">dispense log.</div>
+            <div class="ph-action" onclick="fetchDispenseLog(_mdDeviceCode)">↻ fetch from machine</div>
+          </div>
+          <div id="md-dispense" style="padding:14px 18px 16px"><div style="font-size:12.5px;color:var(--muted)">The last 50 dispenses held in the machine\'s memory, with the raw board code for each. Fetch to see which lanes are reporting what.</div></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph">
+            <div class="ph-title">machine log.</div>
+            <div class="ph-action" onclick="loadMachineLogs(_mdDeviceCode)">↻ refresh</div>
+          </div>
+          <div id="md-logs-meta" style="padding:10px 18px 0;font-family:var(--mono);font-size:10px;color:var(--muted)"></div>
+          <div id="md-logs" style="padding:10px 18px 16px"></div>
+        </div>
       </div>
 
-      <div class="panel" id="md-controls-panel" style="margin-bottom:16px">
-        <div class="ph"><div class="ph-title">controls.</div></div>
-        <div id="md-controls" style="padding:14px 18px 16px"></div>
+      <div class="md-tabpanel" data-panel="notifications" style="display:none">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title">daily email.</div></div>
+          <div id="md-notif-settings" style="padding:14px 18px 16px"></div>
+        </div>
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title">low stock thresholds.</div>
+            <div class="ph-action" onclick="saveNotifThresholds()">save</div>
+          </div>
+          <div id="md-notif-products" style="padding:6px 18px 16px"></div>
+        </div>
       </div>
 
-      <div class="panel" style="margin-bottom:16px">
-        <div class="ph"><div class="ph-title" id="md-heat-title">hourly heatmap (30d).</div></div>
-        <div id="md-heatmap" style="padding:18px"></div>
-      </div>
-
-      <div class="panel" style="margin-bottom:16px">
-        <div class="ph"><div class="ph-title">bays &amp; layout.</div><div style="display:flex;gap:14px;align-items:center"><div class="ph-action" id="md-layout-hint" style="font-size:11px;color:var(--muted)"></div><div class="ph-action" onclick="openKioskDesigner(_mdDeviceCode)">✦ design kiosk screen</div></div></div>
-        <div id="md-layout" style="padding:18px"></div>
-      </div>
-
-      <div class="panel">
-        <div class="ph"><div class="ph-title" id="md-top-title">top products (30d).</div></div>
-        <div class="tw"><table class="rtable"><thead><tr><th>product</th><th>units</th><th>revenue</th></tr></thead><tbody id="md-top-products"></tbody></table></div>
-      </div>
     </div>
 
     <!-- ═══ ALERTS ═══ -->
@@ -1345,6 +1493,41 @@ select.fi{cursor:pointer;}
   </div>
 </div>
 
+<div class="modal-bg" id="modal-fridge-basket">
+  <div class="modal-card" style="max-width:460px">
+    <div class="modal-title" id="fb-title">basket.</div>
+    <div class="fl">product</div>
+    <div id="fb-picked" style="margin:2px 0 8px"></div>
+    <input class="fi" id="fb-search" placeholder="search products to assign…" oninput="fbSearchInput()" style="margin-bottom:6px">
+    <div id="fb-results" style="max-height:30vh;overflow-y:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1;margin:0"><div class="fl">price (kr)</div><input class="fi mono" id="fb-price" type="number" inputmode="numeric"></div>
+      <div class="field" style="flex:1;margin:0"><div class="fl">unit weight (g) — measured</div><input class="fi mono" id="fb-weight" type="number" inputmode="numeric"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="fb-enabled" checked> basket enabled (stocked and vending)</label>
+    <div id="fb-msg"></div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="btn btn-full" id="fb-save" onclick="saveFridgeBasket()"><span>save basket</span><span>&rarr;</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-fridge-basket')">cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-fridge-bulk">
+  <div class="modal-card" style="max-width:640px">
+    <div class="modal-title">bulk edit baskets.</div>
+    <div class="tw" style="max-height:52vh;overflow-y:auto;border:1px solid var(--line);border-radius:10px">
+      <table class="rtable" style="font-size:11px"><thead><tr><th>slot</th><th>productId</th><th>price</th><th>weight</th><th>on</th></tr></thead>
+      <tbody id="fbulk-rows"></tbody></table>
+    </div>
+    <div id="fbulk-msg" style="margin:8px 0"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-full" id="fbulk-save" onclick="saveFridgeBulk()"><span>save all</span><span>&rarr;</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-fridge-bulk')">cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-swap">
   <div class="modal-card" style="max-width:460px">
     <div class="modal-title" id="sw-title">change product.</div>
@@ -1521,7 +1704,7 @@ const I18N = {
     'dash.soldOutRecent':'recently sold out.','dash.machinesOverview':'machines overview.',
     'dash.th.device':'device','dash.th.locationOperator':'location / operator','dash.th.stockFill':'stock fill','dash.th.lastSeen':'last seen',
     'dash.revenueLast':'revenue, last','dash.days':'days',
-    'dash.stat.revenueToday':'revenue today','dash.stat.fromSynced':'from synced orders','dash.stat.activeMachines':'active machines',
+    'dash.stat.revenueToday':'revenue today','dash.vsYesterday':'vs yesterday','dash.stat.fromSynced':'from synced orders','dash.stat.activeMachines':'active machines',
     'dash.stat.needAttention':'need attention','dash.stat.ordersToday':'orders today','dash.stat.completedToday':'completed today',
     'dash.stat.lowStockSlots':'low stock slots','dash.stat.requireRestock':'require restock',
     'dash.noAlerts':'No active alerts','dash.justNow':'just now','dash.more':'more',
@@ -1569,7 +1752,7 @@ const I18N = {
     'dash.soldOutRecent':'nýlega uppselt.','dash.machinesOverview':'yfirlit véla.',
     'dash.th.device':'vél','dash.th.locationOperator':'staðsetning / aðili','dash.th.stockFill':'birgðastaða','dash.th.lastSeen':'síðast séð',
     'dash.revenueLast':'tekjur, síðustu','dash.days':'daga',
-    'dash.stat.revenueToday':'tekjur í dag','dash.stat.fromSynced':'úr samstilltum pöntunum','dash.stat.activeMachines':'virkar vélar',
+    'dash.stat.revenueToday':'tekjur í dag','dash.vsYesterday':'m.v. í gær','dash.stat.fromSynced':'úr samstilltum pöntunum','dash.stat.activeMachines':'virkar vélar',
     'dash.stat.needAttention':'þarfnast athygli','dash.stat.ordersToday':'pantanir í dag','dash.stat.completedToday':'lokið í dag',
     'dash.stat.lowStockSlots':'hólf við að klárast','dash.stat.requireRestock':'þarf áfyllingu',
     'dash.noAlerts':'Engar virkar viðvaranir','dash.justNow':'rétt í þessu','dash.more':'til viðbótar',
@@ -2839,8 +3022,97 @@ async function refreshDashboardSoldOut() {
   }
 }
 
+// The hero: today's revenue, how it compares to yesterday, a 7-day micro-trend, and the three
+// numbers an operator glances at repeatedly. Sparkline is fetched separately so the collapsed
+// revenue chart's period selector doesn't change it — this one is always 7 days.
+async function renderDashToday(d) {
+  const el = document.getElementById('dash-today');
+  if (!el) return;
+  const attention = DB.alerts.filter(a => !a.resolved).length;
+  const paint = function (spark, deltaHtml) {
+    el.innerHTML =
+      '<div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#A79E8E;margin-bottom:7px">' + t('dash.stat.revenueToday') + '</div>' +
+      '<div style="display:flex;align-items:baseline;gap:8px">' +
+        '<span style="font-family:var(--serif);font-size:41px;font-weight:500;line-height:1;letter-spacing:-.015em">' + formatKr(d.todayRev) + '</span>' +
+        deltaHtml +
+      '</div>' + spark +
+      '<div style="display:flex;gap:14px;border-top:1px solid #332E28;margin-top:11px;padding-top:10px">' +
+        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px">' + d.orders + '</div><div style="font-family:var(--mono);font-size:8.5px;color:#A79E8E;text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('dash.stat.ordersToday') + '</div></div>' +
+        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px">' + d.online + '<span style="color:#6E675C">/' + d.total + '</span></div><div style="font-family:var(--mono);font-size:8.5px;color:#A79E8E;text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('common.online') + '</div></div>' +
+        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px;color:' + (attention ? '#E08A6B' : 'var(--cream)') + '">' + attention + '</div><div style="font-family:var(--mono);font-size:8.5px;color:#A79E8E;text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('dash.stat.needAttention') + '</div></div>' +
+      '</div>';
+  };
+  paint('', '');   // paint immediately; sparkline fills in when the series lands
+  if (!backendOnline || !API_TOKEN) return;
+  try {
+    const r = await API.get('/api/v1/reports/revenue-series?days=7' + (dashOperatorFilter ? '&operatorId=' + encodeURIComponent(dashOperatorFilter) : ''));
+    const series = (r && r.data && r.data.series) || [];
+    if (!series.length) return;
+    const maxR = Math.max(1, ...series.map(b => b.revenueKr || 0));
+    const dayShort = ['S','M','T','W','T','F','S'];
+    const bars = series.map((b, i) => {
+      const h = b.revenueKr > 0 ? Math.max(3, Math.round((b.revenueKr / maxR) * 100)) : 2;
+      const isToday = i === series.length - 1;
+      return '<div title="' + formatKr(b.revenueKr) + '" style="flex:1;height:' + h + '%;border-radius:2px 2px 0 0;background:' + (isToday ? 'var(--bronze-light)' : '#4A443A') + '"></div>';
+    }).join('');
+    const labels = series.map((b, i) => {
+      const lbl = i === series.length - 1 ? t('common.today') : dayShort[new Date(b.dayUTC).getUTCDay()];
+      return '<span style="flex:1;text-align:center">' + lbl + '</span>';
+    }).join('');
+    const spark = '<div style="display:flex;align-items:flex-end;gap:4px;height:34px;margin:13px 0 5px">' + bars + '</div>' +
+                  '<div style="display:flex;gap:4px;font-family:var(--mono);font-size:7.5px;color:#6E675C">' + labels + '</div>';
+    // Compare with yesterday so the number always has context.
+    let deltaHtml = '';
+    if (series.length >= 2) {
+      const y = series[series.length - 2].revenueKr || 0;
+      if (y > 0) {
+        const pct = Math.round(((d.todayRev - y) / y) * 100);
+        const up = pct >= 0;
+        deltaHtml = '<span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:' + (up ? '#8FBF9B' : '#E08A6B') + '">' + (up ? '+' : '') + pct + '% ' + t('dash.vsYesterday') + '</span>';
+      }
+    }
+    paint(spark, deltaHtml);
+  } catch (e) { /* hero already painted without the trend */ }
+}
+
+// Restock due: which machines are worth a visit, most overdue first. Days since last restock,
+// how many slots are sold out, and how full the machine is — the three things that decide it.
+function renderDashRestock(ms) {
+  const el = document.getElementById('dash-restock');
+  if (!el) return;
+  const soldOutCount = m => (m.products || []).filter(p => p.stock === 0).length;
+  const fillPct = m => (m.maxStock > 0 ? Math.round(((m.totalCurrStock || 0) / m.maxStock) * 100) : null);
+  const scored = ms.map(m => ({
+    m: m,
+    ageMs: m.lastVisitAt ? (Date.now() - new Date(m.lastVisitAt).getTime()) : Infinity,
+    out: soldOutCount(m),
+    fill: fillPct(m),
+  })).filter(x => x.out > 0 || x.ageMs > 3 * 86400000 || (x.fill !== null && x.fill < 40));
+  scored.sort((a, b) => (b.out - a.out) || (b.ageMs - a.ageMs));
+  const shown = scored.slice(0, 5);
+  if (!shown.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Nothing due — the fleet is stocked.</div>';
+    return;
+  }
+  el.innerHTML = shown.map(function (x) {
+    const m = x.m;
+    const hot = x.out >= 3 || x.ageMs > 6 * 86400000;
+    const age = m.lastVisitAt ? timeAgo(m.lastVisitAt) : 'never restocked';
+    const meta = [age, x.out ? ('<b style="color:var(--alert);font-weight:400">' + x.out + ' sold out</b>') : null, x.fill !== null ? (x.fill + '% full') : null].filter(Boolean).join(' · ');
+    return '<div style="display:flex;align-items:center;gap:11px;padding:10px 16px;border-top:1px solid var(--line)">' +
+      '<div style="width:3px;align-self:stretch;border-radius:2px;flex-shrink:0;background:' + (hot ? 'var(--alert)' : 'var(--bronze-light)') + '"></div>' +
+      '<div style="flex:1;min-width:0;cursor:pointer" onclick="openMachineDetail(\'' + m.deviceCode + '\')">' +
+        '<div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + rsEsc(m.deviceName || m.deviceCode) + '</div>' +
+        '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px">' + meta + '</div>' +
+      '</div>' +
+      '<span class="pill pill-bz" style="cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();openRestock(\'' + m.deviceCode + '\')">' + t('common.restock') + '</span>' +
+    '</div>';
+  }).join('');
+}
+
 async function renderDashboard() {
   await hydrateMachinesFromBackend();
+  await hydrateAlertsFromBackend();
   await refreshTodaySales();
   if (currentUser?.role === 'ag_admin') await loadOperators();
   renderDashOperatorFilter();
@@ -2868,11 +3140,8 @@ async function renderDashboard() {
   const lowStock    = ms.reduce((s,m)=>s+(m.products||[]).filter(p=>p.stock<=2&&p.stock>0).length, 0);
   const lowStockMch = ms.filter(m=>(m.products||[]).some(p=>p.stock<=2)).length;
 
-  document.getElementById('dash-stats').innerHTML =
-    '<div class="stat"><div class="stat-lbl">'+t('dash.stat.revenueToday')+'</div><div class="stat-val">'+formatKr(todayRev)+'</div><div class="stat-sub" style="margin-top:5px">'+t('dash.stat.fromSynced')+'</div></div>' +
-    '<div class="stat"><div class="stat-lbl">'+t('dash.stat.activeMachines')+'</div><div class="stat-val">'+online+'<span style="font-size:18px;font-style:normal;color:var(--muted)">/'+ ms.length+'</span></div><div>'+pill('pill-dn',offline+' '+t('common.offline'))+'</div><div class="stat-sub" style="margin-top:5px">'+t('dash.stat.needAttention')+'</div></div>' +
-    '<div class="stat"><div class="stat-lbl">'+t('dash.stat.ordersToday')+'</div><div class="stat-val">'+todayOrderCount+'</div><div class="stat-sub" style="margin-top:5px">'+t('dash.stat.completedToday')+'</div></div>' +
-    '<div class="stat"><div class="stat-lbl">'+t('dash.stat.lowStockSlots')+'</div><div class="stat-val">'+lowStock+'</div><div>'+pill('pill-warn',lowStockMch+' '+t('common.machinesWord'))+'</div><div class="stat-sub" style="margin-top:5px">'+t('dash.stat.requireRestock')+'</div></div>';
+  renderDashToday({ todayRev: todayRev, orders: todayOrderCount, online: online, total: ms.length });
+  renderDashRestock(ms);
 
   document.getElementById('rev-chart-title').textContent = t('dash.revenueLast') + ' ' + _revenueDays + ' ' + t('dash.days') + '.';
   refreshRevenueChart();
@@ -2888,50 +3157,6 @@ async function renderDashboard() {
     '<div class="al-time">'+timeAgo(a.createdAt)+'</div></div>'
   ).join('') : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">'+t('dash.noAlerts')+'</div>';
 
-  // Machine rows (clickable → detail). The dashboard shows only the most relevant
-  // handful — online machines first, then lowest stock fill (most in need of a
-  // restock) — with the full fleet on the Machines page via "view all →".
-  const DASH_MAX = 8;
-  const fillRatio = function(m) {
-    const max = m.maxStock || 0;
-    return max > 0 ? (m.totalCurrStock || 0) / max : Infinity; // no slots → sort last
-  };
-  const sorted = ms.slice().sort(function(a, b) {
-    // Most time since last (restock) visit on top — surfaces machines overdue for
-    // a revisit. Never-visited machines sort to the bottom (no overdue signal yet).
-    const av = a.lastVisitAt ? Number(a.lastVisitAt) : Infinity;
-    const bv = b.lastVisitAt ? Number(b.lastVisitAt) : Infinity;
-    return av - bv;
-  });
-  const shown = sorted.slice(0, DASH_MAX);
-  const rows = shown.map(function(m) {
-    var sales = salesTodayCell(m);
-    var kiosk = m.kioskVersion
-      ? pill('pill-up','v'+m.kioskVersion)
-      : (m.isKioskModel === false ? pill('pill-out', m.model||'—') : pill('pill-warn','—'));
-    var op = (m.settings && m.settings.operatorName) || m.operatorName || '';
-    return '<tr style="cursor:pointer" onclick="openMachineDetail(\''+m.deviceCode+'\')">' +
-      '<td class="rcard-head"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
-        '<div style="min-width:0"><span class="tid">'+m.deviceCode+'</span> · <span class="tname" style="font-weight:500">'+(m.deviceName||'')+'</span></div>' +
-        '<span class="pill pill-bz" style="cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();openRestock(\''+m.deviceCode+'\')">'+t('common.restock')+'</span>' +
-      '</div></td>' +
-      '<td data-label="location / operator"><div class="tname">'+(m.location||'')+'</div><div class="tsub">'+op+'</div></td>' +
-      '<td data-label="status">'+statusDot(m)+'</td>' +
-      '<td data-label="stock fill">'+fillBar(m.totalCurrStock||0, m.maxStock||0)+'</td>' +
-      '<td data-label="last visit">'+lastVisitCell(m.lastVisitAt)+'</td>' +
-      '<td data-label="today">'+sales+'</td>' +
-      '<td data-label="kiosk">'+kiosk+'</td>' +
-      '<td class="col-nayax" data-label="nayax">' + (m.nayaxMachineId ? '<span class="pill pill-bz" style="font-family:var(--mono);font-size:9px">N#'+m.nayaxMachineId+'</span>' : '<span style="color:var(--muted);font-size:10px">—</span>') + '</td>' +
-      '<td data-label="last seen" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">'+(m.isOnline?t('dash.justNow'):t('common.offline'))+'</td>' +
-      '</tr>';
-  });
-  let machinesHtml = rows.join('');
-  if (sorted.length > DASH_MAX) {
-    machinesHtml += '<tr><td colspan="9" style="text-align:center;padding:14px">' +
-      '<span class="ph-action" style="cursor:pointer" onclick="go(\'machines\',document.querySelectorAll(\'.nav-item\')[1])">+ ' +
-      (sorted.length - DASH_MAX) + ' ' + t('dash.more') + ' · ' + t('common.viewAll') + '</span></td></tr>';
-  }
-  document.getElementById('dash-machines').innerHTML = machinesHtml;
 }
 
 function renderDashOperatorFilter() {
@@ -2955,7 +3180,7 @@ function setDashOperator(operatorId) {
 // ═══════════════════════════════════════════════════════════════
 
 let machineFilter = 'all';
-function filterMachines(f, el) { machineFilter=f; document.querySelectorAll('#page-machines .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderMachines(); }
+function filterMachines(f, el) { machineFilter=f; document.querySelectorAll('#mch-status-tabs .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderMachines(); }
 
 let _mchRevenueDays = 7;
 function setMachinesRevenuePeriod(days, el) {
@@ -2996,7 +3221,25 @@ async function renderMachinesRevenue() {
   chart.innerHTML = html;
 }
 
-function filterMachines(f, el) { machineFilter=f; document.querySelectorAll('#page-machines .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderMachines(); }
+function filterMachines(f, el) { machineFilter=f; document.querySelectorAll('#mch-status-tabs .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderMachines(); }
+
+// Pull the real alerts from the backend. Without this the dashboard, the Alerts tab and the badge
+// all render DEFAULT_DATA's demo alerts out of localStorage, so genuine alerts (cooling faults,
+// complaints, offline machines) never appear anywhere except the machine-detail panel.
+async function hydrateAlertsFromBackend() {
+  if (!backendOnline || !API_TOKEN) return;
+  try {
+    const r = await API.get('/api/v1/alerts');
+    if (!r || !r.ok || !Array.isArray(r.data)) return;
+    DB.alerts = r.data.map(a => ({
+      id: a.id, type: a.type, severity: a.severity, title: a.title, detail: a.detail,
+      deviceCode: a.deviceCode || null, resolved: !!a.resolved,
+      resolvedAt: a.resolvedAt || null, createdAt: a.createdAt,
+    }));
+  } catch (e) {
+    console.warn('[hydrateAlerts] failed:', e);
+  }
+}
 
 async function hydrateMachinesFromBackend() {
   if (!backendOnline || !API_TOKEN) return;
@@ -3146,6 +3389,14 @@ function lastVisitCell(lastVisitAt) {
   return '<span style="font-family:var(--mono);font-size:11.5px;color:' + color + '" title="Last restock detected ' + new Date(Number(lastVisitAt)).toLocaleString('is-IS') + '">' + label + '</span>';
 }
 
+let machineSort = 'restock';
+function setMachineSort(mode, el) {
+  machineSort = mode;
+  document.querySelectorAll('#mch-sort .tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderMachines();
+}
+
 async function renderMachines() {
   await hydrateMachinesFromBackend();
   renderMachinesRevenue();
@@ -3162,28 +3413,69 @@ async function renderMachines() {
   if(machineFilter==='online')  ms = ms.filter(m=>m.isOnline&&m.isRunning);
   if(machineFilter==='offline') ms = ms.filter(m=>!m.isOnline);
   if(machineFilter==='warning') ms = ms.filter(m=>m.isOnline&&!m.isRunning);
+
+  // free-text filter from the search box (name or device code)
+  const q = (document.getElementById('mch-search')?.value || '').trim().toLowerCase();
+  if (q) ms = ms.filter(m => (m.deviceName||'').toLowerCase().includes(q) || (m.deviceCode||'').toLowerCase().includes(q) || (m.location||'').toLowerCase().includes(q));
+
+  // sort: restock age (oldest visit first) | errors (most first) | revenue (highest first)
+  const visitMs = m => (m.lastVisitAt ? new Date(m.lastVisitAt).getTime() : 0); // 0 = never = most overdue
+  const errs = m => (m.openAlertCount || 0);
+  const rev = m => (m.isOnline ? (salesTodayKr(m.deviceCode) || 0) : 0);
+  ms.sort((a,b) => {
+    if (machineSort === 'errors')  return errs(b) - errs(a) || visitMs(a) - visitMs(b);
+    if (machineSort === 'revenue') return rev(b) - rev(a);
+    return visitMs(a) - visitMs(b); // restock: oldest (smallest ms) first
+  });
+
   const all = Object.values(DB.machines);
   document.getElementById('machines-sub').innerHTML = `${all.length} ${t('common.machinesWord')} · <span style="color:var(--success)">${all.filter(m=>m.isOnline).length} ${t('common.online')}</span> · <span style="color:var(--alert)">${all.filter(m=>!m.isOnline).length} ${t('common.offline')}</span> · ${all.filter(m=>m.unsupported).length} ${t('mch.unsupportedLayout')}`;
-  document.getElementById('machines-table').innerHTML = ms.map(m=>{
-    const pct = m.maxStock>0?Math.round(m.totalCurrStock/m.maxStock*100):0;
-    return `<tr>
-      <td class="rcard-head"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <div style="min-width:0"><span class="tid" style="cursor:pointer;color:var(--bronze)" onclick="openMachineDetail('${m.deviceCode}')">${m.deviceCode}</span> · <span class="tname" style="cursor:pointer;font-weight:500" onclick="openMachineDetail('${m.deviceCode}')">${m.deviceName}</span></div>
-        <span class="pill pill-dn" style="cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();openRestock('${m.deviceCode}')">${t('common.restock')}</span>
-      </div><div class="tsub">${m.location||''}</div></td>
-      <td data-label="status">${statusDot(m)}</td>
-      <td data-label="stock">${pill(pct<20?'pill-dn':pct<40?'pill-warn':'pill-up', pct+'%')}</td>
-      <td data-label="last visit">${lastVisitCell(m.lastVisitAt)}</td>
-      <td data-label="today">${salesTodayCell(m)}</td>
-      <td data-label="kiosk">${m.kioskVersion?pill('pill-up','v'+m.kioskVersion):pill('pill-warn',t('mch.unsupported'))}</td>
-      <td class="col-nayax" data-label="nayax">${m.nayaxMachineId ? `<span class="pill pill-bz btn-sm" style="cursor:pointer;font-family:var(--mono);font-size:10px" onclick="event.stopPropagation();openNayaxLink('${m.deviceCode}')" title="Click to edit">#${m.nayaxMachineId}</span>` : `<span class="pill pill-out btn-sm" style="cursor:pointer;font-size:10px" onclick="event.stopPropagation();openNayaxLink('${m.deviceCode}')">${t('mch.link')}</span>`}</td>
-      <td data-label="operator" style="font-family:var(--serif);font-style:italic;font-size:13px">${(currentUser?.role === 'ag_admin' && _operatorsCache.length) ? operatorSelectHtml(m.deviceCode, m.operatorId) : (m.settings.operatorName || m.operatorName || '—')}</td>
-      <td data-label="actions"><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-        <span class="pill pill-bz" style="cursor:pointer" onclick="openMachineDetail('${m.deviceCode}')">${t('common.details')}</span>
-        <span class="pill pill-out" style="cursor:pointer" onclick="openEditMachine('${m.deviceCode}')">${t('common.edit')}</span>
-      </div></td>
-    </tr>`;
-  }).join('');
+
+  const el = document.getElementById('machines-list');
+  if (!ms.length) { el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--muted);font-size:13px">No machines match.</div>'; return; }
+  // "Which machines are safe to update" needs to be answerable at a glance, not by opening 46
+  // command results. A machine still on a build-baked key would be locked out by a generic apk.
+  const notMigrated = all.filter(m => m.keySource === 'build' || m.keySource === 'none');
+  const unknown = all.filter(m => !m.keySource);
+  let banner = '';
+  if (notMigrated.length || unknown.length) {
+    banner = '<div style="margin-bottom:10px;padding:11px 13px;background:var(--cream-deep);border-radius:9px;font-size:12.5px;line-height:1.55">' +
+      '<b>App key migration</b><br>' +
+      '<span style="color:var(--success)">' + all.filter(m => m.keySource === 'stored').length + ' ready</span> · ' +
+      '<span style="color:var(--alert)">' + notMigrated.length + ' not migrated</span> · ' +
+      '<span style="color:var(--muted)">' + unknown.length + ' unknown</span><br>' +
+      '<span style="color:var(--muted)">Only machines showing <b>ready</b> can safely take a generic app update. Unknown means the machine has not been asked yet.</span>' +
+      '</div>';
+  }
+  el.innerHTML = banner + ms.map(m => machineRowCard(m)).join('');
+}
+
+// A single tappable machine row: status dot · name (+error badge) · id · location · restocked · revenue.
+function machineRowCard(m) {
+  const dotColor = !m.isOnline ? 'var(--muted)' : (m.openAlertCount ? 'var(--alert)' : (m.isRunning ? 'var(--success)' : 'var(--alert)'));
+  const dotStyle = (m.isOnline && m.openAlertCount) ? `background:${dotColor};box-shadow:0 0 0 3px var(--alert-bg)` : `background:${dotColor}`;
+  const badge = m.openAlertCount ? ` <span style="display:inline-block;min-width:17px;height:17px;line-height:17px;text-align:center;padding:0 4px;border-radius:9px;background:var(--alert);color:#fff;font-family:var(--mono);font-size:10px;vertical-align:middle">${m.openAlertCount}</span>` : '';
+  const restock = m.lastVisitAt ? ('restocked ' + timeAgo(m.lastVisitAt)) : 'never restocked';
+  const keyFlag = (m.keySource === 'build' || m.keySource === 'none')
+    ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--alert)" title="Key still comes from this machine\'s own build — a generic update would lock it out">key: not migrated</span>' : '';
+  const meta = [m.deviceCode, m.location, restock].filter(Boolean).join(' · ') + keyFlag;
+  let revTxt;
+  if (m.isKioskModel === false) revTxt = '<span style="color:var(--muted)">n/a</span>';
+  else if (!m.isOnline) revTxt = '<span style="color:var(--muted)">—</span>';
+  else revTxt = `${(salesTodayKr(m.deviceCode)||0).toLocaleString('is-IS')}<small style="color:var(--muted)"> kr</small>`;
+  const flag = !m.isOnline ? 'offline' : '';
+  return `<div onclick="openMachineDetail('${m.deviceCode}')" style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--cream);border:1px solid var(--line);border-radius:12px;cursor:pointer">
+    <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;${dotStyle}"></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.deviceName}${badge}</div>
+      <div style="font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${meta}</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-family:var(--mono);font-size:12px">${revTxt}</div>
+      ${flag ? `<div style="font-family:var(--mono);font-size:9.5px;color:var(--alert);margin-top:2px">${flag}</div>` : ''}
+    </div>
+    <div style="color:var(--muted);font-size:18px;flex-shrink:0">›</div>
+  </div>`;
 }
 
 // ── Machine quick-find typeahead (name or device code) ──
@@ -3235,7 +3527,10 @@ function physicalSlot(aisleCode){
   const m = /^\d+-([A-Z])(\d+)$/.exec(String(aisleCode||''));
   if(!m) return String(aisleCode||'');
   const layerIdx = m[1].charCodeAt(0) - 65;   // A=0, B=1, …
-  const pos = parseInt(m[2],10);               // 0-based position in the shelf
+  const pos = parseInt(m[2],10);               // columnBaseZero: 00..08 → positions 1..9
+  // Kiosk canonical decode: 9 positions per layer (A1–A9, B21–B29, …); columns beyond 9 (0-based >8)
+  // are rejected by the kiosk, so don't fabricate a label for them — show the raw code instead.
+  if(pos > 8) return String(aisleCode||'');
   const tens = layerIdx === 0 ? 0 : (layerIdx + 1);
   return String(tens*10 + pos + 1);
 }
@@ -3262,7 +3557,7 @@ async function openRestock(deviceCode) {
       document.getElementById('rs-body').innerHTML = '<div style="padding:34px;text-align:center;color:var(--muted)">No slot data yet for this machine. Sync it from Weimi first.</div>';
       return;
     }
-    buildRsBays(r.data.layout);
+    buildRsBays(r.data.layout, r.data.disabledAisles, r.data.stockSource);
     renderRsBody();
     document.getElementById('rs-sub').textContent = deviceCode + ' · set stock, or tap a price to edit it';
   } catch (e) {
@@ -3270,15 +3565,25 @@ async function openRestock(deviceCode) {
   }
 }
 
-function buildRsBays(layout) {
+let _rsKioskOwned = false;
+function buildRsBays(layout, disabledAisles, stockSource) {
   _rsLayout = layout;
   _restockBays = {};
+  // On a kiosk-owned machine, Weimi's isEnable/isBroken govern nothing: the kiosk sells the bay
+  // regardless, and neither we nor the machine can write those flags. Showing them here just
+  // creates false alarms on bays that work, so we suppress them entirely for kiosk machines.
+  _rsKioskOwned = (stockSource === 'kiosk');
+  const kioskClosed = new Set(Array.isArray(disabledAisles) ? disabledAisles : []);
   layout.forEach(layer => {
     (layer.bays || []).forEach(b => {
-      if (b.isBroken || b.isEnable === false) return;
+      // Show ALL bays — including broken (has errors) and closed ones.
+      // You still need to restock them; hiding them also threw the shelf range labels off.
       _restockBays[b.code] = {
         orig: b.currStock || 0, current: b.currStock || 0, max: b.maxStock || 0,
         name: b.name || b.code, price: b.priceIsk || 0, goodsId: b.goodsId || '',
+        isBroken: !!b.isBroken,
+        isDisabled: kioskClosed.has(b.code),   // OUR flag — the one the toggle changes
+        isWeimiClosed: b.isEnable === false,   // Weimi's flag — informational, we can't write it
       };
     });
   });
@@ -3286,14 +3591,27 @@ function buildRsBays(layout) {
 
 function renderRsBody() {
   let h = '';
+  const undecodable = [];
   _rsLayout.forEach(layer => {
-    const codes = (layer.bays || []).filter(b => !b.isBroken && b.isEnable !== false).map(b => b.code);
+    // Include ALL bays (broken/disabled too) so the shelf range and rows are complete.
+    const codes = (layer.bays || []).map(b => b.code);
     const nums = codes.map(c => parseInt(physicalSlot(c), 10)).filter(n => !isNaN(n));
     const range = nums.length ? (Math.min(...nums) + (nums.length > 1 ? '–' + Math.max(...nums) : '')) : '';
+    // physicalSlot returns the raw code for anything outside the canonical scheme (9 per layer). A
+    // layer that doesn't decode isn't cosmetic: the same decode governs whether a closed lane is
+    // recognised, so silently showing a letter would hide a real disagreement.
+    codes.forEach(c => { if (/^\d+-[A-Z]\d+$/.test(String(c)) && physicalSlot(c) === String(c)) undecodable.push(c); });
     h += '<div class="rs-layer-head">Shelf ' + (range || rsEsc(layer.layer || '')) + '</div>';
     codes.forEach(c => { if (_restockBays[c]) h += rsBayRow(c); });
   });
-  document.getElementById('rs-body').innerHTML = h || '<div style="padding:34px;text-align:center;color:var(--muted)">No active slots.</div>';
+  if (undecodable.length) {
+    h = '<div style="margin:0 0 12px;padding:11px 13px;background:var(--alert-bg);border-radius:8px;font-size:12.5px;line-height:1.5">' +
+        '<b style="color:var(--alert)">' + undecodable.length + ' slot(s) don\'t match the standard numbering</b><br>' +
+        '<span style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">' + rsEsc(undecodable.slice(0, 12).join(', ')) + (undecodable.length > 12 ? ' …' : '') + '</span><br>' +
+        'These show their raw code instead of a slot number. Test vend may also refuse them even when closed — tell the kiosk team the codes above.' +
+        '</div>' + h;
+  }
+  document.getElementById('rs-body').innerHTML = h || '<div style="padding:34px;text-align:center;color:var(--muted)">No slots.</div>';
 }
 
 function rsBayRow(code) {
@@ -3303,11 +3621,33 @@ function rsBayRow(code) {
   const priceChip = s.goodsId
     ? ' · <span class="rs-price-chip" onclick="openPriceFromSlot(\'' + c + '\')">' + s.price + ' kr</span>'
     : ' · ' + s.price + ' kr';
-  return '<div class="rs-bay" id="rs-bay-' + code + '">' +
-    '<div class="rs-bay-info"><div class="rs-bay-name">' + rsEsc(s.name) + '</div>' +
+  // Status badges. "off" = closed on OUR kiosk (what the toggle controls) — always meaningful.
+  // Weimi's fault/closed flags are only shown for Weimi-owned machines; on kiosk-owned machines
+  // they govern nothing and can't be cleared, so showing them is just noise on working bays.
+  const showWeimiFlags = !_rsKioskOwned;
+  let statusBadge = '';
+  let rowStyle = '';
+  if (showWeimiFlags && s.isBroken) {
+    statusBadge += ' <span style="display:inline-block;padding:1px 6px;border-radius:5px;background:var(--alert-bg);color:var(--alert);font-family:var(--mono);font-size:9px;vertical-align:middle">fault</span>';
+    rowStyle = ' style="border-left:3px solid var(--alert)"';
+  }
+  if (s.isDisabled) {
+    statusBadge += ' <span style="display:inline-block;padding:1px 6px;border-radius:5px;background:var(--cream-deep);color:var(--muted);font-family:var(--mono);font-size:9px;vertical-align:middle">off</span>';
+    if (!(showWeimiFlags && s.isBroken)) rowStyle = ' style="border-left:3px solid var(--line)"';
+  }
+  if (showWeimiFlags && s.isWeimiClosed) {
+    statusBadge += ' <span style="display:inline-block;padding:1px 6px;border-radius:5px;background:transparent;border:1px solid var(--line);color:var(--muted);font-family:var(--mono);font-size:9px;vertical-align:middle" title="Closed in Weimi — we cannot change this flag">Weimi off</span>';
+  }
+  return '<div class="rs-bay" id="rs-bay-' + code + '"' + rowStyle + '>' +
+    '<div class="rs-bay-info"><div class="rs-bay-name">' + rsEsc(s.name) + statusBadge + '</div>' +
     '<div class="rs-bay-meta">slot ' + physicalSlot(code) + ' · max ' + s.max + priceChip +
       ' · <span class="rs-swap-chip" onclick="openSwapRow(\'' + c + '\')">change</span>' +
       (s.goodsId ? ' · <span class="rs-swap-chip" onclick="openExpiryFromRestock(\'' + c + '\')">' + t('exp.link') + '</span>' : '') +
+      ((showWeimiFlags && s.isBroken) ? ' · <span class="rs-swap-chip" style="color:var(--alert)" onclick="clearRsFault(\'' + c + '\')">clear fault</span>' : '') +
+      ' · <span class="rs-swap-chip" onclick="toggleRsAisle(\'' + c + '\')">' + (s.isDisabled ? 'enable for sale' : 'stop selling') + '</span>' +
+      // Test vend only on a closed lane — it ejects real product, so it must never be one keystroke
+      // away on a bay that's on sale.
+      (s.isDisabled ? ' · <span class="rs-swap-chip" onclick="testVendAisle(\'' + c + '\')">test vend</span>' : '') +
       (changed ? ' · <span class="rs-changed">was ' + s.orig + '</span>' : '') + '</div></div>' +
     '<div class="rs-step">' +
       '<button onclick="rsStep(\'' + c + '\',-1)">&minus;</button>' +
@@ -3316,6 +3656,154 @@ function rsBayRow(code) {
     '</div>' +
     '<div class="rs-max" onclick="rsMax(\'' + c + '\')">max</div>' +
   '</div>';
+}
+
+// Clear a bay fault from the restock view. Sends clear_aisle_fault; the kiosk app must handle it
+// machine-side (confirmation pending from the kiosk chat). Honest toast either way.
+async function clearRsFault(code) {
+  if (!_restockCode) return;
+  if (!confirm('Send a clear-fault command for slot ' + physicalSlot(code) + '?\n\nThis asks the machine to clear the aisle error. If the jam is physical, fix it first.')) return;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(_restockCode) + '/commands', { type: 'clear_aisle_fault', params: { aisle: code } });
+    if (r && r.ok) showToast('Clear-fault sent — machine acts on it within ~5s');
+    else showToast((r && r.error) || 'could not send clear-fault');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+// The kiosk's own view of which lanes it believes are closed. undecodableAisles non-empty means
+// the operator closed those lanes, the kiosk couldn't decode them, and they are STILL SELLING —
+// a machine quietly taking money from lanes we think are shut. That belongs at the top of the page,
+// not behind a command panel someone has to think of opening.
+function renderHealthBanner(h) {
+  const el = document.getElementById('md-health-banner');
+  if (!el) return;
+  if (!h) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const bad = Array.isArray(h.undecodableAisles) ? h.undecodableAisles : [];
+  const age = h.atMs ? timeAgo(new Date(h.atMs).toISOString()) : '';
+  if (bad.length) {
+    el.style.display = '';
+    el.innerHTML = '<div style="padding:13px 15px;background:var(--alert);color:#fff;border-radius:10px">' +
+      '<div style="font-weight:600;font-size:14px">Closed lanes are still selling</div>' +
+      '<div style="font-size:12.5px;margin-top:4px;line-height:1.5">The kiosk could not decode ' + bad.length + ' lane(s) you closed: <span style="font-family:var(--mono)">' + rsEsc(bad.join(', ')) + '</span>. ' +
+      'They are taking money. Block them physically or stop selling from this machine until the numbering is resolved.</div>' +
+      '<div style="font-family:var(--mono);font-size:10px;margin-top:6px;opacity:.85">reported by the machine ' + rsEsc(age) + '</div>' +
+      '</div>';
+    return;
+  }
+  // Healthy: a quiet confirmation line, since "the machine agrees with me" is worth knowing during
+  // provisioning and worth nothing the rest of the time.
+  const closed = Array.isArray(h.closedAisles) ? h.closedAisles : [];
+  el.style.display = '';
+  // keySource decides whether this machine can safely take a generic build: 'stored' means the key
+  // lives in DataStore; 'build' means it still depends on a key baked into its own binary, and a
+  // generic apk would 401 it into a hard-failed connection and a site visit.
+  let keyBit = '';
+  if (h.keySource === 'build') {
+    keyBit = '<div style="margin-top:7px;padding:8px 11px;background:var(--alert-bg);border-radius:6px;color:var(--alert);font-size:12px;font-family:var(--sans)">' +
+      '<b>Not migrated</b> — key still comes from this machine\'s own build. A generic update would lock it out. Run "migrate key" before updating.</div>';
+  } else if (h.keySource === 'none') {
+    keyBit = '<div style="margin-top:7px;padding:8px 11px;background:var(--alert-bg);border-radius:6px;color:var(--alert);font-size:12px;font-family:var(--sans)">' +
+      '<b>No usable key</b> — the next backend call will fail. Run "migrate key".</div>';
+  }
+  el.innerHTML = '<div style="padding:9px 13px;background:var(--cream-deep);border-radius:8px;font-family:var(--mono);font-size:10.5px;color:var(--muted)">' +
+    'kiosk agrees: ' + closed.length + ' lane(s) closed' + (closed.length ? ' (' + rsEsc(closed.join(', ')) + ')' : '') +
+    (h.versionName ? ' · app v' + rsEsc(String(h.versionName)) : '') +
+    (h.keySource ? ' · key: ' + rsEsc(String(h.keySource)) : '') +
+    (age ? ' · checked ' + rsEsc(age) : '') + '</div>' + keyBit;
+}
+
+// Reveal the machine key so it can be typed into the kiosk at setup. From v0.75.0 the key is
+// entered by the operator instead of baked into a per-machine build, so it has to be readable.
+// Shown on demand only, never rendered as part of the page.
+async function showMachineKey(code) {
+  if (!code) return;
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/key');
+    const d = (r && r.data) || {};
+    if (d.status === 'not_provisioned') {
+      if (!confirm('This machine has no key yet.\n\nIssue one now? You\'ll type it into the kiosk during setup.')) return;
+      const ir = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/issue-key', {});
+      if (!ir || !ir.ok) { showToast((ir && ir.error) || 'could not issue a key'); return; }
+      return revealKeyBox(code, ir.data.machineKey);
+    }
+    if (d.status === 'revoked') { showToast('This key is revoked — issue a new one'); return; }
+    revealKeyBox(code, d.machineKey);
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+function revealKeyBox(code, key) {
+  const el = document.getElementById('md-key-box');
+  if (!el) return;
+  el.style.display = '';
+  el.innerHTML = '<div style="padding:12px 14px;background:var(--cream-deep);border-radius:8px">' +
+    '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:5px">MACHINE KEY — ' + rsEsc(code) + '</div>' +
+    '<div style="font-family:var(--mono);font-size:13px;word-break:break-all;line-height:1.5">' + rsEsc(key) + '</div>' +
+    '<div style="margin-top:9px;display:flex;gap:10px;align-items:center">' +
+      '<span class="pill pill-bz" style="cursor:pointer" onclick="copyText(\'' + key + '\')">copy</span>' +
+      '<span class="pill pill-out" style="cursor:pointer" onclick="document.getElementById(\'md-key-box\').style.display=\'none\'">hide</span>' +
+      '<span style="font-size:11px;color:var(--muted)">Type this into the kiosk at setup. Treat it like a password.</span>' +
+    '</div></div>';
+}
+
+function copyText(t) {
+  try { navigator.clipboard.writeText(t); showToast('Copied'); }
+  catch (e) { showToast('could not copy'); }
+}
+
+// Push this machine's own key into its DataStore, so it no longer depends on a key baked into its
+// binary and can safely receive a generic build. The backend supplies the key from its own records —
+// nothing is typed, so a key can't be paired with the wrong machine.
+async function migrateMachineKey(code) {
+  if (!code) return;
+  if (!confirm('Send this machine its own key?\n\nIt will be stored on the machine so a generic app update can be installed later. Nothing changes about how it works today.')) return;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'set_machine_key', params: {} });
+    if (r && r.ok) showToast('Key sent — then run the health check to confirm it reads "stored"');
+    else showToast((r && r.error) || 'could not send the key');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+// Ask the machine whether it agrees with us about which lanes are closed. Read-only, no hardware.
+async function checkConfigHealth(code) {
+  if (!code) return;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'config_health', params: {} });
+    if (r && r.ok) showToast('Health check sent — the banner updates when the machine answers');
+    else showToast((r && r.error) || 'could not send the health check');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+// Fire one real dispense on a CLOSED lane and report what the board said. Used to characterise
+// lanes we don't yet trust — notably direct-push lanes, where we don't know what an empty lane
+// returns, and a "motor ok" on an empty lane would mean charging for product that never fell.
+async function testVendAisle(code) {
+  if (!_restockCode) return;
+  if (!confirm('Run a test vend on slot ' + physicalSlot(code) + '?\n\nThis physically ejects one item. Make sure you can retrieve it.')) return;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(_restockCode) + '/commands', { type: 'test_vend', params: { aisle: code } });
+    if (r && r.ok) showToast('Test vend sent — result appears in command history');
+    else showToast((r && r.error) || 'could not send test vend');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+// Toggle whether customers can buy from this aisle on our kiosk (drives disabledAisles via
+// set_aisle_enabled). This is kiosk-local availability — the right lever for a kiosk-run machine —
+// NOT Weimi's isEnable (which we can't write).
+async function toggleRsAisle(code) {
+  if (!_restockCode) return;
+  const s = _restockBays[code];
+  const nowSellable = !s.isDisabled;
+  const makeEnabled = !nowSellable;
+  const verb = makeEnabled ? 'resume selling from' : 'stop selling from';
+  if (!confirm('Do you want to ' + verb + ' slot ' + physicalSlot(code) + '?')) return;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(_restockCode) + '/commands', { type: 'set_aisle_enabled', params: { aisle: code, enabled: makeEnabled } });
+    if (r && r.ok) {
+      s.isDisabled = !makeEnabled;
+      rsRefreshRow(code);
+      showToast(makeEnabled ? 'Slot re-enabled for sale' : "Slot closed — customers can't buy it");
+    } else showToast((r && r.error) || 'could not update slot');
+  } catch (e) { showToast('error: ' + e.message); }
 }
 
 function rsRefreshRow(code) {
@@ -4077,6 +4565,233 @@ function setTempPeriod(hours, el) {
   if (el) el.classList.add('active');
   renderMachineTemp(_mdDeviceCode);
 }
+// Push shelf LED price tags. force bypasses the app's record of what it believes is already on each
+// tag — needed when a write was recorded but never landed, which otherwise makes a wrong tag
+// permanently unfixable.
+async function syncPriceTags(code, force) {
+  if (!code) return;
+  if (force && !confirm('Re-push every shelf tag on this machine, ignoring what it thinks is already displayed?')) return;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands',
+      { type: 'sync_price_tags', params: force ? { force: true } : {} });
+    if (r && r.ok) showToast(force ? 'Force re-push sent — check the command history for the result' : 'Tag sync sent — result appears in command history');
+    else showToast((r && r.error) || 'could not send tag sync');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+// Ask the machine for its in-memory dispense history and render the raw board codes. This is the
+// distribution that shows a lane quietly failing before a customer complains — a lane returning a
+// "motor ok" code on an empty channel is charging for product that never fell.
+async function fetchDispenseLog(code) {
+  const el = document.getElementById('md-dispense');
+  if (!el || !code) return;
+  el.innerHTML = '<div style="font-size:12px;color:var(--muted)">requesting… the machine answers within ~5s</div>';
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'dispense_log', params: {} });
+    if (!r || !r.ok) { el.innerHTML = '<div style="font-size:12.5px;color:var(--alert)">' + rsEsc((r && r.error) || 'could not request the log') + '</div>'; return; }
+    const id = r.data && r.data.id;
+    // Poll the command history until this one completes.
+    let tries = 0;
+    const poll = async function () {
+      tries++;
+      const h = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/commands/history?limit=25');
+      const cmd = ((h.data && h.data.commands) || []).find(function (c) { return c.id === id; });
+      if (cmd && cmd.status !== 'pending') return renderDispenseLog(cmd);
+      if (tries > 12) { el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">No answer yet. The machine may be offline — try again shortly.</div>'; return; }
+      setTimeout(poll, 2500);
+    };
+    setTimeout(poll, 2500);
+  } catch (e) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">Could not request the dispense log.</div>';
+  }
+}
+
+function renderDispenseLog(cmd) {
+  const el = document.getElementById('md-dispense');
+  if (!el) return;
+  const res = cmd.result || {};
+  const rows = res.dispenses || [];
+  if (cmd.status !== 'done') {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--alert)">' + rsEsc(res.detail || ('command ' + cmd.status)) + '</div>';
+    return;
+  }
+  if (!rows.length) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">No dispenses recorded since the app last started.</div>';
+    return;
+  }
+  // Newest last, as the machine sends them — so reverse for a newest-first read.
+  el.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:9px">' + rsEsc(res.detail || (rows.length + ' record(s)')) + '</div>' +
+    rows.slice().reverse().map(function (d) {
+      const bad = d.outcome && d.outcome !== 'VENDED';
+      return '<div style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)">' +
+        '<div style="font-family:var(--mono);font-size:11px;width:52px;flex-shrink:0">' + rsEsc(String(d.aisle || '—')) + '</div>' +
+        '<div style="font-family:var(--mono);font-size:11px;width:64px;flex-shrink:0;color:' + (bad ? 'var(--alert)' : 'var(--success)') + '">' + rsEsc(String(d.resultCodeHex || d.resultCode || '')) + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:12.5px">' + rsEsc(String(d.outcome || '')) + (d.test ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--bronze)">TEST</span>' : '') + '</div>' +
+          (d.detail ? '<div style="font-size:11px;color:var(--muted)">' + rsEsc(d.detail) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+}
+
+// Read the machine's recent logcat, posted by the kiosk itself. This is the only way to diagnose a
+// placed machine — adb needs the local network and doesn't survive a reboot on these boards.
+async function loadMachineLogs(code) {
+  const el = document.getElementById('md-logs');
+  const meta = document.getElementById('md-logs-meta');
+  if (!el || !code) return;
+  el.innerHTML = '<div style="font-size:12px;color:var(--muted)">loading…</div>';
+  if (meta) meta.textContent = '';
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/logs?limit=400');
+    const d = (r && r.data) || {};
+    const lines = d.lines || [];
+    if (!lines.length) {
+      el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">No log lines received from this machine yet. The kiosk posts its own log every ~5 minutes once the build supports it.</div>';
+      return;
+    }
+    if (meta) meta.textContent = lines.length + ' lines' +
+      (d.kioskAppVersion ? ' · app v' + d.kioskAppVersion : '') +
+      (d.lastAtMs ? ' · last ' + timeAgo(new Date(d.lastAtMs).toISOString()) : '');
+    // Monospace, scrollable, newest at the bottom like a real tail. Errors and warnings tinted.
+    el.innerHTML = '<div style="max-height:420px;overflow:auto;background:var(--cream-deep);border-radius:6px;padding:10px 11px">' +
+      lines.map(function (l) {
+        const isErr = / E\//.test(l) || /Exception|FATAL/i.test(l);
+        const isWarn = / W\//.test(l);
+        const col = isErr ? 'var(--alert)' : (isWarn ? 'var(--bronze)' : 'var(--ink-soft)');
+        return '<div style="font-family:var(--mono);font-size:10.5px;line-height:1.5;color:' + col + ';white-space:pre-wrap;word-break:break-word">' + rsEsc(l) + '</div>';
+      }).join('') + '</div>' +
+      '<div style="margin-top:9px"><span class="pill pill-out" style="cursor:pointer" onclick="copyMachineLogs()">copy all</span></div>';
+    window._mdLogLines = lines;
+  } catch (e) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">Could not load the log.</div>';
+  }
+}
+
+function copyMachineLogs() {
+  const txt = (window._mdLogLines || []).join('\n');
+  if (!txt) return;
+  try {
+    navigator.clipboard.writeText(txt);
+    showToast('Log copied');
+  } catch (e) { showToast('could not copy'); }
+}
+
+// ── Screen posters (ads) ──────────────────────────────────────────────────────
+// The kiosk ad region is HD landscape (1920x1080, 16:9). Posters are hosted on R2 and referenced by
+// URL in config, so a change lands on the machine at its next config poll — no app update.
+let _mdAds = [];
+async function renderMachineAds(code, machine) {
+  const el = document.getElementById('md-ads');
+  if (!el) return;
+  _mdAds = Array.isArray(machine && machine.ads) ? JSON.parse(JSON.stringify(machine.ads)) : [];
+  const regionOn = !(machine && machine.settings && machine.settings.showAdRegion === false);
+  let h = '<label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:13px">' +
+    '<input type="checkbox" id="ads-region"' + (regionOn ? ' checked' : '') + ' onchange="saveAdRegion()">' +
+    '<span style="font-size:13.5px">Show the poster area on this machine\'s screen</span></label>';
+  if (!regionOn) {
+    h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">The area is hidden, so posters below won\'t appear until it\'s switched on.</div>';
+  }
+  if (!_mdAds.length) {
+    h += '<div style="font-size:12.5px;color:var(--muted)">No poster set. Add one — 1920&times;1080 (16:9) is the size the screen expects.</div>';
+  } else {
+    h += _mdAds.map(function (ad, i) { return adRow(ad, i); }).join('');
+    h += '<div style="margin-top:12px"><button class="btn btn-sm" onclick="saveAds()">save posters</button></div>';
+  }
+  el.innerHTML = h;
+}
+
+function adRow(ad, i) {
+  const isImg = ad.type !== 'video';
+  return '<div style="display:flex;gap:12px;padding:11px 0;border-top:1px solid var(--line)">' +
+    (isImg && ad.url
+      ? '<img src="' + rsEsc(ad.url) + '" style="width:112px;height:63px;object-fit:cover;border-radius:5px;border:1px solid var(--line);flex-shrink:0" onerror="this.style.opacity=.3">'
+      : '<div style="width:112px;height:63px;border-radius:5px;border:1px dashed var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--muted)">' + (isImg ? 'no image' : 'VIDEO') + '</div>') +
+    '<div style="flex:1;min-width:0">' +
+      '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + rsEsc(ad.url || 'not uploaded yet') + '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:7px;align-items:center">' +
+        '<label style="font-size:11px;color:var(--muted)">seconds <input class="fi ad-dur" data-i="' + i + '" type="number" min="1" max="120" value="' + (ad.durationSec == null ? 10 : ad.durationSec) + '" style="width:64px;margin-left:4px"></label>' +
+        '<input class="fi ad-text" data-i="' + i + '" placeholder="overlay text (optional, max 80)" maxlength="80" value="' + rsEsc(ad.overlayText || '') + '" style="flex:1;min-width:150px">' +
+      '</div>' +
+      '<div style="margin-top:7px;display:flex;gap:10px">' +
+        '<span class="pill pill-out" style="cursor:pointer" onclick="pickAdImage(' + i + ')">' + (ad.url ? 'replace image' : 'upload image') + '</span>' +
+        '<span class="pill pill-out" style="cursor:pointer;color:var(--alert)" onclick="removeAd(' + i + ')">remove</span>' +
+      '</div>' +
+    '</div></div>';
+}
+
+function addAdSlot() {
+  _mdAds.push({ type: 'image', url: '', durationSec: 10, overlayText: null });
+  const el = document.getElementById('md-ads');
+  const machine = DB.machines[_mdDeviceCode] || {};
+  machine.ads = _mdAds;
+  renderMachineAds(_mdDeviceCode, machine);
+}
+
+function removeAd(i) {
+  _mdAds.splice(i, 1);
+  const machine = DB.machines[_mdDeviceCode] || {};
+  machine.ads = _mdAds;
+  renderMachineAds(_mdDeviceCode, machine);
+  saveAds();
+}
+
+// Upload through the backend so it lands on R2 and gets checked against the 16:9 target — a poster
+// at the wrong ratio is cropped on the machine, and it's better to hear that here than from a
+// customer looking at a stretched logo.
+function pickAdImage(i) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async function () {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    showToast('Uploading…');
+    const reader = new FileReader();
+    reader.onload = async function () {
+      try {
+        const r = await API.post('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/ads/upload', { data: reader.result });
+        if (!r || !r.ok) { showToast((r && r.error) || 'upload failed'); return; }
+        _mdAds[i].url = r.data.url;
+        _mdAds[i].type = 'image';
+        const machine = DB.machines[_mdDeviceCode] || {};
+        machine.ads = _mdAds;
+        renderMachineAds(_mdDeviceCode, machine);
+        await saveAds();
+        showToast(r.data.note ? r.data.note : 'Poster uploaded');
+      } catch (e) { showToast('error: ' + e.message); }
+    };
+    reader.readAsDataURL(f);
+  };
+  inp.click();
+}
+
+async function saveAds() {
+  if (!_mdDeviceCode) return;
+  document.querySelectorAll('.ad-dur').forEach(function (el) {
+    const i = Number(el.getAttribute('data-i'));
+    if (_mdAds[i]) _mdAds[i].durationSec = Number(el.value) || 10;
+  });
+  document.querySelectorAll('.ad-text').forEach(function (el) {
+    const i = Number(el.getAttribute('data-i'));
+    if (_mdAds[i]) _mdAds[i].overlayText = el.value.trim() || null;
+  });
+  const payload = _mdAds.filter(function (a) { return a.url; });
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/ads', payload);
+    if (r && r.ok) showToast('Posters saved — live on the machine within ~2 min');
+    else showToast((r && r.detail && r.detail[0]) || (r && r.error) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+async function saveAdRegion() {
+  const on = document.getElementById('ads-region').checked;
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/settings', { showAdRegion: on });
+    if (r && r.ok) showToast(on ? 'Poster area on' : 'Poster area hidden');
+    else showToast((r && r.error) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
 async function renderMachineTemp(code) {
   const body = document.getElementById('md-temp-body');
   if (!body) return;
@@ -4100,7 +4815,21 @@ async function renderMachineTemp(code) {
       <span style="font-size:12px;color:var(--muted)">updated ${ageTxt}${fault ? ' · board fault' : ''}${stale ? ' · stale' : ''}</span>
     </div>`;
   } else {
-    head = '<div style="font-size:13px;color:var(--muted);margin-bottom:10px">No temperature data yet. The kiosk reports every ~5 min on cooling-capable machines.</div>';
+    // Three genuinely different states, and conflating them reads as a fault when it isn't:
+    //   unsupported  — this machine's board exposes no cabinet temperature; nothing will ever arrive
+    //   not_reporting— the app on this machine doesn't send telemetry (the current fridge case)
+    //   awaiting     — reporting is expected and we're simply waiting for the first reading
+    const mach = DB.machines[code] || {};
+    const mode = (mach.settings && mach.settings.tempReporting) || 'auto';
+    let msg;
+    if (mode === 'unsupported') {
+      msg = 'Not supported on this machine — the board does not expose a cabinet temperature, so no readings will arrive.';
+    } else if (mode === 'expected') {
+      msg = 'No readings yet. Reporting is enabled for this machine — if this persists, check the kiosk.';
+    } else {
+      msg = 'No temperature reported. This machine\'s app does not currently send telemetry, so this panel stays empty until it does.';
+    }
+    head = '<div style="font-size:13px;color:var(--muted);margin-bottom:10px">' + msg + '</div>';
   }
   if (!series.length) { body.innerHTML = head; return; }
 
@@ -4249,9 +4978,36 @@ async function restartMachineCmd(code, target) {
   renderCommandHistory(code);
 }
 
+// Enqueue a check_update command (lands within ~5s via the command poll).
+async function checkMachineUpdate(code) {
+  if (!backendOnline) { showToast('backend offline'); return; }
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'check_update' });
+    if (r && r.ok) showToast('Update check queued — machine picks it up within ~5s');
+    else showToast((r && r.error) || 'could not queue update check');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+// Enqueue fridge_open_door for a specific cabinet (A/B). Unlocks that door and starts restocking.
+async function openFridgeDoor(code, cabinet) {
+  if (!backendOnline) { showToast('backend offline'); return; }
+  if (!confirm('Open door ' + cabinet + ' for restocking? The machine stops charging until the door closes.')) return;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'fridge_open_door', params: { cabinet: cabinet } });
+    if (r && r.ok) showToast('Door ' + cabinet + ' opening — restock, then close to end');
+    else showToast((r && r.error) || 'could not open door');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
 async function renderMachineDetail() {
   if (!_mdDeviceCode) return;
   const code = _mdDeviceCode;
+
+  // Reset to the Overview tab each time a machine is opened (don't inherit the last tab).
+  try {
+    var ovBtn = document.querySelector('#md-tabbar [data-mdtab="overview"]');
+    if (ovBtn) showMdTab('overview', ovBtn);
+  } catch (e) {}
 
   // Header
   if (!backendOnline || !API_TOKEN) {
@@ -4272,7 +5028,12 @@ async function renderMachineDetail() {
     document.getElementById('md-meta').innerHTML =
       m.deviceCode + ' · ' + (m.location || '—') + ' · ' + (dr.data.operatorName || '—') +
       ' · ' + (m.isOnline ? '<span style="color:var(--success)">online</span>' : '<span style="color:var(--alert)">offline</span>') +
-      (m.kioskVersion ? ' · kiosk v' + m.kioskVersion : '');
+      // Always state the running app version — "unknown" is information too, and knowing what's on a
+      // placed machine matters before you push an update or chase a bug.
+      ' · <span title="app version running on this machine">app ' +
+        (m.kioskVersion ? ('v' + m.kioskVersion) : '<span style="color:var(--muted)">unknown</span>') +
+        (m.lastAppVersionCode != null ? ' <span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '') +
+      '</span>';
 
     // Operator assignment (AG admin only)
     const opEl = document.getElementById('md-operator');
@@ -4304,7 +5065,9 @@ async function renderMachineDetail() {
     }
     renderMachineControls(code);
     renderMachineRecentOrders(code);
-    renderMachineTemp(code);
+    renderMachineAds(code, m);
+    renderHealthBanner(dr.data.configHealth);
+    // Temperature and the log now load when the Controls tab is opened, not on every detail view.
   } catch (e) {
     document.getElementById('md-name').textContent = code;
     document.getElementById('md-meta').textContent = 'Error: ' + e.message;
@@ -4397,7 +5160,249 @@ async function renderMachineDetail() {
     }
   } catch (e) {}
 
-  renderMachineLayout(code);
+  renderMachineLayoutOrFridge(code, DB.machines[code] || {});
+  renderMachineActions(code, DB.machines[code] || {});
+  renderMachineAlerts(code);
+  renderMachineSoldOut(code);
+}
+
+// ─── Machine-detail tabs ───────────────────────────────────────────────────────
+// ── Notifications tab ─────────────────────────────────────────────────────────
+// Per-machine daily digest settings and per-product low-stock thresholds. Thresholds are absolute
+// counts, not percentages: a gravity basket has no capacity the machine can measure, and a setting
+// operators won't fill in produces either silence or nonsense while looking configured.
+let _notifCfg = null;
+async function renderNotifications(code) {
+  const setEl = document.getElementById('md-notif-settings');
+  const prodEl = document.getElementById('md-notif-products');
+  if (!setEl || !prodEl || !code) return;
+  setEl.innerHTML = '<div style="font-size:12px;color:var(--muted)">loading…</div>';
+  prodEl.innerHTML = '';
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/notifications');
+    const d = (r && r.data) || {};
+    _notifCfg = d;
+
+    const hours = [];
+    for (let h = 0; h < 24; h++) hours.push('<option value="' + h + '"' + (h === d.sendHour ? ' selected' : '') + '>' + String(h).padStart(2, '0') + ':00</option>');
+
+    setEl.innerHTML =
+      '<label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:13px">' +
+        '<input type="checkbox" id="notif-enabled"' + (d.enabled ? ' checked' : '') + ' onchange="saveNotifSettings()">' +
+        '<span style="font-size:14px">Send a daily email for this machine</span>' +
+      '</label>' +
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">' +
+        '<div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px">SEND AT</div>' +
+          '<select class="fi" id="notif-hour" style="width:110px" onchange="saveNotifSettings()">' + hours.join('') + '</select></div>' +
+        '<div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px">DEFAULT THRESHOLD</div>' +
+          '<input class="fi" id="notif-default" type="number" min="0" max="999" value="' + d.lowStockDefault + '" style="width:90px" onchange="saveNotifSettings()"></div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--muted);margin-top:12px">' +
+        'Sent to <b>' + (d.recipient ? rsEsc(d.recipient) : '<span style="color:var(--alert)">no address set for ' + rsEsc(d.operatorName || 'this operator') + '</span>') + '</b>. ' +
+        'Only sent when something is sold out, low, or needs attention — a machine with nothing to report sends nothing.' +
+      '</div>';
+
+    const items = d.preview || [];
+    const stocked = {};
+    items.forEach(function (i) { stocked[i.goodsId] = i; });
+    // Show everything the machine currently stocks, with what it would report today.
+    const rows = (d.preview || []);
+    prodEl.innerHTML =
+      '<div style="font-size:12px;color:var(--muted);padding:8px 0 12px">Alert when this many or fewer are left. Blank uses the default (' + d.lowStockDefault + ').' +
+      (rows.length ? ' These are the items that would be reported right now:' : '') + '</div>' +
+      (rows.length
+        ? rows.map(function (i) {
+            const cur = d.thresholds[i.goodsId];
+            return '<div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)">' +
+              '<div style="flex:1;min-width:0">' +
+                '<div style="font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + rsEsc(i.name) + '</div>' +
+                '<div style="font-family:var(--mono);font-size:10px;color:' + (i.soldOut ? 'var(--alert)' : 'var(--muted)') + '">' +
+                  (i.soldOut ? 'SOLD OUT' : i.stock + ' left') + (i.where ? ' · ' + rsEsc(String(i.where)) : '') + '</div>' +
+              '</div>' +
+              '<input class="fi notif-th" data-gid="' + i.goodsId + '" type="number" min="0" max="999" placeholder="' + d.lowStockDefault + '" value="' + (cur == null ? '' : cur) + '" style="width:74px;flex-shrink:0">' +
+            '</div>';
+          }).join('')
+        : '<div style="font-size:13px;color:var(--muted);padding:6px 0 4px">Nothing is low right now. Thresholds appear here for items as they run down — or set them from the restock view.</div>');
+  } catch (e) {
+    setEl.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">Could not load notification settings.</div>';
+  }
+}
+
+async function saveNotifSettings() {
+  if (!_mdDeviceCode) return;
+  const body = {
+    enabled: document.getElementById('notif-enabled').checked,
+    sendHour: Number(document.getElementById('notif-hour').value),
+    lowStockDefault: Number(document.getElementById('notif-default').value),
+  };
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/notifications', body);
+    if (r && r.ok) showToast('Saved'); else showToast((r && r.error) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+async function saveNotifThresholds() {
+  if (!_mdDeviceCode) return;
+  const thresholds = {};
+  document.querySelectorAll('.notif-th').forEach(function (el) {
+    const v = el.value.trim();
+    if (v !== '') thresholds[el.getAttribute('data-gid')] = Number(v);
+  });
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/notifications', { thresholds: thresholds });
+    if (r && r.ok) { showToast('Thresholds saved'); renderNotifications(_mdDeviceCode); }
+    else showToast((r && r.error) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+function showMdTab(name, el) {
+  document.querySelectorAll('#page-machinedetail .md-tabpanel').forEach(function(p){
+    p.style.display = (p.getAttribute('data-panel') === name) ? '' : 'none';
+  });
+  document.querySelectorAll('#md-tabbar .tab').forEach(function(t){ t.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  // Load the Controls tab's own panels on open rather than on every detail render — the log fetch
+  // is the heaviest thing on this page and most visits never open this tab.
+  if (name === 'notifications' && _mdDeviceCode) {
+    try { renderNotifications(_mdDeviceCode); } catch (e) { /* non-fatal */ }
+  }
+  if (name === 'controls' && _mdDeviceCode) {
+    try {
+      renderMachineTemp(_mdDeviceCode);
+      loadMachineLogs(_mdDeviceCode);
+      // Shelf price tags are a coil-machine feature; hide the panel on fridges.
+      // Shown on BOTH machine types. The fridge is the one with unreachable shelf tags, so hiding
+      // it there was exactly backwards.
+      var tags = document.getElementById('md-tags-panel');
+      if (tags) tags.style.display = '';
+    } catch (e) { /* non-fatal */ }
+  }
+  var page = document.getElementById('page-machinedetail');
+  if (page && page.scrollIntoView) window.scrollTo(0, 0);
+}
+
+// Overview quick-action grid — coil vs fridge, with Weimi sync gated to ag_admin.
+function renderMachineActions(code, machine) {
+  var el = document.getElementById('md-actions');
+  if (!el) return;
+  var isFridge = /^GR-/.test(String((machine && machine.model) || ''));
+  var isAdmin = !!(typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'ag_admin');
+  var a = [];
+  var toLayout = "showMdTab('layout',document.querySelector('#md-tabbar [data-mdtab=layout]'))";
+  if (isFridge) {
+    // One "Open door" button PER cabinet the model has: single = A only, double = A + B.
+    var model = String((machine && machine.model) || '');
+    var cabinets = /1260/.test(model) ? ['A', 'B'] : ['A'];
+    cabinets.forEach(function(cab, idx){
+      a.push({ t: cabinets.length > 1 ? ('Open door ' + cab) : 'Open door', i: '⬚',
+               on: "openFridgeDoor(_mdDeviceCode,'" + cab + "')", primary: idx === 0 });
+    });
+    a.push({ t: 'Read scale', i: '⚖', on: "showMdTab('controls',document.querySelector('#md-tabbar [data-mdtab=controls]'))" });
+    a.push({ t: 'Edit planogram', i: '▤', on: toLayout });
+    a.push({ t: 'Check update', i: '↻', on: 'checkMachineUpdate(_mdDeviceCode)' });
+  } else {
+    a.push({ t: 'Edit bays', i: '▦', on: toLayout, primary: true });
+    a.push({ t: 'Restock', i: '⚑', on: 'openRestock(_mdDeviceCode)' });
+    a.push({ t: 'Clear fault', i: '⚠', on: "showMdTab('controls',document.querySelector('#md-tabbar [data-mdtab=controls]'))" });
+    a.push({ t: 'Check update', i: '↻', on: 'checkMachineUpdate(_mdDeviceCode)' });
+  }
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  a.forEach(function(x){
+    html += '<div onclick="' + x.on + '" style="display:flex;align-items:center;gap:8px;padding:11px 12px;border:1px solid ' +
+      (x.primary ? 'var(--ink);background:var(--ink);color:var(--cream)' : 'var(--line);background:var(--cream)') +
+      ';border-radius:6px;font-size:13px;font-weight:500;cursor:pointer">' +
+      '<span style="font-size:15px">' + x.i + '</span>' + x.t + '</div>';
+  });
+  // Weimi sync — coil + admin only
+  if (!isFridge && isAdmin) {
+    html += '<div onclick="syncMachineWeimi(_mdDeviceCode)" style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 12px;border:1px dashed var(--bronze);border-radius:6px;font-size:13px;font-weight:500;color:var(--bronze);cursor:pointer">⟳ Sync from Weimi <span style="font-size:10px;color:var(--muted)">· admin</span></div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// Open alerts for THIS machine (unresolved), shown at the top of Overview with a resolve action.
+async function renderMachineAlerts(code) {
+  var panel = document.getElementById('md-attention-panel');
+  var el = document.getElementById('md-attention');
+  if (!panel || !el) return;
+  try {
+    var r = await API.get('/api/v1/alerts?deviceCode=' + encodeURIComponent(code) + '&resolved=false');
+    var list = (r && r.data) || [];
+    if (!list.length) { panel.style.display = 'none'; el.innerHTML = ''; return; }
+    panel.style.display = '';
+    // critical first, then by newest
+    list.sort(function(a,b){
+      var sev = function(x){ return x.severity === 'critical' ? 0 : x.severity === 'warning' ? 1 : 2; };
+      return sev(a) - sev(b) || String(b.createdAt||'').localeCompare(String(a.createdAt||''));
+    });
+    el.innerHTML = list.map(function(al){
+      var isCrit = al.severity === 'critical';
+      var dot = isCrit ? 'var(--alert)' : (al.severity === 'warning' ? 'var(--bronze-light)' : 'var(--muted)');
+      var bg = isCrit ? 'var(--alert-bg)' : 'var(--cream-deep)';
+      var when = al.createdAt ? timeAgo(al.createdAt) : '';
+      return '<div style="display:flex;gap:10px;align-items:flex-start;padding:11px;background:' + bg + ';border-radius:6px;margin-bottom:8px">' +
+        '<div style="width:7px;height:7px;border-radius:50%;background:' + dot + ';margin-top:5px;flex-shrink:0"></div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;color:var(--ink-soft)">' + (al.title ? '<b style="color:' + (isCrit?'var(--alert)':'var(--ink)') + '">' + rsEsc(al.title) + '</b>' : '') + (al.detail ? ' — ' + rsEsc(al.detail) : '') + '</div>' +
+          '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px">' + [al.severity, when].filter(Boolean).join(' · ') + '</div>' +
+        '</div>' +
+        '<span style="cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--bronze);flex-shrink:0;padding-top:2px" onclick="resolveMachineAlert(\'' + al.id + '\',\'' + code + '\')">resolve</span>' +
+      '</div>';
+    }).join('');
+  } catch (e) {
+    panel.style.display = '';
+    el.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:11px">Could not load alerts.</div>';
+  }
+}
+
+// Resolve one alert, then refresh the machine's attention panel.
+async function resolveMachineAlert(id, code) {
+  try {
+    var r = await API.post('/api/v1/alerts/' + encodeURIComponent(id) + '/resolve', {});
+    if (r && r.ok) { showToast('Alert resolved'); renderMachineAlerts(code); }
+    else showToast((r && r.error) || 'could not resolve');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+// Recently sold out on THIS machine (recentEvents scope, filtered to device).
+async function renderMachineSoldOut(code) {
+  var el = document.getElementById('md-sold-out');
+  if (!el) return;
+  try {
+    var r = await API.get('/api/v1/sold-out?scope=machine&deviceCode=' + encodeURIComponent(code));
+    var list = (r && r.data && (r.data.recentEvents || r.data.events)) || [];
+    if (!list.length) { el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12px">No sold-out events in the last 30 days.</div>'; return; }
+    el.innerHTML = list.slice(0, 15).map(function(s){
+      var where = s.aisle ? ('aisle ' + s.aisle) : (s.basket != null ? ('basket ' + s.basket) : '');
+      var since = s.updatedAt ? timeAgo(s.updatedAt) : '';
+      return '<div style="display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)">' +
+        '<div style="width:7px;height:7px;border-radius:50%;background:var(--bronze-light);margin-top:5px;flex-shrink:0"></div>' +
+        '<div><div style="font-size:13px;font-weight:500">' + (s.productName || '(unknown product)') + '</div>' +
+        '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px">' + [where, since ? ('sold out ' + since) : ''].filter(Boolean).join(' · ') + '</div></div></div>';
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div style="padding:14px;color:var(--muted);font-size:11px">Could not load sold-out history.</div>';
+  }
+}
+
+// A fridge is identified by its model (GR-*). Route it to the shelf-accurate basket planogram
+// and retitle the section; coil machines keep the bay layout unchanged.
+function renderMachineLayoutOrFridge(code, machine) {
+  const isFridge = /^GR-/.test(String((machine && machine.model) || ''));
+  const tabLabel = document.getElementById('md-tab-layout');
+  if (tabLabel) tabLabel.textContent = isFridge ? 'Planogram' : 'Bays';
+  // Kiosk screen designer is a coil-only feature (fridges show the basket display, no hero tiles).
+  const kioskTab = document.getElementById('md-tab-kiosk');
+  if (kioskTab) kioskTab.style.display = isFridge ? 'none' : '';
+  const title = document.getElementById('md-layout-title');
+  if (isFridge) {
+    if (title) title.textContent = 'fridge planogram.';
+    renderFridgePlanogram(code, machine.model);
+  } else {
+    if (title) title.textContent = 'bays & layout.';
+    renderMachineLayout(code);
+  }
 }
 
 // ─── Bay layout + spiral/push configuration ────────────────────────────────────
@@ -4410,7 +5415,11 @@ async function renderMachineLayout(code) {
   try {
     const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/layout');
     if (!r || !r.ok) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">' + (r?.error || 'Could not load layout') + '</div>'; return; }
-    const { layout, bayConfig, configured } = r.data;
+    const { layout, bayConfig, configured, disabledAisles, stockSource } = r.data;
+    const kioskClosed = new Set(Array.isArray(disabledAisles) ? disabledAisles : []);
+    // On kiosk-owned machines Weimi's isEnable/isBroken govern nothing and can't be cleared —
+    // don't tint or label bays with them, it flags working bays as faulty.
+    const showWeimiFlags = (stockSource !== 'kiosk');
     if (!configured || !layout.length) {
       el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12.5px">Not configured in Weimi yet — no bay layout to show.<br>Sync from Weimi once the machine has products assigned.</div>';
       if (hint) hint.textContent = '';
@@ -4428,18 +5437,24 @@ async function renderMachineLayout(code) {
         : `<span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border:1px solid ${typeColor};border-radius:999px;color:${typeColor}">${isSpiral ? 'spiral' : 'direct-push'}</span>`;
       const bays = layer.bays.map(b => {
         const pct = b.maxStock > 0 ? b.currStock / b.maxStock : 0;
+        const isKioskClosed = kioskClosed.has(b.code);
         let bg = 'var(--cream-deep)', border = 'var(--line)';
-        if (b.isBroken) { bg = '#FBF1E8'; border = 'var(--alert)'; }
-        else if (!b.isEnable) { bg = '#F0EDE6'; }
+        if (showWeimiFlags && b.isBroken) { bg = '#FBF1E8'; border = 'var(--alert)'; }
+        else if (showWeimiFlags && !b.isEnable) { bg = '#F0EDE6'; }
         else if (b.currStock === 0) { bg = '#FBF1E8'; border = 'var(--alert)'; }
         else if (pct < 0.35) { bg = 'rgba(184,71,31,0.10)'; }
+        // Kiosk-closed (our disabledAisles) overrides the tint with a dashed border — this is the
+        // state YOU control, distinct from Weimi's isEnable/isBroken which we can't change.
+        if (isKioskClosed) { border = 'var(--muted)'; }
         const label = (b.name || '—').slice(0, 16);
         const img = b.image ? '<img src="' + b.image + '" alt="" style="width:100%;height:38px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
         _mdBays[b.code] = { goodsId: b.goodsId || '', name: b.name || '', priceIsk: b.priceIsk || 0 };
-        return `<div title="slot ${physicalSlot(b.code)} · ${b.name || 'empty'} · ${b.currStock}/${b.maxStock} · ${formatKr(b.priceIsk)}${b.isBroken ? ' · BROKEN' : ''}${!b.isEnable ? ' · disabled' : ''}"
+        const kioskBadge = isKioskClosed ? '<div style="position:absolute;top:3px;left:3px;font-family:var(--mono);font-size:7.5px;background:var(--muted);color:#fff;padding:0 3px;border-radius:3px">not selling</div>' : '';
+        return `<div title="slot ${physicalSlot(b.code)} · ${b.name || 'empty'} · ${b.currStock}/${b.maxStock} · ${formatKr(b.priceIsk)}${(showWeimiFlags && b.isBroken) ? ' · BROKEN (Weimi)' : ''}${(showWeimiFlags && !b.isEnable) ? ' · closed (Weimi)' : ''}${isKioskClosed ? ' · not selling (kiosk)' : ''}"
           onclick="openSlotMenu('${code}','${b.code}')"
-          style="position:relative;flex:1;min-width:72px;max-width:120px;background:${bg};border:1px solid ${border};border-radius:6px;padding:6px 6px 5px;font-size:10px;line-height:1.25;cursor:pointer">
+          style="position:relative;flex:1;min-width:72px;max-width:120px;background:${bg};border:1px ${isKioskClosed ? 'dashed' : 'solid'} ${border};border-radius:6px;padding:6px 6px 5px;font-size:10px;line-height:1.25;cursor:pointer${isKioskClosed ? ';opacity:.72' : ''}">
           <div class="bay-edit-badge">&#9998;</div>
+          ${kioskBadge}
           ${img}
           <div style="font-family:var(--mono);color:var(--muted);font-size:9px">slot ${physicalSlot(b.code)}</div>
           <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label || '—'}</div>
@@ -4461,6 +5476,256 @@ async function renderMachineLayout(code) {
   }
 }
 
+
+// ─── Fridge planogram (gravity/weight fridges) ─────────────────────────────────
+// Shelf-accurate basket grid. Physical shelves per cabinet: 1-4, 5-8, 9-11, 12-14, 15-16.
+const FRIDGE_SHELVES = [[1,2,3,4],[5,6,7,8],[9,10,11],[12,13,14],[15,16]];
+let _fpDeviceCode = null;
+let _fpBaskets = {};        // "A:1" -> basket object
+let _fpModel = '';
+
+function fridgeCabinets(model) { return /1260/.test(String(model||'')) ? ['A','B'] : ['A']; }
+
+async function renderFridgePlanogram(code, model) {
+  _fpDeviceCode = code; _fpModel = model || '';
+  const el = document.getElementById('md-layout');
+  const hint = document.getElementById('md-layout-hint');
+  if (!el) return;
+  if (hint) hint.textContent = 'tap a basket to assign a product or set price';
+  el.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading planogram…</div>';
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/fridge/baskets');
+    if (!r || !r.ok) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">' + (r?.error || 'Could not load planogram') + '</div>'; return; }
+    _fpBaskets = {};
+    (r.data.baskets || []).forEach(b => { _fpBaskets[b.cabinet + ':' + b.basket] = b; });
+    const cabinets = fridgeCabinets(_fpModel);
+
+    const cabHtml = cabinets.map(cab => {
+      const shelves = FRIDGE_SHELVES.map((row, ri) => {
+        const cards = row.map(n => fridgeBasketCard(cab, n)).join('');
+        return `<div style="display:flex;gap:6px;margin-bottom:6px">${cards}</div>`;
+      }).join('');
+      return `<div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="font-family:var(--serif);font-style:italic;font-size:16px">cabinet ${cab}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">16 baskets · top shelf first</div>
+        </div>
+        ${shelves}
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:12px">
+        <span onclick="openFridgeBulkFill()" style="cursor:pointer;font-family:var(--mono);font-size:10.5px;padding:3px 10px;border:1px solid var(--bronze);border-radius:999px;color:var(--bronze)">▤ bulk edit</span>
+      </div>
+      ${cabHtml}
+      <div style="border-top:1px solid var(--line);margin-top:6px;padding-top:14px">
+        <div style="font-family:var(--serif);font-style:italic;font-size:15px;margin-bottom:8px">recent sessions.</div>
+        <div id="fp-sessions" style="font-family:var(--mono);font-size:11px;color:var(--muted)">Loading…</div>
+      </div>`;
+    renderFridgeSessions(code);
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--alert);font-size:12px">' + e.message + '</div>';
+  }
+}
+
+function fridgeBasketCard(cab, n) {
+  const b = _fpBaskets[cab + ':' + n];
+  const has = b && b.productId;
+  const enabled = b && b.enabled !== 0 && has;
+  const name = has ? (b.productName || b.productId) : null;
+  const price = b ? (b.priceIsk != null ? b.priceIsk : b.effectivePriceIsk) : null;
+  const isOverride = b && b.priceIsk != null;
+  const weight = b ? (b.effectiveWeightG != null ? b.effectiveWeightG : b.unitWeightG) : null;
+  let bg = 'var(--cream-deep)', border = 'var(--line)';
+  if (!has) { bg = '#FBF7F0'; border = 'var(--line)'; }
+  else if (!enabled) { bg = '#F0EDE6'; }
+  const img = (b && b.productImg) ? '<img src="' + b.productImg + '" alt="" style="width:100%;height:32px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
+  const inner = has ? `
+      ${img}
+      <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(name||'—').slice(0,18)}</div>
+      <div style="font-family:var(--mono);color:var(--bronze);font-size:9px">${price != null ? price + ' kr' : '—'}${isOverride ? ' <span style=\"color:var(--muted)\">·ovr</span>' : ''}</div>
+      <div style="font-family:var(--mono);color:var(--muted);font-size:9px">${weight != null ? weight + ' g' : 'no weight'}</div>`
+    : `<div style="color:var(--muted);font-size:16px;text-align:center;padding:6px 0">＋</div>
+       <div style="font-family:var(--mono);color:var(--muted);font-size:9px;text-align:center">assign</div>`;
+  return `<div title="cabinet ${cab} · basket ${n}${!enabled && has ? ' · disabled' : ''}"
+      onclick="openFridgeBasketEditor('${cab}',${n})"
+      style="position:relative;flex:1;min-width:64px;max-width:110px;background:${bg};border:1px solid ${border};border-radius:6px;padding:6px;font-size:10px;line-height:1.25;cursor:pointer">
+      <div style="position:absolute;top:3px;right:5px;font-family:var(--mono);font-size:8px;color:var(--muted)">${n}</div>
+      ${inner}
+    </div>`;
+}
+
+async function renderFridgeSessions(code) {
+  const el = document.getElementById('fp-sessions');
+  if (!el) return;
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/fridge/settlements?limit=8');
+    if (!r || !r.ok) { el.textContent = r?.error || 'Could not load sessions'; return; }
+    const rows = r.data.settlements || [];
+    if (!rows.length) { el.innerHTML = '<div style="color:var(--muted)">No sessions yet.</div>'; return; }
+    el.innerHTML = rows.map(s => {
+      const when = s.closedAt || (s.receivedAt ? new Date(s.receivedAt).toISOString() : '—');
+      const mism = s.mismatch ? '<span style="color:var(--alert)"> · mismatch</span>' : '';
+      const amt = s.totalIsk != null ? s.totalIsk + ' kr' : '—';
+      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)">
+        <span>${String(when).slice(0,16).replace('T',' ')} · ${s.outcome || '—'}${mism}</span>
+        <span style="color:var(--ink)">${amt}</span>
+      </div>`;
+    }).join('');
+  } catch (e) { el.textContent = e.message; }
+}
+
+// ─── Basket editor (single basket) ─────────────────────────────────────────────
+let _fpEditCab = null, _fpEditBasket = null, _fpPickedProduct = null;
+
+function openFridgeBasketEditor(cab, n) {
+  _fpEditCab = cab; _fpEditBasket = n; _fpPickedProduct = null;
+  const b = _fpBaskets[cab + ':' + n] || {};
+  const modal = document.getElementById('modal-fridge-basket');
+  document.getElementById('fb-title').textContent = 'Cabinet ' + cab + ' · basket ' + n;
+  document.getElementById('fb-search').value = '';
+  document.getElementById('fb-results').innerHTML = '';
+  document.getElementById('fb-picked').innerHTML = b.productId
+    ? `<div style="font-size:12px">Current: <strong>${b.productName || b.productId}</strong></div>` : '<div style="font-size:12px;color:var(--muted)">No product assigned</div>';
+  document.getElementById('fb-price').value = (b.priceIsk != null ? b.priceIsk : '');
+  document.getElementById('fb-price').placeholder = (b.effectivePriceIsk != null ? 'inherits ' + b.effectivePriceIsk : 'catalog price');
+  document.getElementById('fb-weight').value = (b.unitWeightG != null ? b.unitWeightG : (b.effectiveWeightG != null ? b.effectiveWeightG : ''));
+  document.getElementById('fb-enabled').checked = (b.enabled !== 0);
+  document.getElementById('fb-msg').innerHTML = '';
+  _fpPickedProduct = b.productId ? { goodsId: b.productId, name: b.productName, weightGrams: b.effectiveWeightG } : null;
+  modal.classList.add('show');
+}
+
+let _fbSearchTimer = null;
+function fbSearchInput() {
+  clearTimeout(_fbSearchTimer);
+  _fbSearchTimer = setTimeout(fbDoSearch, 220);
+}
+async function fbDoSearch() {
+  const q = document.getElementById('fb-search').value.trim();
+  const box = document.getElementById('fb-results');
+  if (q.length < 3) { box.innerHTML = ''; return; }
+  try {
+    const r = await API.get('/api/v1/products/search?q=' + encodeURIComponent(q));
+    const list = (r && r.data) || [];
+    if (!list.length) { box.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:6px">No matches</div>'; return; }
+    box.innerHTML = list.slice(0, 10).map(p => {
+      const payload = JSON.stringify({ goodsId: p.goodsId, name: p.name, weightGrams: p.weightGrams, salePriceIsk: p.salePriceIsk }).replace(/'/g, "&#39;");
+      const img = p.imgUrl
+        ? '<img src="' + p.imgUrl + '" alt="" style="width:34px;height:34px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">'
+        : '<div style="width:34px;height:34px;flex-shrink:0"></div>';
+      const meta = [p.salePriceIsk != null ? p.salePriceIsk + ' kr' : null, p.weightGrams != null ? p.weightGrams + ' g' : null].filter(Boolean).join(' · ');
+      return `<div onclick='fbPick(${payload})' style="display:flex;align-items:center;gap:10px;padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--line)">
+        ${img}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${(p.name || '#' + p.goodsId)}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">${meta || '—'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { box.innerHTML = '<div style="color:var(--alert);font-size:11px;padding:6px">' + e.message + '</div>'; }
+}
+function fbPick(p) {
+  _fpPickedProduct = p;
+  document.getElementById('fb-picked').innerHTML = `<div style="font-size:12px">Selected: <strong>${p.name || p.goodsId}</strong></div>`;
+  document.getElementById('fb-results').innerHTML = '';
+  document.getElementById('fb-search').value = '';
+  // Autofill from the catalog when the field is empty — the operator can still override either
+  // (measured weight, or a fridge-specific price). We don't clobber a value already typed.
+  const w = document.getElementById('fb-weight');
+  if (!w.value && p.weightGrams != null) w.value = p.weightGrams;
+  const price = document.getElementById('fb-price');
+  if (!price.value && p.salePriceIsk != null) price.value = p.salePriceIsk;
+}
+
+async function saveFridgeBasket() {
+  const msg = document.getElementById('fb-msg');
+  if (!_fpPickedProduct || !_fpPickedProduct.goodsId) { msg.innerHTML = '<div class="rs-msg err">Pick a product first.</div>'; return; }
+  const enabled = document.getElementById('fb-enabled').checked;
+  const priceRaw = document.getElementById('fb-price').value.trim();
+  const weightRaw = document.getElementById('fb-weight').value.trim();
+  const weight = weightRaw === '' ? null : parseInt(weightRaw, 10);
+  if (enabled && (!weight || weight <= 0)) { msg.innerHTML = '<div class="rs-msg err">An enabled basket needs a measured unit weight (g).</div>'; return; }
+  const body = {
+    baskets: [{
+      cabinet: _fpEditCab, basket: _fpEditBasket, productId: _fpPickedProduct.goodsId,
+      priceIsk: priceRaw === '' ? null : parseInt(priceRaw, 10),
+      unitWeightG: weight,
+      enabled,
+    }]
+  };
+  const btn = document.getElementById('fb-save');
+  btn.disabled = true; btn.innerHTML = '<span>saving…</span>';
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_fpDeviceCode) + '/fridge/baskets', body);
+    if (r && r.ok && (r.data.updated || 0) > 0) {
+      closeModal('modal-fridge-basket');
+      renderFridgePlanogram(_fpDeviceCode, _fpModel);
+      showToast('Basket ' + _fpEditBasket + ' saved');
+    } else {
+      const rej = r && r.data && r.data.rejected;
+      msg.innerHTML = '<div class="rs-msg err">' + (rej && rej.length ? rej[0].detail || rej[0].reason : (r?.error || 'Could not save')) + '</div>';
+    }
+  } catch (e) { msg.innerHTML = '<div class="rs-msg err">' + e.message + '</div>'; }
+  btn.disabled = false; btn.innerHTML = '<span>save basket</span><span>→</span>';
+}
+
+// ─── Bulk edit (all baskets in one table) ──────────────────────────────────────
+function openFridgeBulkFill() {
+  const cabinets = fridgeCabinets(_fpModel);
+  const rows = [];
+  cabinets.forEach(cab => FRIDGE_SHELVES.flat().forEach(n => {
+    const b = _fpBaskets[cab + ':' + n] || {};
+    rows.push(`<tr data-cab="${cab}" data-basket="${n}">
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 6px">${cab}${n}</td>
+      <td style="padding:3px 4px"><input class="fbk-prod" value="${b.productId || ''}" placeholder="productId" style="width:150px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"><span class="fbk-name" style="font-size:10px;color:var(--muted);margin-left:4px">${b.productName ? b.productName.slice(0,18) : ''}</span></td>
+      <td style="padding:3px 4px"><input class="fbk-price" type="number" value="${b.priceIsk != null ? b.priceIsk : ''}" placeholder="${b.effectivePriceIsk != null ? b.effectivePriceIsk : 'inherit'}" style="width:64px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"></td>
+      <td style="padding:3px 4px"><input class="fbk-weight" type="number" value="${b.unitWeightG != null ? b.unitWeightG : ''}" placeholder="g" style="width:56px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"></td>
+      <td style="padding:3px 6px;text-align:center"><input class="fbk-en" type="checkbox" ${b.enabled !== 0 ? 'checked' : ''}></td>
+    </tr>`);
+  }));
+  document.getElementById('fbulk-rows').innerHTML = rows.join('');
+  document.getElementById('fbulk-msg').innerHTML = '<div style="font-size:11px;color:var(--muted)">Tip: use the product search in a single basket to find IDs. Blank price = inherit catalog. Enabled baskets need a weight.</div>';
+  document.getElementById('modal-fridge-bulk').classList.add('show');
+}
+
+async function saveFridgeBulk() {
+  const msg = document.getElementById('fbulk-msg');
+  const trs = Array.from(document.querySelectorAll('#fbulk-rows tr'));
+  const baskets = [];
+  for (const tr of trs) {
+    const pid = tr.querySelector('.fbk-prod').value.trim();
+    if (!pid) continue;  // skip empty rows
+    const price = tr.querySelector('.fbk-price').value.trim();
+    const weight = tr.querySelector('.fbk-weight').value.trim();
+    baskets.push({
+      cabinet: tr.dataset.cab, basket: parseInt(tr.dataset.basket, 10),
+      productId: pid,
+      priceIsk: price === '' ? null : parseInt(price, 10),
+      unitWeightG: weight === '' ? null : parseInt(weight, 10),
+      enabled: tr.querySelector('.fbk-en').checked,
+    });
+  }
+  if (!baskets.length) { msg.innerHTML = '<div class="rs-msg err">Nothing to save — add at least one product.</div>'; return; }
+  const btn = document.getElementById('fbulk-save');
+  btn.disabled = true; btn.innerHTML = '<span>saving…</span>';
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_fpDeviceCode) + '/fridge/baskets', { baskets });
+    if (r && r.ok) {
+      const rej = (r.data && r.data.rejected) || [];
+      if (rej.length) {
+        msg.innerHTML = '<div class="rs-msg err">Saved ' + (r.data.updated||0) + ', but ' + rej.length + ' rejected: ' + rej.map(x => x.cabinet + x.basket + ' (' + x.reason + ')').join(', ') + '</div>';
+      } else {
+        closeModal('modal-fridge-bulk');
+        renderFridgePlanogram(_fpDeviceCode, _fpModel);
+        showToast('Saved ' + (r.data.updated || 0) + ' baskets');
+      }
+    } else { msg.innerHTML = '<div class="rs-msg err">' + (r?.error || 'Could not save') + '</div>'; }
+  } catch (e) { msg.innerHTML = '<div class="rs-msg err">' + e.message + '</div>'; }
+  btn.disabled = false; btn.innerHTML = '<span>save all</span><span>→</span>';
+}
+
 async function toggleBayType(code, layer, newType) {
   try {
     // Fetch current config, flip this layer, save the whole map
@@ -4476,7 +5741,8 @@ async function toggleBayType(code, layer, newType) {
 let alertFilter = 'all';
 function filterAlerts(f,el) { alertFilter=f; document.querySelectorAll('#page-alerts .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderAlerts(); }
 
-function renderAlerts() {
+async function renderAlerts() {
+  await hydrateAlertsFromBackend();
   let list = [...DB.alerts];
   if(alertFilter!=='all') list = list.filter(a=>a.type===alertFilter);
   const unread = DB.alerts.filter(a=>!a.resolved).length;
@@ -4492,10 +5758,15 @@ function renderAlerts() {
   `).join('') || '<div style="padding:20px;text-align:center;color:var(--muted)">No alerts</div>';
 }
 
-function resolveAlert(id) {
+async function resolveAlert(id) {
+  // Persist to the backend — a local-only flag reappears on the next hydrate.
+  try {
+    const r = await API.post('/api/v1/alerts/' + encodeURIComponent(id) + '/resolve', {});
+    if (!r || !r.ok) { showToast((r && r.error) || 'could not resolve'); return; }
+  } catch (e) { showToast('error: ' + e.message); return; }
   const a = DB.alerts.find(x=>x.id===id);
   if(a) { a.resolved=true; a.resolvedAt=new Date().toISOString(); }
-  saveData(); renderAlerts(); renderAlertBadge(); showToast('Alert resolved');
+  saveData(); await renderAlerts(); renderAlertBadge(); showToast('Alert resolved');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -7435,6 +8706,12 @@ async function renderAppUpdates() {
       <span>${rsEsc(m.deviceName || m.deviceCode)} <span style="color:var(--muted);font-family:var(--mono)">${rsEsc(m.deviceCode)}</span></span>
     </label>`).join('');
   const form = `<div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Publish update</div>
+    <div class="field"><div class="fl">app <span style="color:var(--muted);font-weight:400">· which build line</span></div>
+      <div style="display:flex;gap:16px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="coil" checked>coil kiosk</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="fridge">fridge</label>
+      </div>
+    </div>
     <div class="g2">
       <div class="field"><div class="fl">version code <span style="color:var(--muted);font-weight:400">· integer, must be higher than current</span></div><input class="fi mono" id="ota-vc" type="number" min="1" step="1" placeholder="114"></div>
       <div class="field"><div class="fl">version name</div><input class="fi mono" id="ota-vname" placeholder="0.70.0"></div>
@@ -7482,6 +8759,7 @@ async function renderAppUpdates() {
 }
 
 async function publishAppUpdate() {
+  const app = (document.querySelector('input[name="ota-app"]:checked') || {}).value || 'coil';
   const vc = Number(document.getElementById('ota-vc').value);
   const vname = document.getElementById('ota-vname').value.trim();
   const apk = document.getElementById('ota-apk').value.trim();
@@ -7495,10 +8773,10 @@ async function publishAppUpdate() {
   if (!Number.isInteger(vc) || vc <= 0) { if (msg) msg.innerHTML = '<div class="rs-msg err">Version code must be a positive integer.</div>'; return; }
   if (!/^https:\/\//.test(apk)) { if (msg) msg.innerHTML = '<div class="rs-msg err">APK url must be an https link.</div>'; return; }
   const who = cohort === 'all' ? 'ALL machines' : cohort.length + ' machine(s)';
-  if (!confirm('Publish v' + (vname || vc) + ' to ' + who + '?\n\nMachines on a lower version will silently update on their next check (≤60 min).')) return;
+  if (!confirm('Publish ' + app + ' v' + (vname || vc) + ' to ' + who + '?\n\nMachines on a lower version will silently update on their next check (≤60 min).')) return;
   if (msg) msg.innerHTML = '<div style="font-size:12px;color:var(--muted)">publishing… (hashing the APK, can take a few seconds)</div>';
   try {
-    const r = await API.put('/api/v1/app-release', { targetVersionCode: vc, versionName: vname || null, apkUrl: apk, cohort });
+    const r = await API.put('/api/v1/app-release', { app, targetVersionCode: vc, versionName: vname || null, apkUrl: apk, cohort });
     if (r && r.ok) { showToast('Update published'); if (r.data && r.data.note) showToast(r.data.note); renderAppUpdates(); }
     else { if (msg) msg.innerHTML = '<div class="rs-msg err">' + rsEsc((r && r.error) || 'failed') + '</div>'; }
   } catch (e) { if (msg) msg.innerHTML = '<div class="rs-msg err">error: ' + rsEsc(e.message) + '</div>'; }
@@ -7697,6 +8975,14 @@ async function saveMachine(existingCode) {
     };
   }
   saveData(); closeModal('modal-machine'); populateMachineSelects(); renderMachines();
+  // If we edited from the machine-detail page, refresh it too — otherwise the header keeps
+  // showing the old name until you navigate away and back.
+  try {
+    if (existingCode && document.getElementById('page-machinedetail').classList.contains('active')
+        && _mdDeviceCode === existingCode) {
+      openMachineDetail(existingCode);
+    }
+  } catch (e) { /* non-fatal */ }
   showToast(existingCode?'Machine updated':'Machine added');
 }
 
