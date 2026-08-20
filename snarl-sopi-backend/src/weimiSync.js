@@ -105,40 +105,18 @@ async function syncDeviceProducts(deviceCode) {
 
   // Capture the per-layer / per-bay layout (for the bay layout + config view).
   // Grouped by layer letter, preserving each bay's product/stock/state.
-  //
-  // CRITICAL: for kiosk-owned stock machines, the backend is the source of truth for currStock —
-  // sales decrement it and restocks increment it in the layout blob. Weimi's currStock is stale
-  // for these machines (it no longer sees our real sales), so we must NOT overwrite our counts with
-  // Weimi's on sync. We refresh everything else (codes, products, prices, enable/broken) but carry
-  // forward the existing currStock per bay code. Weimi-sourced machines keep Weimi's currStock.
-  const m2 = storage.getMachine ? storage.getMachine(deviceCode) : null;
-  const isKioskStock = (m2 && m2.stockSource === 'kiosk');
-  let priorStockByCode = {};
-  if (isKioskStock) {
-    try {
-      const priorRaw = storage.getMeta(`layout:${deviceCode}`);
-      const prior = priorRaw ? JSON.parse(priorRaw) : [];
-      (prior || []).forEach(layer => (layer.bays || []).forEach(b => { priorStockByCode[b.code] = Number(b.currStock) || 0; }));
-    } catch (e) { priorStockByCode = {}; }
-  }
   const layerMap = {};
   (info.cabinets || []).forEach(cab => (cab.layers || []).forEach(layer => {
     const key = layer.layer;
     if (!layerMap[key]) layerMap[key] = { layer: key, bays: [] };
     (layer.aisles || []).forEach(a => {
-      const weimiStock = a.currStock || 0;
-      // Kiosk-owned: keep our count if we have one for this bay; fall back to Weimi only for a
-      // brand-new bay we've never tracked. Weimi-owned: always take Weimi's number.
-      const currStock = isKioskStock
-        ? (Object.prototype.hasOwnProperty.call(priorStockByCode, a.code) ? priorStockByCode[a.code] : weimiStock)
-        : weimiStock;
       layerMap[key].bays.push({
         code:      a.code,
         goodsId:   String(a.goodsId || a.id || ''),
         name:      weimi.fixMojibake(a.goodsName) || '',
         image:     a.thumbnailUrl || a.imgUrl || a.imageUrl || '',
         priceIsk:  Math.round((a.price || 0) / 100),
-        currStock: currStock,
+        currStock: a.currStock || 0,
         maxStock:  a.maxStock || 0,
         isEnable:  a.isEnable !== false,
         isBroken:  !!a.isBroken,

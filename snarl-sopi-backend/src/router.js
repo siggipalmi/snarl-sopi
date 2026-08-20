@@ -34,7 +34,7 @@ const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
   provisionMachine, validateMachineKey, revokeKey,
-  buildConfigResponse, touchConfig, fridgeSpec,
+  buildConfigResponse, touchConfig,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
@@ -52,9 +52,6 @@ const weimi = require('./weimi');
 
 const routes = [
   { method:'GET',  pattern:'/health',                                        handler: handleHealth },
-  { method:'GET',  pattern:'/downloads',                                     handler: handleDownloadsPage },
-  { method:'GET',  pattern:'/api/v1/downloads',                             handler: handleGetDownloads,  middleware:[requireAuth, requireAgAdmin] },
-  { method:'PUT',  pattern:'/api/v1/downloads',                             handler: handleSetDownloads,  middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/whatismyip',                                    handler: handleWhatIsMyIp },
   { method:'GET',  pattern:'/api/v1/proxy/status',                           handler: handleProxyStatus, middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/debug/outbound-ip',                       handler: handleOutboundIp },
@@ -157,25 +154,15 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/quote',             handler: handleQuote,       middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/product-details',   handler: handleMachineProductDetails, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/sales',             handler: handleSalesIngest, middleware:[requireMachineKey] },
-  { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/settlement', handler: handleFridgeSettlement, middleware:[requireMachineKey] },
-  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/baskets',     handler: handleGetFridgeBaskets, middleware:[requireAuth, requireMachineAccess] },
-  { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/fridge/baskets',     handler: handleSetFridgeBaskets, middleware:[requireAuth, requireMachineAccess] },
-  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/settlements',  handler: handleListFridgeSettlements, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetry,      middleware:[requireMachineKey] },
-  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleGetNotifications, middleware:[requireAuth, requireMachineAccess] },
-  { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleSetNotifications, middleware:[requireAuth, requireMachineAccess] },
-  { method:'POST', pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleKioskLogs,      middleware:[requireMachineKey] },
-  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleGetKioskLogs,   middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetrySeries, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/app-update',        handler: handleAppUpdate,      middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/revert-report',     handler: handleRevertReport,   middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/app-release',                            handler: handleGetAppRelease,  middleware:[requireAuth, requireAgAdmin] },
   { method:'PUT',  pattern:'/api/v1/app-release',                            handler: handlePublishAppRelease, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
-  { method:'GET',  pattern:'/api/v1/app-release/:app/apk',                   handler: handleServeApk },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/complaints',        handler: handleComplaintIngest, middleware:[requireMachineKey] },
-  { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/complaints', handler: handleFridgeComplaint, middleware:[requireMachineKey] },
-  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/complaints', handler: handleListFridgeComplaints, middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetryIngest, middleware:[requireMachineKey] },
 
   // Operator complaint management (dashboard-facing)
   { method:'GET',  pattern:'/api/v1/complaints',                             handler: handleListComplaints, middleware:[requireAuth] },
@@ -200,8 +187,6 @@ const routes = [
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/ads',               handler: handleSetAds,       middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/settings',          handler: handleUpdateSettings,middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/stock-source',      handler: handleStockSource, middleware:[requireAuth, requireAgAdmin] },
-  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/key',               handler: handleShowMachineKey, middleware:[requireAuth, requireAgAdmin] },
-  { method:'POST', pattern:'/api/v1/machines/:deviceCode/issue-key',         handler: handleIssueMachineKey, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/revoke-key',        handler: handleRevokeKey,    middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines',                               handler: handleAddMachine,   middleware:[requireAuth, requireOperatorAdmin] },
 
@@ -309,64 +294,13 @@ function contractError(res, status, code, messageIs, messageEn) {
 
 // ─── Machine key middleware ───────────────────────────────────────────────────
 
-// A machine presenting an invalid key can't authenticate anything — not sales, not the config poll,
-// not the command queue that config_health rides on. So it cannot report its own state: what a
-// mistyped key at setup produces is silence, which looks exactly like a machine that's switched off.
-// The 401s themselves are the only evidence, so count them and raise an alarm.
-const _invalidKeyHits = {};   // deviceCode -> { n, firstMs, alertedMs }
-function noteInvalidKey(deviceCode, req) {
-  try {
-    const now = Date.now();
-    const WINDOW_MS = 15 * 60 * 1000;
-    const h = _invalidKeyHits[deviceCode] || { n: 0, firstMs: now, alertedMs: 0 };
-    if (now - h.firstMs > WINDOW_MS) { h.n = 0; h.firstMs = now; }
-    h.n++;
-    _invalidKeyHits[deviceCode] = h;
-    // A few failures could be a transient. A machine retrying every few seconds racks these up fast,
-    // so five within the window means something is persistently presenting the wrong key.
-    if (h.n < 5) return;
-    if (now - h.alertedMs < 6 * 3600 * 1000) return;    // don't re-alert for 6h
-    h.alertedMs = now;
-    const m = machines[deviceCode];
-    const known = !!m;
-    const detail = known
-      ? `${deviceCode} is repeatedly presenting an invalid machine key (${h.n} attempts). It cannot report sales, poll config, or answer commands, so it will look offline rather than broken. If this machine was just set up, the key typed at setup is wrong — read the correct one with "show key" and re-enter it at the machine.`
-      : `Repeated invalid-key attempts for unknown device ${deviceCode} (${h.n} attempts). No such machine is registered. If this isn't a machine of yours being set up, something is probing the API.`;
-    storage.insertAlert({
-      id: 'alert_invalid_key_' + deviceCode + '_' + Math.floor(now / (6 * 3600 * 1000)),
-      type: 'invalid_machine_key',
-      severity: known ? 'critical' : 'warning',
-      title: known ? `Wrong key — ${(m && m.deviceName) || deviceCode}` : `Invalid key attempts — ${deviceCode}`,
-      detail,
-      deviceCode: known ? deviceCode : null,
-      resolved: false,
-      createdAt: new Date(now).toISOString(),
-    });
-    console.warn('[AUTH] ' + detail);
-    if (known) {
-      const { op, toEmail } = resolveOperatorEmail(m);
-      if (op && toEmail) {
-        email.sendOperatorAlert({
-          to: toEmail, operatorName: op.name,
-          title: `Wrong key — ${m.deviceName || deviceCode}`,
-          detail,
-          dashboardUrl: (process.env.APP_URL || 'https://admin.agvending.is') + '/?page=machines&code=' + deviceCode,
-        }).catch(err => console.error('[AUTH] invalid-key email failed:', err && err.message));
-      }
-    }
-  } catch (e) { /* never let alerting break auth */ }
-}
-
 function requireMachineKey(req, res, next) {
   const key        = req.headers['x-machine-key'];
   const deviceCode = req.params.deviceCode;
   if (!key) return contractError(res, 401, 'missing_key', 'Vantar X-Machine-Key haus.', 'Missing X-Machine-Key header.');
   if (!validateMachineKey(deviceCode, key)) {
-    noteInvalidKey(deviceCode, req);
     return contractError(res, 401, 'invalid_key', 'Lykill er ógildur eða útrunninn.', 'Machine key is invalid, expired, or revoked.');
   }
-  // A successful call clears the counter — a machine that authenticates is not mis-keyed.
-  if (_invalidKeyHits[deviceCode]) delete _invalidKeyHits[deviceCode];
   // Any authenticated kiosk call doubles as a presence heartbeat.
   try { require('./db').markKioskSeen(deviceCode); } catch (e) { /* non-fatal */ }
   next();
@@ -669,189 +603,6 @@ function normalizeSaleRecords(raw) {
   return out;
 }
 
-// POST /api/v1/machines/:deviceCode/fridge/settlement — record a fridge session (report-only
-// audit trail; the Nayax terminal already charged). Idempotent on orderId (offline retries are
-// safe). The backend RECOMPUTES quantity/line/total from the planogram and flags any mismatch
-// against the app's claimed values — so this is an audit trail, not an echo of the app.
-function handleFridgeSettlement(req, res) {
-  const { deviceCode } = req.params;
-  const m = machines[deviceCode];
-  if (!m) return contractError(res, 404, 'device_not_found', `Vélnúmer ${deviceCode} er ekki skráð.`, `Device ${deviceCode} is not registered.`);
-  const b = req.body || {};
-  if (!b.orderId) return contractError(res, 400, 'order_id_required', 'orderId vantar.', 'orderId is required.');
-
-  const plan = {};
-  for (const bk of (storage.listFridgeBaskets(deviceCode) || [])) {
-    const p = bk.productId ? storage.getProduct(bk.productId) : null;
-    plan[bk.cabinet + ':' + bk.basket] = {
-      unitWeightG: bk.unitWeightG != null ? bk.unitWeightG : (p && p.weightGrams != null ? p.weightGrams : null),
-      priceIsk: bk.priceIsk != null ? bk.priceIsk : (p && p.salePriceIsk != null ? p.salePriceIsk : null),
-    };
-  }
-
-  const lines = Array.isArray(b.lines) ? b.lines : [];
-  let recomputedIsk = 0;
-  const lineRows = lines.map(l => {
-    const key = (l.cabinet || 'A') + ':' + l.basket;
-    const pl = plan[key] || {};
-    const unitW = pl.unitWeightG != null ? pl.unitWeightG : (l.unitWeightG != null ? l.unitWeightG : null);
-    const delta = (l.startWeightG != null && l.endWeightG != null) ? (l.startWeightG - l.endWeightG) : (l.deltaG != null ? -l.deltaG : null);
-    const recomputedQty = (unitW && delta != null) ? Math.max(0, Math.round(delta / unitW)) : null;
-    const price = pl.priceIsk != null ? pl.priceIsk : (l.priceIsk != null ? l.priceIsk : null);
-    const recomputedLineIsk = (recomputedQty != null && price != null) ? recomputedQty * price : null;
-    if (recomputedLineIsk != null) recomputedIsk += recomputedLineIsk;
-    const lineMismatch = (l.quantity != null && recomputedQty != null && l.quantity !== recomputedQty) ||
-                         (l.lineIsk != null && recomputedLineIsk != null && l.lineIsk !== recomputedLineIsk) ? 1 : 0;
-    return {
-      deviceCode, orderId: b.orderId, cabinet: l.cabinet || null, basket: l.basket != null ? Math.round(l.basket) : null,
-      productId: l.productId || null,
-      startWeightG: l.startWeightG != null ? Math.round(l.startWeightG) : null,
-      endWeightG: l.endWeightG != null ? Math.round(l.endWeightG) : null,
-      deltaG: l.deltaG != null ? Math.round(l.deltaG) : (delta != null ? -Math.round(delta) : null),
-      unitWeightG: unitW != null ? Math.round(unitW) : null,
-      quantity: l.quantity != null ? Math.round(l.quantity) : null,
-      recomputedQty,
-      priceIsk: price != null ? Math.round(price) : null,
-      lineIsk: l.lineIsk != null ? Math.round(l.lineIsk) : null,
-      lineMismatch,
-    };
-  });
-
-  const totalMismatch = (b.totalIsk != null && recomputedIsk !== b.totalIsk) ? 1 : 0;
-  const anyLineMismatch = lineRows.some(r => r.lineMismatch) ? 1 : 0;
-  const settlement = {
-    orderId: String(b.orderId), deviceCode,
-    startedAt: b.startedAt || null, closedAt: b.closedAt || null,
-    cabinetsOpened: JSON.stringify(Array.isArray(b.cabinetsOpened) ? b.cabinetsOpened : []),
-    outcome: b.outcome || null,
-    totalIsk: b.totalIsk != null ? Math.round(b.totalIsk) : null,
-    recomputedIsk,
-    mismatch: (totalMismatch || anyLineMismatch) ? 1 : 0,
-    nayaxRef: b.nayaxRef || null,
-    anomalies: JSON.stringify(Array.isArray(b.anomalies) ? b.anomalies : []),
-    receivedAt: Date.now(), updatedAt: Date.now(),
-  };
-
-  const isRepost = !!storage.getFridgeSettlement(deviceCode, b.orderId);
-  storage.saveFridgeSettlement(settlement, lineRows);
-  // A charged settlement is a sale. Mirror it into `orders`/`order_items` so the revenue chart,
-  // heatmap, top products and recent-orders views (which all read orders, written only by the
-  // Weimi sync) include fridge machines. Idempotent, so a replay doesn't double-count.
-  if (settlement.outcome === 'charged' && (settlement.totalIsk || 0) > 0) {
-    try { storage.recordFridgeSale(settlement, lineRows); }
-    catch (e) { console.error('[FRIDGE] recordFridgeSale failed:', e && e.message); }
-  }
-  if (settlement.mismatch) {
-    console.warn(`[FRIDGE] settlement ${b.orderId} MISMATCH: app total ${settlement.totalIsk} vs recomputed ${recomputedIsk}`);
-    // A mismatch means the scales disagree with what was charged — a money-path signal, so it
-    // gets an alert AND an email. Don't re-alert on a replayed settlement: same order, same fact.
-    if (!isRepost) notifyMoneyMismatch(m, settlement, lineRows);
-  }
-  json(res, 200, { ok: true, orderId: b.orderId, recorded: true, wasRepost: isRepost, recomputedIsk, mismatch: !!settlement.mismatch });
-}
-
-// Settlement mismatch → dashboard alert + operator email, on the same recipient rule as complaints.
-function notifyMoneyMismatch(machine, settlement, lineRows) {
-  const badLines = (lineRows || []).filter(r => r.lineMismatch);
-  const detail = `${machine.deviceCode} · order ${settlement.orderId}: charged ${settlement.totalIsk} kr, ` +
-    `scales recomputed ${settlement.recomputedIsk} kr` +
-    (badLines.length ? ` · ${badLines.length} line(s) disagree: ` + badLines.map(r =>
-      `${r.cabinet || 'A'}${r.basket} qty ${r.quantity}→${r.recomputedQty}`).join(', ') : '') +
-    '. Check the basket weights and the charge before trusting this sale.';
-  try {
-    const alertId = 'alert_settlement_mismatch_' + machine.deviceCode + '_' + settlement.orderId;
-    if (!storage.getAlert(alertId)) storage.insertAlert({
-      id: alertId, type: 'settlement_mismatch', severity: 'critical',
-      title: `Charge disagrees with scales — ${machine.deviceName}`,
-      detail, deviceCode: machine.deviceCode, resolved: false, createdAt: new Date().toISOString(),
-    });
-  } catch (e) { /* non-fatal */ }
-  const { op, toEmail } = resolveOperatorEmail(machine);
-  if (!op || !toEmail) return;   // resolveOperatorEmail already alerts on a missing address
-  email.sendOperatorAlert({
-    to: toEmail, operatorName: op.name,
-    title: `Charge disagrees with scales — ${machine.deviceName}`,
-    detail,
-    dashboardUrl: (process.env.APP_URL || 'https://admin.agvending.is') + '/?page=machines&code=' + machine.deviceCode,
-  }).catch(err => { console.error('[FRIDGE] mismatch email failed:', err && err.message); raiseEmailFailureAlert(machine, err); });
-}
-
-// GET /api/v1/machines/:deviceCode/fridge/baskets — admin view of the fridge planogram.
-function handleGetFridgeBaskets(req, res) {
-  const { deviceCode } = req.params;
-  const m = machines[deviceCode];
-  if (!m) return notFound(res, `Device ${deviceCode} not found`);
-  const baskets = storage.listFridgeBaskets(deviceCode).map(b => {
-    const p = b.productId ? storage.getProduct(b.productId) : null;
-    return { ...b, productName: p ? p.name : null, productImg: p ? p.imgUrl : null,
-             effectiveWeightG: b.unitWeightG != null ? b.unitWeightG : (p ? p.weightGrams : null),
-             effectivePriceIsk: b.priceIsk != null ? b.priceIsk : (p ? p.salePriceIsk : null) };
-  });
-  ok(res, { deviceCode, model: m.model, baskets });
-}
-
-// PUT /api/v1/machines/:deviceCode/fridge/baskets — set the planogram. Body: { baskets: [ {cabinet,
-// basket, productId, serialLockNum?, priceIsk?, unitWeightG?, toleranceG?, measurementFlag?, enabled?} ] }.
-function handleSetFridgeBaskets(req, res) {
-  const { deviceCode } = req.params;
-  const m = machines[deviceCode];
-  if (!m) return notFound(res, `Device ${deviceCode} not found`);
-  const list = Array.isArray(req.body?.baskets) ? req.body.baskets : [];
-  if (!list.length) return badRequest(res, 'baskets array required');
-  let n = 0;
-  const rejected = [];
-  const spec = require('./db').fridgeSpec(m.model);
-  for (const b of list) {
-    if (b.cabinet == null || b.basket == null) continue;
-    // Numbering contract: basket is 1-16 WITHIN each cabinet; cabinet (A/B) disambiguates. So a
-    // basket number outside 1-16, or a cabinet this model doesn't have, is a config error.
-    const cab = String(b.cabinet).toUpperCase();
-    const bn = Math.round(Number(b.basket));
-    if (!spec.cabinets.includes(cab)) { rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'bad_cabinet', detail: `This machine has no cabinet ${cab} (has ${spec.cabinets.join('+') || 'none'}).` }); continue; }
-    if (!(bn >= 1 && bn <= 16)) { rejected.push({ cabinet: cab, basket: b.basket, reason: 'bad_basket', detail: 'basket must be 1-16 within a cabinet.' }); continue; }
-    b.cabinet = cab; b.basket = bn;
-    // A basket that is enabled and stocked MUST have a resolvable unit weight, or the machine
-    // cannot price what leaves it — and since the door exposes every basket at once, the app
-    // can't safely open at all. Catch it here rather than let a bad row reach the machine.
-    const enabled = b.enabled !== false;
-    if (enabled && b.productId) {
-      const p = storage.getProduct(b.productId);
-      const w = b.unitWeightG != null ? Number(b.unitWeightG) : (p && p.weightGrams != null ? Number(p.weightGrams) : null);
-      if (!w || !(w > 0)) {
-        rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'no_unit_weight',
-          detail: p ? `Product ${b.productId} has no weightGrams and no per-basket unitWeightG.` : `Product ${b.productId} not found.` });
-        continue;
-      }
-    }
-    storage.upsertFridgeBasket({ ...b, deviceCode });
-    n++;
-  }
-  // The fridge planogram is delivered inside the config response, and the kiosk polls with
-  // If-None-Match: <configVersion>. Without bumping the version here a planogram change would
-  // return 304 and the machine would never see it — a silent failure.
-  if (n) touchConfig(m);
-  if (rejected.length) {
-    return json(res, 400, { ok: false, error: 'Some baskets were rejected: every enabled basket needs a unit weight.',
-      updated: n, rejected, configVersion: m.configVersion });
-  }
-  ok(res, { deviceCode, updated: n, configVersion: m.configVersion });
-}
-
-// GET /api/v1/machines/:deviceCode/fridge/settlements — recent settlement audit records.
-function handleListFridgeSettlements(req, res) {
-  const { deviceCode } = req.params;
-  const m = machines[deviceCode];
-  if (!m) return notFound(res, `Device ${deviceCode} not found`);
-  const rows = storage.listFridgeSettlements(deviceCode, Number(req.query.limit) || 100).map(s => ({
-    ...s,
-    cabinetsOpened: _safeJsonParse(s.cabinetsOpened, []),
-    anomalies: _safeJsonParse(s.anomalies, []),
-  }));
-  ok(res, { deviceCode, settlements: rows });
-}
-
-function _safeJsonParse(s, fallback) { try { return JSON.parse(s); } catch (e) { return fallback; } }
-
 function handleSalesIngest(req, res) {
   const { deviceCode } = req.params;
   const m = machines[deviceCode];
@@ -1009,100 +760,11 @@ async function handleComplaintIngest(req, res) {
   checkComplaintPatterns(m, deviceCode);
 
   // Notify the operator by email (best effort, doesn't block the response)
-  notifyOperatorOfComplaint(complaint, m).catch(err => {
-    console.error('[COMPLAINT] operator notification failed:', err.message);
-    raiseEmailFailureAlert(m, err);
-  });
-  ackCustomer(m, complaint.customerEmail, null);
+  notifyOperatorOfComplaint(complaint, m).catch(err =>
+    console.error('[COMPLAINT] operator notification failed:', err.message)
+  );
 
   created(res, { complaintId: id });
-}
-
-// POST /api/v1/machines/:deviceCode/fridge/complaints (kiosk, X-Machine-Key).
-// A disputed fridge charge, referencing a settlement by orderId. Weight evidence is NOT sent
-// here — it lives on the settlement, joined by (deviceCode, orderId). Offline-queued client-side,
-// so timestampMs may be well before arrival. Idempotency is best-effort by (orderId, timestampMs).
-function handleFridgeComplaint(req, res) {
-  const { deviceCode } = req.params;
-  const m = machines[deviceCode];
-  if (!m) return contractError(res, 404, 'device_not_found', `Vélnúmer ${deviceCode} er ekki skráð.`, `Device ${deviceCode} is not registered.`);
-  const c = req.body || {};
-  const REASONS = ['not_taken', 'wrong_quantity', 'returned_but_charged', 'expired_product', 'cooling_fault', 'other'];
-  const errors = [];
-  if (!c.orderId) errors.push('orderId required');
-  if (!REASONS.includes(c.reason)) errors.push(`reason must be one of: ${REASONS.join(', ')}`);
-  if (!Array.isArray(c.lines) || c.lines.length === 0) errors.push('lines must be a non-empty array');
-  if (typeof c.timestampMs !== 'number') errors.push('timestampMs must be a number (epoch ms)');
-  if (c.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.customerEmail)) errors.push('customerEmail invalid');
-  if (c.note && c.note.length > 500) errors.push('note must be <= 500 chars');
-  if (Array.isArray(c.lines)) c.lines.forEach((l, i) => {
-    if (l.basket == null) errors.push(`lines[${i}] basket required`);
-  });
-  if (errors.length) return badRequest(res, 'Validation failed', errors);
-
-  const id = 'fcmp_' + crypto.randomBytes(12).toString('hex');
-  const createdAt = new Date().toISOString();
-  storage.insertFridgeComplaint({
-    id, deviceCode, operatorId: m.operatorId, orderId: String(c.orderId),
-    reason: c.reason,
-    lines: c.lines.map(l => ({ cabinet: l.cabinet || null, basket: Math.round(Number(l.basket)),
-      productId: l.productId || null, quantity: l.quantity != null ? Math.round(Number(l.quantity)) : null,
-      lineIsk: l.lineIsk != null ? Math.round(Number(l.lineIsk)) : null })),
-    note: c.note ? String(c.note).trim() : null,
-    customerEmail: c.customerEmail ? String(c.customerEmail).trim().toLowerCase() : null,
-    kioskAppVersion: c.kioskAppVersion || null,
-    timestampMs: c.timestampMs, createdAt,
-  });
-  console.log(`[FRIDGE-COMPLAINT] ${deviceCode} id=${id} order=${c.orderId} reason=${c.reason}`);
-  try {
-    if (c.reason === 'cooling_fault') {
-      // Food-safety: a failing cooler spoils stock and risks selling unsafe product. Do NOT wait
-      // for a cluster — a SINGLE report alerts immediately, at higher severity, and is not a
-      // calibration issue. De-dupe per device per 6h so one genuine fault isn't 20 alerts.
-      const alertId = 'alert_fridge_cooling_' + deviceCode + '_' + Math.floor(Date.now() / (6 * 3600 * 1000));
-      if (!storage.getAlert(alertId)) storage.insertAlert({ id: alertId, type: 'fridge_cooling_fault', severity: 'critical',
-        title: `Kæling ekki í lagi — ${m.deviceName}`, detail: `${deviceCode} · customer reported a cooling fault. Food-safety: check cabinet temperature and recent telemetry now; consider disabling sales until confirmed.`,
-        deviceCode, resolved: false, createdAt: new Date().toISOString() });
-    } else if (c.reason === 'expired_product') {
-      // Stock-rotation / food-safety: escalate faster than the generic cluster (2+ in 24h), and
-      // frame it as rotation, not calibration.
-      const since = Date.now() - 24 * 3600 * 1000;
-      if (storage.countFridgeComplaintsSince(deviceCode, since, 'expired_product') >= 2) {
-        const alertId = 'alert_fridge_expired_' + deviceCode + '_' + Math.floor(Date.now() / (12 * 3600 * 1000));
-        if (!storage.getAlert(alertId)) storage.insertAlert({ id: alertId, type: 'fridge_expired_product', severity: 'warning',
-          title: `Útrunnin vara tilkynnt — ${m.deviceName}`, detail: `${deviceCode} · 2+ expired-product reports in 24h. Stock rotation issue — check date labels and pull old stock.`,
-          deviceCode, resolved: false, createdAt: new Date().toISOString() });
-      }
-    } else {
-      // Charge-accuracy reasons (not_taken / wrong_quantity / returned_but_charged / other): a
-      // cluster of 3+ in 24h suggests a basket calibration/mapping issue, same as before.
-      const since = Date.now() - 24 * 3600 * 1000;
-      if (storage.countFridgeComplaintsSince(deviceCode, since) >= 3) {
-        const alertId = 'alert_fridge_cluster_' + deviceCode + '_' + Math.floor(Date.now() / (12 * 3600 * 1000));
-        if (!storage.getAlert(alertId)) storage.insertAlert({ id: alertId, type: 'fridge_complaint_cluster', severity: 'warning',
-          title: `3+ kvartanir á 24 klst — ${m.deviceName}`, detail: `${deviceCode} · likely a basket calibration/mapping issue. Check the weight deltas on recent settlements.`,
-          deviceCode, resolved: false, createdAt: new Date().toISOString() });
-      }
-    }
-  } catch (e) { /* non-fatal */ }
-  // Email the operator, exactly like the coil path. Fire-and-forget so a slow mail API never
-  // holds the kiosk's request open.
-  notifyOperatorOfFridgeComplaint(
-    { id, deviceCode, orderId: String(c.orderId), reason: c.reason,
-      lines: c.lines, note: c.note ? String(c.note).trim() : null,
-      customerEmail: c.customerEmail ? String(c.customerEmail).trim().toLowerCase() : null,
-      timestampMs: c.timestampMs },
-    m
-  ).catch(err => { console.error('[FRIDGE-COMPLAINT] notify failed:', err && err.message); raiseEmailFailureAlert(m, err); });
-  ackCustomer(m, c.customerEmail ? String(c.customerEmail).trim().toLowerCase() : null, c.reason);
-  created(res, { complaintId: id });
-}
-
-// GET /api/v1/machines/:deviceCode/fridge/complaints (ag-admin) — recent fridge complaints.
-function handleListFridgeComplaints(req, res) {
-  const { deviceCode } = req.params;
-  if (!machines[deviceCode]) return notFound(res, `Machine ${deviceCode} not found`);
-  ok(res, { deviceCode, complaints: storage.listFridgeComplaints(deviceCode, Number(req.query.limit) || 100) });
 }
 
 /** Detect 3+ complaints for the same machine in the past 24h, emit Alert. */
@@ -1127,88 +789,23 @@ function checkComplaintPatterns(machine, deviceCode) {
   }
 }
 
-// Who gets complaint mail for this machine: the operator's contactEmail, full stop.
-// No fallback to user accounts — that silently routed food-safety mail to whichever person
-// happened to hold operator_admin (a refiller, in one real case). If the address isn't set we
-// fail loudly with a dashboard alert rather than guessing at a recipient.
-function resolveOperatorEmail(machine) {
-  const op = storage.getOperator(machine.operatorId);
-  if (!op) return { op: null, toEmail: null };
-  const toEmail = (op.contactEmail && op.contactEmail.trim()) ? op.contactEmail.trim() : null;
-  if (!toEmail) {
-    try {
-      const alertId = 'alert_no_complaint_email_' + op.id + '_' + Math.floor(Date.now() / (24 * 3600 * 1000));
-      if (!storage.getAlert(alertId)) storage.insertAlert({
-        id: alertId, type: 'operator_no_complaint_email', severity: 'warning',
-        title: `No complaint email set — ${op.name}`,
-        detail: `A complaint came in for ${machine.deviceName} (${machine.deviceCode}) but ${op.name} has no contact email, so nobody was notified. Set the operator's contact email to start receiving complaint alerts.`,
-        deviceCode: machine.deviceCode, resolved: false, createdAt: new Date().toISOString(),
-      });
-    } catch (e) { /* non-fatal */ }
-  }
-  return { op, toEmail };
-}
-
-// Acknowledge the customer's report immediately when they leave an address — the kiosk promises
-// a reply, so silence is a broken promise. Best effort: never blocks or fails the complaint.
-function ackCustomer(machine, customerEmail, reason) {
-  if (!customerEmail) return;
-  const op = storage.getOperator(machine.operatorId);
-  email.sendComplaintAckToCustomer({
-    to: customerEmail,
-    operatorName: (op && op.name) || 'AG Vending',
-    machineName: machine.deviceName || machine.deviceCode,
-    reason: reason || null,
-  }).catch(err => {
-    console.error('[COMPLAINT] customer ack failed:', err && err.message);
-    raiseEmailFailureAlert(machine, err);
-  });
-}
-
-// A failed send is invisible unless someone reads the server logs — which is how a dead mail
-// pipeline went unnoticed for days. Surface it as an alert instead. Deduped per day.
-function raiseEmailFailureAlert(machine, err) {
-  try {
-    const alertId = 'alert_email_failing_' + Math.floor(Date.now() / (24 * 3600 * 1000));
-    if (!storage.getAlert(alertId)) storage.insertAlert({
-      id: alertId, type: 'email_delivery_failing', severity: 'warning',
-      title: 'Email delivery is failing',
-      detail: `Outgoing email was rejected: ${(err && err.message) || 'unknown error'}. Complaint notifications, replies and invitations are not being delivered until this is fixed.`,
-      deviceCode: (machine && machine.deviceCode) || null, resolved: false, createdAt: new Date().toISOString(),
-    });
-  } catch (e) { /* non-fatal */ }
-}
-
-// Fridge complaint → operator email, same as the coil path, plus a spot temperature reading
-// (the first thing you want to know when someone reports a cooling fault).
-async function notifyOperatorOfFridgeComplaint(complaint, machine) {
-  const { op, toEmail } = resolveOperatorEmail(machine);
-  if (!op) return;
-  if (!toEmail) {
-    console.warn('[FRIDGE-COMPLAINT] No operator email found for ' + op.id + ' — skipping notification');
-    return;
-  }
-  let temp = null;
-  try {
-    const t = storage.latestTelemetry(machine.deviceCode);
-    if (t) temp = { tempC: t.tempC, atMs: t.atMs, maxC: (machine.settings && machine.settings.tempMaxC != null) ? machine.settings.tempMaxC : 8 };
-  } catch (e) { /* temperature is a bonus, never block the mail */ }
-  // Be explicit about WHY there's no reading — "no data" on a food-safety email reads as a fault.
-  const mode = (machine.settings && machine.settings.tempReporting) || 'auto';
-  const tempNote = temp ? null
-    : (mode === 'unsupported'
-        ? 'Þessi vél mælir ekki hita — engin sjálfvirk mæling í boði. Athugið hitann á staðnum.'
-        : 'Engin hitamæling hefur borist frá þessari vél. Athugið hitann á staðnum.');
-  const dashboardUrl = (process.env.APP_URL || 'https://snarl-sopi-production.up.railway.app') + '/?page=complaints&id=' + complaint.id;
-  return email.sendFridgeComplaintToOperator({
-    to: toEmail, operatorName: op.name, machineName: machine.deviceName,
-    deviceCode: machine.deviceCode, complaint, temp, tempNote, dashboardUrl,
-  });
-}
-
 async function notifyOperatorOfComplaint(complaint, machine) {
-  const { op, toEmail } = resolveOperatorEmail(machine);
+  // Find an operator admin to notify; fallback to AG Vending if none
+  const op = storage.getOperator(machine.operatorId);
   if (!op) return;
+
+  // Pick the operator's contactEmail if set, otherwise the first operator_admin user, otherwise AG admins
+  let toEmail = op.contactEmail && op.contactEmail.trim() ? op.contactEmail.trim() : null;
+  if (!toEmail) {
+    const opUsers = storage.listUsersByOperator(op.id);
+    const admin   = opUsers.find(u => u.role === 'operator_admin');
+    toEmail = admin?.email || null;
+  }
+  if (!toEmail) {
+    // Last resort — notify AG Vending
+    const agUsers = storage.listUsersByOperator('op_ag-vending');
+    toEmail = agUsers[0]?.email || null;
+  }
   if (!toEmail) {
     console.warn('[COMPLAINT] No operator email found for ' + op.id + ' — skipping notification');
     return;
@@ -1389,17 +986,8 @@ function handleQuote(req, res) {
 // ─── Operator: machines ───────────────────────────────────────────────────────
 
 function handleListMachines(req, res) {
-  const alertCounts = storage.openAlertCountsByDevice();
   const list = machinesForUser(req.user).map(m => ({
     ...machineSummary(m),
-    openAlertCount: alertCounts[m.deviceCode] || 0,
-    // From the last config_health. 'stored' means the machine holds its key in DataStore and is
-    // safe to receive a generic build; 'build' means it still depends on a key baked into its own
-    // binary and a generic apk would 401 it. null means it has never been asked.
-    keySource: (() => {
-      try { const raw = storage.getMeta('confighealth:' + m.deviceCode); const h = raw ? JSON.parse(raw) : null; return (h && h.keySource) || null; }
-      catch (e) { return null; }
-    })(),
     keyStatus: (() => { const k = storage.getMachineKey(m.deviceCode); return k ? (k.revokedAt ? 'revoked' : 'active') : 'not_provisioned'; })(),
   }));
   ok(res, list, { total: list.length });
@@ -1412,30 +1000,15 @@ function handleGetMachine(req, res) {
     ...machineDetail(m),
     keyStatus: (() => { const k = storage.getMachineKey(m.deviceCode); return k ? (k.revokedAt ? 'revoked' : 'active') : 'not_provisioned'; })(),
     configPreview: buildConfigResponse(m),
-    // Last config_health snapshot, so the machine view can show whether the kiosk agrees with us
-    // about which lanes are closed without anyone re-running the command.
-    configHealth: (() => {
-      try { const raw = storage.getMeta('confighealth:' + m.deviceCode); return raw ? JSON.parse(raw) : null; }
-      catch (e) { return null; }
-    })(),
   });
 }
 
 function handleAddMachine(req, res) {
-  const { deviceCode, deviceName, location, operatorName, model } = req.body || {};
+  const { deviceCode, deviceName, location, operatorName } = req.body || {};
   if (!deviceCode || !deviceName) return badRequest(res, 'deviceCode and deviceName required');
   if (machines[deviceCode]) return badRequest(res, 'Device code already exists');
-  // model matters: it's how a gravity fridge is identified (GR-*), which decides whether the
-  // config carries a fridge planogram. Defaulting silently to the coil model would register a
-  // fridge as a coil machine and it would never receive its baskets.
-  const chosenModel = (model && String(model).trim()) || 'VM-WM55DL';
-  const spec = fridgeSpec(chosenModel);
   machines[deviceCode] = {
     deviceCode, deviceName, location: location || '', isOnline: false, isRunning: false,
-    model: chosenModel, isKioskModel: !spec.isFridge,
-    // Coil machines default to kiosk-owned stock (backend is source of truth); fridges keep 'weimi'
-    // since they physically weigh stock and the machine is the better source there.
-    stockSource: spec.isFridge ? 'weimi' : 'kiosk',
     kioskVersion: null, totalCurrStock: 0, maxStock: 0,
     profile: { operatorName: operatorName || 'AG Vending', supportEmail: 'hallo@snarlogsopi.is', supportPhone: null, machineLabel: deviceName },
     featured: [], ads: [],
@@ -1444,10 +1017,6 @@ function handleAddMachine(req, res) {
     products: [], productOverrides: {},
     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   };
-  // Persist. Without this the machine lives only in memory and disappears on the next restart,
-  // taking its provisioned machine key's target with it.
-  storage.upsertMachine(machines[deviceCode]);
-  console.log(`[MACHINE] added ${deviceCode} (${chosenModel}${spec.isFridge ? `, fridge: ${spec.basketCount} baskets ${spec.cabinets.join('+')}` : ''})`);
   created(res, machineSummary(machines[deviceCode]));
 }
 
@@ -1460,25 +1029,6 @@ function handleUpdateMachine(req, res) {
     m.deviceName = String(req.body.deviceName).trim();
   }
   if (req.body.location !== undefined) m.location = String(req.body.location);
-  // Allow correcting the model. This is how a machine registered without one (e.g. a fridge
-  // that came in before model support existed) gets set to GR-* so its config carries the
-  // fridge planogram. Changing the model changes machine kind, so recompute isKioskModel.
-  if (req.body.model !== undefined && String(req.body.model).trim()) {
-    m.model = String(req.body.model).trim();
-    const spec = fridgeSpec(m.model);
-    m.isKioskModel = !spec.isFridge;
-  }
-  // Per-machine language: default code (is/en/pl) and the available set.
-  if (req.body.defaultLanguageCode !== undefined) {
-    const c = String(req.body.defaultLanguageCode);
-    if (['is', 'en', 'pl'].includes(c)) { m.settings = m.settings || {}; m.settings.defaultLanguageCode = c; }
-    else return badRequest(res, 'defaultLanguageCode must be is | en | pl');
-  }
-  if (req.body.availableLanguageCodes !== undefined) {
-    const arr = Array.isArray(req.body.availableLanguageCodes) ? req.body.availableLanguageCodes.filter(c => ['is', 'en', 'pl'].includes(c)) : null;
-    if (!arr || !arr.length) return badRequest(res, 'availableLanguageCodes must be a non-empty subset of [is, en, pl]');
-    m.settings = m.settings || {}; m.settings.availableLanguageCodes = arr;
-  }
   if (req.body.operatorName !== undefined) {
     m.profile = m.profile || {};
     m.profile.operatorName = String(req.body.operatorName);
@@ -1675,21 +1225,7 @@ function handleDebugExpiry(req, res) {
 // The backend cannot reach the motor board; it stores intent, the kiosk polls
 // and runs it locally, then posts the result back. No push channel.
 
-// Weimi aisle code -> friendly slot label, matching the kiosk's canonical decode exactly:
-// 9 positions per layer, columnBaseZero, columns beyond 9 rejected. Layer A -> 1-9, B -> 21-29,
-// C -> 31-39, D -> 41-49, E -> 51-59. Used to compare a friendly aisle ("A51") against the stored
-// Weimi codes in disabledAisles ("0-E09").
-function physicalSlotServer(aisleCode) {
-  const m = /^\d+-([A-Z])(\d+)$/.exec(String(aisleCode || ''));
-  if (!m) return String(aisleCode || '');
-  const layerIdx = m[1].charCodeAt(0) - 65;
-  const pos = parseInt(m[2], 10);
-  if (pos > 8) return String(aisleCode || '');
-  const tens = layerIdx === 0 ? 0 : (layerIdx + 1);
-  return String(tens * 10 + pos + 1);
-}
-
-const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update'];
+const CMD_TYPES = ['clear_aisle_fault', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost'];
 const CMD_TTL_MS = 5 * 60 * 1000;
 const isoOrNull = (ms) => (ms ? new Date(ms).toISOString() : null);
 
@@ -1703,74 +1239,6 @@ function handleEnqueueCommand(req, res) {
     ? req.body.params : {};
   if (type === 'clear_aisle_fault') {
     if (!params.aisle || typeof params.aisle !== 'string') return badRequest(res, 'clear_aisle_fault requires params.aisle (string)');
-  } else if (type === 'set_aisle_enabled') {
-    if (!params.aisle || typeof params.aisle !== 'string') return badRequest(res, 'set_aisle_enabled requires params.aisle (string)');
-    if (typeof params.enabled !== 'boolean') return badRequest(res, 'set_aisle_enabled requires params.enabled (boolean)');
-    // Persist to the durable disabledAisles set so it survives the next config poll (the command
-    // itself only gives instant effect). config is the source of truth the kiosk seeds from.
-    const m = machines[deviceCode];
-    m.settings = m.settings || {};
-    const cur = new Set(Array.isArray(m.settings.disabledAisles) ? m.settings.disabledAisles : []);
-    if (params.enabled) cur.delete(params.aisle); else cur.add(params.aisle);
-    m.settings.disabledAisles = Array.from(cur);
-    touchConfig(m);
-    storage.upsertMachine(m);
-  } else if (type === 'test_vend') {
-    if (!params.aisle || typeof params.aisle !== 'string') return badRequest(res, 'test_vend requires params.aisle (string)');
-    // The kiosk enforces this too, but refusing here gives an immediate, explainable error instead
-    // of a queued command that comes back failed minutes later. A test vend physically ejects
-    // product, so it's only legal on a lane that is closed to customers.
-    const mv = machines[deviceCode];
-    const closed = (mv && mv.settings && Array.isArray(mv.settings.disabledAisles)) ? mv.settings.disabledAisles : [];
-    // disabledAisles holds Weimi codes ("0-E08"); the caller may send either that or the friendly
-    // form ("A51" / "51"). Compare on the raw string and on the decoded slot number.
-    const wanted = String(params.aisle).trim();
-    const wantedNum = wanted.replace(/^[A-Za-z]+/, '');
-    const isClosed = closed.some(c => {
-      const code = String(c);
-      return code === wanted || physicalSlotServer(code) === wanted || physicalSlotServer(code) === wantedNum;
-    });
-    if (!isClosed) {
-      // Distinguish "you didn't close it" from "we can't decode it". physicalSlotServer returns the
-      // raw code when a lane is outside the canonical scheme (column > 9), so an undecodable closed
-      // lane silently fails to match and looks like operator error. If the machine has closed lanes
-      // we can't decode, say so — on a machine with no OTA, a decode disagreement is a dashboard fix
-      // and a mystery refusal is a trip to the site.
-      const undecodable = closed.filter(c => {
-        const code = String(c);
-        return /^\d+-[A-Z]\d+$/.test(code) && physicalSlotServer(code) === code;
-      });
-      if (undecodable.length) {
-        return badRequest(res,
-          `Aisle ${wanted} isn't recognised as closed, but ${undecodable.length} closed lane(s) on this machine can't be decoded under the canonical scheme (9 per layer): ${undecodable.join(', ')}. ` +
-          `If ${wanted} is one of them, the lane numbering disagrees rather than the lane being open — send the exact code shown in the layout instead.`);
-      }
-      return badRequest(res, `Aisle ${wanted} must be closed before a test vend. Use "stop selling" on that bay first — a test vend ejects real product.`);
-    }
-  } else if (type === 'set_machine_key') {
-    // The caller does NOT send the key. The backend already holds every machine's key, so filling it
-    // in here removes the two ways this goes wrong: a copy-paste error pairs a key with the wrong
-    // machine (which 401s it into a hard-failed connection and a site visit), and a key typed into
-    // the dashboard would travel through the browser and land in command history in plaintext.
-    const rec = storage.getMachineKey(deviceCode);
-    if (!rec || !rec.apiKey) {
-      return badRequest(res, `${deviceCode} has no machine key on record. Provision it first — there is nothing to migrate.`);
-    }
-    if (rec.revokedAt) {
-      return badRequest(res, `${deviceCode}'s machine key is revoked. Issue a new key before migrating, or the machine will 401 and need a site visit.`);
-    }
-    // deviceCode is sent so the kiosk can refuse a key that isn't its own — mirroring their guard.
-    params.deviceCode = deviceCode;
-    params.machineKey = rec.apiKey;
-  } else if (type === 'dispense_log') {
-    // read-only, no params
-  } else if (type === 'sync_price_tags') {
-    // params may be empty or { force: true }. force bypasses the app's lastPushed cache, which
-    // records what we BELIEVE is on each tag — so a write that was recorded but never landed on
-    // the LED would otherwise be skipped forever.
-    if (params.force !== undefined && typeof params.force !== 'boolean') {
-      return badRequest(res, 'sync_price_tags params.force must be a boolean');
-    }
   } else if (type === 'set_drop_sensor') {
     if (typeof params.enabled !== 'boolean') return badRequest(res, 'set_drop_sensor requires params.enabled (boolean)');
   } else if (type === 'set_temp') {
@@ -1779,29 +1247,6 @@ function handleEnqueueCommand(req, res) {
     params.targetC = t;
   } else if (type === 'set_cooling') {
     if (typeof params.on !== 'boolean') return badRequest(res, 'set_cooling requires params.on (boolean)');
-  } else if (type === 'fridge_open_door') {
-    const cab = String(params.cabinet || '').toUpperCase();
-    if (cab !== 'A' && cab !== 'B') return badRequest(res, 'fridge_open_door requires params.cabinet ("A" or "B")');
-    // Reject a cabinet the machine doesn't physically have — better to refuse at enqueue than
-    // send the machine a door it can't open.
-    const spec = fridgeSpec(machines[deviceCode].model);
-    if (!spec.cabinets.includes(cab)) return badRequest(res, `This machine has no cabinet ${cab} (${spec.cabinets.join('+') || 'not a fridge'}).`);
-    params.cabinet = cab;
-  } else if (type === 'scale_read' || type === 'scale_calibrate' || type === 'scale_tare') {
-    const cab = String(params.cabinet || '').toUpperCase();
-    if (cab !== 'A' && cab !== 'B') return badRequest(res, `${type} requires params.cabinet ("A" or "B")`);
-    if (params.basket == null || !Number.isFinite(Number(params.basket))) return badRequest(res, `${type} requires params.basket (number)`);
-    const spec = fridgeSpec(machines[deviceCode].model);
-    if (!spec.cabinets.includes(cab)) return badRequest(res, `This machine has no cabinet ${cab}.`);
-    params.cabinet = cab; params.basket = Math.round(Number(params.basket));
-    if (type === 'scale_calibrate') {
-      const rw = Number(params.referenceWeightG);
-      if (!Number.isFinite(rw) || rw <= 0) return badRequest(res, 'scale_calibrate requires params.referenceWeightG (positive number)');
-      params.referenceWeightG = Math.round(rw);
-    }
-    // scale_tare: force is optional; the empty-basket check lives on the machine (only it sees
-    // the live load). force:true tells the machine to skip that check and tare anyway.
-    if (type === 'scale_tare') params.force = params.force === true;
   }
   const id = 'cmd_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   const issuedAt = Date.now();
@@ -1848,54 +1293,7 @@ function handleCommandResult(req, res) {
     channelStatus: Array.isArray(req.body && req.body.channelStatus) ? req.body.channelStatus : null,
     completedAt: (req.body && typeof req.body.completedAt === 'string') ? req.body.completedAt : new Date().toISOString(),
   };
-  // Diagnostic payloads are stored verbatim. The whole point of test_vend/dispense_log is having
-  // the raw board codes for later comparison, so keep the structured fields — rendering only
-  // `detail` would throw away the data the exercise exists to collect.
-  const b = req.body || {};
-  ['aisle', 'rawSlot', 'outcome', 'resultCode', 'resultCodeHex', 'boardDetail', 'orderId',
-   'closedAisles', 'undecodableAisles', 'columnBaseZero', 'stockSource', 'dropSensorDesiredOn', 'keySource',
-   'versionName', 'versionCode', 'configAppliedAt'].forEach(k => {
-    if (b[k] !== undefined) result[k] = b[k];
-  });
-  if (Array.isArray(b.dispenses)) result.dispenses = b.dispenses.slice(0, 100);
   const finalStatus = status === 'ok' ? 'done' : status; // 'done' | 'failed' | 'unsupported'
-  // A config_health result reporting undecodable aisles means the operator closed those lanes, the
-  // kiosk could not decode them, and they are STILL SELLING. That's a machine taking money from
-  // lanes we believe are shut — it must not wait for someone to open a command result panel.
-  if (cmd.type === 'config_health' && Array.isArray(result.undecodableAisles) && result.undecodableAisles.length) {
-    const mach = machines[deviceCode];
-    const codes = result.undecodableAisles.join(', ');
-    const detail = `${deviceCode} · the kiosk could not decode ${result.undecodableAisles.length} closed lane(s): ${codes}. ` +
-      `Those lanes are still on sale despite being closed in the dashboard. Stop selling from this machine or block the lanes physically until the numbering is resolved.`;
-    try {
-      const alertId = 'alert_undecodable_aisles_' + deviceCode + '_' + Math.floor(Date.now() / (6 * 3600 * 1000));
-      if (!storage.getAlert(alertId)) storage.insertAlert({
-        id: alertId, type: 'undecodable_aisles', severity: 'critical',
-        title: `Closed lanes still selling — ${(mach && mach.deviceName) || deviceCode}`,
-        detail, deviceCode, resolved: false, createdAt: new Date().toISOString(),
-      });
-    } catch (e) { /* non-fatal */ }
-    // Email too: this is a money-path condition, and the machine it applies to has no OTA.
-    try {
-      if (mach) {
-        const { op, toEmail } = resolveOperatorEmail(mach);
-        if (op && toEmail) {
-          email.sendOperatorAlert({
-            to: toEmail, operatorName: op.name,
-            title: `Closed lanes still selling — ${mach.deviceName || deviceCode}`,
-            detail,
-            dashboardUrl: (process.env.APP_URL || 'https://admin.agvending.is') + '/?page=machines&code=' + deviceCode,
-          }).catch(err => { console.error('[CONFIG-HEALTH] email failed:', err && err.message); raiseEmailFailureAlert(mach, err); });
-        }
-      }
-    } catch (e) { /* non-fatal */ }
-    console.warn('[CONFIG-HEALTH] ' + detail);
-  }
-  // Keep the last health snapshot so the machine view can show it without re-running the command.
-  if (cmd.type === 'config_health') {
-    try { storage.setMeta('confighealth:' + deviceCode, JSON.stringify({ ...result, atMs: Date.now() })); }
-    catch (e) { /* non-fatal */ }
-  }
   const applied = storage.completeCommand(id, finalStatus, JSON.stringify(result), Date.now());
   if (!applied) {
     const fresh = storage.getCommand(id);
@@ -1911,7 +1309,7 @@ function handleCommandHistory(req, res) {
   const commands = storage.listRecentCommands(deviceCode, limit).map(c => ({
     id: c.id,
     type: c.type,
-    params: (() => { const p = c.params ? JSON.parse(c.params) : {}; if (p && typeof p.machineKey === 'string') p.machineKey = p.machineKey.slice(0,7) + '…'; return p; })(),
+    params: c.params ? JSON.parse(c.params) : {},
     status: c.status,
     issuedBy: c.issuedBy || null,
     issuedAt: isoOrNull(c.issuedAt),
@@ -1941,7 +1339,7 @@ function handleDebugCommands(req, res) {
   storage.expirePendingCommands(deviceCode, Date.now() - CMD_TTL_MS);
   const m = machines[deviceCode];
   const fmt = (c) => ({
-    id: c.id, type: c.type, params: (() => { const p = c.params ? JSON.parse(c.params) : {}; if (p && typeof p.machineKey === 'string') p.machineKey = p.machineKey.slice(0,7) + '…'; return p; })(),
+    id: c.id, type: c.type, params: c.params ? JSON.parse(c.params) : {},
     status: c.status, issuedBy: c.issuedBy || null, issuedAt: isoOrNull(c.issuedAt),
     result: c.result ? JSON.parse(c.result) : null, completedAt: isoOrNull(c.completedAt),
   });
@@ -2155,147 +1553,21 @@ function handleCooling(req, res) {
 // Body: { at(ISO), cabinetTempC(number), humidity(int|null), evaporator(int|null), statusOk(bool|null) }
 // Stores the sample, caches latest, and evaluates temp/fault alerts. Best-effort: the kiosk
 // drops anything non-2xx, so we accept liberally and only 400 on a missing temperature.
-// POST /api/v1/machines/:deviceCode/logs — the kiosk posts its own logcat lines, because a placed
-// machine has no durable shell (adb needs the local network, adb tcpip doesn't survive a reboot on
-// these boards, and Android 11's wireless-debugging port changes every restart). Every fault so far
-// has been diagnosed from logcat, so without this, diagnosis means driving to the machine.
-// GET/PUT notifications for a machine. Thresholds are per machine per product on purpose: the
-// catalog is shared across operators, so a threshold stored on the product record would let one
-// operator's setting change another's alerting. Per-machine also matches where the knowledge lives —
-// the same drink can be a bestseller in a hostel and a slow mover at a school.
-function notifDefaults(m) {
-  const n = (m.settings && m.settings.notifications) || {};
-  return {
-    enabled: !!n.enabled,
-    sendHour: Number.isFinite(Number(n.sendHour)) ? Number(n.sendHour) : 7,
-    lowStockDefault: Number.isFinite(Number(n.lowStockDefault)) ? Number(n.lowStockDefault) : 2,
-    thresholds: (n.thresholds && typeof n.thresholds === 'object') ? n.thresholds : {},
-  };
-}
-
-function handleGetNotifications(req, res) {
-  const m = machines[req.params.deviceCode];
-  if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
-  const cfg = notifDefaults(m);
-  const op = storage.getOperator(m.operatorId);
-  // Show what this machine WOULD report right now, so the operator can see the effect of a
-  // threshold before waiting a day for the email.
-  const preview = storage.lowStockForMachine(m.deviceCode, cfg.thresholds, cfg.lowStockDefault);
-  ok(res, {
-    deviceCode: m.deviceCode,
-    ...cfg,
-    recipient: (op && op.contactEmail) || null,
-    operatorName: (op && op.name) || null,
-    preview,
-  });
-}
-
-function handleSetNotifications(req, res) {
-  const m = machines[req.params.deviceCode];
-  if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
-  const b = req.body || {};
-  const cur = notifDefaults(m);
-  const next = { ...cur };
-  if (b.enabled !== undefined) next.enabled = !!b.enabled;
-  if (b.sendHour !== undefined) {
-    const h = Number(b.sendHour);
-    if (!Number.isInteger(h) || h < 0 || h > 23) return badRequest(res, 'sendHour must be an integer 0-23');
-    next.sendHour = h;
-  }
-  if (b.lowStockDefault !== undefined) {
-    const d = Number(b.lowStockDefault);
-    if (!Number.isInteger(d) || d < 0 || d > 999) return badRequest(res, 'lowStockDefault must be an integer 0-999');
-    next.lowStockDefault = d;
-  }
-  if (b.thresholds !== undefined) {
-    if (!b.thresholds || typeof b.thresholds !== 'object') return badRequest(res, 'thresholds must be an object of goodsId -> number');
-    const clean = {};
-    for (const [gid, v] of Object.entries(b.thresholds)) {
-      if (v === null || v === '') continue;                 // empty means "use the default"
-      const n = Number(v);
-      if (!Number.isInteger(n) || n < 0 || n > 999) return badRequest(res, `threshold for ${gid} must be an integer 0-999`);
-      clean[String(gid)] = n;
-    }
-    next.thresholds = clean;
-  }
-  m.settings = m.settings || {};
-  m.settings.notifications = next;
-  storage.upsertMachine(m);
-  ok(res, { deviceCode: m.deviceCode, ...next });
-}
-
-function handleKioskLogs(req, res) {
-  const code = req.params.deviceCode;
-  const m = machines[code];
-  if (!m) return notFound(res, `Machine ${code} not found`);
-  const b = req.body || {};
-  if (!Array.isArray(b.lines)) return badRequest(res, 'lines (array of strings) is required');
-  const lines = b.lines.slice(0, 400);                     // contract cap, enforced server-side too
-  const atMs = Number.isFinite(Number(b.at)) ? Number(b.at) : Date.now();
-  const version = b.kioskAppVersion ? String(b.kioskAppVersion).slice(0, 40) : null;
-  let stored = 0;
-  try {
-    stored = storage.appendKioskLogs(code, atMs, version, lines);
-    storage.pruneKioskLogs(code);
-  } catch (e) {
-    console.error('[KIOSK-LOGS] store failed:', e && e.message);
-    return serverError(res, e);
-  }
-  // Keep the reported app version fresh from this too — it's a free signal about what's running.
-  if (version && m.kioskVersion !== version) {
-    m.kioskVersion = version;
-    try { storage.upsertMachine(m); } catch (e) { /* non-fatal */ }
-  }
-  ok(res, { stored, retainedDays: 7, maxLines: storage.KIOSK_LOG_MAX_LINES });
-}
-
-// GET /api/v1/machines/:deviceCode/logs?limit=400 — read a machine's recent log from the dashboard.
-function handleGetKioskLogs(req, res) {
-  const code = req.params.deviceCode;
-  if (!machines[code]) return notFound(res, `Machine ${code} not found`);
-  const rows = storage.listKioskLogs(code, req.query.limit);
-  ok(res, {
-    deviceCode: code,
-    count: rows.length,
-    kioskAppVersion: rows.length ? rows[rows.length - 1].kioskAppVersion : null,
-    lastAtMs: rows.length ? rows[rows.length - 1].atMs : null,
-    lines: rows.map(r => r.line),
-  });
-}
-
 function handleTelemetry(req, res) {
   const code = req.params.deviceCode;
   const m = machines[code];
   if (!m) return notFound(res, `Machine ${code} not found`);
   const b = req.body || {};
-  // Two payload shapes exist in the wild: the flat one ({cabinetTempC, humidity, evaporator}) and
-  // the nested one ({readAt, climate:{cabinetTempC, humidity, evaporatorRaw}, power, faults}).
-  // A second route was registered for this path expecting the nested shape, but it was shadowed
-  // (first match wins) so nested payloads were rejected with a 400 and no temperature was ever
-  // stored. Accept either shape here and persist both.
-  const climate = b.climate || {};
-  const tempRaw   = b.cabinetTempC != null ? b.cabinetTempC : climate.cabinetTempC;
-  const humidity  = b.humidity     != null ? b.humidity     : climate.humidity;
-  const evaporator= b.evaporator   != null ? b.evaporator   : climate.evaporatorRaw;
-  const at        = b.at || b.readAt || null;
-  if (tempRaw == null || !Number.isFinite(Number(tempRaw))) {
-    return badRequest(res, 'cabinetTempC (number) is required — send it flat or as climate.cabinetTempC');
+  if (b.cabinetTempC == null || !Number.isFinite(Number(b.cabinetTempC))) {
+    return badRequest(res, 'cabinetTempC (number) is required');
   }
   const s = m.settings || {};
   const maxC = (s.tempMaxC != null) ? Number(s.tempMaxC) : undefined;        // per-machine override
   const dwellMin = (s.tempDwellMin != null) ? Number(s.tempDwellMin) : undefined;
   storage.recordTelemetry(
-    { deviceCode: code, at, cabinetTempC: Number(tempRaw), humidity, evaporator, statusOk: b.statusOk },
+    { deviceCode: code, at: b.at, cabinetTempC: Number(b.cabinetTempC), humidity: b.humidity, evaporator: b.evaporator, statusOk: b.statusOk },
     { deviceName: m.deviceName, maxC, dwellMin }
   );
-  // Keep the debug snapshot too, so /debug/telemetry stays useful.
-  try {
-    lastTelemetry[code] = {
-      deviceCode: code, readAt: at, climate: { cabinetTempC: Number(tempRaw), humidity, evaporatorRaw: evaporator },
-      power: b.power || null, faults: Array.isArray(b.faults) ? b.faults.slice(0, 20) : [],
-      receivedAt: new Date().toISOString(),
-    };
-  } catch (e) { /* non-fatal */ }
   ok(res, { accepted: true });
 }
 
@@ -2312,147 +1584,7 @@ function handleTelemetrySeries(req, res) {
   ok(res, { deviceCode: code, hours, series, latest });
 }
 
-// ── On-site downloads page ───────────────────────────────────────────────────
-// A shared-key-gated page listing installable app packages, so on-site setup doesn't need
-// a login or a giant Drive URL. GET /downloads?key=… renders HTML; the key is checked against
-// DOWNLOADS_KEY env. Registry is managed by ag-admin; files live at their URLs (not hosted here).
-
-function downloadsKeyOk(req) {
-  const want = process.env.DOWNLOADS_KEY || '';
-  if (!want) return false;
-  const got = (req.query && req.query.key) || '';
-  return got === want;
-}
-
-function handleDownloadsPage(req, res) {
-  if (!downloadsKeyOk(req)) {
-    res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
-    return res.end('<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;background:#1A1A1A;color:#FAF7F2;display:flex;height:100vh;margin:0;align-items:center;justify-content:center"><div style="text-align:center"><div style="font-size:15px;opacity:.7">Access key required.</div></div></body>');
-  }
-  const items = storage.listDownloads();
-  // The OTA release registry already holds the current build for each app — version, APK path, size
-  // and publish time — so maintaining the downloads list by hand duplicates it and lets the two
-  // drift. A page advertising a different build than the one being rolled out costs a site visit on
-  // a sideload-only machine. Derive the current release for each app and merge it in; a manual entry
-  // with the same versionCode wins, so anything hand-curated (notes, an external URL) is preserved.
-  const derived = [];
-  for (const [appKey, label] of [['coil', 'Coil kiosk'], ['fridge', 'Fridge kiosk']]) {
-    let rel = null;
-    try { rel = storage.getAppRelease(appKey); } catch (e) { rel = null; }
-    if (!rel || !rel.apkUrl) continue;
-    const vc = rel.targetVersionCode != null ? Math.round(Number(rel.targetVersionCode)) : null;
-    if (items.some(d => (d.app || '') === label && d.versionCode != null && Number(d.versionCode) === vc)) continue;
-    // apkUrl is stored relative and resolved against the serving origin, same as the OTA manifest.
-    const origin = (req.headers && req.headers.host) ? ('https://' + req.headers.host) : '';
-    derived.push({
-      app: label,
-      versionName: rel.versionName || null,
-      versionCode: vc,
-      url: /^https?:\/\//.test(rel.apkUrl) ? rel.apkUrl : (origin + rel.apkUrl),
-      notes: 'Published for OTA' + (rel.apkSize ? ' · ' + (rel.apkSize / 1048576).toFixed(1) + ' MB' : ''),
-      addedAt: rel.publishedAt || null,
-      fromRelease: true,
-    });
-  }
-  const merged = items.concat(derived);
-  const byApp = {};
-  for (const d of merged) { (byApp[d.app || 'Other'] = byApp[d.app || 'Other'] || []).push(d); }
-  for (const app of Object.keys(byApp)) byApp[app].sort((a, b) => (b.versionCode || 0) - (a.versionCode || 0));
-
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const sections = Object.keys(byApp).sort().map(app => {
-    const rows = byApp[app].map((d, i) => `
-      <a class="pkg" href="${esc(d.url)}"${/\.apk(\?|$)/i.test(d.url) ? ' download' : ''}>
-        <div class="pkg-main">
-          <div class="pkg-name">${esc(d.versionName || d.app)}${i === 0 ? '<span class="latest">latest</span>' : ''}</div>
-          ${d.notes ? `<div class="pkg-notes">${esc(d.notes)}</div>` : ''}
-        </div>
-        <div class="pkg-meta">
-          ${d.versionCode ? `<span class="vc">build ${esc(d.versionCode)}</span>` : ''}
-          <span class="arrow">&darr;</span>
-        </div>
-      </a>`).join('');
-    return `<section><h2>${esc(app)}</h2>${rows || '<div class="empty">No packages yet.</div>'}</section>`;
-  }).join('');
-
-  const html = `<!doctype html><html lang="is"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Downloads &middot; Snarl &amp; Sopi</title>
-<style>
-  :root{--cream:#FAF7F2;--shadow:#E8DFD0;--ink:#1A1A1A;--bronze:#8B6B3E;--line:#00000014;}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:linear-gradient(180deg,var(--cream),var(--shadow));color:var(--ink);min-height:100vh;padding:28px 18px 60px;}
-  .wrap{max-width:560px;margin:0 auto;}
-  h1{font-family:Georgia,serif;font-style:italic;font-weight:500;font-size:27px;margin:0 0 4px;}
-  .sub{font-size:13px;color:#00000077;margin-bottom:26px;}
-  h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--bronze);margin:26px 0 10px;font-weight:600;}
-  .pkg{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#FFFFFFcc;border:.5px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:9px;text-decoration:none;color:inherit;transition:transform .06s ease;}
-  .pkg:active{transform:scale(.985);}
-  .pkg-name{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
-  .latest{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:var(--bronze);padding:2px 7px;border-radius:999px;}
-  .pkg-notes{font-size:12px;color:#00000088;margin-top:3px;}
-  .pkg-meta{display:flex;align-items:center;gap:12px;flex:none;}
-  .vc{font-family:ui-monospace,monospace;font-size:11px;color:#00000066;}
-  .arrow{font-size:19px;color:var(--bronze);}
-  .empty{font-size:13px;color:#00000066;padding:8px 2px;}
-  footer{margin-top:34px;font-size:11px;color:#00000055;text-align:center;}
-</style></head><body><div class="wrap">
-  <h1>downloads.</h1>
-  <div class="sub">Install packages for on-site machine setup. Tap to download.</div>
-  ${sections || '<div class="empty">No packages published yet.</div>'}
-  <footer>Snarl &amp; Sopi &middot; AG Vending</footer>
-</div></body></html>`;
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
-  res.end(html);
-}
-
-function handleGetDownloads(req, res) { ok(res, { downloads: storage.listDownloads() }); }
-
-function handleSetDownloads(req, res) {
-  const list = Array.isArray(req.body?.downloads) ? req.body.downloads : null;
-  if (!list) return badRequest(res, 'downloads array required');
-  const clean = [];
-  for (const d of list) {
-    if (!d || !d.url || !/^https?:\/\//.test(d.url)) continue;
-    clean.push({
-      app: String(d.app || 'Other').slice(0, 40),
-      versionName: d.versionName ? String(d.versionName).slice(0, 80) : null,
-      versionCode: d.versionCode != null ? Math.round(Number(d.versionCode)) : null,
-      url: String(d.url),
-      notes: d.notes ? String(d.notes).slice(0, 200) : null,
-      addedAt: d.addedAt || new Date().toISOString(),
-    });
-  }
-  storage.setDownloads(clean);
-  ok(res, { downloads: clean });
-}
-
 // ── OTA app-update ───────────────────────────────────────────────────────────
-const APK_DIR = (process.env.APK_DIR) || (require('path').dirname(storage.dbPath || '/data/x') + '/apks');
-
-// Fetch the APK once, store it on the persistent volume (next to the DB), and return its sha256
-// plus the local path. Storing at publish time means: (1) the machine downloads from us over the
-// TLS chain it already trusts — not GitHub's, whose newer ISRG X2 root some older kiosk tablets
-// don't have; (2) a publish whose source URL 404s FAILS here, so an unusable release pointing at a
-// dead URL can never be stored (the gap we hit before). Only the current APK per app is kept.
-async function fetchAndStoreApk(url, appKey) {
-  const fs = require('fs'); const path = require('path');
-  const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), 90000);
-  try {
-    const r = await fetch(url, { redirect: 'follow', signal: ctrl.signal });
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' fetching apkUrl');
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length < 1024) throw new Error('apk suspiciously small (' + buf.length + ' bytes)');
-    const sha256 = require('crypto').createHash('sha256').update(buf).digest('hex');
-    try { fs.mkdirSync(APK_DIR, { recursive: true }); } catch (e) {}
-    const file = path.join(APK_DIR, appKey + '.apk');
-    fs.writeFileSync(file, buf);                 // overwrite — only the current release is kept
-    return { sha256, file, size: buf.length };
-  } finally { clearTimeout(to); }
-}
-
-// Legacy hash-only (kept for any caller that only wants the digest).
 async function computeApkSha256(url) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 45000);
@@ -2471,91 +1603,31 @@ function handleAppUpdate(req, res) {
   if (!m) return notFound(res, `Machine ${code} not found`);
   const vc = req.headers['x-app-version-code'] || (req.query && req.query.vc);
   if (vc != null && vc !== '') storage.recordAppVersion(code, vc);
-  // Fridge and coil are different apps with separate version lines and APKs. Pick the release
-  // line from the machine's model so a fridge never receives the coil APK (or vice versa).
-  const appKey = fridgeSpec(m.model).isFridge ? 'fridge' : 'coil';
-  const rel = storage.getAppRelease(appKey);
+  const rel = storage.getAppRelease();
   // Served BARE (no {ok,data} envelope): the kiosk updater reads manifest fields off the
   // top level, and pre-0.72 field builds can ONLY self-heal if this endpoint is unwrapped.
   if (!rel || !rel.targetVersionCode) return json(res, 200, { rolloutEnabled: false });
   const inCohort = rel.cohort === 'all' || (Array.isArray(rel.cohort) && rel.cohort.includes(code));
-  // Refuse a keyless build to a machine that still depends on a key baked into its own binary.
-  // The dashboard warns about this, but a warning is only as good as the person reading it and the
-  // mistake is irreversible from here — the machine can't be recovered remotely once it 401s.
-  // Unknown counts as not-migrated: a machine that has never reported keySource is exactly the one
-  // that was offline during the migration.
-  let keyBlocked = false;
-  if (rel.requiresStoredKey) {
-    let keySource = null;
-    try { const raw = storage.getMeta('confighealth:' + code); const h = raw ? JSON.parse(raw) : null; keySource = (h && h.keySource) || null; }
-    catch (e) { keySource = null; }
-    if (keySource !== 'stored') {
-      keyBlocked = true;
-      console.warn(`[APP-UPDATE] ${code} withheld from generic build ${rel.targetVersionCode}: keySource=${keySource || 'unknown'}`);
-    }
-  }
-  // The machine must download the APK from the SAME origin it polled — the one whose cert it
-  // trusts. Do NOT trust the stored apkUrl's host: releases published before this fix have an
-  // absolute custom-domain URL baked in (admin.agvending.is), whose cert chains through a root old
-  // kiosk trust stores lack. So whenever the release points at OUR apk route (relative, or an
-  // absolute URL ending in it), rebuild it on THIS request's origin. Heals existing releases with
-  // no re-publish, and can't drift for future ones. Stays absolute — the fleet updater calls
-  // URL(apkUrl) directly and a relative path would throw on the builds currently deployed.
-  const APK_ROUTE = '/api/v1/app-release/' + appKey + '/apk';
-  let apkUrl = rel.apkUrl || null;
-  if (apkUrl && (apkUrl === APK_ROUTE || apkUrl.endsWith(APK_ROUTE))) {
-    // Default: rebuild an ABSOLUTE URL on this request's origin (older updaters call URL(apkUrl)
-    // directly and a relative path throws). A client that resolves relative itself (v0.37.0+) can
-    // opt in with ?apkUrl=relative and get the bare path, which can never drift from the origin.
-    if ((req.query && req.query.apkUrl) === 'relative') {
-      apkUrl = APK_ROUTE;
-    } else {
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
-      if (host) apkUrl = proto + '://' + host + APK_ROUTE;
-    }
-  }
   json(res, 200, {
     targetVersionCode: rel.targetVersionCode,
     versionName: rel.versionName || null,
-    apkUrl,
+    apkUrl: rel.apkUrl || null,
     sha256: rel.sha256 || null,
-    rolloutEnabled: !!rel.rolloutEnabled && inCohort && !keyBlocked,
+    rolloutEnabled: !!rel.rolloutEnabled && inCohort,
   });
-}
-
-// GET /api/v1/app-release/:app/apk — stream the stored APK. Fetched UNAUTHENTICATED by the machine
-// (the updater downloads without a key), so no machine-key middleware. Serving it from our host
-// means the machine uses the TLS chain it already trusts for every other call.
-function handleServeApk(req, res) {
-  const fs = require('fs'); const path = require('path');
-  const appKey = (req.params.app === 'fridge') ? 'fridge' : 'coil';
-  const file = path.join(APK_DIR, appKey + '.apk');
-  if (!fs.existsSync(file)) return notFound(res, 'No APK stored for ' + appKey);
-  const stat = fs.statSync(file);
-  const rel = storage.getAppRelease(appKey);
-  res.writeHead(200, {
-    'Content-Type': 'application/vnd.android.package-archive',
-    'Content-Length': stat.size,
-    'Content-Disposition': `attachment; filename="${appKey}-${rel && rel.targetVersionCode || 'app'}.apk"`,
-    'Cache-Control': 'no-cache',
-  });
-  fs.createReadStream(file).pipe(res);
 }
 
 // GET current release + per-machine versions (ag-admin dashboard).
 function handleGetAppRelease(req, res) {
-  const relCoil = storage.getAppRelease('coil');
-  const relFridge = storage.getAppRelease('fridge');
+  const rel = storage.getAppRelease();
   const list = Object.values(machines).map(m => {
     const v = storage.getAppVersion(m.deviceCode);
     const rv = storage.getAppRevert(m.deviceCode);
     return { deviceCode: m.deviceCode, deviceName: m.deviceName, operatorId: m.operatorId,
-      app: fridgeSpec(m.model).isFridge ? 'fridge' : 'coil',
       versionCode: (v && v.vc != null) ? v.vc : null, lastCheck: (v && v.at) ? v.at : null,
       rejectedVersionCode: (rv && rv.rejected != null) ? rv.rejected : null };
   });
-  ok(res, { release: relCoil || null, releaseCoil: relCoil || null, releaseFridge: relFridge || null, machines: list });
+  ok(res, { release: rel || null, machines: list });
 }
 
 // PUT publish/replace the single active release (ag-admin).
@@ -2567,62 +1639,24 @@ async function handlePublishAppRelease(req, res) {
   let cohort = 'all';
   if (Array.isArray(b.cohort)) cohort = b.cohort.map(String);
   else if (b.cohort && b.cohort !== 'all') return badRequest(res, "cohort must be 'all' or an array of device codes");
-  // Which app line: 'fridge' or 'coil' (default). Keeps the two APKs from overwriting each other.
-  const appKey = (b.app === 'fridge') ? 'fridge' : 'coil';
-  // Forward-only guard: a new release must have a strictly higher targetVersionCode than the
-  // current one for this app — catches the "APK changed but version left stale" mistake.
-  const prev = storage.getAppRelease(appKey);
-  if (prev && prev.targetVersionCode != null && tvc <= prev.targetVersionCode) {
-    return badRequest(res, `targetVersionCode ${tvc} must be greater than the current ${appKey} release (${prev.targetVersionCode}). ` +
-      `If you changed the APK, bump the version too — a manifest that disagrees with its artifact disables rollback protection.`);
-  }
-  // Fetch + store the APK on our volume. This must succeed: the machine will download from us
-  // (a trusted TLS chain), and a source URL that 404s or is unreachable fails the publish here
-  // rather than storing a release that points at a dead artifact.
   let sha256 = (typeof b.sha256 === 'string' && b.sha256) ? b.sha256.toLowerCase() : null;
   let note = null;
-  let stored;
-  try {
-    stored = await fetchAndStoreApk(b.apkUrl, appKey);
-  } catch (e) {
-    return badRequest(res, `Could not fetch the APK from apkUrl: ${e.message}. ` +
-      `The release was NOT published — fix the URL and retry so machines never see a dead artifact.`);
+  if (!sha256) {
+    try { sha256 = await computeApkSha256(b.apkUrl); }
+    catch (e) { note = 'sha256 not computed (' + e.message + ') — publishing without it; Android still signature-checks.'; }
   }
-  if (sha256 && sha256 !== stored.sha256) {
-    return badRequest(res, `Supplied sha256 does not match the fetched APK (you said ${sha256}, got ${stored.sha256}). ` +
-      `Refusing to publish a mismatched manifest.`);
-  }
-  sha256 = stored.sha256;
-
-  // Serve the stored APK from our own host so the machine uses the TLS chain it already trusts.
-  // Store the APK path RELATIVE, not against a fixed hostname. The manifest handler resolves it
-  // to the SAME origin the machine's request arrived on — so the download host is always the one
-  // the machine is already talking to (and trusts), and can never drift to a custom domain whose
-  // cert chains through a root an old kiosk trust store lacks. (v5.88 wrongly used APP_URL =
-  // admin.agvending.is, a custom domain; the machine only trusts *.up.railway.app.)
-  const apkPath = '/api/v1/app-release/' + appKey + '/apk';
-
   const rel = {
     targetVersionCode: tvc,
     versionName: b.versionName ? String(b.versionName) : null,
-    apkUrl: apkPath,              // relative; resolved to the request's own origin in the manifest
-    sourceUrl: b.apkUrl,          // keep the origin for reference/debugging
+    apkUrl: b.apkUrl,
     sha256,
-    apkSize: stored.size,
     cohort,
     rolloutEnabled: b.rolloutEnabled !== false,
-    // A generic build carries no baked-in machine key, so a machine that hasn't migrated its key to
-    // storage would install it and immediately 401 — hard-failed connection, site visit. Publish a
-    // generic build with requiresStoredKey:true and the manifest will refuse to offer it to any
-    // machine that hasn't confirmed keySource:'stored'.
-    requiresStoredKey: b.requiresStoredKey === true,
-    app: appKey,
     publishedAt: new Date().toISOString(),
     publishedBy: (req.user && (req.user.name || req.user.email)) || null,
   };
-  storage.setAppRelease(rel, appKey);
-  const persisted = storage.getAppRelease(appKey);
-  ok(res, { release: persisted, note });
+  storage.setAppRelease(rel);
+  ok(res, { release: rel, note });
 }
 
 // POST revert report (kiosk, machine-key): a machine auto-reverted a crash-looping build.
@@ -2652,13 +1686,12 @@ function handleRevertReport(req, res) {
   ok(res, { recorded: true });
 }
 
-// POST halt/resume the rollout (ag-admin). body { on: bool, app?: 'coil'|'fridge' }
+// POST halt/resume the rollout (ag-admin). body { on: bool }
 function handleSetAppRollout(req, res) {
-  const appKey = (req.body && req.body.app === 'fridge') ? 'fridge' : 'coil';
-  const rel = storage.getAppRelease(appKey);
-  if (!rel) return notFound(res, `No active ${appKey} release to halt`);
+  const rel = storage.getAppRelease();
+  if (!rel) return notFound(res, 'No active release to halt');
   rel.rolloutEnabled = !!(req.body && req.body.on === true);
-  storage.setAppRelease(rel, appKey);
+  storage.setAppRelease(rel);
   ok(res, { release: rel });
 }
 
@@ -2685,13 +1718,7 @@ function handleUpdateSettings(req, res) {
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
   const { valid, errors } = validateSettings(req.body);
   if (!valid) return badRequest(res, 'Validation failed', errors);
-  const allowed = ['showAdRegion','showLeftHero','showRightHero','showIdleScreen','idleTimeoutSeconds','defaultLanguage','availableLanguages','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','ledBrightness','motorSerialPort','controlBoardAddress',
-                   'tempReporting','tempMaxC','tempDwellMin'];
-  // tempReporting drives what the temperature panel says. 'unsupported' means this board exposes no
-  // cabinet temperature at all, so the panel states that rather than looking like missing data.
-  if (req.body.tempReporting !== undefined && !['auto','expected','unsupported'].includes(String(req.body.tempReporting))) {
-    return badRequest(res, "tempReporting must be 'auto', 'expected' or 'unsupported'");
-  }
+  const allowed = ['showAdRegion','showLeftHero','showRightHero','showIdleScreen','idleTimeoutSeconds','defaultLanguage','availableLanguages','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','ledBrightness','motorSerialPort','controlBoardAddress'];
   allowed.forEach(k => { if (req.body[k] !== undefined) m.settings[k] = req.body[k]; });
   m.updatedAt = new Date().toISOString();
   storage.upsertMachine(m);
@@ -2714,41 +1741,6 @@ function handleStockSource(req, res) {
 }
 
 // ── POST /machines/:deviceCode/revoke-key ─────────────────────────────────────
-// GET /machines/:deviceCode/key — reveal a machine's key so it can be typed into the kiosk at
-// setup. From v0.75.0 the key is entered by the operator rather than baked into a per-machine build,
-// which means it has to be readable somewhere. ag_admin only.
-//
-// This is a live credential, so: never included in any list or detail response, only returned when
-// asked for explicitly, and never logged. An ag_admin can already push a key to a machine via
-// set_machine_key, so revealing it grants no capability they lack — it just makes typed setup
-// possible.
-function handleShowMachineKey(req, res) {
-  const code = req.params.deviceCode;
-  const m = machines[code];
-  if (!m) return notFound(res, `Machine ${code} not found`);
-  const rec = storage.getMachineKey(code);
-  if (!rec) return ok(res, { deviceCode: code, status: 'not_provisioned', machineKey: null });
-  if (rec.revokedAt) return ok(res, { deviceCode: code, status: 'revoked', machineKey: null, revokedAt: rec.revokedAt });
-  return ok(res, { deviceCode: code, status: 'active', machineKey: rec.apiKey, createdAt: rec.createdAt });
-}
-
-// POST /machines/:deviceCode/issue-key — issue a key for a machine that has none. For a machine
-// whose key is active this refuses rather than silently rotating: a new key takes effect on the
-// machine's next call and the old one stops working, so a running machine would be locked out.
-// Revoke first if that's genuinely intended.
-function handleIssueMachineKey(req, res) {
-  const code = req.params.deviceCode;
-  const m = machines[code];
-  if (!m) return notFound(res, `Machine ${code} not found`);
-  const rec = storage.getMachineKey(code);
-  if (rec && !rec.revokedAt) {
-    return badRequest(res, `${code} already has an active key. Use "show key" to read it. Issuing a new one would lock out the running machine — revoke the existing key first if that's intended.`);
-  }
-  const key = 'mk_live_' + require('crypto').randomBytes(24).toString('hex');
-  storage.insertMachineKey(code, key);
-  ok(res, { deviceCode: code, status: 'active', machineKey: key });
-}
-
 function handleRevokeKey(req, res) {
   const m = machines[req.params.deviceCode];
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
@@ -2760,15 +1752,7 @@ function handleRevokeKey(req, res) {
 
 function handleListAlerts(req, res) {
   const { type, deviceCode, resolved } = req.query;
-  // NB: `alerts` is a Proxy that supports filter/map/find but NOT iteration, so spreading it
-  // ([...alerts]) throws "not iterable" and 500s. Read from storage directly.
-  let result = storage.listAlerts();
-  // Scope: a user only sees alerts for machines they can access. System alerts (no deviceCode)
-  // are AG-admin only. Previously unscoped, which mattered little while alerts weren't surfaced
-  // in the UI — now that the dashboard renders them, it does.
-  const allowed = new Set(machinesForUser(req.user).map(m => m.deviceCode));
-  const isAg = req.user && req.user.role === 'ag_admin';
-  result = result.filter(a => a.deviceCode ? allowed.has(a.deviceCode) : isAg);
+  let result = [...alerts];
   if (type)       result = result.filter(a => a.type === type);
   if (deviceCode) result = result.filter(a => a.deviceCode === deviceCode);
   if (resolved !== undefined) result = result.filter(a => a.resolved === (resolved === 'true'));
@@ -4043,7 +3027,6 @@ function handleProductSearch(req, res) {
       goodsId: gid, name: p.name, barcode: p.barcode || null,
       imgUrl: p.imgUrl || layoutImg(gid) || null,
       salePriceIsk: p.salePriceIsk != null ? p.salePriceIsk : layoutPrice(gid),
-      weightGrams: p.weightGrams != null ? p.weightGrams : null,
       stock: storage.stockForProduct(gid, machines),
     });
   }
@@ -4870,15 +3853,11 @@ function handleMachineLayout(req, res) {
   const saved = savedRaw ? JSON.parse(savedRaw) : null;
   const defaults = defaultBayConfig(code, layout);
   const bayConfig = { ...defaults, ...(saved || {}) };
-  const m = machines[code];
-  const disabledAisles = (m && m.settings && Array.isArray(m.settings.disabledAisles)) ? m.settings.disabledAisles : [];
   ok(res, {
     deviceCode: code,
     configured: layout.length > 0,
     layout,
     bayConfig,
-    disabledAisles,   // kiosk-local "stop selling" set — distinct from Weimi's isEnable
-    stockSource: (m && m.stockSource) || 'weimi',   // 'kiosk' => Weimi's isEnable/isBroken are noise
     lastSync: storage.getMeta(`weimisync:products:${code}`) || null,
   });
 }
@@ -5064,26 +4043,6 @@ async function handleProductPrice(req, res) {
 
   const results = [];
   for (const code of targets) {
-    const mach = machines[code];
-    // Gravity fridges have no Weimi aisles — the coil price path (updateAisleGoods) can't reach
-    // them. A fridge basket's price comes from the catalog salePriceIsk (or a per-basket
-    // override), so set the catalog price directly and re-touch config so the machine re-polls.
-    if (mach && fridgeSpec(mach.model).isFridge) {
-      try {
-        const prod = storage.getProduct(goodsId);
-        if (!prod) { results.push({ deviceCode: code, ok: false, error: 'not_found', message: 'Product not in catalog' }); continue; }
-        const baskets = (storage.listFridgeBaskets(code) || []).filter(b => b.productId === goodsId && b.enabled !== 0);
-        if (!baskets.length) { results.push({ deviceCode: code, ok: false, error: 'not_stocked', message: 'Product not in this fridge planogram' }); continue; }
-        // Set a PER-BASKET price override, not the catalog price. The endpoint targets specific
-        // deviceCodes, so changing the price here must affect only this fridge — setting the
-        // shared catalog salePriceIsk would move every other machine showing the product too.
-        for (const b of baskets) storage.upsertFridgeBasket({ ...b, deviceCode: code, priceIsk: Math.round(isk) });
-        touchConfig(mach);   // bump so the machine re-fetches within a poll
-        results.push({ deviceCode: code, ok: true, fridge: true, baskets: baskets.length });
-      } catch (e) { results.push({ deviceCode: code, ok: false, error: 'fridge_price_failed', message: e.message }); }
-      continue;
-    }
-
     let info;
     try { info = await weimi.deviceInfo({ endpoint: 'prod' }, code); }
     catch (e) { results.push({ deviceCode: code, ok: false, error: 'weimi_unreachable', message: e.message }); continue; }
@@ -5264,15 +4223,6 @@ async function handleUpdateProduct(req, res) {
       });
     }
   } catch (e) { console.error('[products] upsert failed:', e.message); }
-
-  // A product change (price, name, image) is shown by any machine carrying it — as a fridge
-  // basket or in a coil planogram — but those machines poll config with If-None-Match, so
-  // without bumping their configVersion the change stays invisible behind a 304. Re-touch them.
-  try {
-    const affected = storage.deviceCodesShowingProduct(goodsId);
-    for (const dc of affected) { const mm = machines[dc]; if (mm) touchConfig(mm); }
-    if (affected.length) console.log(`[products] ${goodsId} changed → bumped config for ${affected.length} machine(s)`);
-  } catch (e) { console.error('[products] configVersion re-touch failed:', e.message); }
 
   ok(res, { ok: true, goodsId, goodsName, imgUrl, imageHasBackground, vatRate, costPriceIsk,
             weightGrams, measurement, barcode: barcode || null, weimi: weimiState,
@@ -6422,8 +5372,6 @@ function machineSummary(m) {
   }
   return {
     deviceCode: m.deviceCode, deviceName: m.deviceName, location: m.location,
-    model: m.model || null, isKioskModel: m.isKioskModel !== false,
-    isFridge: require('./db').fridgeSpec(m.model || '').isFridge,
     isOnline: m.isOnline || kioskAlive, isRunning: m.isRunning || kioskAlive, kioskVersion: m.kioskVersion,
     kioskConnected: kioskAlive,
     proxyConnected: kioskAlive,

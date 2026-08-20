@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.17.0",
-  "description": "Snarl and Sopi operator backend v6.17: alert on repeated invalid machine-key attempts. A machine presenting a wrong key cannot authenticate anything — not sales, not the config poll, not the command queue that config_health rides on — so it cannot report its own state, and a key mistyped at setup produces silence indistinguishable from a machine that is switched off. The 401s are the only evidence it leaves, so they are now counted per device: five within fifteen minutes raises a critical alert and emails the operator, telling them the typed key is wrong and to re-read it with show key, deduped for six hours and cleared the moment the machine authenticates successfully. Attempts against an unregistered device code raise a warning instead, since that is either a machine being set up or something probing the API. Cumulative over v6.16.",
+  "version": "5.72.0",
+  "description": "Snarl and Sopi operator backend v5.72: fixes draft-product cost transfer. When a receipt draft is finished into a real product, the parked net cost is now transferred explicitly and self-reports the outcome in the create response (draftResolved: netCostParked + netCostOnProduct read back). Also fixes the create-from-draft modal to prefill the cost field (gross, converted from the stored net) and pull draft data from an in-memory cache instead of scraping table cells (the scrape skipped the cost cell). Cumulative over v5.71 (product_drafts, deferred creation).",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
