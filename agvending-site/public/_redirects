@@ -1,0 +1,11 @@
+# Legacy Squarespace URLs — these are real indexed paths, keep them.
+# Format: <from>  <to>  <status>
+
+/contact                  /#hafa-samband   301
+/snjallsjalfsali          /#vorur          301
+/sjlfsali-me-snertiskj    /#vorur          301
+
+# Squarespace served some of these with a trailing slash too.
+/contact/                 /#hafa-samband   301
+/snjallsjalfsali/         /#vorur          301
+/sjlfsali-me-snertiskj/   /#vorur          301

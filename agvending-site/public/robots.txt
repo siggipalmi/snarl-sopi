@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /takk
+
+Sitemap: https://agvending.is/sitemap.xml
