@@ -1,6 +1,15 @@
-name = "agvending-site"
+name = "agvending"
 compatibility_date = "2026-08-21"
+
+# No "main" key on purpose. With no Worker script, every request is served
+# straight from the asset store — no Worker invocations, nothing billed,
+# nothing to break. _headers and _redirects are read from ./public.
 
 [assets]
 directory = "./public"
+
+# Serve 404.html for unmatched paths instead of a bare Cloudflare error.
 not_found_handling = "404-page"
+
+# Default: /takk serves takk.html, and /takk.html redirects to /takk.
+html_handling = "auto-trailing-slash"
