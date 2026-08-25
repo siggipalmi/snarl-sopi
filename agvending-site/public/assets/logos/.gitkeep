@@ -1,0 +1,32 @@
+Partner logos for the marquee on index.html. 17 files, exact names:
+
+  airport-associates.png
+  grotta.png
+  holaskoli.jpeg      <- .jpeg, not .jpg
+  hotel-burfell.png
+  hotel-dyrholaey.png
+  icelandair.png
+  ir.gif
+  islandshotel.png
+  kr.png
+  macron.jpg
+  nordic-hostel.gif
+  orkan.png
+  reykjalundur.png
+  sa.png              <- Samtok atvinnulifsins, still missing
+  skjol.jpg
+  taekniskolinn.png
+  valur.png           <- still missing
+
+The names and extensions are referenced literally in index.html, and each one
+carries a per-logo flag there: class="ag-mul" for logos delivered on a white
+rectangle, class="ag-inv" on the tile for white or light logos that would
+vanish on cream (orkan, nordic-hostel, macron). Renaming a file silently
+breaks its tile, so keep the names as they are.
+
+/assets/* is served with Cache-Control: public, max-age=31536000, immutable.
+That means a replaced file keeps serving the old version from browser caches.
+To swap a logo, give the new file a different name and update the reference
+in index.html.
+
+Delete this file once all 17 are here.

@@ -1,0 +1,23 @@
+Photography for index.html. 7 files, exact names:
+
+  logo-ag-vending.png    header logo, renders at 34px height, transparent PNG
+  hero-sjalfsali.jpg     hero photo, 4:5 portrait, object-fit: cover
+                         also the og:image, so it is what shows in link previews
+  machine-tvofaldur.png  double smart machine, cut-out on white, 300px well, contain
+  machine-einfaldur.png  single smart machine, cut-out on white
+  machine-snertiskjar.png  55-inch touchscreen machine, cut-out on white
+  portrait-theodor.png   testimonial portrait, 42px circle, cover
+  portrait-stefan.jpg    testimonial portrait, 42px circle, cover
+
+All seven currently exist only on the Squarespace CDN. Download them before
+the Squarespace account is cancelled — once it closes they are gone.
+
+The product cards are built for studio cut-outs on white: a 300px-tall well
+with object-fit: contain. Shoot the machine screens off or masked if the kiosk
+flow video is still on the table, so it can be composited in later.
+
+/assets/* is served with Cache-Control: public, max-age=31536000, immutable.
+To replace a photo later, give the new file a different name and update the
+reference in index.html rather than overwriting.
+
+Delete this file once all 7 are here.
