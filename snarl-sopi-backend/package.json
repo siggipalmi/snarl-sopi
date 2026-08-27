@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.19.1",
+  "description": "Snarl and Sopi operator backend v6.19.1: correcting a machines model now corrects its stock ownership too. The update endpoint already allowed fixing a mislabelled model and recomputed isKioskModel, but left stockSource untouched — so a double fridge registered as a coil machine kept the coil default of kiosk-owned stock after being corrected, and would have run the wrong stock path while appearing fixed. When a model change flips the machine kind, stockSource is now reset to the correct default for that kind (weimi for fridges, which weigh their own stock; kiosk for coil), unless the caller sets it explicitly in the same request, and the change is logged. Cumulative over v6.19.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
