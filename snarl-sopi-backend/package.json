@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.21.0",
+  "description": "Snarl and Sopi operator backend v6.21: an unsupported command result now raises an alert instead of vanishing. A machine that answers unsupported is telling us the dashboard offered a control its build cannot perform, but that status was stored and shown nowhere — the operator saw a sent toast and nothing happened. This has now caused three separate silent failures (clear_aisle_fault reaching an unhandled command, read_temp, and set_temp against builds that implement set_cooling), so it raises a warning alert naming the control, the machine and its app version, deduped per command per machine per day. Also withdraws probe_addresses from the allow-list and the dashboard: it reported no modules on the bus in the same minute read_all_trays returned twenty-seven working trays, and a diagnostic that produces confident false negatives is worse than none. Cumulative over v6.20.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
