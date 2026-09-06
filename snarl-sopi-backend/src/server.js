@@ -37,6 +37,9 @@ function serveStatic(req, res) {
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) return false;
   const ext = path.extname(filePath).toLowerCase();
   const mime = MIME[ext] || 'application/octet-stream';
+  // no-cache is load-bearing: index.html is the whole dashboard, served from disk per request with no
+  // build step, so the committed file is the file the browser runs. A cached copy means stale dashboard
+  // JS talking to a changed API, which presents as an intermittent fault rather than an obvious one.
   res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
   fs.createReadStream(filePath).pipe(res);
   return true;

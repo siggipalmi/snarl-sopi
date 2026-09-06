@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.25.0",
-  "description": "Snarl and Sopi operator backend v6.25: serve paymentSerialPort in the fridge config block so the Nayax port survives a reinstall. Setting it by command lived in app state, and machine 8626020716 has Device Owner cleared, so a reinstall would have silently reverted it to the wrong port and lost three days of diagnosis. Config now carries it, defaulting to /dev/ttyS1 for gravity machines, and it is settable through the machine settings endpoint with the same bus-collision guard as the command. Recorded in the source where it matters: the serial assignment is exactly swapped between machine types — coil uses ttyS3 for Nayax and ttyS1 for motors, gravity uses ttyS3 for the weight bus and ttyS1 for Nayax — neither can be inferred from the other, and assuming they matched is what cost the three days. Cumulative over v6.24.",
+  "version": "6.25.1",
+  "description": "Snarl and Sopi operator backend v6.25.1: no behaviour change. This build exists to prove the Claude Code deploy path end to end before it is trusted with a real change - commit and push from a terminal-less workflow, Railway picking it up from the repo, and the running version reporting 6.25.1. Carries one comment recording why Cache-Control on index.html is load-bearing: the dashboard is served from disk per request with no build step, so a cached index.html means stale dashboard JS running against a changed API, which presents as a confusing intermittent fault rather than an obvious one. That constraint was previously only written down outside the source. Cumulative over v6.25.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
