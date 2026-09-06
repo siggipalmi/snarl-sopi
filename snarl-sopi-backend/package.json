@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.25.0",
+  "description": "Snarl and Sopi operator backend v6.25: serve paymentSerialPort in the fridge config block so the Nayax port survives a reinstall. Setting it by command lived in app state, and machine 8626020716 has Device Owner cleared, so a reinstall would have silently reverted it to the wrong port and lost three days of diagnosis. Config now carries it, defaulting to /dev/ttyS1 for gravity machines, and it is settable through the machine settings endpoint with the same bus-collision guard as the command. Recorded in the source where it matters: the serial assignment is exactly swapped between machine types — coil uses ttyS3 for Nayax and ttyS1 for motors, gravity uses ttyS3 for the weight bus and ttyS1 for Nayax — neither can be inferred from the other, and assuming they matched is what cost the three days. Cumulative over v6.24.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
