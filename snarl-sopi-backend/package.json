@@ -1,0 +1,20 @@
+{
+  "name": "snarl-sopi-backend",
+  "version": "6.23.0",
+  "description": "Snarl and Sopi operator backend v6.23: allow-list clear_device_owner, console only and deliberately without a dashboard button. Surrendering Device Owner is a one-way door on a placed machine — silent over-the-air updates end permanently and every later build needs someone on site with adb — so a command needed once in a machines lifetime does not earn a button a stray click could reach. Two guards that cannot be satisfied by a careless paste: params.confirm must be exactly the string yes, and params.deviceCode must match the machine being addressed, so a command copied from one machine to another is refused rather than stranding the wrong one. Issuing it raises a critical alert and emails the operator, because a mistake here should be heard about immediately rather than discovered at the next update. Cumulative over v6.22.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1061.0",
+    "@sendgrid/mail": "^8.1.4",
+    "better-sqlite3": "^11.3.0",
+    "sharp": "^0.35.3",
+    "ws": "^8.18.0"
+  }
+}
