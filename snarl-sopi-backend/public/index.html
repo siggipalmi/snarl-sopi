@@ -2942,6 +2942,22 @@ function pill(cls,text) { return `<span class="pill ${cls}">${text}</span>`; }
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
 function fmtTimeS(ts) { return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 function fmtDate(ts) { return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); }
+// Order rows carry a date as well as a clock time. A bare time is ambiguous the moment a list spans
+// midnight, which the orders page (up to 100 rows) almost always does, and these rows get reconciled
+// against Nayax days later. Seconds stay because that is what matches a card transaction. The year is
+// shown only when it is not the current one, so the common case stays short enough for the mobile card
+// layout, where this cell gets its own line.
+function fmtDateTimeS(ts) {
+  // Falsy first, and not just isNaN: new Date(null) and new Date(0) are the epoch, a perfectly valid
+  // date, so a missing createTime would render as a confident '01 Jan 1970' instead of a dash.
+  if (!ts) return '\u2014';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '\u2014';
+  const dateOpts = { day: '2-digit', month: 'short' };
+  if (d.getFullYear() !== new Date().getFullYear()) dateOpts.year = 'numeric';
+  return d.toLocaleDateString('en-GB', dateOpts) + ' ' +
+    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
 function timeAgo(ts) {
   const _t=new Date(ts).getTime(); if(isNaN(_t)) return '';
   const d=(Date.now()-_t)/1000;
@@ -4576,7 +4592,7 @@ async function renderMachineRecentOrders(code) {
         <td data-label="items" style="font-family:var(--mono)">${g.lines.length}</td>
         <td data-label="amount" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
         <td data-label="status">${pill(g.status===1?'pill-up':g.status===2?'pill-dn':'pill-warn', g.statusLabel)}</td>
-        <td data-label="time" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtTimeS(g.createTime)}</td>
+        <td data-label="time" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtDateTimeS(g.createTime)}</td>
       </tr>
       <tr id="od-md-${g.orderId}" style="display:none;background:rgba(139,107,62,0.04)"><td colspan="5" style="padding:0"><table style="width:100%;border-collapse:collapse"><tbody>${items}</tbody></table></td></tr>`;
     }).join('');
@@ -7030,7 +7046,7 @@ function renderOrders() {
       <td data-label="amount" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
       <td data-label="payment"><span class="pill pill-out">Nayax card</span></td>
       <td data-label="status">${pill(g.status===1?'pill-up':g.status===2?'pill-dn':'pill-warn', g.statusLabel)}</td>
-      <td data-label="time" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtTimeS(g.createTime)}</td>
+      <td data-label="time" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtDateTimeS(g.createTime)}</td>
     </tr>
     <tr id="od-${g.orderId}" style="display:none;background:rgba(139,107,62,0.04)">
       <td colspan="6" style="padding:0">
