@@ -1574,6 +1574,27 @@ select.fi{cursor:pointer;}
       <button class="btn btn-full" id="fb-save" onclick="saveFridgeBasket()"><span>save basket</span><span>&rarr;</span></button>
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-fridge-basket')">cancel</button>
     </div>
+    <!-- Scale: live hardware, separated from the fields above because nothing here is saved —
+         each button acts on the machine the moment it is pressed. -->
+    <div id="fb-scale" style="border-top:1px solid var(--line);margin-top:16px;padding-top:13px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:9px">
+        <div class="fl" style="margin:0" data-i18n="sc.title">scale</div>
+        <div id="fb-scale-addr" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></div>
+      </div>
+      <div id="fb-scale-out" style="border:1px solid var(--line);border-radius:8px;padding:10px 11px;margin-bottom:9px"></div>
+      <div id="fb-scale-actions" style="display:flex;gap:7px"></div>
+      <div id="fb-scale-force" style="display:none;margin-top:9px"></div>
+      <div id="fb-scale-cal" style="display:none;margin-top:11px">
+        <div class="fl" data-i18n="sc.refWeight">reference weight (g)</div>
+        <input class="fi mono" id="fb-scale-ref" type="number" inputmode="numeric" min="1">
+        <div style="font-size:11px;color:var(--muted);margin:7px 0 9px" data-i18n="sc.refHint">Empty the basket and tare first, then place one item you have weighed yourself.</div>
+        <div style="display:flex;gap:7px">
+          <button class="btn btn-sm" style="flex:1" onclick="scaleCalibrateSend()"><span data-i18n="sc.send">send calibration</span></button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="scaleCalCancel()"><span data-i18n="sc.cancel">cancel</span></button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:9px" data-i18n="sc.hint">these act on the machine straight away — there is nothing to save</div>
+    </div>
   </div>
 </div>
 
@@ -1786,6 +1807,20 @@ const I18N = {
     'mch.th.deviceCode':'device code','mch.th.nameLocation':'name / location','mch.th.machine':'machine','mch.th.lastVisit':'last visit','mch.th.operatorName':'operator name',
     'mch.unsupported':'unsupported','mch.unsupportedLayout':'unsupported layout','mch.link':'link →',
     'cell.noData':'no data','cell.yesterday':'yesterday','cell.daysAgo':'days ago',
+    'sc.title':'scale','sc.hint':'these act on the machine straight away — there is nothing to save',
+    'sc.read':'read weight','sc.tare':'tare','sc.calibrate':'calibrate',
+    'sc.notRead':'not read','sc.working':'working','sc.done':'done','sc.failed':'failed','sc.unsupported':'unsupported',
+    'sc.waiting':'Asked the machine. It answers within about 5 seconds.',
+    'sc.noAnswer':'No answer yet. The machine may be offline — try again shortly.',
+    'sc.sendFail':'Could not send the command.',
+    'sc.unsupportedNote':'This machine\u2019s app cannot do per-basket scale commands. It needs a newer build.',
+    'sc.confirmTare':'Tare this basket?\n\nThis sets its zero point. The machine will refuse if it can still feel product in the basket.',
+    'sc.forceBtn':'tare anyway','sc.confirmForce':'Tare anyway, ignoring the weight the machine just reported?\n\nOnly do this if the basket really is empty. Taring a loaded basket sets a false zero and mis-charges every later sale from it.',
+    'sc.forceNote':'Force only if the basket really is empty and the zero has drifted. Taring a loaded basket mis-charges every later sale from it.',
+    'sc.refWeight':'reference weight (g)',
+    'sc.refHint':'Empty the basket and tare first, then place one item you have weighed yourself.',
+    'sc.send':'send calibration','sc.cancel':'cancel',
+    'sc.refInvalid':'Enter the reference weight in grams (a positive number).',
   },
   is: {
     'group.overview':'yfirlit','group.daily':'Daglegt','group.kioskControl':'Skjár og vörur','group.commerce':'Rekstur','group.system':'Stjórnun',
@@ -1834,6 +1869,20 @@ const I18N = {
     'mch.th.deviceCode':'vélakóði','mch.th.nameLocation':'nafn / staðsetning','mch.th.machine':'vél','mch.th.lastVisit':'síðasta heimsókn','mch.th.operatorName':'nafn aðila',
     'mch.unsupported':'óstutt','mch.unsupportedLayout':'óstutt uppsetning','mch.link':'tengja →',
     'cell.noData':'engin gögn','cell.yesterday':'í gær','cell.daysAgo':'dögum síðan',
+    'sc.title':'vigt','sc.hint':'\u00feetta virkar strax \u00e1 v\u00e9linni \u2014 ekkert a\u00f0 vista',
+    'sc.read':'lesa \u00feyngd','sc.tare':'n\u00fallstilla','sc.calibrate':'kvar\u00f0a',
+    'sc.notRead':'ekki lesi\u00f0','sc.working':'vinn','sc.done':'loki\u00f0','sc.failed':'mist\u00f3kst','sc.unsupported':'\u00f3stutt',
+    'sc.waiting':'Sendi \u00e1 v\u00e9lina. H\u00fan svarar innan um 5 sek\u00fandna.',
+    'sc.noAnswer':'Ekkert svar enn. V\u00e9lin g\u00e6ti veri\u00f0 \u00e1n nettengingar \u2014 reyndu aftur eftir sm\u00e1stund.',
+    'sc.sendFail':'T\u00f3kst ekki a\u00f0 senda skipunina.',
+    'sc.unsupportedNote':'Forriti\u00f0 \u00ed \u00feessari v\u00e9l r\u00e6\u00f0ur ekki vi\u00f0 vigtarskipanir \u00e1 st\u00f6k h\u00f3lf. \u00dea\u00f0 \u00fearf n\u00fdrri \u00fatg\u00e1fu.',
+    'sc.confirmTare':'N\u00fallstilla \u00feetta h\u00f3lf?\n\n\u00deetta setur n\u00fallpunktinn. V\u00e9lin hafnar \u00feessu ef h\u00fan finnur enn v\u00f6ru \u00ed h\u00f3lfinu.',
+    'sc.forceBtn':'n\u00fallstilla samt','sc.confirmForce':'N\u00fallstilla samt \u00feótt v\u00e9lin hafi n\u00fdlega m\u00e6lt \u00feyngd?\n\nGer\u00f0u \u00feetta a\u00f0eins ef h\u00f3lfi\u00f0 er raunverulega t\u00f3mt. A\u00f0 n\u00fallstilla hla\u00f0i\u00f0 h\u00f3lf setur rangan n\u00fallpunkt og skekkir alla s\u00f6lu \u00far \u00fev\u00ed eftir \u00fea\u00f0.',
+    'sc.forceNote':'\u00devinga\u00f0u a\u00f0eins ef h\u00f3lfi\u00f0 er raunverulega t\u00f3mt og n\u00fallpunkturinn hefur skri\u00f0i\u00f0 til. A\u00f0 n\u00fallstilla hla\u00f0i\u00f0 h\u00f3lf skekkir alla s\u00f6lu \u00far \u00fev\u00ed eftir \u00fea\u00f0.',
+    'sc.refWeight':'vi\u00f0mi\u00f0unar\u00feyngd (g)',
+    'sc.refHint':'T\u00e6mdu h\u00f3lfi\u00f0 og n\u00fallstilltu fyrst, settu svo einn hlut sem \u00fe\u00fa hefur vigta\u00f0.',
+    'sc.send':'senda kv\u00f6r\u00f0un','sc.cancel':'h\u00e6tta vi\u00f0',
+    'sc.refInvalid':'Sl\u00e1\u00f0u inn vi\u00f0mi\u00f0unar\u00feyngd \u00ed gr\u00f6mmum (j\u00e1kv\u00e6\u00f0 tala).',
   },
 };
 function t(key){ const l=I18N[LANG]||I18N.en; return (l[key]!=null?l[key]:(I18N.en[key]!=null?I18N.en[key]:key)); }
@@ -5795,7 +5844,155 @@ function openFridgeBasketEditor(cab, n) {
   document.getElementById('fb-enabled').checked = (b.enabled !== 0);
   document.getElementById('fb-msg').innerHTML = '';
   _fpPickedProduct = b.productId ? { goodsId: b.productId, name: b.productName, weightGrams: b.effectiveWeightG } : null;
+  scaleReset(cab, n);
   modal.classList.add('show');
+}
+
+// ─── Basket scale: read / tare / calibrate ────────────────────────────────────
+// The machine answers these as PROSE in result.detail — its CommandOutcome is {status, detail}
+// with no structured weight — so the sentence it sends is rendered verbatim and the only thing
+// keyed off is cmd.status. Deliberately no parsing: the kiosk team asked us not to, and a regex
+// over their wording would break silently the first time they rephrase it. If a per-basket weight
+// grid is ever wanted, the fix is structured JSON from the app, not parsing here.
+//
+// params.basket is the PLANOGRAM number (1–16 within a cabinet), never a bus address — the app
+// maps it. Sending an address instead lands on the wrong basket, and a tare on the wrong basket
+// is a silent mis-charge rather than an error.
+let _scBusy = false;
+
+function scaleReset(cab, n) {
+  _scBusy = false;
+  const addr = document.getElementById('fb-scale-addr');
+  if (addr) addr.textContent = cab + '\u00b7' + n;
+  scaleCalCancel();
+  const ref = document.getElementById('fb-scale-ref');
+  if (ref) ref.value = '';
+  scaleForceOffer(false);
+  scaleShow('idle', t('sc.notRead'), '');
+  scaleButtons(false);
+}
+
+function scalePill(kind, label) {
+  const c = { ok: ['var(--success-bg)', 'var(--success)'], bad: ['var(--alert-bg)', 'var(--alert)'],
+              warn: ['var(--warn-bg)', 'var(--warn-ink)'], live: ['var(--bronze)', 'var(--cream)'],
+              idle: ['var(--cream-deep)', 'var(--muted-2)'] }[kind] || ['var(--cream-deep)', 'var(--muted-2)'];
+  return '<span style="display:inline-block;border-radius:999px;padding:2.5px 9px;font-family:var(--mono);' +
+    'font-size:9px;letter-spacing:.7px;text-transform:uppercase;background:' + c[0] + ';color:' + c[1] + '">' +
+    rsEsc(label) + '</span>';
+}
+
+function scaleShow(kind, pill, body) {
+  const el = document.getElementById('fb-scale-out');
+  if (!el) return;
+  el.innerHTML = '<div>' + scalePill(kind, pill) + '</div>' +
+    (body ? '<div style="font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink);' +
+      'word-break:break-word;margin-top:7px">' + rsEsc(body) + '</div>' : '');
+}
+
+function scaleButtons(busy) {
+  const el = document.getElementById('fb-scale-actions');
+  if (!el) return;
+  const off = busy ? 'opacity:.4;pointer-events:none;' : '';
+  el.innerHTML =
+    '<button class="btn btn-sm" style="flex:1;' + off + '" onclick="scaleRead()"><span>' + rsEsc(t('sc.read')) + '</span></button>' +
+    '<button class="btn btn-ghost btn-sm" style="flex:1;' + off + '" onclick="scaleTare(false)"><span>' + rsEsc(t('sc.tare')) + '</span></button>' +
+    '<button class="btn btn-ghost btn-sm" style="flex:1;' + off + '" onclick="scaleCalOpen()"><span>' + rsEsc(t('sc.calibrate')) + '</span></button>';
+}
+
+// Force is only ever offered AFTER the machine has refused and said what it can still feel —
+// that sentence carries the weight the operator needs to judge it. Never offered up front.
+function scaleForceOffer(show) {
+  const el = document.getElementById('fb-scale-force');
+  if (!el) return;
+  if (!show) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML =
+    '<div style="font-size:11px;line-height:1.45;color:var(--warn-ink);background:var(--warn-bg);' +
+      'border-radius:6px;padding:8px 9px;margin-bottom:8px">' + rsEsc(t('sc.forceNote')) + '</div>' +
+    '<button class="btn btn-sm" style="width:100%;border-color:var(--alert);color:var(--alert);background:transparent" ' +
+      'onclick="scaleTare(true)"><span>' + rsEsc(t('sc.forceBtn')) + '</span></button>';
+}
+
+async function scaleSend(type, extra) {
+  const code = _fpDeviceCode, cab = _fpEditCab, n = _fpEditBasket;
+  if (!code || !cab || n == null || _scBusy) return;
+  _scBusy = true;
+  scaleForceOffer(false);
+  scaleButtons(true);
+  scaleShow('live', t('sc.working'), t('sc.waiting'));
+  const params = Object.assign({ cabinet: cab, basket: n }, extra || {});
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: type, params: params });
+    if (!r || !r.ok) {
+      _scBusy = false; scaleButtons(false);
+      scaleShow('bad', t('sc.failed'), (r && r.error) || t('sc.sendFail'));
+      return;
+    }
+    const id = r.data && r.data.id;
+    let tries = 0;
+    const poll = async function () {
+      tries++;
+      try {
+        const h = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/commands/history?limit=25');
+        const cmd = ((h.data && h.data.commands) || []).find(function (c) { return c.id === id; });
+        if (cmd && cmd.status !== 'pending') return scaleDone(type, cmd);
+      } catch (e) { /* a dropped poll is not a failed command — keep waiting */ }
+      if (tries > 12) {
+        _scBusy = false; scaleButtons(false);
+        scaleShow('bad', t('sc.failed'), t('sc.noAnswer'));
+        return;
+      }
+      setTimeout(poll, 2500);
+    };
+    setTimeout(poll, 2500);
+  } catch (e) {
+    _scBusy = false; scaleButtons(false);
+    scaleShow('bad', t('sc.failed'), e.message || t('sc.sendFail'));
+  }
+}
+
+function scaleDone(type, cmd) {
+  _scBusy = false;
+  scaleButtons(false);
+  const detail = (cmd.result && cmd.result.detail) || '';
+  if (cmd.status === 'done') {
+    scaleForceOffer(false);
+    scaleShow('ok', t('sc.done'), detail);
+    return;
+  }
+  if (cmd.status === 'unsupported') {
+    // A dead button that says nothing is this project's recurring bug — say it plainly.
+    scaleForceOffer(false);
+    scaleShow('warn', t('sc.unsupported'), detail || t('sc.unsupportedNote'));
+    return;
+  }
+  scaleShow('bad', t('sc.failed'), detail || t('sc.sendFail'));
+  // A refused tare is the machine's own empty-check working, not a fault. Offer the override
+  // only on a non-forced tare, so a forced one that still failed doesn't loop.
+  scaleForceOffer(type === 'scale_tare' && !(cmd.params && cmd.params.force === true));
+}
+
+function scaleRead() { scaleSend('scale_read', {}); }
+
+function scaleTare(force) {
+  if (force) {
+    if (!confirm(t('sc.confirmForce'))) return;
+    scaleSend('scale_tare', { force: true });
+    return;
+  }
+  if (!confirm(t('sc.confirmTare'))) return;
+  scaleSend('scale_tare', { force: false });
+}
+
+function scaleCalOpen() { const el = document.getElementById('fb-scale-cal'); if (el) el.style.display = 'block'; }
+function scaleCalCancel() { const el = document.getElementById('fb-scale-cal'); if (el) el.style.display = 'none'; }
+
+function scaleCalibrateSend() {
+  const el = document.getElementById('fb-scale-ref');
+  const ref = Math.round(Number(el && el.value));
+  if (!Number.isFinite(ref) || ref <= 0) { showToast(t('sc.refInvalid')); return; }
+  scaleCalCancel();
+  scaleSend('scale_calibrate', { referenceWeightG: ref });
 }
 
 let _fbSearchTimer = null;
