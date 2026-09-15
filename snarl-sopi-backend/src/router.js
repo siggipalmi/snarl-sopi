@@ -1804,6 +1804,8 @@ function paymentPortRejection(m, port, accepted) {
     + `If you really do mean ${port}, resend with acceptNonStandardPort: true.`;
 }
 
+const isoOrNull = (ms) => (ms ? new Date(ms).toISOString() : null);
+
 // POST /machines/:deviceCode/commands  (operator) — enqueue one command.
 function handleEnqueueCommand(req, res) {
   const { deviceCode } = req.params;
