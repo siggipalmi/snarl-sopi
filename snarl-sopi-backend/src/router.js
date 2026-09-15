@@ -1419,6 +1419,12 @@ function handleGetMachine(req, res) {
       try { const raw = storage.getMeta('confighealth:' + m.deviceCode); return raw ? JSON.parse(raw) : null; }
       catch (e) { return null; }
     })(),
+    // Last set_led verdict, so the lighting panel can say up front whether this machine can do
+    // lighting at all. null = never tested.
+    ledCapability: (() => {
+      try { const raw = storage.getMeta('ledcap:' + m.deviceCode); return raw ? JSON.parse(raw) : null; }
+      catch (e) { return null; }
+    })(),
   });
 }
 
@@ -2132,6 +2138,20 @@ function handleCommandResult(req, res) {
       });
       console.warn('[CMD] ' + detail);
     } catch (e) { /* non-fatal */ }
+  }
+  // A set_led answer is the ONLY signal that a machine can drive its lights: the led config block is
+  // simply ignored by a build that doesn't implement it, silently, so a schedule can look saved and do
+  // nothing forever. Record the verdict so the lighting panel can state it standing, rather than only
+  // to whoever last pressed a test button.
+  if (cmd.type === 'set_led') {
+    try {
+      storage.setMeta('ledcap:' + deviceCode, JSON.stringify({
+        supported: finalStatus === 'done',
+        status: finalStatus,
+        detail: result.detail || null,
+        atMs: Date.now(),
+      }));
+    } catch (e) { /* never block a command result on bookkeeping */ }
   }
   // A config_health result reporting undecodable aisles means the operator closed those lanes, the
   // kiosk could not decode them, and they are STILL SELLING. That's a machine taking money from

@@ -1813,6 +1813,9 @@ const I18N = {
     'mch.th.deviceCode':'device code','mch.th.nameLocation':'name / location','mch.th.machine':'machine','mch.th.lastVisit':'last visit','mch.th.operatorName':'operator name',
     'mch.unsupported':'unsupported','mch.unsupportedLayout':'unsupported layout','mch.link':'link →',
     'cell.noData':'no data','cell.yesterday':'yesterday','cell.daysAgo':'days ago',
+    'lt.capNo':'This machine\u2019s app cannot control the lights. Anything set here is saved, and takes effect only once the machine is updated.',
+    'lt.capUnknown':'Lighting has not been confirmed on this machine yet \u2014 press a test button below to find out.',
+    'lt.capYes':'Lighting confirmed working on this machine.',
     'lt.title':'lighting.','lt.mode':'mode','lt.off':'off','lt.on':'on','lt.schedule':'schedule',
     'lt.dayLevel':'daytime brightness','lt.night':'night window','lt.nightLevel':'night brightness','lt.to':'to',
     'lt.wrap':'Crosses midnight \u2014 runs through to the next morning.',
@@ -1887,6 +1890,9 @@ const I18N = {
     'mch.th.deviceCode':'vélakóði','mch.th.nameLocation':'nafn / staðsetning','mch.th.machine':'vél','mch.th.lastVisit':'síðasta heimsókn','mch.th.operatorName':'nafn aðila',
     'mch.unsupported':'óstutt','mch.unsupportedLayout':'óstutt uppsetning','mch.link':'tengja →',
     'cell.noData':'engin gögn','cell.yesterday':'í gær','cell.daysAgo':'dögum síðan',
+    'lt.capNo':'Forriti\u00f0 \u00ed \u00feessari v\u00e9l r\u00e6\u00f0ur ekki vi\u00f0 l\u00fdsingarst\u00fdringu. \u00dea\u00f0 sem er stillt h\u00e9r vistast en tekur ekki gildi fyrr en v\u00e9lin er uppf\u00e6r\u00f0.',
+    'lt.capUnknown':'L\u00fdsing hefur ekki veri\u00f0 sta\u00f0fest \u00e1 \u00feessari v\u00e9l enn \u2014 \u00fdttu \u00e1 pr\u00f3funarhnapp h\u00e9r a\u00f0 ne\u00f0an.',
+    'lt.capYes':'L\u00fdsing sta\u00f0fest virk \u00e1 \u00feessari v\u00e9l.',
     'lt.title':'l\u00fdsing.','lt.mode':'stilling','lt.off':'sl\u00f6kkt','lt.on':'kveikt','lt.schedule':'\u00e1\u00e6tlun',
     'lt.dayLevel':'birta a\u00f0 degi','lt.night':'n\u00e6turgluggi','lt.nightLevel':'n\u00e6turbirta','lt.to':'til',
     'lt.wrap':'Fer yfir mi\u00f0n\u00e6tti \u2014 gildir fram \u00e1 n\u00e6sta morgun.',
@@ -5902,7 +5908,7 @@ function openFridgeBasketEditor(cab, n) {
 // wiring or lighting a machine up to restock, exactly as set_aisle_enabled overrides disabledAisles.
 // Current values are read from the machine's own configPreview rather than a local copy, so what is
 // shown is what the machine will actually be served.
-let _ltCode = null, _ltPolicy = null, _ltBusy = false;
+let _ltCode = null, _ltPolicy = null, _ltBusy = false, _ltCap = null;
 
 const LT_DEFAULT = { mode: 'on', brightness: 100, night: null,
                      wake: { enabled: true, brightness: 100, holdSeconds: 45, trigger: 'door_unlock' } };
@@ -5918,6 +5924,7 @@ async function renderMachineLight(code) {
       ? r.data.configPreview.fridge.led : null;
     _ltPolicy = Object.assign({}, LT_DEFAULT, led || {},
       { wake: Object.assign({}, LT_DEFAULT.wake, (led && led.wake) || {}) });
+    _ltCap = (r && r.ok && r.data) ? (r.data.ledCapability || null) : null;
     ltPaint();
   } catch (e) {
     el.innerHTML = '<div style="font-size:12px;color:var(--alert)">' + rsEsc(t('lt.loadErr')) + '</div>';
@@ -5965,6 +5972,25 @@ function ltSeg(mode) {
   }).join('');
 }
 
+// The standing capability line. Unknown is stated quietly; "cannot" is stated loudly, because every
+// control below it is then saving settings that do nothing — which is worth knowing BEFORE spending
+// five minutes setting a schedule, not after pressing test.
+function ltCapBanner() {
+  if (!_ltCap) {
+    return '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">' + rsEsc(t('lt.capUnknown')) + '</div>';
+  }
+  const when = _ltCap.atMs ? fmtDateTimeS(_ltCap.atMs) : '';
+  if (_ltCap.supported) {
+    return '<div style="font-size:11px;color:var(--success);margin-bottom:12px">' + rsEsc(t('lt.capYes')) +
+      (when ? ' <span style="color:var(--muted);font-family:var(--mono);font-size:10px">' + rsEsc(when) + '</span>' : '') + '</div>';
+  }
+  return '<div style="font-size:11.5px;line-height:1.45;color:var(--warn-ink);background:var(--warn-bg);' +
+    'border-radius:6px;padding:9px 11px;margin-bottom:13px">' + rsEsc(t('lt.capNo')) +
+    (_ltCap.detail ? '<div style="font-family:var(--mono);font-size:10px;margin-top:5px;opacity:.85">' + rsEsc(_ltCap.detail) + '</div>' : '') +
+    (when ? '<div style="font-family:var(--mono);font-size:10px;margin-top:3px;opacity:.7">' + rsEsc(when) + '</div>' : '') +
+  '</div>';
+}
+
 function ltPaint() {
   const el = document.getElementById('md-light-body');
   if (!el || !_ltPolicy) return;
@@ -5973,6 +5999,7 @@ function ltPaint() {
   const n = p.night || { from: '22:00', to: '08:00', brightness: 10 };
   const lvl = ltNowLevel(p);
   el.innerHTML =
+    ltCapBanner() +
     '<div style="font-family:var(--mono);font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">' + rsEsc(t('lt.mode')) + '</div>' +
     '<div style="display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:14px">' + ltSeg(p.mode) + '</div>' +
 
@@ -6088,6 +6115,9 @@ async function ltTest(level) {
           const colour = cmd.status === 'done' ? 'var(--success)' : (cmd.status === 'unsupported' ? 'var(--warn-ink)' : 'var(--alert)');
           const text = cmd.status === 'unsupported' ? (detail || t('lt.unsupported')) : (detail || cmd.status);
           out.innerHTML = '<div style="font-family:var(--mono);font-size:11px;line-height:1.5;color:' + colour + '">' + rsEsc(text) + '</div>';
+          // The backend has just recorded this verdict; reflect it above without a reload, so the
+          // banner and the answer can never disagree on screen.
+          _ltCap = { supported: cmd.status === 'done', status: cmd.status, detail: detail || null, atMs: Date.now() };
           return;
         }
       } catch (e) { /* a dropped poll is not a failed command */ }
