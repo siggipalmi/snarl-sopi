@@ -1753,6 +1753,41 @@ function physicalSlotServer(aisleCode) {
 
 const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update'];
 const CMD_TTL_MS = 5 * 60 * 1000;
+
+// ── Payment serial port: what "correct" is, and why a wrong one is invisible ───────────────────
+// The assignment is EXACTLY SWAPPED between machine types (the full note lives in db.js): coil puts
+// Nayax on ttyS3 and motors on ttyS1; gravity puts the weight bus on ttyS3 and Nayax on ttyS1. Any
+// other port is simply dead. 8626020716 was pointed at ttyS4 and never received a single byte, and
+// that took three days to find because a dead payment link presents as a quiet machine rather than
+// as an error — nothing anywhere reports it.
+//
+// Kind is read from BOTH signals because they can disagree: a fridge registered before model support
+// existed carries isKioskModel=false while its model string still says coil. 8626020623 is exactly
+// that, so trusting the model alone would recommend the coil port for a gravity machine.
+function machineKindForPort(m) {
+  const byModel = require('./db').fridgeSpec((m && m.model) || '').isFridge;
+  const byFlag = !!(m && m.isKioskModel === false);
+  return { byModel, byFlag, isGravity: byModel || byFlag, disagree: byModel !== byFlag };
+}
+function expectedPaymentPort(m) { return machineKindForPort(m).isGravity ? '/dev/ttyS1' : '/dev/ttyS3'; }
+
+// Returns an explanation when this port shouldn't be accepted, or null when it's fine.
+function paymentPortRejection(m, port, accepted) {
+  if (accepted === true) return null;   // explicit override — the caller has said they mean it
+  const kind = machineKindForPort(m);
+  const want = expectedPaymentPort(m);
+  if (port === want) return null;
+  let msg = `${port} is not where Nayax is wired on this machine. `
+    + `${kind.isGravity ? 'Gravity' : 'Coil'} machines read payment on ${want}`
+    + `${kind.isGravity ? ' (ttyS3 is the weight bus)' : ' (ttyS1 is the motor bus)'}. `
+    + `A port with nothing on the other end never reports an error — the machine just stops taking cards.`;
+  if (kind.disagree) {
+    msg += ` Careful: this machine's model (${(m && m.model) || 'unset'}) says `
+      + `${kind.byModel ? 'gravity' : 'coil'} while its isKioskModel flag says `
+      + `${kind.byFlag ? 'gravity' : 'coil'}. Correct the model first if ${want} looks wrong.`;
+  }
+  return msg + ` If you really do mean ${port}, resend with acceptNonStandardPort: true.`;
+}
 const isoOrNull = (ms) => (ms ? new Date(ms).toISOString() : null);
 
 // POST /machines/:deviceCode/commands  (operator) — enqueue one command.
@@ -1832,6 +1867,11 @@ function handleEnqueueCommand(req, res) {
       return badRequest(res, 'tare_all params.force must be a boolean');
     }
   } else if (type === 'set_payment_port') {
+    // Serial wiring is AG-only: naming the wrong port silently ends card payment on a placed
+    // machine, and the operator who owns it has no way to tell that is what happened.
+    if (req.user?.role !== 'ag_admin') {
+      return json(res, 403, { ok: false, error: 'Forbidden \u2014 changing a machine\u2019s serial ports requires AG Vending admin access.' });
+    }
     if (!params.port || typeof params.port !== 'string') return badRequest(res, 'set_payment_port requires params.port (string)');
     const port = params.port.trim();
     if (!/^\/dev\/ttyS\d+$/.test(port)) {
@@ -1846,6 +1886,10 @@ function handleEnqueueCommand(req, res) {
     if (busPort && busPort === port) {
       return badRequest(res, `${port} is already this machine's ${(mp.isKioskModel === false) ? 'weight' : 'motor'} bus. Opening a second reader on it would corrupt weights and payment at once — choose a different port.`);
     }
+    // Collision isn't the only way to be wrong: a port that simply has nothing on it passes every
+    // check above and takes the machine off cards without a word. Name the expected one instead.
+    const portProblem = paymentPortRejection(mp, port, params.acceptNonStandardPort);
+    if (portProblem) return badRequest(res, portProblem);
   } else if (type === 'clear_device_owner') {
     // One-way door on a placed machine: surrendering Device Owner ends silent OTA, so every future
     // build needs someone on site with adb. Deliberately console-only — no dashboard button — and
@@ -2837,6 +2881,15 @@ function handleUpdateSettings(req, res) {
                    'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort'];
   // Refuse a payment port that collides with this machine's bus — same reasoning as the
   // set_payment_port command guard: a second reader on the bus corrupts both at once.
+  // Hardware wiring is AG-only, on the same reasoning as the set_payment_port command: these three
+  // decide which physical bus the app opens, and naming a wrong one strands a placed machine
+  // silently. Everything else in `allowed` is display or behaviour and stays open to operators.
+  const WIRING_KEYS = ['paymentSerialPort', 'motorSerialPort', 'controlBoardAddress'];
+  const touchedWiring = WIRING_KEYS.filter(k => req.body[k] !== undefined);
+  if (touchedWiring.length && req.user?.role !== 'ag_admin') {
+    return json(res, 403, { ok: false,
+      error: `Forbidden \u2014 ${touchedWiring.join(', ')} ${touchedWiring.length > 1 ? 'are' : 'is'} hardware wiring and requires AG Vending admin access.` });
+  }
   if (req.body.paymentSerialPort !== undefined) {
     const pp = String(req.body.paymentSerialPort).trim();
     if (!/^\/dev\/ttyS\d+$/.test(pp)) return badRequest(res, `paymentSerialPort must look like /dev/ttyS1 — got "${pp}"`);
@@ -2844,6 +2897,8 @@ function handleUpdateSettings(req, res) {
     if (busPort && busPort === pp) {
       return badRequest(res, `${pp} is already this machine's ${(m.isKioskModel === false) ? 'weight' : 'motor'} bus — choose a different port.`);
     }
+    const ppProblem = paymentPortRejection(m, pp, req.body.acceptNonStandardPort);
+    if (ppProblem) return badRequest(res, ppProblem);
   }
   // tempReporting drives what the temperature panel says. 'unsupported' means this board exposes no
   // cabinet temperature at all, so the panel states that rather than looking like missing data.
