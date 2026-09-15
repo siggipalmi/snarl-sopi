@@ -34,7 +34,7 @@ const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
   provisionMachine, validateMachineKey, revokeKey,
-  buildConfigResponse, touchConfig, fridgeSpec,
+  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
@@ -1751,7 +1751,74 @@ function physicalSlotServer(aisleCode) {
   return String(tens * 10 + pos + 1);
 }
 
-const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update'];
+// ── Fridge lighting policy validation ─────────────────────────────────────────
+// Shared by the settings endpoint and the set_led command so one definition governs both. Every
+// value is normalised on the way in, so the config the machine receives is always complete and of
+// the right type — the app should never have to defend against a half-filled policy.
+const LED_MODES = ['off', 'on', 'schedule'];
+const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DEFAULT_LED_TZ = 'Atlantic/Reykjavik';
+
+function ledLevel(v) {
+  const n = Math.round(Number(v));
+  return (Number.isFinite(n) && n >= 0 && n <= 100) ? n : null;
+}
+function knownTimezone(tz) {
+  try { new Intl.DateTimeFormat('en-GB', { timeZone: tz }); return true; } catch (e) { return false; }
+}
+
+// Returns { error } or { value }. Never mutates the caller's object.
+function validateLedPolicy(raw) {
+  if (raw === null) return { value: null };   // explicit clear — fall back to defaults
+  if (typeof raw !== 'object' || Array.isArray(raw)) return { error: 'led must be an object' };
+  const out = {};
+
+  out.mode = raw.mode === undefined ? DEFAULT_LED.mode : String(raw.mode);
+  if (!LED_MODES.includes(out.mode)) return { error: `led.mode must be one of: ${LED_MODES.join(', ')}` };
+
+  out.brightness = raw.brightness === undefined ? DEFAULT_LED.brightness : ledLevel(raw.brightness);
+  if (out.brightness === null) return { error: 'led.brightness must be a whole number 0-100' };
+
+  if (raw.night === undefined || raw.night === null) {
+    out.night = null;
+  } else {
+    const n = raw.night;
+    if (typeof n !== 'object' || Array.isArray(n)) return { error: 'led.night must be an object or null' };
+    if (!HHMM_RE.test(String(n.from || ''))) return { error: 'led.night.from must be HH:MM (24h), e.g. 22:00' };
+    if (!HHMM_RE.test(String(n.to || ''))) return { error: 'led.night.to must be HH:MM (24h), e.g. 08:00' };
+    if (String(n.from) === String(n.to)) {
+      return { error: 'led.night.from and led.night.to are the same, which describes either no time or all of it. Use mode "on" or "off" instead.' };
+    }
+    const nb = ledLevel(n.brightness);
+    if (nb === null) return { error: 'led.night.brightness must be a whole number 0-100' };
+    const tz = n.timezone === undefined ? DEFAULT_LED_TZ : String(n.timezone);
+    if (!knownTimezone(tz)) return { error: `led.night.timezone "${tz}" is not a timezone this server recognises` };
+    out.night = {
+      from: String(n.from), to: String(n.to), brightness: nb, timezone: tz,
+      // Not operator-settable: these boards can come back from a power cut with the clock wrong, and
+      // a wrong clock fails TLS silently. One successful poll proves the clock, so the app holds the
+      // day level until it has had one. Always true — sent explicitly so the rule travels with the
+      // policy rather than living only in someone's memory.
+      requiresClockProof: true,
+    };
+  }
+
+  const w = (raw.wake === undefined || raw.wake === null) ? {} : raw.wake;
+  if (typeof w !== 'object' || Array.isArray(w)) return { error: 'led.wake must be an object' };
+  const wb = w.brightness === undefined ? DEFAULT_LED.wake.brightness : ledLevel(w.brightness);
+  if (wb === null) return { error: 'led.wake.brightness must be a whole number 0-100' };
+  const hold = w.holdSeconds === undefined ? DEFAULT_LED.wake.holdSeconds : Math.round(Number(w.holdSeconds));
+  if (!Number.isFinite(hold) || hold < 0 || hold > 600) return { error: 'led.wake.holdSeconds must be 0-600' };
+  out.wake = {
+    enabled: w.enabled === undefined ? DEFAULT_LED.wake.enabled : !!w.enabled,
+    brightness: wb,
+    holdSeconds: hold,
+    trigger: 'door_unlock',   // the app drives the lock and knows when it fires; not settable
+  };
+  return { value: out };
+}
+
+const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update'];
 const CMD_TTL_MS = 5 * 60 * 1000;
 
 // ── Payment serial port: what "correct" is, and why a wrong one is invisible ───────────────────
@@ -1968,6 +2035,13 @@ function handleEnqueueCommand(req, res) {
     const spec = fridgeSpec(machines[deviceCode].model);
     if (!spec.cabinets.includes(cab)) return badRequest(res, `This machine has no cabinet ${cab} (${spec.cabinets.join('+') || 'not a fridge'}).`);
     params.cabinet = cab;
+  } else if (type === 'set_led') {
+    // Instant override for testing the wiring or lighting a machine up to restock. The durable
+    // policy lives in config; the app returns to it on the next config apply, exactly as
+    // set_aisle_enabled gives instant effect over the durable disabledAisles.
+    const lvl = ledLevel(params.brightness);
+    if (lvl === null) return badRequest(res, 'set_led requires params.brightness (whole number 0-100, where 0 is off)');
+    params.brightness = lvl;
   } else if (type === 'scale_read' || type === 'scale_calibrate' || type === 'scale_tare') {
     const cab = String(params.cabinet || '').toUpperCase();
     if (cab !== 'A' && cab !== 'B') return badRequest(res, `${type} requires params.cabinet ("A" or "B")`);
@@ -2894,7 +2968,7 @@ function handleUpdateSettings(req, res) {
   const { valid, errors } = validateSettings(req.body);
   if (!valid) return badRequest(res, 'Validation failed', errors);
   const allowed = ['showAdRegion','showLeftHero','showRightHero','showIdleScreen','idleTimeoutSeconds','defaultLanguage','availableLanguages','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','ledBrightness','motorSerialPort','controlBoardAddress',
-                   'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort'];
+                   'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort','led'];
   // Refuse a payment port that collides with this machine's bus — same reasoning as the
   // set_payment_port command guard: a second reader on the bus corrupts both at once.
   // Hardware wiring is AG-only, on the same reasoning as the set_payment_port command: these three
@@ -2920,6 +2994,13 @@ function handleUpdateSettings(req, res) {
   // cabinet temperature at all, so the panel states that rather than looking like missing data.
   if (req.body.tempReporting !== undefined && !['auto','expected','unsupported'].includes(String(req.body.tempReporting))) {
     return badRequest(res, "tempReporting must be 'auto', 'expected' or 'unsupported'");
+  }
+  // Lighting policy: validated and normalised here so the config the machine receives is always
+  // complete. Assigned below via `allowed`, but the normalised value replaces whatever was sent.
+  if (req.body.led !== undefined) {
+    const { error, value } = validateLedPolicy(req.body.led);
+    if (error) return badRequest(res, error);
+    req.body.led = value;
   }
   allowed.forEach(k => { if (req.body[k] !== undefined) m.settings[k] = req.body[k]; });
   m.updatedAt = new Date().toISOString();

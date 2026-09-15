@@ -22,6 +22,35 @@ const DEFAULT_SETTINGS = {
   motorSerialPort: '/dev/ttyS3', controlBoardAddress: 0,
 };
 
+// ── Fridge lighting policy ────────────────────────────────────────────────────
+// brightness is 0-100 everywhere operator-facing. The board's own scale is the SDK's "grade", whose
+// range isn't in the signature, so the app maps it — the operator scale must not be hostage to it.
+//
+// night: an optional window with its own level. from > to means the window WRAPS MIDNIGHT
+//   (22:00-08:00), and the naive `now >= from && now <= to` test is false for every minute of such a
+//   window — the night level would simply never apply and nothing would report it. storage.js's
+//   dealInSchedule already handles the wrap and is the thing to copy.
+// night.timezone is stated explicitly and never inferred from the machine: these boards' own
+//   timezone handling is one more thing not to depend on.
+// night.requiresClockProof: the app must NOT apply a night window until it has completed one
+//   successful authenticated backend poll since boot. These boards come back from a power cut with
+//   the clock badly wrong — 2000-01-01 and 2026-12-26 both seen this month — and a wrong clock fails
+//   TLS silently, so the machine reaches nothing while looking healthy on screen. A poll that
+//   SUCCEEDED is therefore proof the clock is right. Until that proof exists, hold the day level:
+//   a fridge too bright at 3am is a nuisance, a fridge dark at midday is lost sales.
+// wake: full brightness while a customer is shopping, triggered on DOOR UNLOCK — the app already
+//   drives the lock and knows the moment it fires, it is earlier than door-open, and screen-touch
+//   would fire on idle curiosity all evening in a hotel lobby. It ends at the settle after door
+//   close, no sooner than holdSeconds: cutting the light at door close cuts it while the customer is
+//   still standing there. The wake applies even when mode is 'off' — off means dark when nobody is
+//   here, not dark for a paying customer.
+const DEFAULT_LED = {
+  mode: 'on',                // 'off' | 'on' | 'schedule'
+  brightness: 100,           // 0-100, the level when lit and outside any night window
+  night: null,               // { from, to, brightness, timezone, requiresClockProof }
+  wake: { enabled: true, brightness: 100, holdSeconds: 45, trigger: 'door_unlock' },
+};
+
 const DEFAULT_PROFILE = (operatorName, machineLabel) => ({
   operatorName, supportEmail: 'hallo@snarlogsopi.is',
   supportPhone: null, machineLabel,
@@ -564,7 +593,21 @@ function fridgePlanogramBlock(machine) {
   const paymentSerialPort = (typeof cfg2.paymentSerialPort === 'string' && cfg2.paymentSerialPort.trim())
     ? cfg2.paymentSerialPort.trim()
     : defaultPaymentPort;
-  return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, paymentSerialPort, baskets: rows } };
+  return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, paymentSerialPort, led: ledPolicy(machine), baskets: rows } };
+}
+
+// Merge a machine's stored lighting settings over the defaults, so a machine that has never been
+// configured still receives a complete, valid policy rather than an absent block the app must guess at.
+function ledPolicy(machine) {
+  const cfg = (machine.settings && machine.settings.led) || null;
+  const wake = Object.assign({}, DEFAULT_LED.wake, (cfg && cfg.wake) || {});
+  if (!cfg) return Object.assign({}, DEFAULT_LED, { wake });
+  return {
+    mode: cfg.mode || DEFAULT_LED.mode,
+    brightness: cfg.brightness != null ? cfg.brightness : DEFAULT_LED.brightness,
+    night: cfg.night ? Object.assign({}, cfg.night) : null,
+    wake,
+  };
 }
 
 function touchConfig(machine) {
@@ -579,7 +622,7 @@ module.exports = {
   storage,
   provisionMachine, validateMachineKey, revokeKey,
   markKioskSeen, isKioskAlive,
-  buildConfigResponse, touchConfig, fridgeSpec,
+  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
