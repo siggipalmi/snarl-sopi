@@ -1755,40 +1755,54 @@ const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 
 const CMD_TTL_MS = 5 * 60 * 1000;
 
 // ── Payment serial port: what "correct" is, and why a wrong one is invisible ───────────────────
-// The assignment is EXACTLY SWAPPED between machine types (the full note lives in db.js): coil puts
-// Nayax on ttyS3 and motors on ttyS1; gravity puts the weight bus on ttyS3 and Nayax on ttyS1. Any
-// other port is simply dead. 8626020716 was pointed at ttyS4 and never received a single byte, and
-// that took three days to find because a dead payment link presents as a quiet machine rather than
-// as an error — nothing anywhere reports it.
+// Three different answers, and none is inferable from the others (full note in db.js):
+//   coil           : Nayax on ttyS3  (ttyS1 is the motor bus)
+//   gravity double : Nayax on ttyS1  (ttyS3 is the weight bus)
+//   gravity single : Nayax on ttyS4  (ttyS3 is the weight bus)
+// The two fridge sizes do NOT match each other, which is the part that keeps being got wrong in
+// both directions: ttyS4 is dead on a double (three days on 8626020716), and ttyS1 is dead on a
+// single. Both confirmed on real hardware. A dead payment port reports nothing — the machine
+// simply stops taking cards — so the check has to happen here, at the point of setting it.
 //
-// Kind is read from BOTH signals because they can disagree: a fridge registered before model support
-// existed carries isKioskModel=false while its model string still says coil. 8626020623 is exactly
-// that, so trusting the model alone would recommend the coil port for a gravity machine.
+// Size comes from the model, so a machine whose model is not GR-* cannot be placed: isKioskModel
+// can say "not a kiosk" while the model string still says coil (a fridge registered before model
+// support existed). In that state we genuinely do not know which port is right, so we must not
+// refuse a plausible one — say what is unresolved and let it through.
 function machineKindForPort(m) {
-  const byModel = require('./db').fridgeSpec((m && m.model) || '').isFridge;
-  const byFlag = !!(m && m.isKioskModel === false);
-  return { byModel, byFlag, isGravity: byModel || byFlag, disagree: byModel !== byFlag };
+  const spec = require('./db').fridgeSpec((m && m.model) || '');
+  const flagSaysGravity = !!(m && m.isKioskModel === false);
+  return {
+    isFridgeByModel: spec.isFridge,
+    doors: spec.doors || 0,
+    flagSaysGravity,
+    // Size known only when the model actually identifies a fridge.
+    resolved: spec.isFridge || !flagSaysGravity,
+  };
 }
-function expectedPaymentPort(m) { return machineKindForPort(m).isGravity ? '/dev/ttyS1' : '/dev/ttyS3'; }
+function expectedPaymentPort(m) {
+  const k = machineKindForPort(m);
+  if (!k.resolved) return null;                          // model not set — size unknown
+  if (!k.isFridgeByModel) return '/dev/ttyS3';           // coil
+  return k.doors === 2 ? '/dev/ttyS1' : '/dev/ttyS4';    // double vs single fridge
+}
 
 // Returns an explanation when this port shouldn't be accepted, or null when it's fine.
 function paymentPortRejection(m, port, accepted) {
   if (accepted === true) return null;   // explicit override — the caller has said they mean it
-  const kind = machineKindForPort(m);
   const want = expectedPaymentPort(m);
+  // Unknown size: refusing here would block the only person who can fix it, so allow and explain.
+  if (!want) return null;
   if (port === want) return null;
-  let msg = `${port} is not where Nayax is wired on this machine. `
-    + `${kind.isGravity ? 'Gravity' : 'Coil'} machines read payment on ${want}`
-    + `${kind.isGravity ? ' (ttyS3 is the weight bus)' : ' (ttyS1 is the motor bus)'}. `
-    + `A port with nothing on the other end never reports an error — the machine just stops taking cards.`;
-  if (kind.disagree) {
-    msg += ` Careful: this machine's model (${(m && m.model) || 'unset'}) says `
-      + `${kind.byModel ? 'gravity' : 'coil'} while its isKioskModel flag says `
-      + `${kind.byFlag ? 'gravity' : 'coil'}. Correct the model first if ${want} looks wrong.`;
-  }
-  return msg + ` If you really do mean ${port}, resend with acceptNonStandardPort: true.`;
+  const k = machineKindForPort(m);
+  const kindLabel = !k.isFridgeByModel ? 'Coil machines'
+    : (k.doors === 2 ? 'Double-door fridges' : 'Single-door fridges');
+  const busNote = !k.isFridgeByModel ? 'ttyS1 is the motor bus' : 'ttyS3 is the weight bus';
+  return `${port} is not where Nayax is wired on this machine. ${kindLabel} read payment on ${want} `
+    + `(${busNote}). The two fridge sizes differ here and neither follows from the other, so this is `
+    + `worth double-checking against the machine in front of you. A port with nothing on the other `
+    + `end never reports an error — the machine just stops taking cards. `
+    + `If you really do mean ${port}, resend with acceptNonStandardPort: true.`;
 }
-const isoOrNull = (ms) => (ms ? new Date(ms).toISOString() : null);
 
 // POST /machines/:deviceCode/commands  (operator) — enqueue one command.
 function handleEnqueueCommand(req, res) {

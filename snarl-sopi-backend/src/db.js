@@ -547,17 +547,23 @@ function fridgePlanogramBlock(machine) {
       enabled,
     };
   });
-  // ── Serial ports: the assignment is EXACTLY SWAPPED between machine types ──
-  //   Coil    : ttyS3 = Nayax payment,  ttyS1 = motors
-  //   Gravity : ttyS3 = weight bus,     ttyS1 = Nayax payment
-  // Neither can be inferred from the other. Assuming they matched cost three days chasing a
-  // payment fault on 8626020716, where the app talked to ttyS4 and never received a single byte;
-  // moving it to ttyS1 handshook in two seconds. Serve the port explicitly so a reinstall or a
-  // cleared app can't silently revert to a wrong default.
+  // ── Serial ports: the assignment differs by machine type AND by fridge size ──
+  //   Coil          : ttyS3 = Nayax payment,  ttyS1 = motors
+  //   Gravity double : ttyS3 = weight bus,    ttyS1 = Nayax payment
+  //   Gravity single : ttyS3 = weight bus,    ttyS4 = Nayax payment
+  // None of these can be inferred from the others, and the two fridge sizes do NOT match each
+  // other — that is the part that is easy to get wrong. Assuming coil and gravity matched cost
+  // three days on 8626020716 (a DOUBLE), where the app talked to ttyS4 and never received a single
+  // byte; ttyS1 handshook in two seconds. The opposite mistake is just as available: ttyS1 is dead
+  // on a SINGLE, where Nayax is on ttyS4. Confirmed on real hardware for both sizes.
+  // Serve the port explicitly so a reinstall, a restart or a cleared app can't silently revert to
+  // a wrong default — a machine that comes back up on the wrong port takes no cards and says
+  // nothing about it.
   const cfg2 = machine.settings || {};
+  const defaultPaymentPort = (spec.doors === 2) ? '/dev/ttyS1' : '/dev/ttyS4';
   const paymentSerialPort = (typeof cfg2.paymentSerialPort === 'string' && cfg2.paymentSerialPort.trim())
     ? cfg2.paymentSerialPort.trim()
-    : '/dev/ttyS1';
+    : defaultPaymentPort;
   return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, paymentSerialPort, baskets: rows } };
 }
 
