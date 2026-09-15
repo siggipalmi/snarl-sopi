@@ -9324,6 +9324,30 @@ function saveApiSettings() {
 // MACHINE MODALS
 // ═══════════════════════════════════════════════════════════════
 
+// Model is the ONLY thing that makes a machine a fridge: fridgeSpec() on the backend reads GR- to
+// decide cabinets and basket count, and config carries no fridge planogram without it. This form had
+// no model field, so every machine added here was registered as a coil machine and a fridge would
+// never receive its baskets - the exact failure handleAddMachine warns about in its own comment.
+const MACHINE_MODELS = [
+  ['VM-WM55DL',    'VM-WM55DL \u2014 coil machine (spiral lanes)'],
+  ['GR-WM22Z680',  'GR-WM22Z680 \u2014 fridge, single door (16 baskets, cabinet A)'],
+  ['GR-WM22Z1260', 'GR-WM22Z1260 \u2014 fridge, double door (32 baskets, cabinets A+B)'],
+];
+function isFridgeModel(model) { return /^GR-/.test(String(model || '')); }
+function machineModelField(current) {
+  const cur = String(current || 'VM-WM55DL');
+  // Keep an unrecognised current model as an option, so opening the edit form on a machine with an
+  // unusual model and pressing save does not quietly reassign it to something else.
+  const known = MACHINE_MODELS.some(function (o) { return o[0] === cur; });
+  const opts = (known ? MACHINE_MODELS : MACHINE_MODELS.concat([[cur, cur + ' \u2014 unrecognised model']]))
+    .map(function (o) {
+      return '<option value="' + rsEsc(o[0]) + '"' + (o[0] === cur ? ' selected' : '') + '>' + rsEsc(o[1]) + '</option>';
+    }).join('');
+  return '<div class="field"><div class="fl">model</div>' +
+    '<select class="fi" id="m-model">' + opts + '</select>' +
+    '<div style="font-size:11px;color:var(--muted);margin-top:5px">Decides whether this machine gets a fridge planogram, and how many baskets.</div></div>';
+}
+
 function openAddMachine() {
   document.getElementById('modal-machine-title').textContent = 'add machine.';
   document.getElementById('modal-machine').innerHTML = `<div class="modal-card">
@@ -9332,6 +9356,7 @@ function openAddMachine() {
     <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" placeholder="Gamli Gerpla"></div>
     <div class="field"><div class="fl">location</div><input class="fi" id="m-location" placeholder="City Plaza B1"></div>
     <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" value="AG Vending"></div>
+    ${machineModelField('VM-WM55DL')}
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-full" onclick="saveMachine()"><span>add machine</span><span>→</span></button>
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-machine')">cancel</button>
@@ -9348,6 +9373,7 @@ function openEditMachine(code) {
     <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" value="${m.deviceName}"></div>
     <div class="field"><div class="fl">location</div><input class="fi" id="m-location" value="${m.location}"></div>
     <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" value="${m.settings.operatorName}"></div>
+    ${machineModelField(m.model)}
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-full" onclick="saveMachine('${code}')"><span>save changes</span><span>→</span></button>
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-machine')">cancel</button>
@@ -9361,24 +9387,53 @@ async function saveMachine(existingCode) {
   const name = document.getElementById('m-deviceName')?.value?.trim();
   const loc  = document.getElementById('m-location')?.value?.trim();
   const op   = document.getElementById('m-operatorName')?.value?.trim();
+  const model = document.getElementById('m-model')?.value?.trim() || 'VM-WM55DL';
   if(!code||!name) { showToast('Device code and name required'); return; }
   if(existingCode) {
+    // Switching a machine between coil and fridge changes which config it receives and flips
+    // stockSource on the backend. Worth a deliberate yes — it is not a cosmetic field.
+    const prevModel = (DB.machines[existingCode] || {}).model;
+    if (prevModel && prevModel !== model && isFridgeModel(prevModel) !== isFridgeModel(model)) {
+      if (!confirm('Change this machine from ' + (isFridgeModel(prevModel) ? 'fridge' : 'coil') +
+        ' to ' + (isFridgeModel(model) ? 'fridge' : 'coil') + '?\n\n' +
+        'It changes the config the machine is served and where its stock is counted from. ' +
+        'Only do this if the model on record is genuinely wrong.')) return;
+    }
     // Persist to the backend so the edit survives a refresh / re-sync.
     if (backendOnline && API_TOKEN) {
       try {
         const r = await API.put('/api/v1/machines/' + encodeURIComponent(existingCode),
-          { deviceName: name, location: loc || '', operatorName: op || '' });
+          { deviceName: name, location: loc || '', operatorName: op || '', model: model });
         if (!r.ok) { showToast(r.error || 'Could not save machine'); return; }
       } catch (e) { showToast('error: ' + e.message); return; }
     }
     const m = DB.machines[existingCode];
-    m.deviceName = name; m.location = loc||m.location;
+    m.deviceName = name; m.location = loc||m.location; m.model = model;
+    m.isKioskModel = !isFridgeModel(model);
     if (m.settings) m.settings.operatorName = op||m.settings.operatorName;
     m.updatedAt = new Date().toISOString();
   } else {
     if(DB.machines[code]) { showToast('Device code already exists'); return; }
+    // Create it on the BACKEND. Until now this branch only wrote to DB and localStorage, so
+    // "Machine added" was untrue: the machine lived in one browser, never reached SQLite, had no
+    // config and no key — and hydrateMachinesFromBackend deleted it again on the next refresh,
+    // because anything the backend doesn't return is dropped from DB.machines.
+    if (backendOnline && API_TOKEN) {
+      try {
+        const r = await API.post('/api/v1/machines',
+          { deviceCode: code, deviceName: name, location: loc || '', operatorName: op || '', model: model });
+        if (!r || !r.ok) { showToast((r && r.error) || 'Could not add machine'); return; }
+      } catch (e) { showToast('error: ' + e.message); return; }
+      // Take the backend's own record rather than a local guess at it.
+      closeModal('modal-machine');
+      await hydrateMachinesFromBackend();
+      saveData(); populateMachineSelects(); renderMachines();
+      showToast(isFridgeModel(model) ? 'Machine added as a fridge' : 'Machine added');
+      return;
+    }
     DB.machines[code] = {
       deviceCode:code, deviceName:name, location:loc||'', isOnline:false, isRunning:false,
+      model: model, isKioskModel: !isFridgeModel(model),
       kioskVersion:null, totalCurrStock:0, maxStock:0,
       settings:{ operatorName:op||'AG Vending', showAdRegion:true, showLeftHero:true, showRightHero:true,
         showIdleScreen:false, idleTimeoutSeconds:60, defaultLanguage:'Icelandic',
@@ -9397,7 +9452,10 @@ async function saveMachine(existingCode) {
       openMachineDetail(existingCode);
     }
   } catch (e) { /* non-fatal */ }
-  showToast(existingCode?'Machine updated':'Machine added');
+  // A successful add returns earlier with its own toast, so reaching here without existingCode
+  // means the backend was unreachable and the machine exists only in this browser. Say so.
+  showToast(existingCode ? 'Machine updated'
+    : 'Backend offline \u2014 added in this browser only. It will NOT persist; add it again when the backend is reachable.');
 }
 
 // ═══════════════════════════════════════════════════════════════
