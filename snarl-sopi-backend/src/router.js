@@ -2087,6 +2087,14 @@ function handleDebugCommands(req, res) {
   });
   json(res, 200, {
     deviceCode,
+    known: !!m,
+    // model decides fridge-ness and therefore whether config carries a planogram at all, so it is
+    // the first thing to check when a machine shows the wrong layout. Exposed here because this
+    // endpoint needs no login: it is the one way to see what the BACKEND believes from a phone,
+    // without a dashboard that might be showing a stale local copy.
+    model: (m && m.model) || null,
+    isFridge: m ? require('./db').fridgeSpec(m.model || '').isFridge : null,
+    isKioskModel: m ? (m.isKioskModel !== false) : null,
     stockSource: (m && m.stockSource) || null,
     configVersion: m ? m.configVersion : null,
     dropSensor: (m && m.settings && m.settings.dropSensor === 'on') ? 'on' : 'off',

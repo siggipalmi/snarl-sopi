@@ -9399,14 +9399,19 @@ async function saveMachine(existingCode) {
         'It changes the config the machine is served and where its stock is counted from. ' +
         'Only do this if the model on record is genuinely wrong.')) return;
     }
-    // Persist to the backend so the edit survives a refresh / re-sync.
-    if (backendOnline && API_TOKEN) {
-      try {
-        const r = await API.put('/api/v1/machines/' + encodeURIComponent(existingCode),
-          { deviceName: name, location: loc || '', operatorName: op || '', model: model });
-        if (!r.ok) { showToast(r.error || 'Could not save machine'); return; }
-      } catch (e) { showToast('error: ' + e.message); return; }
+    // Persist to the backend so the edit survives a refresh / re-sync. If the backend can't be
+    // reached there is nothing useful to do: hydrateMachinesFromBackend drops anything the backend
+    // doesn't return, so a local-only edit is silently undone on the next load and looks on this
+    // screen exactly like a save that worked. Refuse and say so instead of reporting success.
+    if (!(backendOnline && API_TOKEN)) {
+      showToast('Backend unreachable \u2014 nothing was saved. A machine edit has to reach the backend or it is undone on the next refresh.');
+      return;
     }
+    try {
+      const r = await API.put('/api/v1/machines/' + encodeURIComponent(existingCode),
+        { deviceName: name, location: loc || '', operatorName: op || '', model: model });
+      if (!r.ok) { showToast(r.error || 'Could not save machine'); return; }
+    } catch (e) { showToast('error: ' + e.message); return; }
     const m = DB.machines[existingCode];
     m.deviceName = name; m.location = loc||m.location; m.model = model;
     m.isKioskModel = !isFridgeModel(model);
