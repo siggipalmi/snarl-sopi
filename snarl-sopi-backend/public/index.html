@@ -969,6 +969,12 @@ select.fi{cursor:pointer;}
           <div style="padding:14px 18px 16px;font-size:12.5px;color:var(--muted)">Asks the kiosk which lanes it believes are closed, and whether it failed to decode any. Run this after closing lanes and before the machine takes money — the result appears as a banner at the top of this page.</div>
         </div>
 
+        <!-- Fridge lighting. Hidden on coil machines; filled by renderMachineLight(). -->
+        <div class="panel" id="md-light-panel" style="margin-bottom:16px;display:none">
+          <div class="ph"><div class="ph-title" data-i18n="lt.title">lighting.</div></div>
+          <div id="md-light-body" style="padding:18px"></div>
+        </div>
+
         <div class="panel" id="md-scale-panel" style="margin-bottom:16px;display:none">
           <div class="ph"><div class="ph-title">scales &amp; sensors.</div></div>
           <div style="padding:14px 18px 16px">
@@ -1154,7 +1160,7 @@ select.fi{cursor:pointer;}
                 <div><div class="tgl-label">LED strips</div></div>
                 <label class="tgl"><input type="checkbox" id="ds-hasLedStrips"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
               </div>
-              <div class="field" style="margin-top:12px"><div class="fl">LED brightness (0–10)</div><input class="fi mono" id="ds-ledBrightness" type="number" min="0" max="10"></div>
+              <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.45">Brightness, schedule and the shopping wake live on each fridge's <strong>Controls</strong> tab — they are per-machine and are sent to the machine, which the old 0–10 field here never was.</div>
               <div class="field"><div class="fl">motor serial port</div><input class="fi mono" id="ds-motorSerialPort"></div>
               <div class="field"><div class="fl">control board address</div><input class="fi mono" id="ds-controlBoardAddress" type="number"></div>
             </div>
@@ -1807,6 +1813,18 @@ const I18N = {
     'mch.th.deviceCode':'device code','mch.th.nameLocation':'name / location','mch.th.machine':'machine','mch.th.lastVisit':'last visit','mch.th.operatorName':'operator name',
     'mch.unsupported':'unsupported','mch.unsupportedLayout':'unsupported layout','mch.link':'link →',
     'cell.noData':'no data','cell.yesterday':'yesterday','cell.daysAgo':'days ago',
+    'lt.title':'lighting.','lt.mode':'mode','lt.off':'off','lt.on':'on','lt.schedule':'schedule',
+    'lt.dayLevel':'daytime brightness','lt.night':'night window','lt.nightLevel':'night brightness','lt.to':'to',
+    'lt.wrap':'Crosses midnight \u2014 runs through to the next morning.',
+    'lt.wake':'full brightness while shopping',
+    'lt.wakeHint':'Jumps to full when a customer unlocks the door, then returns to the scheduled level \u2014 including when the lights are off.',
+    'lt.save':'save lighting','lt.saved':'Lighting saved.','lt.saveErr':'Could not save lighting.',
+    'lt.now':'now','lt.nowHint':'what the machine should be doing, by its own clock',
+    'lt.test':'test on the machine','lt.testFull':'full','lt.testDim':'dim','lt.testOff':'off',
+    'lt.testSent':'sent \u2014 the machine answers within about 5 seconds',
+    'lt.unsupported':'This machine\u2019s app cannot control the lights yet.',
+    'lt.loading':'Loading\u2026','lt.loadErr':'Could not load lighting.',
+    'lt.clockNote':'The night level only applies once the machine has reached the backend since booting \u2014 that is what proves its clock is right.',
     'sc.title':'scale','sc.hint':'these act on the machine straight away — there is nothing to save',
     'sc.read':'read weight','sc.tare':'tare','sc.calibrate':'calibrate',
     'sc.notRead':'not read','sc.working':'working','sc.done':'done','sc.failed':'failed','sc.unsupported':'unsupported',
@@ -1869,6 +1887,18 @@ const I18N = {
     'mch.th.deviceCode':'vélakóði','mch.th.nameLocation':'nafn / staðsetning','mch.th.machine':'vél','mch.th.lastVisit':'síðasta heimsókn','mch.th.operatorName':'nafn aðila',
     'mch.unsupported':'óstutt','mch.unsupportedLayout':'óstutt uppsetning','mch.link':'tengja →',
     'cell.noData':'engin gögn','cell.yesterday':'í gær','cell.daysAgo':'dögum síðan',
+    'lt.title':'l\u00fdsing.','lt.mode':'stilling','lt.off':'sl\u00f6kkt','lt.on':'kveikt','lt.schedule':'\u00e1\u00e6tlun',
+    'lt.dayLevel':'birta a\u00f0 degi','lt.night':'n\u00e6turgluggi','lt.nightLevel':'n\u00e6turbirta','lt.to':'til',
+    'lt.wrap':'Fer yfir mi\u00f0n\u00e6tti \u2014 gildir fram \u00e1 n\u00e6sta morgun.',
+    'lt.wake':'full birta me\u00f0an verslad er',
+    'lt.wakeHint':'Fer \u00ed fulla birtu \u00feegar vi\u00f0skiptavinur opnar hur\u00f0ina og aftur \u00ed \u00e1\u00e6tla\u00f0a birtu \u00e1 eftir \u2014 l\u00edka \u00feótt sl\u00f6kkt s\u00e9.',
+    'lt.save':'vista l\u00fdsingu','lt.saved':'L\u00fdsing vistu\u00f0.','lt.saveErr':'T\u00f3kst ekki a\u00f0 vista l\u00fdsingu.',
+    'lt.now':'n\u00fana','lt.nowHint':'\u00fea\u00f0 sem v\u00e9lin \u00e1 a\u00f0 gera, mi\u00f0a\u00f0 vi\u00f0 hennar eigin klukku',
+    'lt.test':'pr\u00f3fa \u00e1 v\u00e9linni','lt.testFull':'full','lt.testDim':'dimm','lt.testOff':'sl\u00f6kkt',
+    'lt.testSent':'sent \u2014 v\u00e9lin svarar innan um 5 sek\u00fandna',
+    'lt.unsupported':'Forriti\u00f0 \u00ed \u00feessari v\u00e9l r\u00e6\u00f0ur ekki vi\u00f0 l\u00fdsingarst\u00fdringu enn.',
+    'lt.loading':'Hle\u00f0\u2026','lt.loadErr':'T\u00f3kst ekki a\u00f0 hla\u00f0a l\u00fdsingu.',
+    'lt.clockNote':'N\u00e6turbirtan tekur gildi \u00feegar v\u00e9lin hefur n\u00e1\u00f0 sambandi vi\u00f0 bakendann eftir r\u00e6singu \u2014 \u00fea\u00f0 sta\u00f0festir a\u00f0 klukkan s\u00e9 r\u00e9tt.',
     'sc.title':'vigt','sc.hint':'\u00feetta virkar strax \u00e1 v\u00e9linni \u2014 ekkert a\u00f0 vista',
     'sc.read':'lesa \u00feyngd','sc.tare':'n\u00fallstilla','sc.calibrate':'kvar\u00f0a',
     'sc.notRead':'ekki lesi\u00f0','sc.working':'vinn','sc.done':'loki\u00f0','sc.failed':'mist\u00f3kst','sc.unsupported':'\u00f3stutt',
@@ -5539,6 +5569,9 @@ function showMdTab(name, el) {
       var isFridgeX = /^GR-/.test(String(machX.model || ''));
       var scale = document.getElementById('md-scale-panel');
       if (scale) scale.style.display = isFridgeX ? '' : 'none';
+      var light = document.getElementById('md-light-panel');
+      if (light) light.style.display = isFridgeX ? '' : 'none';
+      if (isFridgeX) renderMachineLight(_mdDeviceCode);
       var disp = document.getElementById('md-dispense-panel');
       if (disp) disp.style.display = isFridgeX ? 'none' : '';
     } catch (e) { /* non-fatal */ }
@@ -5862,6 +5895,207 @@ function openFridgeBasketEditor(cab, n) {
   _fpPickedProduct = b.productId ? { goodsId: b.productId, name: b.productName, weightGrams: b.effectiveWeightG } : null;
   scaleReset(cab, n);
   modal.classList.add('show');
+}
+
+// ─── Fridge lighting ──────────────────────────────────────────────────────────
+// The durable policy lives in config (settings.led); set_led is an instant override for proving the
+// wiring or lighting a machine up to restock, exactly as set_aisle_enabled overrides disabledAisles.
+// Current values are read from the machine's own configPreview rather than a local copy, so what is
+// shown is what the machine will actually be served.
+let _ltCode = null, _ltPolicy = null, _ltBusy = false;
+
+const LT_DEFAULT = { mode: 'on', brightness: 100, night: null,
+                     wake: { enabled: true, brightness: 100, holdSeconds: 45, trigger: 'door_unlock' } };
+
+async function renderMachineLight(code) {
+  const el = document.getElementById('md-light-body');
+  if (!el) return;
+  _ltCode = code;
+  el.innerHTML = '<div style="font-size:12px;color:var(--muted)">' + rsEsc(t('lt.loading')) + '</div>';
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code));
+    const led = r && r.ok && r.data && r.data.configPreview && r.data.configPreview.fridge
+      ? r.data.configPreview.fridge.led : null;
+    _ltPolicy = Object.assign({}, LT_DEFAULT, led || {},
+      { wake: Object.assign({}, LT_DEFAULT.wake, (led && led.wake) || {}) });
+    ltPaint();
+  } catch (e) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--alert)">' + rsEsc(t('lt.loadErr')) + '</div>';
+  }
+}
+
+// Which level the machine should be at right now, by the night window's own timezone — NOT the
+// browser's, which is routinely a different one when someone checks from abroad.
+function ltNowLevel(p) {
+  if (!p) return null;
+  if (p.mode === 'off') return 0;
+  if (p.mode !== 'schedule' || !p.night) return p.brightness;
+  const tz = p.night.timezone || 'Atlantic/Reykjavik';
+  let hm;
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
+      .formatToParts(new Date());
+    const h = +parts.find(x => x.type === 'hour').value, m = +parts.find(x => x.type === 'minute').value;
+    hm = h * 60 + m;
+  } catch (e) { return p.brightness; }
+  const toM = (v) => { const m = /^(\d{2}):(\d{2})$/.exec(String(v || '')); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+  const f = toM(p.night.from), tt = toM(p.night.to);
+  if (f == null || tt == null) return p.brightness;
+  // from > to means the window wraps midnight (22:00-08:00). Testing hm>=f && hm<=tt would be false
+  // for every minute of such a window, so the night level would silently never show.
+  const inWindow = (f <= tt) ? (hm >= f && hm < tt) : (hm >= f || hm < tt);
+  return inWindow ? p.night.brightness : p.brightness;
+}
+
+function ltSlider(id, value) {
+  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  return '<div style="display:flex;align-items:center;gap:11px">' +
+    '<input type="range" id="' + id + '" min="0" max="100" step="5" value="' + v + '" ' +
+      'oninput="ltOnInput()" style="flex:1;accent-color:var(--bronze)">' +
+    '<span id="' + id + '-v" style="font-family:var(--mono);font-size:12px;width:42px;text-align:right">' + v + '%</span>' +
+  '</div>';
+}
+
+function ltSeg(mode) {
+  return ['off', 'on', 'schedule'].map(function (m) {
+    const on = (mode === m);
+    return '<div onclick="ltSetMode(\'' + m + '\')" style="flex:1;text-align:center;padding:8px 4px;font-size:12px;cursor:pointer;' +
+      (on ? 'background:var(--ink);color:var(--cream);font-weight:500;' : 'background:var(--cream);') + '">' +
+      rsEsc(t('lt.' + m)) + '</div>';
+  }).join('');
+}
+
+function ltPaint() {
+  const el = document.getElementById('md-light-body');
+  if (!el || !_ltPolicy) return;
+  const p = _ltPolicy;
+  const nightOn = !!p.night;
+  const n = p.night || { from: '22:00', to: '08:00', brightness: 10 };
+  const lvl = ltNowLevel(p);
+  el.innerHTML =
+    '<div style="font-family:var(--mono);font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">' + rsEsc(t('lt.mode')) + '</div>' +
+    '<div style="display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:14px">' + ltSeg(p.mode) + '</div>' +
+
+    '<div style="font-family:var(--mono);font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">' + rsEsc(t('lt.dayLevel')) + '</div>' +
+    ltSlider('lt-day', p.brightness) +
+
+    (p.mode === 'schedule' ?
+      '<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:13px">' +
+        '<label style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;margin-bottom:10px">' +
+          '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted)">' + rsEsc(t('lt.night')) + '</span>' +
+          '<input type="checkbox" id="lt-night-on" ' + (nightOn ? 'checked' : '') + ' onchange="ltToggleNight(this.checked)">' +
+        '</label>' +
+        (nightOn ?
+          '<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">' +
+            '<input type="time" id="lt-from" value="' + rsEsc(n.from) + '" class="fi mono" style="width:auto;flex:1">' +
+            '<span style="font-size:12px;color:var(--muted)">' + rsEsc(t('lt.to')) + '</span>' +
+            '<input type="time" id="lt-to" value="' + rsEsc(n.to) + '" class="fi mono" style="width:auto;flex:1">' +
+          '</div>' +
+          '<div style="font-family:var(--mono);font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">' + rsEsc(t('lt.nightLevel')) + '</div>' +
+          ltSlider('lt-night', n.brightness) +
+          '<div style="font-size:11px;color:var(--muted);margin-top:7px">' + rsEsc(t('lt.wrap')) + '</div>' +
+          '<div style="font-size:11px;line-height:1.45;color:var(--warn-ink);background:var(--warn-bg);border-radius:6px;padding:8px 9px;margin-top:8px">' + rsEsc(t('lt.clockNote')) + '</div>'
+        : '') +
+      '</div>'
+    : '') +
+
+    '<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:13px">' +
+      '<label style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;cursor:pointer">' +
+        '<span><span style="font-family:var(--mono);font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted)">' + rsEsc(t('lt.wake')) + '</span>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;max-width:46ch">' + rsEsc(t('lt.wakeHint')) + '</div></span>' +
+        '<input type="checkbox" id="lt-wake" ' + (p.wake.enabled ? 'checked' : '') + ' onchange="ltOnInput()">' +
+      '</label>' +
+    '</div>' +
+
+    (lvl != null ?
+      '<div style="margin-top:13px;background:var(--bronze-bg);border:1px solid var(--clay);border-radius:6px;padding:9px 11px;font-family:var(--mono);font-size:10.5px;color:var(--bronze)">' +
+        rsEsc(t('lt.now')) + ': <strong>' + lvl + '%</strong> · ' + rsEsc(t('lt.nowHint')) +
+      '</div>' : '') +
+
+    '<div style="display:flex;gap:7px;margin-top:14px">' +
+      '<button class="btn btn-sm" style="flex:1" onclick="ltSave()"><span>' + rsEsc(t('lt.save')) + '</span></button>' +
+    '</div>' +
+
+    '<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">' +
+      '<div style="font-family:var(--mono);font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">' + rsEsc(t('lt.test')) + '</div>' +
+      '<div style="display:flex;gap:7px">' +
+        '<button class="btn btn-ghost btn-sm" style="flex:1" onclick="ltTest(100)"><span>' + rsEsc(t('lt.testFull')) + '</span></button>' +
+        '<button class="btn btn-ghost btn-sm" style="flex:1" onclick="ltTest(10)"><span>' + rsEsc(t('lt.testDim')) + '</span></button>' +
+        '<button class="btn btn-ghost btn-sm" style="flex:1" onclick="ltTest(0)"><span>' + rsEsc(t('lt.testOff')) + '</span></button>' +
+      '</div>' +
+      '<div id="lt-test-out" style="margin-top:9px"></div>' +
+    '</div>';
+}
+
+// Keep the in-memory policy in step with the controls, so switching mode re-renders from live values
+// rather than from what was last loaded.
+function ltOnInput() {
+  if (!_ltPolicy) return;
+  const day = document.getElementById('lt-day');
+  if (day) { _ltPolicy.brightness = +day.value; const o = document.getElementById('lt-day-v'); if (o) o.textContent = day.value + '%'; }
+  const nb = document.getElementById('lt-night');
+  if (nb && _ltPolicy.night) { _ltPolicy.night.brightness = +nb.value; const o = document.getElementById('lt-night-v'); if (o) o.textContent = nb.value + '%'; }
+  const f = document.getElementById('lt-from'), tt = document.getElementById('lt-to');
+  if (f && tt && _ltPolicy.night) { _ltPolicy.night.from = f.value; _ltPolicy.night.to = tt.value; }
+  const w = document.getElementById('lt-wake');
+  if (w) _ltPolicy.wake.enabled = !!w.checked;
+}
+
+function ltSetMode(mode) { if (!_ltPolicy) return; ltOnInput(); _ltPolicy.mode = mode; ltPaint(); }
+
+function ltToggleNight(on) {
+  if (!_ltPolicy) return;
+  ltOnInput();
+  _ltPolicy.night = on ? { from: '22:00', to: '08:00', brightness: 10 } : null;
+  ltPaint();
+}
+
+async function ltSave() {
+  if (!_ltCode || !_ltPolicy || _ltBusy) return;
+  ltOnInput();
+  _ltBusy = true;
+  const body = { led: { mode: _ltPolicy.mode, brightness: _ltPolicy.brightness,
+    night: _ltPolicy.night ? { from: _ltPolicy.night.from, to: _ltPolicy.night.to, brightness: _ltPolicy.night.brightness } : null,
+    wake: { enabled: _ltPolicy.wake.enabled, brightness: 100, holdSeconds: _ltPolicy.wake.holdSeconds } } };
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_ltCode) + '/settings', body);
+    if (r && r.ok) { showToast(t('lt.saved')); await renderMachineLight(_ltCode); }
+    else showToast((r && r.error) || t('lt.saveErr'));
+  } catch (e) { showToast('error: ' + e.message); }
+  _ltBusy = false;
+}
+
+// Instant override, so the wiring can be proved without waiting for a config poll. Answers are
+// shown verbatim, and 'unsupported' is called out — a build that can't drive the strips must say so
+// rather than leave three buttons that quietly do nothing.
+async function ltTest(level) {
+  const out = document.getElementById('lt-test-out');
+  if (!_ltCode || !out) return;
+  out.innerHTML = '<div style="font-size:11.5px;color:var(--muted)">' + rsEsc(t('lt.testSent')) + '</div>';
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(_ltCode) + '/commands',
+      { type: 'set_led', params: { brightness: level } });
+    if (!r || !r.ok) { out.innerHTML = '<div style="font-size:11.5px;color:var(--alert)">' + rsEsc((r && r.error) || t('lt.saveErr')) + '</div>'; return; }
+    const id = r.data && r.data.id;
+    let tries = 0;
+    const poll = async function () {
+      tries++;
+      try {
+        const h = await API.get('/api/v1/machines/' + encodeURIComponent(_ltCode) + '/commands/history?limit=25');
+        const cmd = ((h.data && h.data.commands) || []).find(function (c) { return c.id === id; });
+        if (cmd && cmd.status !== 'pending') {
+          const detail = (cmd.result && cmd.result.detail) || '';
+          const colour = cmd.status === 'done' ? 'var(--success)' : (cmd.status === 'unsupported' ? 'var(--warn-ink)' : 'var(--alert)');
+          const text = cmd.status === 'unsupported' ? (detail || t('lt.unsupported')) : (detail || cmd.status);
+          out.innerHTML = '<div style="font-family:var(--mono);font-size:11px;line-height:1.5;color:' + colour + '">' + rsEsc(text) + '</div>';
+          return;
+        }
+      } catch (e) { /* a dropped poll is not a failed command */ }
+      if (tries > 12) { out.innerHTML = '<div style="font-size:11.5px;color:var(--muted)">' + rsEsc(t('sc.noAnswer')) + '</div>'; return; }
+      setTimeout(poll, 2500);
+    };
+    setTimeout(poll, 2500);
+  } catch (e) { out.innerHTML = '<div style="font-size:11.5px;color:var(--alert)">' + rsEsc(e.message) + '</div>'; }
 }
 
 // ─── Basket scale: read / tare / calibrate ────────────────────────────────────
@@ -6911,13 +7145,13 @@ function renderDisplayPage() {
   const code = document.getElementById('display-machine-select')?.value || Object.keys(DB.machines).find(c=>!DB.machines[c].unsupported);
   if(!code) return;
   const s = DB.machines[code].settings;
-  const ids = ['operatorName','supportEmail','supportMsg','defaultLanguage','showIdleScreen','idleTimeoutSeconds','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','ledBrightness','motorSerialPort','controlBoardAddress'];
+  const ids = ['operatorName','supportEmail','supportMsg','defaultLanguage','showIdleScreen','idleTimeoutSeconds','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','motorSerialPort','controlBoardAddress'];
   const map = {
     'ds-operatorName':s.operatorName, 'ds-supportEmail':s.supportEmail,
     'ds-supportMsg':s.supportCustomMessage, 'ds-defaultLanguage':s.defaultLanguage,
     'ds-showIdleScreen':s.showIdleScreen, 'ds-idleTimeoutSeconds':s.idleTimeoutSeconds,
     'ds-hasHeatedGlass':s.hasHeatedGlass, 'ds-heatedGlassDefaultOn':s.heatedGlassDefaultOn,
-    'ds-hasLedStrips':s.hasLedStrips, 'ds-ledBrightness':s.ledBrightness,
+    'ds-hasLedStrips':s.hasLedStrips,
     'ds-motorSerialPort':s.motorSerialPort, 'ds-controlBoardAddress':s.controlBoardAddress,
   };
   Object.entries(map).forEach(([id,val])=>{
@@ -6973,7 +7207,6 @@ function saveDisplaySettings() {
   s.hasHeatedGlass      = get('ds-hasHeatedGlass')?.checked||false;
   s.heatedGlassDefaultOn= get('ds-heatedGlassDefaultOn')?.checked||false;
   s.hasLedStrips        = get('ds-hasLedStrips')?.checked||false;
-  s.ledBrightness       = parseInt(get('ds-ledBrightness')?.value)||8;
   s.motorSerialPort     = get('ds-motorSerialPort')?.value||s.motorSerialPort;
   s.controlBoardAddress = parseInt(get('ds-controlBoardAddress')?.value)||0;
   DB.machines[code].settings.operatorName && (DB.machines[code].updatedAt = new Date().toISOString());
@@ -9444,7 +9677,7 @@ async function saveMachine(existingCode) {
         showIdleScreen:false, idleTimeoutSeconds:60, defaultLanguage:'Icelandic',
         availableLanguages:['Icelandic','English'], supportEmail:'hallo@snarlogsopi.is',
         supportCustomMessage:'', hasHeatedGlass:true, heatedGlassDefaultOn:true,
-        hasLedStrips:true, ledBrightness:8, motorSerialPort:'/dev/ttyS3', controlBoardAddress:0 },
+        hasLedStrips:true, motorSerialPort:'/dev/ttyS3', controlBoardAddress:0 },
       featured:[], products:[], updatedAt:new Date().toISOString(),
     };
   }

@@ -45,8 +45,6 @@ function validateSettings(body) {
     errors.push('supportEmail must be a string');
   if (body.idleTimeoutSeconds !== undefined && (typeof body.idleTimeoutSeconds !== 'number' || body.idleTimeoutSeconds < 10))
     errors.push('idleTimeoutSeconds must be a number ≥ 10');
-  if (body.ledBrightness !== undefined && (typeof body.ledBrightness !== 'number' || body.ledBrightness < 0 || body.ledBrightness > 10))
-    errors.push('ledBrightness must be 0–10');
   if (body.defaultLanguage !== undefined && !validLanguages.includes(body.defaultLanguage))
     errors.push(`defaultLanguage must be one of: ${validLanguages.join(', ')}`);
   if (body.availableLanguages !== undefined) {

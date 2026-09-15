@@ -18,7 +18,7 @@ const DEFAULT_SETTINGS = {
   showIdleScreen: false, idleTimeoutSeconds: 60,
   defaultLanguage: 'Icelandic', availableLanguages: ['Icelandic', 'English'],
   hasHeatedGlass: false, heatedGlassDefaultOn: false,
-  hasLedStrips: false, ledBrightness: 8,
+  hasLedStrips: true,   // matches both machine-creation paths, which disagreed with this default
   motorSerialPort: '/dev/ttyS3', controlBoardAddress: 0,
 };
 
