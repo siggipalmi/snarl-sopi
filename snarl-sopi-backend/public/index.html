@@ -2975,25 +2975,31 @@ function closeSidebar()  { document.getElementById('sidebar').classList.remove('
 // ═══════════════════════════════════════════════════════════════
 
 function pill(cls,text) { return `<span class="pill ${cls}">${text}</span>`; }
-function fmtTime(ts) { return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
-function fmtTimeS(ts) { return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 function fmtDate(ts) { return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); }
 // Order rows carry a date as well as a clock time. A bare time is ambiguous the moment a list spans
 // midnight, which the orders page (up to 100 rows) almost always does, and these rows get reconciled
 // against Nayax days later. Seconds stay because that is what matches a card transaction. The year is
 // shown only when it is not the current one, so the common case stays short enough for the mobile card
 // layout, where this cell gets its own line.
-function fmtDateTimeS(ts) {
+function fmtDateTimeParts(ts, withSeconds) {
   // Falsy first, and not just isNaN: new Date(null) and new Date(0) are the epoch, a perfectly valid
-  // date, so a missing createTime would render as a confident '01 Jan 1970' instead of a dash.
+  // date, so a missing timestamp would render as a confident '01 Jan 1970' instead of a dash. One
+  // core so that guard lives in exactly one place rather than being fixed in only half of them.
   if (!ts) return '\u2014';
   const d = new Date(ts);
   if (isNaN(d.getTime())) return '\u2014';
   const dateOpts = { day: '2-digit', month: 'short' };
   if (d.getFullYear() !== new Date().getFullYear()) dateOpts.year = 'numeric';
-  return d.toLocaleDateString('en-GB', dateOpts) + ' ' +
-    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const timeOpts = withSeconds
+    ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }
+    : { hour: '2-digit', minute: '2-digit' };
+  return d.toLocaleDateString('en-GB', dateOpts) + ' ' + d.toLocaleTimeString('en-GB', timeOpts);
 }
+// Order rows keep seconds: that is what matches a Nayax card transaction when reconciling.
+function fmtDateTimeS(ts) { return fmtDateTimeParts(ts, true); }
+// A release publish time and a machine's last update check are read days later and to the minute;
+// seconds there are noise. Both previously showed a bare clock time with no date at all.
+function fmtDateTime(ts) { return fmtDateTimeParts(ts, false); }
 function timeAgo(ts) {
   const _t=new Date(ts).getTime(); if(isNaN(_t)) return '';
   const d=(Date.now()-_t)/1000;
@@ -9367,7 +9373,7 @@ async function renderAppUpdates() {
         <span class="pill pill-out">${cohortTxt}</span>
       </div>
       <div style="font-size:11px;color:var(--muted);font-family:var(--mono);word-break:break-all">${rsEsc(rel.apkUrl || '')}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">${rel.sha256 ? 'sha256 ✓' : 'no sha256'} · published ${rel.publishedAt ? fmtTime(rel.publishedAt) : '—'}${rel.publishedBy ? ' by ' + rsEsc(rel.publishedBy) : ''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${rel.sha256 ? 'sha256 ✓' : 'no sha256'} · published ${rel.publishedAt ? fmtDateTime(rel.publishedAt) : '—'}${rel.publishedBy ? ' by ' + rsEsc(rel.publishedBy) : ''}</div>
       <div style="margin-top:10px">${on
         ? '<button class="btn btn-sm" style="background:var(--alert);color:#fff" onclick="haltAppRollout(false)">⏸ halt rollout</button>'
         : '<button class="btn btn-sm btn-ghost" onclick="haltAppRollout(true)">▶ resume rollout</button>'}</div>
@@ -9419,7 +9425,7 @@ async function renderAppUpdates() {
       <td style="padding:6px 8px;font-size:12px">${rsEsc(m.deviceName || m.deviceCode)}</td>
       <td style="padding:6px 8px;font-size:11px;color:var(--muted);font-family:var(--mono)">${rsEsc(m.deviceCode)}</td>
       <td style="padding:6px 8px">${st}</td>
-      <td style="padding:6px 8px;font-size:11px;color:var(--muted)">${m.lastCheck ? fmtTime(m.lastCheck) : '—'}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--muted)">${m.lastCheck ? fmtDateTime(m.lastCheck) : '—'}</td>
     </tr>`;
   }).join('');
   const table = `<div style="margin-top:20px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Fleet versions</div>
