@@ -21,7 +21,7 @@ machines, an operator dashboard, and a marketing site.
 
 **The gravity fridge Android app is not in this repository.** It is the
 package `isl.snudursopi.fridge`, at v0.54.0 / versionCode 135, and it lives
-on Siggi's Mac under `~/WM22/snarl-fridge-vX.XX.X`. Backend features
+on Siggi's Mac at `~/AndroidStudioProjects/WM22`. Backend features
 routinely block on it — v6.31 shipped a lighting panel whose only honest
 state is "this build does not handle `set_led`" until the app lands
 `ctlLed`. Bringing it here is the open task.
