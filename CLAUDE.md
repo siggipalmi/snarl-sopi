@@ -79,6 +79,18 @@ the app. A machine that does not implement one answers "this build does not
 handle '<type>'" — which is why capability is recorded from the answer
 (`ledcap:`, `confighealth:` in meta) rather than assumed.
 
+**OTA does not depend on this repository.** At publish time the backend
+fetches the APK once from `apkUrl` and stores it on its own persistent
+volume (`fetchAndStoreApk`); machines then download from
+`/api/v1/app-release/:app/apk`, unauthenticated, over the TLS chain they
+already trust. This is deliberate — some older kiosk tablets lack GitHub's
+newer ISRG X2 root — and it means a publish pointing at a dead URL fails at
+publish rather than shipping an unusable release. `:app` is `fridge` or
+`coil`; the fridge slot already exists. Only the current APK per app is
+kept. **Consequence: the repository's visibility is invisible to machines.**
+Only the publish step needs a URL the backend can fetch unauthenticated, and
+`apkUrl` must be https.
+
 **These three outbound channels have never failed** except when the
 machine's own link was down, and they need no inbound connection, port, or
 VPN: the command queue (~5s to reach a machine), OTA, and the log relay
