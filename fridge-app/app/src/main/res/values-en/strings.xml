@@ -1,0 +1,98 @@
+<resources>
+    <!-- English. Keys must match values/strings.xml exactly; a missing key here
+         silently falls back to Icelandic, which reads as a bug to a customer. -->
+    <string name="app_name">Snarl Fridge</string>
+
+    <!-- The sticker on the glass door reads tap/open/take in English. -->
+    <string name="step_pay">tap</string>
+    <string name="step_open">open</string>
+    <string name="step_take">take</string>
+
+    <string name="idle_step1">tap your card</string>
+    <string name="idle_step2">open the door</string>
+    <string name="idle_step3">take what you want</string>
+    <string name="idle_sub">use a card or phone to start</string>
+
+    <string name="authorizing_title">one moment…</string>
+    <string name="authorizing_sub">checking your card — nothing is charged yet</string>
+
+    <string name="unlocked_title">pull the door open</string>
+    <string name="unlocked_sub">the door is unlocked — take what you need</string>
+
+    <string name="shopping_title">your basket</string>
+    <string name="shopping_sub">updates as you take things</string>
+    <string name="shopping_hint">close the door to finish</string>
+    <string name="shopping_empty">take what\nyou need</string>
+
+    <string name="door_warn">please close the door — it\'s still open</string>
+
+    <string name="calculating_title">working it out…</string>
+    <string name="calculating_sub">weighing the baskets and totalling up</string>
+
+    <string name="receipt_title">thank you</string>
+    <string name="receipt_sub">your card has been charged</string>
+    <string name="total_label">total</string>
+    <string name="amount_isk">%1$d kr</string>
+    <string name="quantity_badge">×%1$d</string>
+    <string name="close_door_firmly">close the door firmly</string>
+
+    <string name="nothing_taken_title">nothing taken</string>
+    <string name="nothing_taken_sub">the door closed with no change in the baskets — you were not charged</string>
+
+    <string name="declined_title">card declined</string>
+    <string name="declined_sub">the door stayed locked — try again or use another card</string>
+
+    <string name="sensor_fault_title">out of service</string>
+    <string name="sensor_fault_sub">a technical fault means we won\'t open rather than risk a wrong charge. your card was not charged.</string>
+
+    <string name="pending_offline_title">thank you — all done</string>
+    <string name="pending_offline_sub">your total is recorded and will be charged as soon as we\'re back online</string>
+
+    <string name="restock_title">restocking</string>
+    <string name="restock_sub">this fridge is being refilled</string>
+    <string name="restock_door_open">door %1$s opened from the backend</string>
+    <string name="restock_no_charging">controlled from the backend · no charging</string>
+    <string name="restock_footer">placement comes from the backend · the figure on the right is what the scales see now · only one door opens at a time · restocking ends when the door closes</string>
+    <string name="restock_units">units</string>
+    <string name="restock_empty">empty</string>
+    <string name="restock_disabled">not in use</string>
+    <string name="restock_sensor">sensor</string>
+    <string name="restock_machine">machine %1$s</string>
+
+    <string name="info_title">get in touch.</string>
+    <string name="info_operated_by">This fridge is operated by %1$s. Get in touch if anything is wrong.</string>
+    <string name="info_operated_by_generic">Get in touch if anything is wrong.</string>
+    <string name="info_email_label">email</string>
+    <string name="info_machine_label">machine number</string>
+    <string name="info_partner_divider">in partnership with</string>
+    <string name="info_how_pay">hold your card to the reader on the door. nothing is charged yet.</string>
+    <string name="info_how_open">the door unlocks itself. take as much or as little as you like.</string>
+    <string name="info_how_take">changed your mind? put it back in the same basket — otherwise you\'ll be charged for it.</string>
+    <string name="info_ad_pitch">This unit is leased from AG Vending.</string>
+    <string name="info_ad_sub">Get in touch if you would like to lease a vending machine.</string>
+    <string name="info_ad_qr_caption">scan for more information</string>
+    <string name="close">close</string>
+
+    <string name="complaint_entry">was something wrong?</string>
+    <string name="complaint_title">send us the details</string>
+    <string name="complaint_sub">we\'ll help you get this sorted.</string>
+    <string name="complaint_which">what was wrong?</string>
+    <string name="complaint_reason_label">why?</string>
+    <string name="complaint_reason_not_taken">didn\'t take it</string>
+    <string name="complaint_reason_wrong_quantity">wrong quantity</string>
+    <string name="complaint_reason_returned">put it back</string>
+    <string name="complaint_reason_expired">expired product</string>
+    <string name="complaint_reason_cooling">cooling not working</string>
+    <string name="complaint_reason_other">something else</string>
+    <string name="complaint_note_label">note — optional</string>
+    <string name="complaint_note_hint">didn\'t take it, or put it back?</string>
+    <string name="complaint_email_label">email for our reply</string>
+    <string name="complaint_email_hint">you@email.com</string>
+    <string name="complaint_email_note">email only used to reply to you.</string>
+    <string name="complaint_send_failed">couldn\'t send. please try again in a moment.</string>
+    <string name="complaint_cancel">cancel</string>
+    <string name="complaint_send">send report</string>
+    <string name="complaint_done_title">report received.</string>
+    <string name="complaint_done_sub">we\'ll get back to you by email as soon as we can.</string>
+    <string name="complaint_reference">reference</string>
+</resources>

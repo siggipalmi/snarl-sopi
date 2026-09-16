@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    *** BUNDLED TRUST ANCHORS — the fix for what sealed machine 8626020618.
+
+    On 2026-07-29 the Railway certificate renewed onto Let's Encrypt's Generation Y
+    hierarchy. The tablet's trust store had no Root YE, the chain it was served
+    stopped there, and every HTTPS call failed at once: config poll, command poll
+    and the OTA path that would have delivered the fix. With Lock Task active there
+    was no route in at all and it cost a factory reset.
+
+    The lesson is not "old device". Root YE only entered trust stores in 2026, so
+    brand-new hardware would have been hit too. The real problem is that a kiosk
+    with a FROZEN TRUST STORE cannot be allowed to depend on that store for the one
+    path that ships its own fixes.
+
+    So we ship the roots ourselves. Note src="system" is listed FIRST and stays:
+    these are ADDITIONS, not a replacement. Everything that validates today keeps
+    validating (the Squarespace CDN images on the info sheet, for instance, which we
+    deliberately did not bundle a root for — their failure mode is a cosmetic
+    fallback to the typographic panel, not a stopped machine).
+
+    WHAT'S HERE AND WHY:
+
+      GTS Root R1-R4     api.agvending.is is Google Trust Services (WE1 -> GTS Root
+                         R4). All four are bundled so a rotation between GTS roots
+                         can't strand us. Anchoring on R4 directly also makes us
+                         independent of the GlobalSign cross-sign the server
+                         currently sends — which matters, because GlobalSign Root CA
+                         expires January 2028 and has already been dropped from
+                         current trust bundles.
+
+      ISRG Root X1/X2    Let's Encrypt, older generations. Still in the path for
+                         *.r2.dev product images and the Railway host.
+
+      Root YE            THE ONE WHOSE ABSENCE CAUSED THE OUTAGE. Bundled in its
+                         X2-cross-signed form (CA:TRUE, valid to Sept 2032), which
+                         serves as an anchor perfectly well. Verified before
+                         shipping: the exact failing chain — leaf -> YE1 -> Root YE
+                         with no cross-signs — validates against this anchor alone.
+
+    Cleartext stays forbidden. It was never permitted, and an http:// apkUrl must
+    not become an accidental way around any of this.
+
+    WHEN THESE EXPIRE (2032 for Root YE, 2035-2036 for the rest) a build must ship
+    replacements. That is a long fuse, not an infinite one.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/gts_root_r1" />
+            <certificates src="@raw/gts_root_r2" />
+            <certificates src="@raw/gts_root_r3" />
+            <certificates src="@raw/gts_root_r4" />
+            <certificates src="@raw/isrg_root_x1" />
+            <certificates src="@raw/isrg_root_x2" />
+            <certificates src="@raw/isrg_root_ye_cross" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
