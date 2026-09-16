@@ -62,8 +62,22 @@ command results. It does **not** grant dashboard access — but it can write
 sales into a system that drives invoicing and payday ledgers, so a leaked
 key is a financial-integrity problem, not just a privacy one.
 
-Rotate with `POST /machines/:deviceCode/revoke-key` then
-`POST /machines/:deviceCode/issue-key` (AG admin).
+**There is no safe remote key rotation for a live machine, and the obvious
+sequence bricks one.** `validateMachineKey` (`db.js:342`) is a strict
+compare against exactly one stored key — no second key, no grace window.
+`issue-key` refuses while a key is active ("would lock out the running
+machine"); revoking is the only way past that refusal; and once revoked,
+the `set_machine_key` command refuses too ("the machine will 401 and need a
+site visit"). A machine fetches commands *with* the key you just killed, so
+the replacement can never reach it. `set_machine_key` only pushes the key
+already on record (`router.js:1950` deliberately overwrites any supplied
+value, to keep keys out of browser history), so it cannot rotate anything.
+
+Rotating a placed machine therefore means a site visit, downtime, or a
+backend change first. Whether the kiosk can self-recover through
+`POST /api/v1/machines/provision` (PROVISION_SECRET, no machine key needed)
+on a 401 is an **app-side question that cannot be answered from this
+repository** — it is one of the things the app source needs to be here for.
 
 **Command types** are allow-listed globally in `CMD_TYPES` (`src/router.js`),
 so a new machine inherits them automatically. Currently: `clear_aisle_fault`,
