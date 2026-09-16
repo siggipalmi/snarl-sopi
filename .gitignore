@@ -1,0 +1,33 @@
+# ─── Secrets and per-developer config ────────────────────────────────────────
+# local.properties carries sdk.dir AND, in this project, test machine keys.
+# A live mk_live_ key was committed here once (v0.78.2, 2026-09-06) and had to
+# be rotated. It is per-developer by definition — Android Studio regenerates it.
+local.properties
+*.local.properties
+.env
+.env.*
+!.env.example
+
+# ─── Node (snarl-sopi-backend) ───────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+*.sqlite
+*.sqlite3
+*.db
+
+# ─── Android / Gradle (coil-app, fridge app) ─────────────────────────────────
+.gradle/
+build/
+captures/
+.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
+keystore.properties
+
+# ─── IDE / OS ────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

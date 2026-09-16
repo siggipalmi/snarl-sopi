@@ -1,0 +1,12 @@
+# Copy to local.properties and fill in. local.properties is gitignored and must
+# stay that way: it holds a real machine key, which authenticates as the machine
+# against the backend (post sales, read config, take commands).
+#
+# Android Studio writes sdk.dir itself on first sync.
+sdk.dir=/Users/<you>/Library/Android/sdk
+
+# A machine key for a test unit. Issue one from the dashboard, or
+# POST /machines/<deviceCode>/issue-key as an AG admin. Revoke it when done.
+# Never paste a key into chat, a shell command, or a commit.
+TEST_MACHINE_KEY=mk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TEST_MACHINE_DEVICE_CODE=000000000
