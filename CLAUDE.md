@@ -104,6 +104,18 @@ Controls tab — the single most useful diagnostic in the project).
 Each of these was first diagnosed wrongly. None can be inferred from
 documentation or from the other machine types.
 
+**Machine type comes from `model`, never from the device code.**
+`fridgeSpec` (`db.js:468`) is the single classifier: a model starting `GR-`
+is a fridge, and one containing `1260` is a double (32 baskets, 2 doors)
+against 16 and 1 otherwise. Everything downstream hangs off this — which
+app a machine gets in the release list, its cabinet count, and through that
+the default payment port.
+
+Device codes *do* follow a convention — `86260206xx` are the gravity
+fridges, `62xxxxxx` the coil machines — but **no code reads the prefix**,
+so it is a naming habit, not a guarantee. Set `model` correctly and do not
+infer type from the number.
+
 **Serial ports differ by machine type. There is no pattern.**
 
 | Machine | Nayax payment | Other |
