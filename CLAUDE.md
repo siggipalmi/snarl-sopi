@@ -204,14 +204,15 @@ Precedence is intent > stored > BuildConfig.
 **The machine key must never pass through a human's clipboard**, chat, or
 shell history if it can be avoided. It has leaked into all three.
 
-**A machine that looks unprovisioned may only need a restart.** The identity
-can be stored while the backend clients came up without it and stayed bound
-to nothing — the machine then reports no device code and reaches nothing,
-looking exactly like a machine that was never provisioned. Restarting it
-re-binds the clients and the correct identity appears. Confirmed on the
-bench fridge `8626020623`, 2026-09-17. Try a restart before reaching for adb
-and an intent: it costs seconds, and re-provisioning a machine that was
-already correct is how a wrong key gets typed in.
+**A device code on the machine's screen does not mean it is talking to the
+backend.** It is cached local state. The only proof of a live link is the
+backend's side: a command leaving `pending`, or last-seen advancing. On
+`8626020623`, 2026-09-17, a restart made the correct device code appear on
+screen while every queued command stayed pending — the machine was not
+polling at all. Restarting is still the cheap first move before adb and an
+intent, because re-provisioning a machine that was already correct is how a
+wrong key gets typed in, but confirm it from the dashboard, never from the
+screen.
 
 **A machine with no planogram still runs and looks normal.** Anything that
 can silently half-succeed will, and the operator will not see it.
