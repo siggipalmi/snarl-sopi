@@ -204,6 +204,15 @@ Precedence is intent > stored > BuildConfig.
 **The machine key must never pass through a human's clipboard**, chat, or
 shell history if it can be avoided. It has leaked into all three.
 
+**A machine that looks unprovisioned may only need a restart.** The identity
+can be stored while the backend clients came up without it and stayed bound
+to nothing — the machine then reports no device code and reaches nothing,
+looking exactly like a machine that was never provisioned. Restarting it
+re-binds the clients and the correct identity appears. Confirmed on the
+bench fridge `8626020623`, 2026-09-17. Try a restart before reaching for adb
+and an intent: it costs seconds, and re-provisioning a machine that was
+already correct is how a wrong key gets typed in.
+
 **A machine with no planogram still runs and looks normal.** Anything that
 can silently half-succeed will, and the operator will not see it.
 
