@@ -202,6 +202,7 @@ class FridgeBackend(
         onClearDeviceOwner: (suspend () -> String)? = null,
         onSetPaymentPort: (suspend (String) -> String)? = null,
         onLaunchSupport: (suspend () -> String)? = null,
+        onRestartMachine: (suspend () -> String)? = null,
         telemetry: ((TelemetryClient) -> TelemetryLoop)? = null,
     ) {
         scope.launch {
@@ -237,6 +238,7 @@ class FridgeBackend(
                 onClearDeviceOwner = onClearDeviceOwner,
                 onSetPaymentPort = onSetPaymentPort,
                 onLaunchSupport = onLaunchSupport,
+                onRestartMachine = onRestartMachine,
             ).start(scope)
             Log.i(TAG, "command poller started")
         }

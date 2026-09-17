@@ -51,6 +51,8 @@ class CommandRunner(
     private val onSetPaymentPort: (suspend (String) -> String)? = null,
     /** Open TeamViewer QuickSupport on the machine's screen. */
     private val onLaunchSupport: (suspend () -> String)? = null,
+    /** Reboot the whole board. Device Owner only; this process does not survive it. */
+    private val onRestartMachine: (suspend () -> String)? = null,
 ) {
     fun start(scope: CoroutineScope) {
         scope.launch {
@@ -105,6 +107,9 @@ class CommandRunner(
         "set_payment_port" -> setPaymentPort(cmd)
         "launch_support" -> launchSupport()
         "read_all_trays" -> readAllTrays()
+        "set_led" -> setLed(cmd)
+        "defrost" -> defrost(cmd)
+        "restart_machine" -> restartMachine()
         // probe_addresses REMOVED in v0.49.1 — it reported "answered=0, NO
         // modules on the bus" in the same minute read_all_trays returned 27
         // working trays. The probe was wrong, not the bus. A diagnostic that
@@ -317,6 +322,79 @@ class CommandRunner(
         // Give the poller time to report this result to the backend first.
         restart(3_000L)
         return CommandOutcome.Ok("restarting in 3s")
+    }
+
+    /**
+     * Cabinet lighting, instant override.
+     *
+     * The durable policy lives in the machine config as an `led` block; this is
+     * the "light it up to restock" / "does the wiring work" button, and the app
+     * returns to the config policy on the next apply — the same relationship
+     * set_aisle_enabled has with disabledAisles. The config half is NOT yet
+     * implemented; this command is.
+     *
+     * *** OK HERE MEANS "SENT", NOT "THE LIGHTS CHANGED".
+     *
+     * The board does not acknowledge, and the SDK parameter mapping is inferred
+     * rather than observed (see MotorFridgeHardware.setLedBrightness). The
+     * backend derives ledCapability from this very answer and shows it as the
+     * machine's own words, so the detail string has to carry that doubt — a
+     * bare "ok" would flip the dashboard from an honest "cannot" to a confident
+     * "working" on no evidence, which is worse than the dead button it
+     * replaces.
+     */
+    private fun setLed(cmd: MachineCommand): CommandOutcome {
+        val brightness = cmd.int("brightness")
+            ?: return CommandOutcome.Failed("set_led needs params.brightness (0-100, 0 is off)")
+        if (brightness !in 0..100) {
+            return CommandOutcome.Failed("brightness $brightness out of range (0-100)")
+        }
+        hardware.setLedBrightness(brightness)
+        return CommandOutcome.Ok(
+            "sent ctlLed brightness=$brightness — NOT confirmed: the board does not " +
+                "acknowledge and the parameter mapping is unverified. Watch the cabinet.",
+        )
+    }
+
+    /**
+     * Defrost cycle, on or off.
+     *
+     * Accepts {on: bool} or {enabled: bool}; absent means start one, since
+     * asking for defrost is asking for it to run.
+     *
+     * Same "sent, not confirmed" rule as [setLed], with an extra reason to
+     * doubt: this board runs its own thermostat and ignores ctrlCompressor
+     * outright, so it may well own the defrost schedule too.
+     */
+    private fun defrost(cmd: MachineCommand): CommandOutcome {
+        val on = when {
+            cmd.params?.has("on") == true -> cmd.bool("on")
+            cmd.params?.has("enabled") == true -> cmd.bool("enabled")
+            else -> true
+        }
+        hardware.setDefrost(on)
+        return CommandOutcome.Ok(
+            "sent ctrlDefrost ${if (on) "on" else "off"} — NOT confirmed; the board does " +
+                "not acknowledge and may run defrost on its own schedule regardless.",
+        )
+    }
+
+    /**
+     * Reboot the board, as distinct from restart_app.
+     *
+     * *** THE RESULT IS REPORTED BEFORE THE WORK HAPPENS, WHICH IS BACKWARDS
+     * FOR EVERY OTHER COMMAND HERE.
+     *
+     * A reboot kills this process, so a result posted afterwards never gets
+     * sent and the command sits pending forever — which reads on the dashboard
+     * as a machine that died, exactly when someone is watching to see whether
+     * it came back. So the reboot is deferred briefly and the outcome returned
+     * now, letting the poller report before the board goes down.
+     */
+    private suspend fun restartMachine(): CommandOutcome {
+        val reboot = onRestartMachine
+            ?: return CommandOutcome.Unsupported("this build cannot reboot the board")
+        return CommandOutcome.Ok(reboot())
     }
 
     /**

@@ -438,6 +438,64 @@ class MotorFridgeHardware(
         emit("trayCount now $next", null)
     }
 
+    /**
+     * *** UNVERIFIED PARAMETER MAPPING — READ THIS BEFORE TRUSTING A RESULT.
+     *
+     * `ctlLed` and `ledBrightnessAdjustment` both take (int, int, int, String,
+     * int), the same shape as `ctlTemp(address, mode, value, tag, timeout)`.
+     * By analogy: address 0, mode 1 = write, third arg = the value. That is an
+     * ANALOGY, not an observation. On this board the analogous reading of
+     * ctlTemp was wrong for days — mode 0 turned out to be a read, so a sweep
+     * of twelve mode/compressor combinations never once wrote a setpoint.
+     *
+     * So this sends one combination and logs the exact call. One bench run with
+     * logcat open says whether the lights moved and at what level, and the
+     * constants below become facts instead of inference. Until then the command
+     * result says "sent", never "working".
+     *
+     * ctlLed first because the name is the control and brightness adjustment
+     * reads like a modifier on it. If the lights do not respond, try
+     * ledBrightnessAdjustment with the same arguments before changing the ints
+     * — swapping two unknowns at once is how a day disappears.
+     */
+    override fun setLedBrightness(brightness: Int) {
+        val ei = kit.getEnergyInstruct() ?: run {
+            emit("setLedBrightness: getEnergyInstruct() is NULL", null)
+            return
+        }
+        val level = brightness.coerceIn(0, 100)
+        Thread {
+            Log.i(TAG, "setLedBrightness >>> ctlLed(addr=0, mode=$LED_MODE_WRITE, level=$level, null, 50)")
+            ei.ctlLed(0, LED_MODE_WRITE, level, null, 50)
+        }.start()
+        emit("led brightness=$level requested (UNCONFIRMED — watch the cabinet)", null)
+    }
+
+    /**
+     * Defrost, with the same unverified-mapping caveat as [setLedBrightness].
+     *
+     * The board runs its own thermostat and ignores ctrlCompressor entirely, so
+     * there is a real possibility it treats defrost the same way — acknowledged
+     * and ignored, with its own schedule winning. getDefrostPeriod and
+     * getDefrostMaxTime exist on EnergyInstruct and would say what that schedule
+     * is; worth reading before concluding a manual defrost does not work.
+     */
+    override fun setDefrost(on: Boolean) {
+        val ei = kit.getEnergyInstruct() ?: run {
+            emit("setDefrost: getEnergyInstruct() is NULL", null)
+            return
+        }
+        val value = if (on) 1 else 0
+        Thread {
+            Log.i(TAG, "setDefrost >>> ctrlDefrost(addr=0, mode=$DEFROST_MODE_WRITE, on=$value, null, 50)")
+            ei.ctrlDefrost(0, DEFROST_MODE_WRITE, value, null, 50)
+            Thread.sleep(500)
+            Log.i(TAG, "setDefrost >>> read back temperature to watch the cycle")
+            ei.ctlTemp(0, 0, 0, null, 50)
+        }.start()
+        emit("defrost ${if (on) "on" else "off"} requested (UNCONFIRMED)", null)
+    }
+
     override fun readTemperature() {
         val ei = kit.getEnergyInstruct() ?: run {
             emit("readTemperature: getEnergyInstruct() is NULL", null)
@@ -753,5 +811,18 @@ class MotorFridgeHardware(
          * needs three digits (the "2.99" case), so 0x11 is the tag's "off".
          */
         private const val BLANK_DIGIT: Byte = 0x11
+
+        /**
+         * *** INFERRED, NOT OBSERVED. Both are the "mode" slot of a five-arg
+         * EnergyInstruct call, read by analogy with ctlTemp where 1 = write and
+         * 0 = read. Nothing on this hardware has confirmed either.
+         *
+         * They are named constants rather than literals precisely so the bench
+         * run that establishes the truth changes one line each, and so a reader
+         * cannot mistake an inference for a fact. If the lights do not respond,
+         * these are the first two numbers to sweep — one at a time.
+         */
+        private const val LED_MODE_WRITE = 1
+        private const val DEFROST_MODE_WRITE = 1
     }
 }

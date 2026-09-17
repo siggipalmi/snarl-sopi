@@ -135,6 +135,37 @@ object KioskManager {
         }
     }
 
+    /**
+     * Reboot the board, for the dashboard's `restart_machine`.
+     *
+     * Device Owner only. `DevicePolicyManager.reboot` is the sanctioned route
+     * and the only one we have: a Device Owner app cannot be force-stopped, and
+     * nothing external can restart it either, which is why `restart_app` exists
+     * at all. This is the heavier sibling — the whole board, not the process.
+     *
+     * It throws rather than returning false when a call is in progress. There
+     * is no telephony on these boards, so that should never fire, but it is
+     * caught with everything else rather than assumed away.
+     *
+     * The caller does NOT get a success path: if the reboot takes, this process
+     * dies before it can report anything. The command result therefore has to
+     * be sent BEFORE calling this, which is the opposite of every other command
+     * and the reason it is not just another hardware call.
+     */
+    fun rebootDevice(context: Context): String {
+        if (!isDeviceOwner(context)) {
+            return "not Device Owner — cannot reboot the board from here"
+        }
+        return try {
+            Log.w(TAG, "restart_machine — rebooting the board now")
+            dpm(context).reboot(adminComponent(context))
+            "reboot requested"
+        } catch (e: Exception) {
+            Log.w(TAG, "reboot failed: ${e.message}")
+            "failed: ${e.message}"
+        }
+    }
+
     fun disableLockTask(activity: Activity) {
         suspendedByOperator = true
         try {

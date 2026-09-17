@@ -139,6 +139,34 @@ interface FridgeHardwareController {
     fun setCooling(enabled: Boolean, targetC: Int?)
 
     /**
+     * Set cabinet lighting brightness, 0-100, where 0 is off.
+     *
+     * *** THE PARAMETER SEMANTICS ARE NOT ESTABLISHED. The SDK exposes both
+     * `EnergyInstruct.ctlLed(int, int, int, String, int)` and
+     * `ledBrightnessAdjustment(...)` with the same shape as `ctlTemp`, but
+     * which int is a mode and which is a level is NOT documented and has never
+     * been observed on this hardware. See [MotorFridgeHardware.setLedBrightness]
+     * — it sends one combination and logs the raw call so a bench run settles
+     * it, exactly as the 0x4A reply was settled.
+     *
+     * Do not trust an `ok` from this until the lights have been watched to
+     * change. Twelve combinations of ctlTemp against ctrlCompressor were swept
+     * on this board before anyone noticed mode 0 was a read.
+     */
+    fun setLedBrightness(brightness: Int)
+
+    /**
+     * Start or stop a defrost cycle.
+     *
+     * Same caveat as [setLedBrightness]: `ctrlDefrost(int, int, int, String,
+     * int)` matches the `ctlTemp` shape, so mode-then-value is the obvious
+     * reading, and obvious readings of this board's API have been wrong before.
+     * The board does not acknowledge, so the only confirmation is the cabinet
+     * temperature rising during the cycle.
+     */
+    fun setDefrost(on: Boolean)
+
+    /**
      * Send a read and SUSPEND until a genuinely new response arrives (or the
      * timeout expires, returning null).
      *

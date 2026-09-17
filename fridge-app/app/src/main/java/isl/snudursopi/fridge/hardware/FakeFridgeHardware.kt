@@ -94,6 +94,14 @@ class FakeFridgeHardware(
         emit("setCooling enabled=$enabled target=${targetC ?: "unchanged"} (fake)", null)
     }
 
+    override fun setLedBrightness(brightness: Int) {
+        emit("setLedBrightness ${brightness.coerceIn(0, 100)} (fake)", null)
+    }
+
+    override fun setDefrost(on: Boolean) {
+        emit("setDefrost ${if (on) "on" else "off"} (fake)", null)
+    }
+
     override fun readTemperature() {
         emit("readTemperature (fake: no board)", null)
     }

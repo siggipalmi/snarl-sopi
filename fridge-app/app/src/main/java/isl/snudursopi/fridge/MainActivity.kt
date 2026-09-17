@@ -424,6 +424,19 @@ class MainActivity : ComponentActivity() {
             onClearDeviceOwner = {
                 KioskManager.clearDeviceOwner(applicationContext)
             },
+            // *** REPORT FIRST, THEN REBOOT. The result is returned immediately
+            // and the reboot fires a few seconds later, because this process
+            // does not survive the reboot to post anything afterwards. Without
+            // the delay the command sits pending forever and the dashboard
+            // shows a dead machine at the exact moment someone is watching to
+            // see whether it came back up.
+            onRestartMachine = {
+                lifecycleScope.launch {
+                    kotlinx.coroutines.delay(5_000)
+                    KioskManager.rebootDevice(applicationContext)
+                }
+                "rebooting the board in 5s"
+            },
             onLaunchSupport = {
                 val pm = packageManager
                 val intent = pm.getLaunchIntentForPackage(TEAMVIEWER_QS_PKG)
