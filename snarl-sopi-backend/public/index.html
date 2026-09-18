@@ -5598,6 +5598,7 @@ function showMdTab(name, el) {
   if (name === 'controls' && _mdDeviceCode) {
     try {
       renderMachineTemp(_mdDeviceCode);
+      txSummary(_mdDeviceCode);
       loadMachineLogs(_mdDeviceCode);
       // Shelf price tags are a coil-machine feature; hide the panel on fridges.
       // Shown on BOTH machine types. The fridge is the one with unreachable shelf tags, so hiding
@@ -5944,6 +5945,48 @@ function openFridgeBasketEditor(cab, n) {
 // than letting someone read a delay that isn't there.
 let _txRows = null;
 
+// What this machine holds, asked without a window — because needing to guess a date range before you
+// can find out whether anything exists is backwards when the answer may be "nothing, ever".
+async function txSummary(code) {
+  const out = document.getElementById('tx-out');
+  if (!out || !code) return;
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/transactions');
+    if (!r || !r.ok || !r.data || !r.data.available) return;
+    out.innerHTML = txHoldings(r.data.available);
+  } catch (e) { /* the search still works without this */ }
+}
+
+// Shared by the summary and by an empty search result, so both say the same thing the same way.
+function txHoldings(av) {
+  const st = av.settlements, or = av.orders;
+  const line = function (label, n, a1, b1, a2, b2) {
+    if (!n) return '<div style="padding:5px 0;border-bottom:1px solid var(--line)"><strong>' + label + ':</strong> none at all on this machine.</div>';
+    return '<div style="padding:5px 0;border-bottom:1px solid var(--line)"><strong>' + label + ':</strong> ' + n + ' record(s)' +
+      '<div style="color:var(--muted);margin-top:2px">' + a1 + ' ' + rsEsc(b1 || '—') + '</div>' +
+      (a2 ? '<div style="color:var(--muted)">' + a2 + ' ' + rsEsc(b2 || '—') + '</div>' : '') + '</div>';
+  };
+  let html = '<div style="font-family:var(--mono);font-size:11px;line-height:1.5;background:var(--cream-deep);border-radius:6px;padding:10px 12px">' +
+    '<div style="color:var(--muted);margin-bottom:6px">what this machine actually holds</div>' +
+    line('settlements', st.count,
+         'closed', (st.closedAt.earliest || '') + ' \u2192 ' + (st.closedAt.latest || ''),
+         'received', (st.receivedAt.earliest || '') + ' \u2192 ' + (st.receivedAt.latest || '')) +
+    line('order lines', or.count,
+         'created', (or.createTime.earliest || '') + ' \u2192 ' + (or.createTime.latest || ''), null, null) +
+  '</div>';
+  if (!st.count && !or.count) {
+    html += '<div style="font-size:11.5px;line-height:1.5;color:var(--alert);background:var(--alert-bg);border-radius:6px;padding:9px 11px;margin-top:10px">' +
+      'This backend holds no sales for this machine at all \u2014 no settlements and no order lines, in any period. ' +
+      'Nothing it sold has ever reached here, so no window will find anything. The card processor is the only record.</div>';
+  } else if (!st.count && or.count) {
+    html += '<div style="font-size:11.5px;line-height:1.5;color:var(--warn-ink);background:var(--warn-bg);border-radius:6px;padding:9px 11px;margin-top:10px">' +
+      'No settlements at all \u2014 this machine\u2019s sales arrive as order lines, which carry only createTime. ' +
+      'A sale written under a wrong clock is filed under the wrong date there and nothing on that table can reveal it. ' +
+      'Match against the card processor on amount instead.</div>';
+  }
+  return html;
+}
+
 async function txFind() {
   const out = document.getElementById('tx-out');
   const code = _mdDeviceCode;
@@ -5975,29 +6018,7 @@ function txRender() {
     // rather than another guess at the window.
     const av = d.available || null;
     let why = '<div style="font-size:12.5px;color:var(--ink);margin-bottom:10px">Nothing recorded on this machine in that window.</div>';
-    if (av) {
-      const st = av.settlements, or = av.orders;
-      const line = function (label, n, a1, b1, a2, b2) {
-        if (!n) return '<div style="padding:5px 0;border-bottom:1px solid var(--line)"><strong>' + label + ':</strong> none at all on this machine.</div>';
-        return '<div style="padding:5px 0;border-bottom:1px solid var(--line)"><strong>' + label + ':</strong> ' + n + ' record(s)' +
-          '<div style="color:var(--muted);margin-top:2px">' + a1 + ' ' + rsEsc(b1 || '—') + '</div>' +
-          (a2 ? '<div style="color:var(--muted)">' + a2 + ' ' + rsEsc(b2 || '—') + '</div>' : '') + '</div>';
-      };
-      why += '<div style="font-family:var(--mono);font-size:11px;line-height:1.5;background:var(--cream-deep);border-radius:6px;padding:10px 12px">' +
-        '<div style="color:var(--muted);margin-bottom:6px">what this machine actually holds</div>' +
-        line('settlements', st.count,
-             'closed', (st.closedAt.earliest || '') + ' \u2192 ' + (st.closedAt.latest || ''),
-             'received', (st.receivedAt.earliest || '') + ' \u2192 ' + (st.receivedAt.latest || '')) +
-        line('order lines', or.count,
-             'created', (or.createTime.earliest || '') + ' \u2192 ' + (or.createTime.latest || ''), null, null) +
-      '</div>';
-      if (!st.count && or.count) {
-        why += '<div style="font-size:11.5px;line-height:1.5;color:var(--warn-ink);background:var(--warn-bg);border-radius:6px;padding:9px 11px;margin-top:10px">' +
-          'This machine has no settlements at all \u2014 its sales arrive as order lines instead, which carry only createTime. ' +
-          'If those were written under a wrong clock they are filed under the wrong date and nothing on that table can reveal it. ' +
-          'Match against the card processor on amount instead.</div>';
-      }
-    }
+    if (av) why += txHoldings(av);
     out.innerHTML = head + why;
     return;
   }

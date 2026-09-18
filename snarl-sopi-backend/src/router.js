@@ -857,24 +857,29 @@ function handleMachineTransactions(req, res) {
   const m = machines[deviceCode];
   if (!m) return notFound(res, `Machine ${deviceCode} not found`);
 
+  // With no window at all, answer only "what does this machine hold?". That question needs no dates,
+  // and needing to guess a window before you can find out what exists is backwards when the honest
+  // answer might be "nothing, ever".
+  const summaryOnly = !req.query.from && !req.query.to;
+
   const parseAt = (v, label) => {
     if (!v) return { error: `${label} is required (ISO timestamp, e.g. 2026-09-16T02:56:32.654Z)` };
     const t = Date.parse(String(v));
     if (!Number.isFinite(t)) return { error: `${label} is not a timestamp I can read: "${v}". Use ISO, e.g. 2026-09-16T02:56:32.654Z` };
     return { ms: t };
   };
-  const f = parseAt(req.query.from, 'from');
+  const f = summaryOnly ? { ms: 0 } : parseAt(req.query.from, 'from');
   if (f.error) return badRequest(res, f.error);
-  const t = parseAt(req.query.to, 'to');
+  const t = summaryOnly ? { ms: 0 } : parseAt(req.query.to, 'to');
   if (t.error) return badRequest(res, t.error);
-  if (t.ms < f.ms) return badRequest(res, '"to" is earlier than "from".');
+  if (!summaryOnly && t.ms < f.ms) return badRequest(res, '"to" is earlier than "from".');
 
   const basis = req.query.basis === 'received' ? 'received' : 'closed';
   const spec = require('./db').fridgeSpec(m.model || '');
 
   // Fridges settle per session; coil machines have no settlements at all, so the array is simply
   // empty there rather than the endpoint refusing.
-  const settlements = (storage.settlementsInRange(deviceCode, f.ms, t.ms, basis) || []).map(row => ({
+  const settlements = (summaryOnly ? [] : storage.settlementsInRange(deviceCode, f.ms, t.ms, basis) || []).map(row => ({
     orderId: row.orderId,
     startedAt: row.startedAt || null,
     closedAt: row.closedAt || null,
@@ -912,7 +917,7 @@ function handleMachineTransactions(req, res) {
     anomalies: _safeJsonParse(row.anomalies, []),
   }));
 
-  const orders = (storage.ordersInRangeAnyStatus(deviceCode, f.ms, t.ms) || []).map(o => ({
+  const orders = (summaryOnly ? [] : storage.ordersInRangeAnyStatus(deviceCode, f.ms, t.ms) || []).map(o => ({
     tradeNo: o.tradeNo,
     productName: o.productName || null,
     goodsId: o.goodsId || null,
@@ -944,9 +949,10 @@ function handleMachineTransactions(req, res) {
     deviceName: m.deviceName || deviceCode,
     isFridge: spec.isFridge,
     available,
-    from: new Date(f.ms).toISOString(),
-    to: new Date(t.ms).toISOString(),
-    basis,
+    summaryOnly,
+    from: summaryOnly ? null : new Date(f.ms).toISOString(),
+    to: summaryOnly ? null : new Date(t.ms).toISOString(),
+    basis: summaryOnly ? null : basis,
     counts: { settlements: settlements.length, orders: orders.length },
     settlements,
     orders,
