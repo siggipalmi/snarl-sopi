@@ -915,6 +915,27 @@ select.fi{cursor:pointer;}
         </div>
 
         <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title">transactions in a window.</div><div class="ph-action" onclick="txCsv()">download CSV &rarr;</div></div>
+          <div style="padding:16px 18px">
+            <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;line-height:1.45">For reconciling against a card processor or a log. Times are ISO and read as UTC when they end in Z — Iceland runs on UTC year round, so local time and UTC are the same here.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl">from</div><input class="fi mono" id="tx-from" placeholder="2026-09-16T02:56:32.654Z"></div>
+              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl">to</div><input class="fi mono" id="tx-to" placeholder="2026-09-18T13:31:04.793Z"></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:9px">
+              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl">match on</div>
+                <select class="fi" id="tx-basis">
+                  <option value="closed">when the session happened (closedAt)</option>
+                  <option value="received">when we received it (receivedAt)</option>
+                </select>
+              </div>
+              <button class="btn btn-sm" style="flex:0 0 auto" onclick="txFind()"><span>find</span></button>
+            </div>
+            <div id="tx-out" style="margin-top:14px"></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
           <div class="ph"><div class="ph-title" id="md-heat-title">hourly heatmap (30d).</div></div>
           <div id="md-heatmap" style="padding:18px"></div>
         </div>
@@ -5907,6 +5928,98 @@ function openFridgeBasketEditor(cab, n) {
   _fpPickedProduct = b.productId ? { goodsId: b.productId, name: b.productName, weightGrams: b.effectiveWeightG } : null;
   scaleReset(cab, n);
   modal.classList.add('show');
+}
+
+// ─── Transactions in a window ─────────────────────────────────────────────────
+// Reconciliation against a card processor or a log. Settlements carry both closedAt and receivedAt,
+// so anything the machine queued while offline shows as a gap between them; orders carry only
+// createTime, so a late order is indistinguishable from a prompt one and the panel says so rather
+// than letting someone read a delay that isn't there.
+let _txRows = null;
+
+async function txFind() {
+  const out = document.getElementById('tx-out');
+  const code = _mdDeviceCode;
+  if (!out || !code) return;
+  const from = (document.getElementById('tx-from') || {}).value;
+  const to = (document.getElementById('tx-to') || {}).value;
+  const basis = (document.getElementById('tx-basis') || {}).value || 'closed';
+  if (!from || !to) { out.innerHTML = '<div style="font-size:12px;color:var(--alert)">Enter both a from and a to time.</div>'; return; }
+  out.innerHTML = '<div style="font-size:12px;color:var(--muted)">Searching…</div>';
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/transactions'
+      + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) + '&basis=' + encodeURIComponent(basis));
+    if (!r || !r.ok) { out.innerHTML = '<div style="font-size:12px;color:var(--alert)">' + rsEsc((r && r.error) || 'Could not search') + '</div>'; return; }
+    _txRows = r.data;
+    txRender();
+  } catch (e) { out.innerHTML = '<div style="font-size:12px;color:var(--alert)">' + rsEsc(e.message) + '</div>'; }
+}
+
+function txRender() {
+  const out = document.getElementById('tx-out');
+  if (!out || !_txRows) return;
+  const d = _txRows;
+  const head = '<div style="font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-bottom:10px">' +
+    rsEsc(d.from) + ' → ' + rsEsc(d.to) + ' · matched on ' + rsEsc(d.basis) +
+    ' · ' + d.counts.settlements + ' settlement(s), ' + d.counts.orders + ' order line(s)</div>';
+
+  if (!d.counts.settlements && !d.counts.orders) {
+    out.innerHTML = head + '<div style="font-size:12.5px;color:var(--muted)">Nothing recorded on this machine in that window.</div>';
+    return;
+  }
+
+  let html = head;
+  if (d.settlements.length) {
+    html += '<div style="font-family:var(--serif);font-style:italic;font-size:15px;margin:4px 0 7px">settlements.</div>' +
+      '<div class="tw"><table class="rtable"><thead><tr><th>order</th><th>closed</th><th>received</th><th>queued</th><th>outcome</th><th>amount</th></tr></thead><tbody>' +
+      d.settlements.map(function (x) {
+        // Hours of delay is the signature of a transaction the machine sat on while offline.
+        const q = x.queuedSeconds == null ? '—'
+          : (x.queuedSeconds >= 3600 ? Math.round(x.queuedSeconds / 3600) + 'h'
+            : x.queuedSeconds >= 60 ? Math.round(x.queuedSeconds / 60) + 'm' : x.queuedSeconds + 's');
+        const late = x.queuedSeconds != null && x.queuedSeconds >= 3600;
+        return '<tr>' +
+          '<td class="rcard-head"><span class="tid">' + rsEsc(String(x.orderId).slice(0, 18)) + '</span></td>' +
+          '<td data-label="closed" style="font-family:var(--mono);font-size:10.5px">' + rsEsc(x.closedAt || '—') + '</td>' +
+          '<td data-label="received" style="font-family:var(--mono);font-size:10.5px">' + rsEsc(x.receivedAt || '—') + '</td>' +
+          '<td data-label="queued" style="font-family:var(--mono);font-size:10.5px;color:' + (late ? 'var(--alert)' : 'var(--muted)') + '">' + q + '</td>' +
+          '<td data-label="outcome" style="font-size:11.5px">' + rsEsc(x.outcome || '—') + (x.mismatch ? ' <span style="color:var(--alert)">mismatch</span>' : '') + '</td>' +
+          '<td data-label="amount" style="font-family:var(--mono)">' + (x.totalIsk != null ? x.totalIsk.toLocaleString('is-IS') + ' kr' : '—') + '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  if (d.orders.length) {
+    html += '<div style="font-family:var(--serif);font-style:italic;font-size:15px;margin:16px 0 7px">order lines.</div>' +
+      '<div class="tw"><table class="rtable"><thead><tr><th>trade no</th><th>product</th><th>time</th><th>status</th><th>amount</th></tr></thead><tbody>' +
+      d.orders.map(function (o) {
+        return '<tr>' +
+          '<td class="rcard-head"><span class="tid">' + rsEsc(String(o.tradeNo).slice(0, 20)) + '</span></td>' +
+          '<td data-label="product" style="font-size:12px">' + rsEsc(o.productName || '—') + '</td>' +
+          '<td data-label="time" style="font-family:var(--mono);font-size:10.5px">' + rsEsc(o.createTime || '—') + '</td>' +
+          '<td data-label="status" style="font-size:11.5px">' + rsEsc(o.statusLabel || String(o.status)) + '</td>' +
+          '<td data-label="amount" style="font-family:var(--mono)">' + (o.amountKr != null ? o.amountKr.toLocaleString('is-IS') + ' kr' : '—') + '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  if (d.note) html += '<div style="font-size:11px;color:var(--muted);margin-top:11px;line-height:1.45">' + rsEsc(d.note) + '</div>';
+  out.innerHTML = html;
+}
+
+// One CSV with both record kinds, tagged by a `kind` column, so a spreadsheet can hold the whole
+// window in one sheet rather than two files that have to be lined up by hand.
+function txCsv() {
+  if (!_txRows) { showToast('Run a search first.'); return; }
+  const rows = [['kind', 'id', 'closedOrCreated', 'receivedAt', 'queuedSeconds', 'outcomeOrStatus', 'amountKr', 'nayaxRef', 'mismatch']];
+  _txRows.settlements.forEach(function (x) {
+    rows.push(['settlement', x.orderId, x.closedAt || '', x.receivedAt || '',
+               x.queuedSeconds == null ? '' : x.queuedSeconds, x.outcome || '',
+               x.totalIsk == null ? '' : x.totalIsk, x.nayaxRef || '', x.mismatch ? 'yes' : 'no']);
+  });
+  _txRows.orders.forEach(function (o) {
+    rows.push(['order', o.tradeNo, o.createTime || '', '', '',
+               o.statusLabel || o.status, o.amountKr == null ? '' : o.amountKr, '', '']);
+  });
+  downloadCSV(rows, 'transactions-' + _txRows.deviceCode + '.csv');
 }
 
 // ─── Fridge lighting ──────────────────────────────────────────────────────────

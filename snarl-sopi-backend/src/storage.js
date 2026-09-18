@@ -797,6 +797,24 @@ const stmts = {
       (deviceCode, orderId, cabinet, basket, productId, startWeightG, endWeightG, deltaG, unitWeightG, quantity, recomputedQty, priceIsk, lineIsk, lineMismatch)
       VALUES (@deviceCode, @orderId, @cabinet, @basket, @productId, @startWeightG, @endWeightG, @deltaG, @unitWeightG, @quantity, @recomputedQty, @priceIsk, @lineIsk, @lineMismatch)`),
   listFridgeSettlements: db.prepare('SELECT * FROM fridge_settlements WHERE deviceCode = ? ORDER BY receivedAt DESC LIMIT @lim'),
+  // Reconciliation: settlements in a window, matched on when the SESSION happened (closedAt, an ISO
+  // string) or on when we RECEIVED it (receivedAt, epoch ms). Those differ for anything the machine
+  // queued while offline, which is exactly what someone chasing a discrepancy needs to see, so the
+  // caller picks the column rather than us picking for them. No status filter: a transaction that
+  // did not complete is usually the one being hunted.
+  settlementsByClosed: db.prepare(`SELECT * FROM fridge_settlements
+                                   WHERE deviceCode = ? AND closedAt IS NOT NULL
+                                     AND closedAt >= ? AND closedAt <= ?
+                                   ORDER BY closedAt ASC`),
+  settlementsByReceived: db.prepare(`SELECT * FROM fridge_settlements
+                                     WHERE deviceCode = ? AND receivedAt >= ? AND receivedAt <= ?
+                                     ORDER BY receivedAt ASC`),
+  // Orders carry only createTime — there is no arrival timestamp on this table, so a queued order
+  // cannot be told apart from a prompt one here. Every status is returned; listOrdersInRange keeps
+  // status = 1 because the reports want revenue, which is the opposite of what a hunt wants.
+  ordersInRangeAnyStatus: db.prepare(`SELECT * FROM orders
+                                      WHERE deviceCode = ? AND createTime >= ? AND createTime <= ?
+                                      ORDER BY createTime ASC`),
   listFridgeLines: db.prepare('SELECT * FROM fridge_settlement_lines WHERE deviceCode = ? AND orderId = ?'),
   setProductImage: db.prepare(`UPDATE products SET imgUrl=@imgUrl, imageHasBackground=@imageHasBackground,
       weimiImgUrl=COALESCE(@weimiImgUrl, weimiImgUrl), imageNormalizedAt=@imageNormalizedAt,
@@ -1545,6 +1563,14 @@ const storage = {
     stmts.deleteFridgeLines.run(settlement.deviceCode, settlement.orderId);
     for (const l of lines) stmts.insertFridgeLine.run(l);
   }),
+  settlementsInRange(deviceCode, fromMs, toMs, basis) {
+    return basis === 'received'
+      ? stmts.settlementsByReceived.all(deviceCode, fromMs, toMs)
+      : stmts.settlementsByClosed.all(deviceCode, new Date(fromMs).toISOString(), new Date(toMs).toISOString());
+  },
+  ordersInRangeAnyStatus(deviceCode, fromMs, toMs) {
+    return stmts.ordersInRangeAnyStatus.all(deviceCode, fromMs, toMs);
+  },
   listFridgeSettlements(deviceCode, lim = 100) {
     return stmts.listFridgeSettlements.all(deviceCode, { lim: Math.max(1, Math.min(lim, 500)) });
   },

@@ -161,6 +161,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/baskets',     handler: handleGetFridgeBaskets, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/fridge/baskets',     handler: handleSetFridgeBaskets, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/settlements',  handler: handleListFridgeSettlements, middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/transactions',       handler: handleMachineTransactions, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetry,      middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleGetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleSetNotifications, middleware:[requireAuth, requireMachineAccess] },
@@ -839,6 +840,83 @@ function handleSetFridgeBaskets(req, res) {
 }
 
 // GET /api/v1/machines/:deviceCode/fridge/settlements — recent settlement audit records.
+// GET /machines/:deviceCode/transactions?from=&to=&basis=closed|received
+// Everything that happened on one machine inside one window — for reconciling against a card
+// processor or a log, which is the one job the dashboard could not do at all before.
+//
+// basis picks which timestamp the window is matched on, and the two differ for anything the machine
+// queued while offline: 'closed' is when the session actually happened, 'received' is when the
+// backend got it. Both are returned on every row regardless, so a queued transaction is visible as
+// the gap between them rather than something you have to know to ask for.
+//
+// No status filter anywhere here. The revenue reports keep status = 1 deliberately; a reconciliation
+// is usually hunting the transaction that did NOT complete, so filtering it out would hide the
+// answer.
+function handleMachineTransactions(req, res) {
+  const { deviceCode } = req.params;
+  const m = machines[deviceCode];
+  if (!m) return notFound(res, `Machine ${deviceCode} not found`);
+
+  const parseAt = (v, label) => {
+    if (!v) return { error: `${label} is required (ISO timestamp, e.g. 2026-09-16T02:56:32.654Z)` };
+    const t = Date.parse(String(v));
+    if (!Number.isFinite(t)) return { error: `${label} is not a timestamp I can read: "${v}". Use ISO, e.g. 2026-09-16T02:56:32.654Z` };
+    return { ms: t };
+  };
+  const f = parseAt(req.query.from, 'from');
+  if (f.error) return badRequest(res, f.error);
+  const t = parseAt(req.query.to, 'to');
+  if (t.error) return badRequest(res, t.error);
+  if (t.ms < f.ms) return badRequest(res, '"to" is earlier than "from".');
+
+  const basis = req.query.basis === 'received' ? 'received' : 'closed';
+  const spec = require('./db').fridgeSpec(m.model || '');
+
+  // Fridges settle per session; coil machines have no settlements at all, so the array is simply
+  // empty there rather than the endpoint refusing.
+  const settlements = (storage.settlementsInRange(deviceCode, f.ms, t.ms, basis) || []).map(row => ({
+    orderId: row.orderId,
+    startedAt: row.startedAt || null,
+    closedAt: row.closedAt || null,
+    receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
+    // How long the machine sat on it. Non-zero by seconds is normal; by hours means it was queued.
+    queuedSeconds: (row.closedAt && row.receivedAt)
+      ? Math.max(0, Math.round((row.receivedAt - Date.parse(row.closedAt)) / 1000)) : null,
+    outcome: row.outcome || null,
+    totalIsk: row.totalIsk != null ? row.totalIsk : null,
+    recomputedIsk: row.recomputedIsk != null ? row.recomputedIsk : null,
+    mismatch: !!row.mismatch,
+    nayaxRef: row.nayaxRef || null,
+    cabinetsOpened: _safeJsonParse(row.cabinetsOpened, []),
+    anomalies: _safeJsonParse(row.anomalies, []),
+  }));
+
+  const orders = (storage.ordersInRangeAnyStatus(deviceCode, f.ms, t.ms) || []).map(o => ({
+    tradeNo: o.tradeNo,
+    productName: o.productName || null,
+    goodsId: o.goodsId || null,
+    amountKr: o.amountKr,
+    status: o.status,
+    statusLabel: o.statusLabel || null,
+    createTime: o.createTime ? new Date(o.createTime).toISOString() : null,
+  }));
+
+  ok(res, {
+    deviceCode,
+    deviceName: m.deviceName || deviceCode,
+    isFridge: spec.isFridge,
+    from: new Date(f.ms).toISOString(),
+    to: new Date(t.ms).toISOString(),
+    basis,
+    counts: { settlements: settlements.length, orders: orders.length },
+    settlements,
+    orders,
+    // Said explicitly so nobody reconciles against this list believing it can show a late arrival
+    // on the orders side. It cannot: that table has no arrival timestamp to compare against.
+    note: 'Orders carry only createTime — there is no arrival timestamp on that table, so a queued order cannot be distinguished from a prompt one. Settlements carry closedAt and receivedAt, so queuedSeconds is meaningful there.',
+  });
+}
+
 function handleListFridgeSettlements(req, res) {
   const { deviceCode } = req.params;
   const m = machines[deviceCode];
