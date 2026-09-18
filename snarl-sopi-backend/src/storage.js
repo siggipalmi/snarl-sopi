@@ -802,6 +802,15 @@ const stmts = {
   // queued while offline, which is exactly what someone chasing a discrepancy needs to see, so the
   // caller picks the column rather than us picking for them. No status filter: a transaction that
   // did not complete is usually the one being hunted.
+  // What does this machine actually HAVE? An empty search is ambiguous — wrong window, wrong
+  // timestamp column, or no data at all — and the difference decides what to do next, so answer it
+  // instead of making someone guess.
+  settlementSpan: db.prepare(`SELECT COUNT(*) AS n,
+                                     MIN(closedAt) AS minClosed, MAX(closedAt) AS maxClosed,
+                                     MIN(receivedAt) AS minRecv,  MAX(receivedAt) AS maxRecv
+                              FROM fridge_settlements WHERE deviceCode = ?`),
+  orderSpan: db.prepare(`SELECT COUNT(*) AS n, MIN(createTime) AS minT, MAX(createTime) AS maxT
+                         FROM orders WHERE deviceCode = ?`),
   settlementsByClosed: db.prepare(`SELECT * FROM fridge_settlements
                                    WHERE deviceCode = ? AND closedAt IS NOT NULL
                                      AND closedAt >= ? AND closedAt <= ?
@@ -1563,6 +1572,15 @@ const storage = {
     stmts.deleteFridgeLines.run(settlement.deviceCode, settlement.orderId);
     for (const l of lines) stmts.insertFridgeLine.run(l);
   }),
+  machineDataSpan(deviceCode) {
+    const st = stmts.settlementSpan.get(deviceCode) || {};
+    const or = stmts.orderSpan.get(deviceCode) || {};
+    return {
+      settlements: { count: st.n || 0, minClosed: st.minClosed || null, maxClosed: st.maxClosed || null,
+                     minReceived: st.minRecv || null, maxReceived: st.maxRecv || null },
+      orders: { count: or.n || 0, minCreateTime: or.minT || null, maxCreateTime: or.maxT || null },
+    };
+  },
   settlementsInRange(deviceCode, fromMs, toMs, basis) {
     return basis === 'received'
       ? stmts.settlementsByReceived.all(deviceCode, fromMs, toMs)

@@ -5971,7 +5971,34 @@ function txRender() {
     ' · ' + d.counts.settlements + ' settlement(s), ' + d.counts.orders + ' order line(s)</div>';
 
   if (!d.counts.settlements && !d.counts.orders) {
-    out.innerHTML = head + '<div style="font-size:12.5px;color:var(--muted)">Nothing recorded on this machine in that window.</div>';
+    // An empty window is ambiguous. Say what the machine DOES hold, so the next step is obvious
+    // rather than another guess at the window.
+    const av = d.available || null;
+    let why = '<div style="font-size:12.5px;color:var(--ink);margin-bottom:10px">Nothing recorded on this machine in that window.</div>';
+    if (av) {
+      const st = av.settlements, or = av.orders;
+      const line = function (label, n, a1, b1, a2, b2) {
+        if (!n) return '<div style="padding:5px 0;border-bottom:1px solid var(--line)"><strong>' + label + ':</strong> none at all on this machine.</div>';
+        return '<div style="padding:5px 0;border-bottom:1px solid var(--line)"><strong>' + label + ':</strong> ' + n + ' record(s)' +
+          '<div style="color:var(--muted);margin-top:2px">' + a1 + ' ' + rsEsc(b1 || '—') + '</div>' +
+          (a2 ? '<div style="color:var(--muted)">' + a2 + ' ' + rsEsc(b2 || '—') + '</div>' : '') + '</div>';
+      };
+      why += '<div style="font-family:var(--mono);font-size:11px;line-height:1.5;background:var(--cream-deep);border-radius:6px;padding:10px 12px">' +
+        '<div style="color:var(--muted);margin-bottom:6px">what this machine actually holds</div>' +
+        line('settlements', st.count,
+             'closed', (st.closedAt.earliest || '') + ' \u2192 ' + (st.closedAt.latest || ''),
+             'received', (st.receivedAt.earliest || '') + ' \u2192 ' + (st.receivedAt.latest || '')) +
+        line('order lines', or.count,
+             'created', (or.createTime.earliest || '') + ' \u2192 ' + (or.createTime.latest || ''), null, null) +
+      '</div>';
+      if (!st.count && or.count) {
+        why += '<div style="font-size:11.5px;line-height:1.5;color:var(--warn-ink);background:var(--warn-bg);border-radius:6px;padding:9px 11px;margin-top:10px">' +
+          'This machine has no settlements at all \u2014 its sales arrive as order lines instead, which carry only createTime. ' +
+          'If those were written under a wrong clock they are filed under the wrong date and nothing on that table can reveal it. ' +
+          'Match against the card processor on amount instead.</div>';
+      }
+    }
+    out.innerHTML = head + why;
     return;
   }
 

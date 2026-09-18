@@ -922,10 +922,28 @@ function handleMachineTransactions(req, res) {
     createTime: o.createTime ? new Date(o.createTime).toISOString() : null,
   }));
 
+  // Always returned, searched window or not. An empty result is otherwise ambiguous between "wrong
+  // window", "wrong timestamp column" and "this machine has no such records at all" — and those need
+  // completely different next steps.
+  const span = storage.machineDataSpan(deviceCode);
+  const iso = (ms) => (ms ? new Date(ms).toISOString() : null);
+  const available = {
+    settlements: {
+      count: span.settlements.count,
+      closedAt: { earliest: span.settlements.minClosed, latest: span.settlements.maxClosed },
+      receivedAt: { earliest: iso(span.settlements.minReceived), latest: iso(span.settlements.maxReceived) },
+    },
+    orders: {
+      count: span.orders.count,
+      createTime: { earliest: iso(span.orders.minCreateTime), latest: iso(span.orders.maxCreateTime) },
+    },
+  };
+
   ok(res, {
     deviceCode,
     deviceName: m.deviceName || deviceCode,
     isFridge: spec.isFridge,
+    available,
     from: new Date(f.ms).toISOString(),
     to: new Date(t.ms).toISOString(),
     basis,
