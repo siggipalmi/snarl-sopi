@@ -879,9 +879,30 @@ function handleMachineTransactions(req, res) {
     startedAt: row.startedAt || null,
     closedAt: row.closedAt || null,
     receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
-    // How long the machine sat on it. Non-zero by seconds is normal; by hours means it was queued.
-    queuedSeconds: (row.closedAt && row.receivedAt)
-      ? Math.max(0, Math.round((row.receivedAt - Date.parse(row.closedAt)) / 1000)) : null,
+    // SIGNED, deliberately. receivedAt minus closedAt: positive means the machine sat on it before
+    // posting (ordinary queueing), negative means it claims to have closed the session AFTER we
+    // received it, which no correct clock can produce. Clamping this at zero would have hidden the
+    // machines whose clock came back from a power cut set into the future.
+    skewSeconds: (function () {
+      if (!row.closedAt || !row.receivedAt) return null;
+      const closedMs = Date.parse(row.closedAt);
+      // An unparseable closedAt has no skew to report — NaN here would render as "+NaNs". The row is
+      // still flagged below; the flag is the useful part, a nonsense number is not.
+      if (!Number.isFinite(closedMs)) return null;
+      return Math.round((row.receivedAt - closedMs) / 1000);
+    })(),
+    // A sale the machine stamped while its clock was wrong. Its closedAt is fiction and only
+    // receivedAt means anything, so these must not be searched for by the time they claim to have
+    // happened. Two signatures: closed after it was received (clock ahead — 2026-12-26 has been
+    // seen), or dated before this fleet existed (clock reset — 2000-01-01 has been seen). Ordinary
+    // queueing is a large POSITIVE skew and is not suspect: the clock was right, the link was down.
+    clockSuspect: (function () {
+      if (!row.closedAt || !row.receivedAt) return false;
+      const closedMs = Date.parse(row.closedAt);
+      if (!Number.isFinite(closedMs)) return true;   // unparseable is its own kind of wrong
+      if (closedMs - row.receivedAt > 60000) return true;
+      return closedMs < Date.parse('2020-01-01T00:00:00Z');
+    })(),
     outcome: row.outcome || null,
     totalIsk: row.totalIsk != null ? row.totalIsk : null,
     recomputedIsk: row.recomputedIsk != null ? row.recomputedIsk : null,
@@ -913,7 +934,7 @@ function handleMachineTransactions(req, res) {
     orders,
     // Said explicitly so nobody reconciles against this list believing it can show a late arrival
     // on the orders side. It cannot: that table has no arrival timestamp to compare against.
-    note: 'Orders carry only createTime — there is no arrival timestamp on that table, so a queued order cannot be distinguished from a prompt one. Settlements carry closedAt and receivedAt, so queuedSeconds is meaningful there.',
+    note: 'Orders carry only createTime — there is no arrival timestamp on that table, so a queued order cannot be distinguished from a prompt one, and an order stamped by a wrong clock is filed under the wrong date with nothing to reveal it. Settlements carry closedAt and receivedAt: skewSeconds is signed, and clockSuspect marks a sale whose closedAt cannot be true. Search those on basis=received — their closedAt is fiction.',
   });
 }
 

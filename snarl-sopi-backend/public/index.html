@@ -931,6 +931,13 @@ select.fi{cursor:pointer;}
               </div>
               <button class="btn btn-sm" style="flex:0 0 auto" onclick="txFind()"><span>find</span></button>
             </div>
+            <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="tx-suspect" onchange="txRender()">
+              <span>only sales stamped by a wrong clock</span>
+            </label>
+            <div style="font-size:11px;color:var(--warn-ink);background:var(--warn-bg);border-radius:6px;padding:8px 10px;margin-top:9px;line-height:1.45">
+              If a machine kept selling with a wrong clock, its <code>closedAt</code> is fiction — those sales are filed under whatever date the board invented. Search on <strong>received</strong>, not on when the session happened, or you will not find them.
+            </div>
             <div id="tx-out" style="margin-top:14px"></div>
           </div>
         </div>
@@ -5968,21 +5975,35 @@ function txRender() {
     return;
   }
 
+  const onlySuspect = !!(document.getElementById('tx-suspect') || {}).checked;
+  const settlements = onlySuspect ? d.settlements.filter(function (x) { return x.clockSuspect; }) : d.settlements;
+  const suspectCount = d.settlements.filter(function (x) { return x.clockSuspect; }).length;
+
   let html = head;
-  if (d.settlements.length) {
+  if (suspectCount) {
+    html += '<div style="font-size:12px;line-height:1.5;color:var(--alert);background:var(--alert-bg);' +
+      'border-radius:6px;padding:9px 11px;margin-bottom:11px">' + suspectCount +
+      ' of these were stamped by a wrong clock — the time they claim to have happened is not real. ' +
+      'Match them to the card processor on amount and on when we received them, not on their own timestamp.</div>';
+  }
+  if (settlements.length) {
     html += '<div style="font-family:var(--serif);font-style:italic;font-size:15px;margin:4px 0 7px">settlements.</div>' +
-      '<div class="tw"><table class="rtable"><thead><tr><th>order</th><th>closed</th><th>received</th><th>queued</th><th>outcome</th><th>amount</th></tr></thead><tbody>' +
-      d.settlements.map(function (x) {
-        // Hours of delay is the signature of a transaction the machine sat on while offline.
-        const q = x.queuedSeconds == null ? '—'
-          : (x.queuedSeconds >= 3600 ? Math.round(x.queuedSeconds / 3600) + 'h'
-            : x.queuedSeconds >= 60 ? Math.round(x.queuedSeconds / 60) + 'm' : x.queuedSeconds + 's');
-        const late = x.queuedSeconds != null && x.queuedSeconds >= 3600;
-        return '<tr>' +
+      '<div class="tw"><table class="rtable"><thead><tr><th>order</th><th>closed (claimed)</th><th>received</th><th>skew</th><th>outcome</th><th>amount</th></tr></thead><tbody>' +
+      settlements.map(function (x) {
+        // Signed: a large POSITIVE skew is ordinary queueing (clock fine, link down); a NEGATIVE one
+        // is impossible without a wrong clock. Both matter, so neither is hidden or clamped away.
+        const secs = x.skewSeconds;
+        const mag = secs == null ? null : Math.abs(secs);
+        const q = secs == null ? '—'
+          : (secs < 0 ? '-' : '+') + (mag >= 86400 ? Math.round(mag / 86400) + 'd'
+            : mag >= 3600 ? Math.round(mag / 3600) + 'h'
+            : mag >= 60 ? Math.round(mag / 60) + 'm' : mag + 's');
+        const late = x.clockSuspect || (secs != null && secs >= 3600);
+        return '<tr' + (x.clockSuspect ? ' style="background:var(--alert-bg)"' : '') + '>' +
           '<td class="rcard-head"><span class="tid">' + rsEsc(String(x.orderId).slice(0, 18)) + '</span></td>' +
-          '<td data-label="closed" style="font-family:var(--mono);font-size:10.5px">' + rsEsc(x.closedAt || '—') + '</td>' +
+          '<td data-label="closed (claimed)" style="font-family:var(--mono);font-size:10.5px' + (x.clockSuspect ? ';color:var(--alert);text-decoration:line-through' : '') + '">' + rsEsc(x.closedAt || '—') + '</td>' +
           '<td data-label="received" style="font-family:var(--mono);font-size:10.5px">' + rsEsc(x.receivedAt || '—') + '</td>' +
-          '<td data-label="queued" style="font-family:var(--mono);font-size:10.5px;color:' + (late ? 'var(--alert)' : 'var(--muted)') + '">' + q + '</td>' +
+          '<td data-label="skew" style="font-family:var(--mono);font-size:10.5px;color:' + (late ? 'var(--alert)' : 'var(--muted)') + '">' + q + '</td>' +
           '<td data-label="outcome" style="font-size:11.5px">' + rsEsc(x.outcome || '—') + (x.mismatch ? ' <span style="color:var(--alert)">mismatch</span>' : '') + '</td>' +
           '<td data-label="amount" style="font-family:var(--mono)">' + (x.totalIsk != null ? x.totalIsk.toLocaleString('is-IS') + ' kr' : '—') + '</td>' +
         '</tr>';
@@ -6009,14 +6030,15 @@ function txRender() {
 // window in one sheet rather than two files that have to be lined up by hand.
 function txCsv() {
   if (!_txRows) { showToast('Run a search first.'); return; }
-  const rows = [['kind', 'id', 'closedOrCreated', 'receivedAt', 'queuedSeconds', 'outcomeOrStatus', 'amountKr', 'nayaxRef', 'mismatch']];
+  const rows = [['kind', 'id', 'closedOrCreated', 'receivedAt', 'skewSeconds', 'clockSuspect',
+                 'outcomeOrStatus', 'amountKr', 'nayaxRef', 'mismatch']];
   _txRows.settlements.forEach(function (x) {
     rows.push(['settlement', x.orderId, x.closedAt || '', x.receivedAt || '',
-               x.queuedSeconds == null ? '' : x.queuedSeconds, x.outcome || '',
+               x.skewSeconds == null ? '' : x.skewSeconds, x.clockSuspect ? 'yes' : 'no', x.outcome || '',
                x.totalIsk == null ? '' : x.totalIsk, x.nayaxRef || '', x.mismatch ? 'yes' : 'no']);
   });
   _txRows.orders.forEach(function (o) {
-    rows.push(['order', o.tradeNo, o.createTime || '', '', '',
+    rows.push(['order', o.tradeNo, o.createTime || '', '', '', '',
                o.statusLabel || o.status, o.amountKr == null ? '' : o.amountKr, '', '']);
   });
   downloadCSV(rows, 'transactions-' + _txRows.deviceCode + '.csv');
