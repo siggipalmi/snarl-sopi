@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.32.3",
-  "description": "Snarl and Sopi operator backend v6.32.3: the transactions panel states what a machine holds without being asked for a window. Searching 8626020716 across five months returned nothing, which means no window will help and the question is no longer which dates to try. The route was checked and is not shadowed - it sits well before the /machines/:deviceCode catch-all - so the queries are running and the records are genuinely absent. from and to are now optional: with neither, the endpoint answers only the availability question, which needs no dates. The panel loads that the moment the Activity tab opens, and the same block renders under an empty search, so both say the same thing the same way. Three outcomes are called out explicitly, because they need different next steps: settlements present but outside the window, no settlements but order lines present (sales arrive via the Weimi sync, carry only createTime, and a wrong-clock sale is unrecoverable from that table), and nothing whatsoever - in which case no sale this machine made has ever reached this backend and the card processor is the only record that exists. Cumulative over v6.32.2.",
+  "version": "6.32.4",
+  "description": "Snarl and Sopi operator backend v6.32.4: a lease claim can be retried without taking a second machine. POST /api/v1/leases/claim accepts an optional requestId; the first call stores its result under that id and any later call with the same id returns the same serials (marked replayed) instead of claiming more. The new skraning.agvending.is Worker sends its registration id here, so a claim whose response was lost in transit is safe to repeat. Calls without requestId behave exactly as before. Cumulative over v6.32.3.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

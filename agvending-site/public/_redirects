@@ -9,3 +9,7 @@
 /contact/                 /#hafa-samband   301
 /snjallsjalfsali/         /#vorur          301
 /sjlfsali-me-snertiskj/   /#vorur          301
+
+# Lease registration moved off Squarespace to its own Worker.
+/skraning                 https://skraning.agvending.is/   301
+/skraning/                https://skraning.agvending.is/   301
