@@ -97,8 +97,18 @@ npx wrangler secret put ADMIN_TOKEN          # any long random string
 npx wrangler deploy
 ```
 
-`routes` in `wrangler.toml` attaches `skraning.agvending.is` as a custom domain, which requires the
-agvending.is zone to be on this Cloudflare account.
+**The domain.** `routes` in `wrangler.toml` makes `skraning.agvending.is` a custom domain, so
+`wrangler deploy` creates the DNS record and the certificate itself. Two requirements:
+
+- **The agvending.is zone must be on the Cloudflare account you deploy from.**
+- **No DNS record may already exist for that name.** *Before the first deploy*, open
+  **agvending.is → DNS → Records** and delete any existing `skraning` record (A, AAAA or CNAME, for
+  example one left over from Squarespace). Otherwise Cloudflare refuses to attach the domain and the
+  deploy fails with an error about an existing DNS record.
+
+To attach the domain by hand instead, use **Workers & Pages → skraning → Settings → Domains &
+Routes → Add → Custom domain** and enter `skraning.agvending.is`. The same rule about existing
+records applies.
 
 **Check the vísitala before the first real registration.** Open `https://skraning.agvending.is/api/cpi`.
 It shows the value and month it will put in the contract, and which Hagstofa series it chose.
@@ -113,7 +123,9 @@ its secret in `TURNSTILE_SECRET`. Without them, the hidden honeypot field is the
 ### 4. Switch over
 
 When the new flow works end to end, deploy `agvending-site`. Its `_redirects` sends
-`agvending.is/skraning` to the new form. Then turn off the Squarespace form or its Zap trigger, so
+`agvending.is/skraning` to the new form. That redirect only works once agvending.is itself is served
+by the `agvending` Worker. While agvending.is is still on Squarespace, add the redirect there instead:
+**Settings → Advanced → URL Mappings**, then `/skraning -> https://skraning.agvending.is 301`. Then turn off the Squarespace form or its Zap trigger, so
 nothing arrives through the old path.
 
 ## Operating it
