@@ -118,6 +118,24 @@ test('the signer is typed in when the registry has no manager', () => {
   assert.equal(p.leigugjald, '80.000 + vsk.');
 });
 
+test('invoices go to their own address when given, otherwise to the contact', () => {
+  const base = { kennitala: '4607161010', netfang: 'julius@lavashow.com', simi: '8237777', tvofaldur: 1,
+    heimilisfang: 'x', ...SIGNER };
+  const build = form => buildContractPayload({ id: 'x', form, company: { companyName: 'X ehf.', managerName: 'A' },
+    claim: { radnumer_sjalfsala: '1', radnumer_nayax: '2', counts: { tvofaldur: 1 } }, cpi: { vnv: '1', manudur: 'm' }, now: NOW });
+
+  const own = validateForm({ ...base, netfang_reikninga: 'bokhald@lavashow.com' }, NOW);
+  assert.deepEqual(own.errors, {});
+  assert.equal(build(own.value).Netfang_Reikninga, 'bokhald@lavashow.com');
+  assert.equal(build(own.value).reikningar_serstakt_netfang, true);
+
+  const none = validateForm(base, NOW);
+  assert.equal(build(none.value).Netfang_Reikninga, 'julius@lavashow.com');
+  assert.equal(build(none.value).reikningar_serstakt_netfang, false);
+
+  assert.ok(validateForm({ ...base, netfang_reikninga: 'ekki-netfang' }, NOW).errors.netfang_reikninga);
+});
+
 test('a claim that did not cover every machine is a shortfall', () => {
   const counts = { tvofaldur: 1, einfaldur: 2, skjar: 0 };
   assert.deepEqual(claimShortfall(counts, { counts: { tvofaldur: 1, einfaldur: 2, skjar: 0 } }), []);

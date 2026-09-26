@@ -155,11 +155,15 @@ export function validateForm(body, now) {
   if (!isValidEmail(undirritandi.netfang)) errors.undirritandi_netfang = 'Netfang er ekki gilt.';
   if (!isValidPhone(undirritandi.simi)) errors.undirritandi_simi = 'Farsímanúmer er ekki gilt.';
 
+  // Optional: invoices to a different address (bókhald). Empty means the contact's email.
+  const netfangReikninga = String(b.netfang_reikninga || '').trim();
+  if (netfangReikninga && !isValidEmail(netfangReikninga)) errors.netfang_reikninga = 'Netfang er ekki gilt.';
+
   const athugasemdir = String(b.athugasemdir || '').trim().slice(0, 2000);
 
   return {
     errors,
-    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, athugasemdir },
+    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, netfangReikninga, athugasemdir },
   };
 }
 
@@ -297,6 +301,9 @@ export function buildContractPayload({ id, form, company, claim, cpi, now }) {
 
     kennitala: form.kennitala,
     netfang: form.netfang,
+    // Where invoices go: the address given for them, else the contact's email
+    Netfang_Reikninga: form.netfangReikninga || form.netfang,
+    reikningar_serstakt_netfang: Boolean(form.netfangReikninga),
     fjoldi_tvofaldur: counts.tvofaldur,
     fjoldi_einfaldur: counts.einfaldur,
     fjoldi_skjar: counts.skjar,

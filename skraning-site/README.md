@@ -86,6 +86,10 @@ In the lease-agreement Zap:
    `fjoldi_tvofaldur`, `fjoldi_einfaldur`, `fjoldi_skjar`, `leigugjald_kr` (a number), `upphaf_iso`,
    `athugasemdir` and `skrad`.
 
+   For invoicing: `Netfang_Reikninga` is the address invoices go to. It is the one the customer gave
+   under "Senda reikninga á annað netfang", otherwise the contact's email;
+   `reikningar_serstakt_netfang` is `true` when they gave a separate one.
+
    For the e-sign step, the person who signs:
 
    | Field | Example |

@@ -180,6 +180,13 @@
             <span class="err" id="simi-err" role="alert"></span>
           </div>
         </div>
+        <label class="check" style="margin-top:16px"><input type="checkbox" id="invoice-other" /> Senda reikninga á annað netfang</label>
+        <div class="fld" id="invoice-fld" hidden style="margin-top:12px">
+          <label for="netfang_reikninga">Netfang fyrir reikninga</label>
+          <input id="netfang_reikninga" type="email" autocomplete="off" placeholder="t.d. bokhald@fyrirtaeki.is" aria-describedby="netfang_reikninga-err" />
+          <span class="hint">Annars eru reikningar sendir á netfang tengiliðar.</span>
+          <span class="err" id="netfang_reikninga-err" role="alert"></span>
+        </div>
       </section>
 
       <section class="step">
@@ -254,7 +261,7 @@
   }
 
   // An error message goes away as soon as the field it is about is edited.
-  ['undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi', 'netfang', 'simi']
+  ['undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi', 'netfang', 'simi', 'netfang_reikninga']
     .forEach(k => $(k).addEventListener('input', () => setError(k, '')));
 
   // Kennitala inputs format themselves as 000000-0000.
@@ -264,6 +271,12 @@
     return d;
   }
   $('undirritandi_kt').addEventListener('input', e => formatKtInput(e.target));
+
+  $('invoice-other').addEventListener('change', e => {
+    $('invoice-fld').hidden = !e.target.checked;
+    setError('netfang_reikninga', '');
+    if (e.target.checked) $('netfang_reikninga').focus();
+  });
 
   // "Same contact as the signer" hides the contact fields and uses the signer's.
   $('same-as-signer').addEventListener('change', e => {
@@ -474,6 +487,7 @@
       if (!emailOk($('netfang').value)) errs.netfang = 'Netfang er ekki gilt.';
       if (digits($('simi').value).length < 7) errs.simi = 'Símanúmer er ekki gilt.';
     }
+    if ($('invoice-other').checked && !emailOk($('netfang_reikninga').value)) errs.netfang_reikninga = 'Netfang er ekki gilt.';
     if (!Object.values(state.counts).some(n => n > 0)) errs.taeki = 'Veldu að minnsta kosti eitt tæki.';
     if (!state.verifiedAddress || addr.value.trim() !== state.verifiedAddress) errs.heimilisfang = 'Veldu staðsetningu úr listanum.';
     return errs;
@@ -493,7 +507,7 @@
 
   function applyErrors(errs) {
     ['kennitala', 'undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi',
-     'netfang', 'simi', 'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
+     'netfang', 'simi', 'netfang_reikninga', 'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
     const first = Object.keys(errs)[0];
     if (first) {
       const el = first === 'taeki' ? document.querySelector('.machine button[data-d="1"]') : $(first);
@@ -522,6 +536,7 @@
       undirritandi_simi: $('undirritandi_simi').value.trim(),
       netfang: ($('same-as-signer').checked ? $('undirritandi_netfang') : $('netfang')).value.trim(),
       simi: ($('same-as-signer').checked ? $('undirritandi_simi') : $('simi')).value.trim(),
+      netfang_reikninga: $('invoice-other').checked ? $('netfang_reikninga').value.trim() : '',
       heimilisfang: state.verifiedAddress,
       athugasemdir: $('athugasemdir').value.trim(),
       turnstile: state.turnstileToken,
