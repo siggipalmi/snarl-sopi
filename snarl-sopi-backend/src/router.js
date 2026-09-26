@@ -413,7 +413,7 @@ function handleHealth(req, res) {
 // ─── Lease-unit assignment handlers ──────────────────────────────────────────
 /**
  * POST /api/v1/leases/claim
- * Body: { einfaldur, tvofaldur, skjar, assignedTo, kennitala, requestId? }
+ * Body: { einfaldur, tvofaldur, skjar, assignedTo, kennitala, requestId?, allOrNothing? }
  * Claims the next available unit(s) per type, marks them used, returns
  * contract-ready serial blocks.
  *
@@ -421,6 +421,10 @@ function handleHealth(req, res) {
  * a claim whose response it never saw, and a retry must return the units the
  * first call took, not take more. The handler is synchronous end to end, so two
  * calls with the same requestId cannot interleave.
+ *
+ * allOrNothing (optional): when any type is short, claim nothing and answer 409
+ * insufficient_stock, instead of claiming what exists and warning. A contract must
+ * not go out with some serials missing.
  */
 function handleLeaseClaim(req, res) {
   const b = req.body || {};
@@ -442,8 +446,15 @@ function handleLeaseClaim(req, res) {
     return badRequest(res, 'No units requested (einfaldur/tvofaldur/skjar all zero)');
   }
 
-  const { claimed, warnings } =
-    storage.claimLeaseUnits(wants, b.assignedTo || '', b.kennitala || '');
+  const allOrNothing = b.allOrNothing === true || b.allOrNothing === 'true';
+  const { claimed, warnings, insufficient } =
+    storage.claimLeaseUnits(wants, b.assignedTo || '', b.kennitala || '', { allOrNothing });
+
+  // Nothing was claimed and nothing is remembered under requestId, so the caller can
+  // retry once stock is added or freed.
+  if (insufficient) {
+    return json(res, 409, { ok: false, error: 'insufficient_stock', warnings });
+  }
 
   const order = ['Einfaldur', 'Tvöfaldur', '55"'];
   const flat = [];

@@ -32,7 +32,13 @@ browser ──▶ skraning Worker ──▶ D1 (every registration, with its ste
 - **Fields are recomputed on the server.** The Worker gets company name, legal address and
   manager from fyrirtækjaskrá itself, and confirms the address against staðfangaskrá.
 - **Exactly one machine is claimed per registration.** The claim carries the registration id, and
-  the backend (v6.32.4) returns the same serials if the call is repeated.
+  the backend returns the same serials if the call is repeated.
+- **No contract goes out without serial numbers.** If fewer machines are in stock than requested,
+  the backend (v6.32.5) claims none and the registration waits, retrying, instead of reaching Zapier.
+- **The lease always starts on the first of the coming month.** The form shows the date; the
+  customer does not choose it.
+- **The signer is collected for e-signing.** Name and kennitala of the framkvæmdastjóri come from
+  fyrirtækjaskrá (typed in when the registry has none); the form asks for their email and mobile.
 - **Duplicate submissions are collapsed.** Same kennitala, address, machines and start date within
   24 h returns the existing registration.
 - **The Zap only copies fields.** Every template placeholder arrives already computed, with a key of
@@ -42,8 +48,8 @@ browser ──▶ skraning Worker ──▶ D1 (every registration, with its ste
 
 ### 1. Backend
 
-Deploy `snarl-sopi-backend` v6.32.4 (adds `requestId` to `/api/v1/leases/claim`). Calls without it
-behave exactly as before.
+Deploy `snarl-sopi-backend` v6.32.5. It adds `requestId` and `allOrNothing` to
+`/api/v1/leases/claim`; calls without them behave exactly as before.
 
 ### 2. Zapier: point the existing Zap at a webhook
 
@@ -78,9 +84,16 @@ In the lease-agreement Zap:
 4. **Remap the later steps** (signing, email, Payday, `/operators/provision`) to the webhook fields.
    Extra fields you can use: `skraning_id`, `kennitala` (digits only), `netfang`,
    `fjoldi_tvofaldur`, `fjoldi_einfaldur`, `fjoldi_skjar`, `leigugjald_kr` (a number), `upphaf_iso`,
-   `athugasemdir`, `vidvaranir` and `skrad`.
-5. **Optional:** add a Filter or Path on `vidvaranir`. It is non-empty when fewer machines were in
-   stock than requested, so those registrations can go to you for review.
+   `athugasemdir` and `skrad`.
+
+   For the e-sign step, the person who signs:
+
+   | Field | Example |
+   |---|---|
+   | `Nafn_Undirritanda` | Júlíus Ingi Jónsson |
+   | `Kennitala_Undirritanda` | 0101801234 (10 digits, no dash) |
+   | `Netfang_Undirritanda` | julius@lavashow.com |
+   | `Simi_Undirritanda` | 8237777 (digits, `+` kept for foreign numbers) |
 
 Deploy the Worker (step 3), submit one test registration, then use it in the Zap editor as the
 trigger's sample data so every field appears when you map.
@@ -139,7 +152,9 @@ curl -H "$T" -X POST https://skraning.agvending.is/api/admin/submissions/skr_…
 ```
 
 A `failed` row has stopped after 8 attempts. `last_error` names the step and the reason. Fix the
-cause, then call `retry`: it resumes from that step and does not claim a second machine. `retry`
+cause, then call `retry`: it resumes from that step and does not claim a second machine.
+`lease claim 409 … insufficient_stock` means not enough machines were available: add or free units
+in the admin dashboard and the registration goes through on its next attempt. `retry`
 on a `sent` row sends the same payload to Zapier again, which is how you re-create a document.
 
 Prices and contract wording for each machine type are in `MACHINES` at the top of `src/lib.js`.

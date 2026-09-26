@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.32.4",
-  "description": "Snarl and Sopi operator backend v6.32.4: a lease claim can be retried without taking a second machine. POST /api/v1/leases/claim accepts an optional requestId; the first call stores its result under that id and any later call with the same id returns the same serials (marked replayed) instead of claiming more. The new skraning.agvending.is Worker sends its registration id here, so a claim whose response was lost in transit is safe to repeat. Calls without requestId behave exactly as before. Cumulative over v6.32.3.",
+  "version": "6.32.5",
+  "description": "Snarl and Sopi operator backend v6.32.5: a lease claim can refuse to be partial. POST /api/v1/leases/claim accepts allOrNothing; when any machine type has fewer units available than requested, it claims none and answers 409 insufficient_stock with the shortfall, and remembers nothing under requestId, so a later retry claims cleanly once stock is added or freed. Without the flag it behaves as before (claims what exists and warns). The skraning Worker sends it, because a contract that went out with the serial numbers missing was the failure this prevents. Cumulative over v6.32.4.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

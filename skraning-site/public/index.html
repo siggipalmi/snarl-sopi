@@ -43,6 +43,14 @@
   .company .name{font-weight:500;font-size:16px}
   .company dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:8px 0 0;font-size:14px}
   .company dt{color:var(--mute)}.company dd{margin:0}
+  .sign-box{background:#FFFDF9;border:.5px solid var(--accent);border-left:3px solid var(--accent);border-radius:10px;padding:18px 18px 16px}
+  .signer{background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:12px 16px;margin-bottom:14px}
+  .signer dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 6px;font-size:15px}
+  .signer dt{color:var(--mute)}.signer dd{margin:0;font-weight:500}
+  .check{display:flex;align-items:center;gap:10px;font-size:15px;cursor:pointer}
+  .check input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+  .start{margin:0;font-size:17px}
+  .start strong{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:24px}
   .machines{display:flex;flex-direction:column;gap:10px}
   .machine{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:14px 16px}
   .machine.sel{border-color:var(--accent);background:#FFFDF9}
@@ -109,21 +117,58 @@
           <div class="name" id="c-name"></div>
           <dl>
             <dt>Lögheimili</dt><dd id="c-addr"></dd>
-            <dt>Framkvæmdastjóri</dt><dd id="c-mgr"></dd>
           </dl>
-        </div>
-        <div class="fld" id="tengilidur-fld" hidden style="margin-top:14px">
-          <label for="tengilidur">Nafn tengiliðar</label>
-          <input id="tengilidur" name="tengilidur" autocomplete="name" aria-describedby="tengilidur-err" />
-          <span class="hint">Enginn framkvæmdastjóri er skráður í fyrirtækjaskrá. Hver er tengiliður leigutaka?</span>
-          <span class="err" id="tengilidur-err" role="alert"></span>
         </div>
       </section>
 
       <section class="step">
-        <div class="lbl">2 · Samskipti</div>
-        <h2>Tengiliður</h2>
-        <div class="grid2">
+        <div class="lbl">2 · Fyrir undirritun samnings</div>
+        <h2>Undirritandi</h2>
+        <div class="sign-box">
+          <p class="hint" style="margin:0 0 14px">Framkvæmdastjóri undirritar leigusamninginn rafrænt með rafrænum skilríkjum. Beiðni um undirritun er send á netfangið og farsímanúmerið hér að neðan.</p>
+          <div class="signer" id="signer" hidden>
+            <dl>
+              <dt>Nafn</dt><dd id="s-name"></dd>
+              <dt>Kennitala</dt><dd id="s-kt"></dd>
+            </dl>
+            <span class="hint">Úr fyrirtækjaskrá.</span>
+          </div>
+          <p class="hint" id="signer-wait" style="margin:0 0 14px">Sláðu inn kennitölu leigutaka hér að ofan til að sækja framkvæmdastjóra.</p>
+          <div id="signer-manual" hidden>
+            <p class="hint" style="margin:0 0 12px">Enginn framkvæmdastjóri er skráður í fyrirtækjaskrá. Hver undirritar samninginn fyrir hönd leigutaka?</p>
+            <div class="grid2" style="margin-bottom:14px">
+              <div class="fld">
+                <label for="undirritandi_nafn">Nafn undirritanda</label>
+                <input id="undirritandi_nafn" autocomplete="name" aria-describedby="undirritandi_nafn-err" />
+                <span class="err" id="undirritandi_nafn-err" role="alert"></span>
+              </div>
+              <div class="fld">
+                <label for="undirritandi_kt">Kennitala undirritanda</label>
+                <input id="undirritandi_kt" inputmode="numeric" autocomplete="off" placeholder="000000-0000" maxlength="11" aria-describedby="undirritandi_kt-err" />
+                <span class="err" id="undirritandi_kt-err" role="alert"></span>
+              </div>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="fld">
+              <label for="undirritandi_netfang">Netfang undirritanda</label>
+              <input id="undirritandi_netfang" type="email" autocomplete="email" required aria-describedby="undirritandi_netfang-err" />
+              <span class="err" id="undirritandi_netfang-err" role="alert"></span>
+            </div>
+            <div class="fld">
+              <label for="undirritandi_simi">Farsími undirritanda</label>
+              <input id="undirritandi_simi" type="tel" inputmode="tel" autocomplete="tel" required aria-describedby="undirritandi_simi-err" />
+              <span class="err" id="undirritandi_simi-err" role="alert"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="lbl">3 · Samskipti</div>
+        <h2>Tengiliður vegna reksturs</h2>
+        <label class="check"><input type="checkbox" id="same-as-signer" /> Sami tengiliður og undirritandi</label>
+        <div class="grid2" id="contact-fields" style="margin-top:14px">
           <div class="fld">
             <label for="netfang">Netfang</label>
             <input id="netfang" name="netfang" type="email" autocomplete="email" required aria-describedby="netfang-err" />
@@ -138,7 +183,7 @@
       </section>
 
       <section class="step">
-        <div class="lbl">3 · Tæki</div>
+        <div class="lbl">4 · Tæki</div>
         <h2>Hvað viltu leigja?</h2>
         <div class="machines" id="machines"></div>
         <div class="total"><span class="lbl">Mánaðarleiga</span><span><strong id="total">0</strong> <span class="hint">kr. + vsk</span></span></div>
@@ -146,7 +191,7 @@
       </section>
 
       <section class="step">
-        <div class="lbl">4 · Staðsetning</div>
+        <div class="lbl">5 · Staðsetning</div>
         <h2>Hvar verður sjálfsalinn?</h2>
         <div class="fld">
           <label for="heimilisfang">Heimilisfang</label>
@@ -159,16 +204,11 @@
       </section>
 
       <section class="step">
-        <div class="lbl">5 · Leigutími</div>
-        <h2>Hvenær á leigan að hefjast?</h2>
-        <div class="grid2">
-          <div class="fld">
-            <label for="upphaf">Upphaf leigutíma</label>
-            <input id="upphaf" name="upphaf" type="date" required aria-describedby="upphaf-err" />
-            <span class="err" id="upphaf-err" role="alert"></span>
-          </div>
-        </div>
-        <div class="fld" style="margin-top:14px">
+        <div class="lbl">6 · Leigutími</div>
+        <h2>Upphaf leigutíma</h2>
+        <p class="start">Leigan hefst <strong id="start-label">1. næsta mánaðar</strong>.</p>
+        <p class="hint" style="margin:4px 0 0">Leigutími hefst alltaf fyrsta dag næsta mánaðar. Hann er ótímabundinn, með eins mánaðar uppsögn fyrstu þrjá mánuðina og þriggja mánaða uppsögn eftir það.</p>
+        <div class="fld" style="margin-top:18px">
           <label for="athugasemdir">Athugasemdir (valfrjálst)</label>
           <textarea id="athugasemdir" name="athugasemdir" rows="3" maxlength="2000"></textarea>
         </div>
@@ -178,7 +218,6 @@
       <p class="form-err" id="form-err" role="alert" hidden></p>
       <div class="submit-row">
         <button class="btn" id="submit" type="submit">Senda skráningu</button>
-        <span class="hint">Leigutími er ótímabundinn. Eins mánaðar uppsögn fyrstu þrjá mánuðina, þrír mánuðir eftir það.</span>
       </div>
     </form>
   </div>
@@ -215,7 +254,22 @@
   }
 
   // An error message goes away as soon as the field it is about is edited.
-  ['tengilidur', 'netfang', 'simi', 'upphaf'].forEach(k => $(k).addEventListener('input', () => setError(k, '')));
+  ['undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi', 'netfang', 'simi']
+    .forEach(k => $(k).addEventListener('input', () => setError(k, '')));
+
+  // Kennitala inputs format themselves as 000000-0000.
+  function formatKtInput(input) {
+    const d = digits(input.value).slice(0, 10);
+    input.value = d.length > 6 ? d.slice(0, 6) + '-' + d.slice(6) : d;
+    return d;
+  }
+  $('undirritandi_kt').addEventListener('input', e => formatKtInput(e.target));
+
+  // "Same contact as the signer" hides the contact fields and uses the signer's.
+  $('same-as-signer').addEventListener('change', e => {
+    $('contact-fields').hidden = e.target.checked;
+    setError('netfang', ''); setError('simi', '');
+  });
 
   // ─── Config ────────────────────────────────────────────────────────────────
   fetch('/api/config').then(r => r.json()).then(cfg => {
@@ -223,8 +277,7 @@
     const params = new URLSearchParams(location.search);
     cfg.machines.forEach(m => { state.counts[m.key] = Math.min(10, Math.max(0, parseInt(params.get(m.key), 10) || 0)); });
     renderMachines();
-    $('upphaf').value = cfg.defaultStart;
-    $('upphaf').min = cfg.minStart;
+    $('start-label').textContent = cfg.startLabel;
     if (cfg.turnstileSiteKey) loadTurnstile(cfg.turnstileSiteKey);
   }).catch(() => showFormError('Ekki tókst að hlaða forminu. Endurhlaðið síðuna.'));
 
@@ -284,8 +337,7 @@
   const ktInput = $('kennitala');
 
   ktInput.addEventListener('input', () => {
-    const d = digits(ktInput.value).slice(0, 10);
-    ktInput.value = d.length > 6 ? d.slice(0, 6) + '-' + d.slice(6) : d;
+    const d = formatKtInput(ktInput);
     clearTimeout(ktTimer);
     if (d.length < 10) { ktLast = ''; showCompany(null); setError('kennitala', ''); return; }
     ktTimer = setTimeout(() => lookupCompany(d), 250);
@@ -318,11 +370,14 @@
   function showCompany(c) {
     state.company = c;
     $('company').classList.toggle('on', Boolean(c));
-    $('tengilidur-fld').hidden = !c || c.hasManager;
+    $('signer-wait').hidden = Boolean(c);
+    $('signer').hidden = !c || !c.hasManager;
+    $('signer-manual').hidden = !c || c.hasManager;
     if (!c) return;
     $('c-name').textContent = c.companyName;
     $('c-addr').textContent = c.registeredAddress || '—';
-    $('c-mgr').textContent = c.managerName || 'Ekki skráður';
+    $('s-name').textContent = c.managerName || '';
+    $('s-kt').textContent = c.managerNationalId || '—';
   }
 
   // ─── Address autocomplete (combobox) ───────────────────────────────────────
@@ -409,17 +464,36 @@
     const errs = {};
     if (digits(ktInput.value).length !== 10) errs.kennitala = 'Sláðu inn 10 stafa kennitölu.';
     else if (!state.company) errs.kennitala = errs.kennitala || $('kennitala-err').textContent || 'Bíddu eftir að upplýsingar berist úr fyrirtækjaskrá.';
-    if (state.company && !state.company.hasManager && !$('tengilidur').value.trim()) errs.tengilidur = 'Skráðu nafn tengiliðar.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('netfang').value.trim())) errs.netfang = 'Netfang er ekki gilt.';
-    if (digits($('simi').value).length < 7) errs.simi = 'Símanúmer er ekki gilt.';
+    if (state.company && !state.company.hasManager) {
+      if (!$('undirritandi_nafn').value.trim()) errs.undirritandi_nafn = 'Skráðu nafn þess sem undirritar.';
+      if (!ktValid($('undirritandi_kt').value)) errs.undirritandi_kt = 'Kennitala er ekki gild.';
+    }
+    if (!emailOk($('undirritandi_netfang').value)) errs.undirritandi_netfang = 'Netfang er ekki gilt.';
+    if (digits($('undirritandi_simi').value).length < 7) errs.undirritandi_simi = 'Farsímanúmer er ekki gilt.';
+    if (!$('same-as-signer').checked) {
+      if (!emailOk($('netfang').value)) errs.netfang = 'Netfang er ekki gilt.';
+      if (digits($('simi').value).length < 7) errs.simi = 'Símanúmer er ekki gilt.';
+    }
     if (!Object.values(state.counts).some(n => n > 0)) errs.taeki = 'Veldu að minnsta kosti eitt tæki.';
     if (!state.verifiedAddress || addr.value.trim() !== state.verifiedAddress) errs.heimilisfang = 'Veldu staðsetningu úr listanum.';
-    if (!$('upphaf').value) errs.upphaf = 'Veldu upphafsdag.';
     return errs;
   }
 
+  const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
+
+  // Þjóðskrá check digit, same rule as the server.
+  function ktValid(v) {
+    const kt = digits(v);
+    if (kt.length !== 10) return false;
+    const w = [3, 2, 7, 6, 5, 4, 3, 2];
+    let c = 11 - (w.reduce((a, x, i) => a + x * Number(kt[i]), 0) % 11);
+    if (c === 11) c = 0;
+    return c !== 10 && c === Number(kt[8]);
+  }
+
   function applyErrors(errs) {
-    ['kennitala', 'tengilidur', 'netfang', 'simi', 'taeki', 'heimilisfang', 'upphaf'].forEach(k => setError(k, errs[k] || ''));
+    ['kennitala', 'undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi',
+     'netfang', 'simi', 'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
     const first = Object.keys(errs)[0];
     if (first) {
       const el = first === 'taeki' ? document.querySelector('.machine button[data-d="1"]') : $(first);
@@ -442,11 +516,13 @@
     const body = {
       vefsida: form.vefsida.value,
       kennitala: digits(ktInput.value),
-      tengilidur: $('tengilidur').value.trim(),
-      netfang: $('netfang').value.trim(),
-      simi: $('simi').value.trim(),
+      undirritandi_nafn: $('undirritandi_nafn').value.trim(),
+      undirritandi_kt: digits($('undirritandi_kt').value),
+      undirritandi_netfang: $('undirritandi_netfang').value.trim(),
+      undirritandi_simi: $('undirritandi_simi').value.trim(),
+      netfang: ($('same-as-signer').checked ? $('undirritandi_netfang') : $('netfang')).value.trim(),
+      simi: ($('same-as-signer').checked ? $('undirritandi_simi') : $('simi')).value.trim(),
       heimilisfang: state.verifiedAddress,
-      upphaf: $('upphaf').value,
       athugasemdir: $('athugasemdir').value.trim(),
       turnstile: state.turnstileToken,
     };
@@ -465,7 +541,7 @@
       try {
         const data = await r.json().catch(() => ({}));
         if (r.ok && data.ok) {
-          $('done-email').textContent = body.netfang;
+          $('done-email').textContent = body.undirritandi_netfang;
           $('done-id').textContent = data.id;
           $('form-view').hidden = true;
           $('done-view').hidden = false;

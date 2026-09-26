@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addressLookupQuery, buildContractPayload, buildCpiQuery, dedupeKey, describeMachines, firstOfNextMonth,
-  formatKennitala, formatKr, formatLongDate, formatPhone, formatStartDate, isValidKennitala,
-  parseCpiOverride, parseStartDate, pickLatestCpi, validateForm,
+  addressLookupQuery, buildContractPayload, buildCpiQuery, claimShortfall, dedupeKey, describeMachines,
+  firstOfNextMonth, formatKennitala, formatKr, formatLongDate, formatPhone, formatStartDate, isValidKennitala,
+  parseCpiOverride, pickLatestCpi, signerFor, validateForm,
 } from '../src/lib.js';
 
 const NOW = new Date('2026-09-25T10:00:00Z');
@@ -30,10 +30,6 @@ test('dates', () => {
   assert.equal(formatStartDate('2026-10-01'), '01/10/2026');
   assert.equal(formatLongDate(NOW), '25. september 2026');
   assert.equal(firstOfNextMonth(new Date('2026-12-15T00:00:00Z')).toISOString().slice(0, 10), '2027-01-01');
-  assert.equal(parseStartDate('2026-09-25', NOW), '2026-09-25');
-  assert.equal(parseStartDate('2026-09-24', NOW), null);     // past
-  assert.equal(parseStartDate('2026-02-30', NOW), null);     // not a date
-  assert.equal(parseStartDate('2028-01-01', NOW), null);     // too far out
 });
 
 test('phone formatting', () => {
@@ -42,13 +38,16 @@ test('phone formatting', () => {
   assert.equal(formatPhone('+44 20 7946 0958'), '+44 20 7946 0958');
 });
 
+const SIGNER = { undirritandi_netfang: 'julius@lavashow.com', undirritandi_simi: '823 7777' };
+
 test('validateForm catches every field', () => {
   const { errors } = validateForm({}, NOW);
-  assert.deepEqual(Object.keys(errors).sort(), ['heimilisfang', 'kennitala', 'netfang', 'simi', 'taeki', 'upphaf']);
+  assert.deepEqual(Object.keys(errors).sort(),
+    ['heimilisfang', 'kennitala', 'netfang', 'simi', 'taeki', 'undirritandi_netfang', 'undirritandi_simi']);
 
   const ok = validateForm({
     kennitala: '460716-1010', netfang: 'julius@lavashow.com', simi: '823 7777',
-    tvofaldur: 1, heimilisfang: 'Fiskislóð 73, 101, Reykjavík', upphaf: '2026-10-01',
+    tvofaldur: 1, heimilisfang: 'Fiskislóð 73, 101, Reykjavík', ...SIGNER,
   }, NOW);
   assert.deepEqual(ok.errors, {});
   assert.deepEqual(ok.value.counts, { tvofaldur: 1, einfaldur: 0, skjar: 0 });
@@ -58,10 +57,16 @@ test('validateForm catches every field', () => {
   assert.ok(validateForm({ tvofaldur: -1 }, NOW).errors.taeki);
 });
 
+test('the lease always starts on the first of the coming month, whatever the form sends', () => {
+  assert.equal(validateForm({ upphaf: '2027-05-17' }, NOW).value.upphaf, '2026-10-01');
+  assert.equal(validateForm({}, new Date('2026-12-31T23:59:00Z')).value.upphaf, '2027-01-01');
+  assert.equal(validateForm({}, new Date('2026-10-01T00:00:00Z')).value.upphaf, '2026-11-01');
+});
+
 test('contract payload fills every template placeholder', () => {
   const { value: form } = validateForm({
     kennitala: '4607161010', netfang: 'julius@lavashow.com', simi: '8237777',
-    tvofaldur: 1, heimilisfang: 'Fiskislóð 73, 101, Reykjavík', upphaf: '2026-10-01',
+    tvofaldur: 1, heimilisfang: 'Fiskislóð 73, 101, Reykjavík', ...SIGNER,
   }, NOW);
   const company = {
     companyName: 'Icelandic Lava Show ehf.', address: 'Fiskislóð 73', postcode: '101', city: 'Reykjavík',
@@ -80,28 +85,45 @@ test('contract payload fills every template placeholder', () => {
   assert.equal(p.Nafn_Leigutaka, 'Icelandic Lava Show ehf.');
   assert.equal(p.Kennitala_Leigutaka, '460716-1010');
   assert.equal(p.Logheimili_Leigutaka, 'Fiskislóð 73, 101 Reykjavík');
+  assert.equal(p.Nafn_Framkvaemdastjora, 'Júlíus Ingi Jónsson');
+  assert.equal(p.Kennitala_Framkvaemdastjora, '010180-1234');
   assert.equal(p.hid_leigda, 'Tvöfaldur snjallsjálfsali');
   assert.equal(p.leigugjald, '55.000 + vsk.');
   assert.equal(p.upphaf_leigutima, '01/10/2026');
   assert.equal(p.Simi, '823 7777');
   assert.equal(p.undirritunardagur, '25. september 2026');
   assert.equal(p.skjal_titill, 'Leigusamningur-AGV-Icelandic Lava Show ehf.');
+
+  // For the e-sign step
+  assert.equal(p.Nafn_Undirritanda, 'Júlíus Ingi Jónsson');
+  assert.equal(p.Kennitala_Undirritanda, '0101801234');
+  assert.equal(p.Netfang_Undirritanda, 'julius@lavashow.com');
+  assert.equal(p.Simi_Undirritanda, '8237777');
 });
 
-test('contact falls back to the typed name when the registry has no manager', () => {
+test('the signer is typed in when the registry has no manager', () => {
   const { value: form } = validateForm({
-    kennitala: '4607161010', netfang: 'a@b.is', simi: '8237777', einfaldur: 2,
-    heimilisfang: 'x', upphaf: '2026-10-01', tengilidur: 'Anna Jónsdóttir',
+    kennitala: '4607161010', netfang: 'a@b.is', simi: '8237777', einfaldur: 2, heimilisfang: 'x',
+    ...SIGNER, undirritandi_nafn: 'Anna Jónsdóttir', undirritandi_kt: '590922-0800',
   }, NOW);
+  const company = { companyName: 'X ehf.' };
+  assert.deepEqual(signerFor(company, form), { nafn: 'Anna Jónsdóttir', kennitala: '5909220800' });
   const p = buildContractPayload({
-    id: 'x', form, company: { companyName: 'X ehf.' }, now: NOW,
-    claim: { radnumer_sjalfsala: 'a\nb', radnumer_nayax: 'c\nd', warnings: ["Only 1 'Einfaldur' available, 2 requested"] },
+    id: 'x', form, company, now: NOW,
+    claim: { radnumer_sjalfsala: 'a\nb', radnumer_nayax: 'c\nd', counts: { einfaldur: 2 }, warnings: [] },
     cpi: { vnv: '1', manudur: '2026M08' },
   });
   assert.equal(p.Nafn_Framkvaemdastjora, 'Anna Jónsdóttir');
-  assert.equal(p.Kennitala_Framkvaemdastjora, '');
+  assert.equal(p.Kennitala_Framkvaemdastjora, '590922-0800');
   assert.equal(p.leigugjald, '80.000 + vsk.');
-  assert.match(p.vidvaranir, /Only 1/);
+});
+
+test('a claim that did not cover every machine is a shortfall', () => {
+  const counts = { tvofaldur: 1, einfaldur: 2, skjar: 0 };
+  assert.deepEqual(claimShortfall(counts, { counts: { tvofaldur: 1, einfaldur: 2, skjar: 0 } }), []);
+  assert.deepEqual(claimShortfall(counts, { counts: { tvofaldur: 0, einfaldur: 2, skjar: 0 } }),
+    ['Tvöfaldur snjallsjálfsali: 0 af 1']);
+  assert.equal(claimShortfall(counts, { radnumer_sjalfsala: '' }).length, 2);   // no counts at all
 });
 
 test('address re-check searches by street and house number, like the autocomplete does', () => {

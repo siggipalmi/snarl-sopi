@@ -12,8 +12,8 @@
 
 import {
   MACHINES, MAX_ATTEMPTS, addressLookupQuery, backoffMinutes, buildContractPayload, buildCpiQuery,
-  dedupeKey, firstOfNextMonth, isValidKennitala, isoDate, normalizeKennitala,
-  parseCpiOverride, pickLatestCpi, registeredAddress, validateForm,
+  claimShortfall, dedupeKey, firstOfNextMonth, formatKennitala, formatLongDate, isValidKennitala, isoDate,
+  normalizeKennitala, parseCpiOverride, pickLatestCpi, registeredAddress, validateForm,
 } from './lib.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
@@ -69,8 +69,9 @@ function handleConfig(env) {
   const now = new Date();
   return json({
     machines: MACHINES,
-    defaultStart: isoDate(firstOfNextMonth(now)),
-    minStart: isoDate(now),
+    // Leases always start on the first of the coming month; shown, not chosen.
+    startDate: isoDate(firstOfNextMonth(now)),
+    startLabel: formatLongDate(firstOfNextMonth(now)),
     turnstileSiteKey: env.TURNSTILE_SITE_KEY || '',
   });
 }
@@ -88,6 +89,7 @@ async function handleCompany(url, env) {
     companyName: c.companyName,
     registeredAddress: registeredAddress(c),
     managerName: c.managerName || '',
+    managerNationalId: c.managerNationalId ? formatKennitala(c.managerNationalId) : '',
     hasManager: Boolean(c.managerName),
   });
 }
@@ -139,7 +141,12 @@ async function handleSubmit(request, env, ctx) {
       return json({ error: 'upstream', message: 'Ekki tókst að sækja upplýsingar úr fyrirtækjaskrá. Reynið aftur eftir smá stund.' }, 502);
     }
     if (!company) errors.kennitala = 'Engar upplýsingar fundust fyrir þessa kennitölu í fyrirtækjaskrá.';
-    else if (!company.managerName && !form.tengilidur) errors.tengilidur = 'Skráðu nafn tengiliðar.';
+    else if (!company.managerName) {
+      // No manager in the registry: the signer has to be named here, with a kennitala
+      // that rafræn skilríki can match.
+      if (!form.undirritandi.nafn) errors.undirritandi_nafn = 'Skráðu nafn þess sem undirritar.';
+      if (!isValidKennitala(form.undirritandi.kennitala)) errors.undirritandi_kt = 'Kennitala er ekki gild.';
+    }
   }
   if (!errors.heimilisfang) {
     let matches = [];
@@ -208,7 +215,7 @@ async function processSubmission(env, id) {
     }
   } catch (e) {
     const attempts = (row.attempts || 0) + 1;
-    const giveUp = attempts >= MAX_ATTEMPTS;
+    const giveUp = attempts >= MAX_ATTEMPTS || e.noRetry === true;
     const next = new Date(Date.now() + backoffMinutes(attempts) * 60000).toISOString();
     console.error('[pipeline]', id, 'step', row.status, 'attempt', attempts, e.message);
     await env.DB.prepare(`UPDATE submissions SET attempts=?, last_error=?, next_attempt_at=?, updated_at=?,
@@ -226,6 +233,7 @@ async function claimSerials(env, id, form, company) {
     headers: { 'Content-Type': 'application/json', 'X-Lease-Key': env.LEASE_CLAIM_SECRET },
     body: JSON.stringify({
       requestId: id,                          // makes a retried claim return the same units
+      allOrNothing: true,                     // backend ≥ 6.32.5: a short claim takes nothing
       einfaldur: form.counts.einfaldur,
       tvofaldur: form.counts.tvofaldur,
       skjar: form.counts.skjar,
@@ -234,10 +242,20 @@ async function claimSerials(env, id, form, company) {
     }),
   });
   const text = await res.text();
+  // 409: not enough machines in stock. Nothing was claimed, so retrying later is safe
+  // and succeeds once stock is added or freed.
   if (!res.ok) throw new Error(`lease claim ${res.status}: ${text.slice(0, 300)}`);
   const out = JSON.parse(text);
   const data = out && out.data !== undefined ? out.data : out;   // tolerate an {ok,data} envelope
   if (!data || data.radnumer_sjalfsala === undefined) throw new Error('lease claim: unexpected response ' + text.slice(0, 200));
+  // An older backend claims what it can and reports the rest as a warning. Never send a
+  // contract without serials, and do not retry: a retry would claim more machines.
+  const short = claimShortfall(form.counts, data);
+  if (short.length) {
+    const e = new Error('Ekki nægar vélar á lager (' + short.join('; ') + '). Losið vélar sem voru teknar og reynið aftur.');
+    e.noRetry = true;
+    throw e;
+  }
   return data;
 }
 

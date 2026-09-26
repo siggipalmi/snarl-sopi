@@ -114,16 +114,6 @@ export function formatLongDate(d) {
   return `${d.getUTCDate()}. ${MONTHS_IS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-export function parseStartDate(value, now) {
-  const s = String(value || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const d = new Date(s + 'T00:00:00Z');
-  if (Number.isNaN(d.getTime()) || isoDate(d) !== s) return null;
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const limit = new Date(today.getTime() + 366 * 86400000);
-  if (d < today || d > limit) return null;
-  return s;
-}
 
 // ─── Form validation ──────────────────────────────────────────────────────────
 // Returns { errors: {field: message}, value: normalized form } — company and
@@ -150,16 +140,45 @@ export function validateForm(body, now) {
   const heimilisfang = String(b.heimilisfang || '').trim();
   if (!heimilisfang) errors.heimilisfang = 'Veldu staðsetningu úr listanum.';
 
-  const upphaf = parseStartDate(b.upphaf, now);
-  if (!upphaf) errors.upphaf = 'Veldu upphafsdag frá og með deginum í dag.';
+  // Every lease starts on the first day of the coming month; the customer does not choose.
+  const upphaf = isoDate(firstOfNextMonth(now));
 
-  const tengilidur = String(b.tengilidur || '').trim().slice(0, 120);
+  // The signer (framkvæmdastjóri) signs with rafræn skilríki, so the e-sign step needs
+  // a way to reach them. Name and kennitala come from fyrirtækjaskrá; when the registry
+  // has no manager, the Worker requires them typed in (undirritandi_nafn / _kt).
+  const undirritandi = {
+    netfang: String(b.undirritandi_netfang || '').trim(),
+    simi: String(b.undirritandi_simi || '').trim(),
+    nafn: String(b.undirritandi_nafn || '').trim().slice(0, 120),
+    kennitala: normalizeKennitala(b.undirritandi_kt),
+  };
+  if (!isValidEmail(undirritandi.netfang)) errors.undirritandi_netfang = 'Netfang er ekki gilt.';
+  if (!isValidPhone(undirritandi.simi)) errors.undirritandi_simi = 'Farsímanúmer er ekki gilt.';
+
   const athugasemdir = String(b.athugasemdir || '').trim().slice(0, 2000);
 
   return {
     errors,
-    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, tengilidur, athugasemdir },
+    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, athugasemdir },
   };
+}
+
+// Who signs: the registry's manager when there is one, otherwise the person typed
+// into the form. Returns { nafn, kennitala } with kennitala as 10 digits or ''.
+export function signerFor(company, form) {
+  if (company.managerName) {
+    return { nafn: company.managerName, kennitala: normalizeKennitala(company.managerNationalId) };
+  }
+  return { nafn: form.undirritandi.nafn, kennitala: form.undirritandi.kennitala };
+}
+
+// The claim must cover every machine requested. A short claim means the contract
+// would go out without serial numbers, so it is an error, never a warning.
+export function claimShortfall(counts, claim) {
+  const got = (claim && claim.counts) || {};
+  return MACHINES
+    .filter(m => (counts[m.key] || 0) > (got[m.key] || 0))
+    .map(m => `${m.label}: ${got[m.key] || 0} af ${counts[m.key]}`);
 }
 
 // The address proxy matches "street house" (or a prefix of it), not the formatted
@@ -245,15 +264,15 @@ export function parseCpiOverride(value) {
 // Keys named like {{placeholders}} in "leigusamningur template" map 1:1 in the Zap.
 export function buildContractPayload({ id, form, company, claim, cpi, now }) {
   const counts = form.counts;
-  const managerName = company.managerName || form.tengilidur;
+  const signer = signerFor(company, form);
   const total = monthlyTotal(counts);
   return {
     // Template placeholders
     Nafn_Leigutaka: company.companyName,
     Kennitala_Leigutaka: formatKennitala(form.kennitala),
     Logheimili_Leigutaka: registeredAddress(company),
-    Nafn_Framkvaemdastjora: managerName,
-    Kennitala_Framkvaemdastjora: company.managerNationalId ? formatKennitala(company.managerNationalId) : '',
+    Nafn_Framkvaemdastjora: signer.nafn,
+    Kennitala_Framkvaemdastjora: signer.kennitala ? formatKennitala(signer.kennitala) : '',
     Netfang_Samskipti: form.netfang,
     Simi: formatPhone(form.simi),
     hid_leigda: describeMachines(counts),
@@ -269,6 +288,13 @@ export function buildContractPayload({ id, form, company, claim, cpi, now }) {
     // Everything else a later Zap step might want
     skjal_titill: `Leigusamningur-AGV-${company.companyName}`,
     skraning_id: id,
+
+    // Who signs with rafræn skilríki: for the e-sign (Taktikal) step
+    Nafn_Undirritanda: signer.nafn,
+    Kennitala_Undirritanda: signer.kennitala,        // 10 digits, no dash
+    Netfang_Undirritanda: form.undirritandi.netfang,
+    Simi_Undirritanda: normalizePhone(form.undirritandi.simi),
+
     kennitala: form.kennitala,
     netfang: form.netfang,
     fjoldi_tvofaldur: counts.tvofaldur,
