@@ -1302,12 +1302,21 @@ const storage = {
     return seed.length;
   },
   // Atomically claim N available units per type. wants = { 'Einfaldur':2, '55"':1 }
-  claimLeaseUnits(wants, assignedTo, kennitala) {
+  // opts.allOrNothing: if any type is short, claim nothing and report insufficient.
+  claimLeaseUnits(wants, assignedTo, kennitala, opts = {}) {
     const tx = db.transaction((wants, assignedTo, kennitala) => {
       const claimed = {};
       const warnings = [];
       const assignedDate = new Date().toISOString().slice(0, 10);
       const updatedAt = new Date().toISOString();
+      if (opts.allOrNothing) {
+        for (const [type, qtyRaw] of Object.entries(wants)) {
+          const qty = Number(qtyRaw) || 0;
+          const available = stmts.countLeaseAvailable.get(type).c;
+          if (qty > available) warnings.push(`Only ${available} '${type}' available, ${qty} requested`);
+        }
+        if (warnings.length) return { claimed, warnings, insufficient: true };
+      }
       for (const [type, qtyRaw] of Object.entries(wants)) {
         const qty = Number(qtyRaw) || 0;
         if (qty <= 0) continue;
