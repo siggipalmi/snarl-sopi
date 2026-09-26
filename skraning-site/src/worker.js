@@ -11,7 +11,7 @@
 // only has to copy fields into "Create Document From Template".
 
 import {
-  MACHINES, MAX_ATTEMPTS, backoffMinutes, buildContractPayload, buildCpiQuery,
+  MACHINES, MAX_ATTEMPTS, addressLookupQuery, backoffMinutes, buildContractPayload, buildCpiQuery,
   dedupeKey, firstOfNextMonth, isValidKennitala, isoDate, normalizeKennitala,
   parseCpiOverride, pickLatestCpi, registeredAddress, validateForm,
 } from './lib.js';
@@ -143,7 +143,7 @@ async function handleSubmit(request, env, ctx) {
   }
   if (!errors.heimilisfang) {
     let matches = [];
-    try { matches = await lookupAddresses(env, form.heimilisfang); } catch (e) {
+    try { matches = await lookupAddresses(env, addressLookupQuery(form.heimilisfang)); } catch (e) {
       return json({ error: 'upstream', message: 'Ekki tókst að staðfesta heimilisfang. Reynið aftur eftir smá stund.' }, 502);
     }
     if (!matches.some(m => m.full === form.heimilisfang)) errors.heimilisfang = 'Veldu staðsetningu úr listanum.';

@@ -162,6 +162,13 @@ export function validateForm(body, now) {
   };
 }
 
+// The address proxy matches "street house" (or a prefix of it), not the formatted
+// "Sefgarðar 12, 170, Seltjarnarnes" it returns, so re-verifying a chosen address
+// has to search by the part before the first comma and then match `full` exactly.
+export function addressLookupQuery(full) {
+  return String(full || '').split(',')[0].trim();
+}
+
 // ─── Company registry (skattur-company-lookup Worker response) ───────────────
 export function registeredAddress(company) {
   const zipCity = [company.postcode, company.city].filter(Boolean).join(' ');

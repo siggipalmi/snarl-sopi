@@ -452,23 +452,35 @@
     };
     state.machines.forEach(m => { body[m.key] = state.counts[m.key]; });
 
+    // Only a request that never got an answer is a connection problem; anything
+    // else says what the server answered, so a failure can be told apart.
+    let r;
     try {
-      const r = await fetch('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const data = await r.json().catch(() => ({}));
-      if (r.ok && data.ok) {
-        $('done-email').textContent = body.netfang;
-        $('done-id').textContent = data.id;
-        $('form-view').hidden = true;
-        $('done-view').hidden = false;
-        $('done-view').focus();
-        window.scrollTo(0, 0);
-        return;
-      }
-      if (data.errors) applyErrors(data.errors);
-      showFormError(data.message || (data.errors ? 'Vinsamlegast lagfærðu reitina sem eru merktir.' : 'Ekki tókst að senda skráninguna. Reyndu aftur eða sendu okkur línu á agvending@agvending.is.'));
-      if (window.turnstile) { window.turnstile.reset(); state.turnstileToken = ''; }
+      r = await fetch('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     } catch (err) {
+      console.error('[skraning] submit request failed', err);
       showFormError('Ekki náðist samband. Athugaðu nettenginguna og reyndu aftur.');
+    }
+    if (r) {
+      try {
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.ok) {
+          $('done-email').textContent = body.netfang;
+          $('done-id').textContent = data.id;
+          $('form-view').hidden = true;
+          $('done-view').hidden = false;
+          $('done-view').focus();
+          window.scrollTo(0, 0);
+          return;
+        }
+        if (data.errors) applyErrors(data.errors);
+        showFormError(data.message || (data.errors ? 'Vinsamlegast lagfærðu reitina sem eru merktir.'
+          : 'Ekki tókst að senda skráninguna (villa ' + r.status + '). Reyndu aftur eða sendu okkur línu á agvending@agvending.is.'));
+      } catch (err) {
+        console.error('[skraning] handling the submit response failed', err);
+        showFormError('Ekki tókst að senda skráninguna (villa ' + r.status + '). Reyndu aftur eða sendu okkur línu á agvending@agvending.is.');
+      }
+      if (window.turnstile) { window.turnstile.reset(); state.turnstileToken = ''; }
     }
     state.submitting = false;
     btn.disabled = false;

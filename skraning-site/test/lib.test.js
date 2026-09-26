@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildContractPayload, buildCpiQuery, dedupeKey, describeMachines, firstOfNextMonth,
+  addressLookupQuery, buildContractPayload, buildCpiQuery, dedupeKey, describeMachines, firstOfNextMonth,
   formatKennitala, formatKr, formatLongDate, formatPhone, formatStartDate, isValidKennitala,
   parseCpiOverride, parseStartDate, pickLatestCpi, validateForm,
 } from '../src/lib.js';
@@ -102,6 +102,12 @@ test('contact falls back to the typed name when the registry has no manager', ()
   assert.equal(p.Kennitala_Framkvaemdastjora, '');
   assert.equal(p.leigugjald, '80.000 + vsk.');
   assert.match(p.vidvaranir, /Only 1/);
+});
+
+test('address re-check searches by street and house number, like the autocomplete does', () => {
+  assert.equal(addressLookupQuery('Sefgarðar 12, 170, Seltjarnarnes'), 'Sefgarðar 12');
+  assert.equal(addressLookupQuery('Fiskislóð 73, 101, Reykjavík'), 'Fiskislóð 73');
+  assert.equal(addressLookupQuery('Hraun'), 'Hraun');
 });
 
 test('dedupe key ignores case and accents in the address', () => {
