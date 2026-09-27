@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.32.5",
-  "description": "Snarl and Sopi operator backend v6.32.5: a lease claim can refuse to be partial. POST /api/v1/leases/claim accepts allOrNothing; when any machine type has fewer units available than requested, it claims none and answers 409 insufficient_stock with the shortfall, and remembers nothing under requestId, so a later retry claims cleanly once stock is added or freed. Without the flag it behaves as before (claims what exists and warns). The skraning Worker sends it, because a contract that went out with the serial numbers missing was the failure this prevents. Cumulative over v6.32.4.",
+  "version": "6.33.0",
+  "description": "Snarl and Sopi operator backend v6.33.0: the lease inventory matches the fleet and can be corrected from the dashboard. The baseline list (lease-units-seed.json) is rebuilt from the Weimi machine-ops export of 2026-09-26: 63 units, adding the 55\" fleet at clubs and venues and the two Tvöfaldur at Reykjalundur and Ísstormur as assigned, with current tenant names. 8626020600 and 8626020616 stay out of the pool as 'Eftir í Kína'; Klettatröð-IWO, Gamli Stjarnan-Geymsla and Mjódd are leasable. Known Nayax numbers are kept; the export has none, so 26 units have no Nayax yet. Each unit in Lease inventory now has Edit (PUT /api/v1/leases/units/:machineId, AG admin only): correct the Nayax number or type, reassign it to a customer, or make it available when a lease is cancelled. Load the new baseline once with 'Reset inventory to baseline'. Cumulative over v6.32.5.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

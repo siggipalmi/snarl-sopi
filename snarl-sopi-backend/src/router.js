@@ -261,6 +261,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/leases/units', handler: handleListLeaseUnits, middleware:[requireAuth, requireAgAdmin] },
   // Dashboard maintenance (top operator) — free one unit / reseed inventory
   { method:'POST', pattern:'/api/v1/leases/units/:machineId/free', handler: handleLeaseFreeOne,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'PUT',  pattern:'/api/v1/leases/units/:machineId',      handler: handleLeaseUpdateOne,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/leases/reseed',                handler: handleLeaseReseedAdmin, middleware:[requireAuth, requireAgAdmin] },
 ];
 
@@ -491,6 +492,50 @@ function handleLeaseFreeOne(req, res) {
   } catch (e) {
     console.error('[LEASE] admin free failed', e);
     json(res, 500, { ok: false, error: 'free_failed', message: String((e && e.message) || e) });
+  }
+}
+
+/**
+ * PUT /api/v1/leases/units/:machineId — top operator edits one unit.
+ * Body (all optional): { nayaxId, type, status: 'available'|'used', assignedTo, kennitala }
+ * The manufacturer's serial lists have been wrong before, so the Nayax number and type are
+ * editable; reassigning or freeing a unit covers a lease that is cancelled or moved.
+ */
+const LEASE_TYPES = ['Einfaldur', 'Tvöfaldur', '55"'];
+function handleLeaseUpdateOne(req, res) {
+  const machineId = String(req.params.machineId || '').trim();
+  const b = req.body || {};
+  const unit = storage.getLeaseUnit(machineId);
+  if (!unit) return notFound(res, 'Unknown lease unit: ' + machineId);
+
+  const patch = {};
+  if (b.nayaxId !== undefined) {
+    const n = String(b.nayaxId || '').replace(/\s/g, '');
+    if (n && !/^\d{6,20}$/.test(n)) return badRequest(res, 'nayaxId must be digits only');
+    patch.nayaxId = n;
+  }
+  if (b.type !== undefined) {
+    if (!LEASE_TYPES.includes(b.type)) return badRequest(res, 'type must be one of ' + LEASE_TYPES.join(', '));
+    patch.type = b.type;
+  }
+  if (b.status !== undefined) {
+    if (!['available', 'used'].includes(b.status)) return badRequest(res, "status must be 'available' or 'used'");
+    patch.status = b.status;
+  }
+  if (b.assignedTo !== undefined) patch.assignedTo = String(b.assignedTo || '').trim().slice(0, 200);
+  if (b.kennitala !== undefined) patch.kennitala = String(b.kennitala || '').replace(/[\s-]/g, '').slice(0, 10);
+
+  const status = patch.status || unit.status;
+  const assignedTo = patch.assignedTo !== undefined ? patch.assignedTo : unit.assignedTo;
+  if (status === 'used' && !assignedTo) return badRequest(res, 'An assigned unit needs assignedTo (who has it)');
+
+  try {
+    const updated = storage.updateLeaseUnit(machineId, patch);
+    console.log(`[LEASE] ${req.user && req.user.name} updated ${machineId}: ${JSON.stringify(patch)}`);
+    ok(res, { unit: updated });
+  } catch (e) {
+    console.error('[LEASE] update failed', e);
+    json(res, 500, { ok: false, error: 'update_failed', message: String((e && e.message) || e) });
   }
 }
 

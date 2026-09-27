@@ -4,7 +4,7 @@
     "nayaxId": "0434334925282693",
     "type": "Tvöfaldur",
     "status": "used",
-    "assignedTo": "B11 Hótel",
+    "assignedTo": "Hótel Boli",
     "kennitala": ""
   },
   {
@@ -19,24 +19,24 @@
     "machineId": "8626020716",
     "nayaxId": "0434334825279735",
     "type": "Tvöfaldur",
-    "status": "available",
-    "assignedTo": "",
+    "status": "used",
+    "assignedTo": "Blue Hotel Fagrilundur",
     "kennitala": ""
   },
   {
     "machineId": "8626020715",
     "nayaxId": "0434334925281528",
     "type": "Tvöfaldur",
-    "status": "available",
-    "assignedTo": "",
+    "status": "used",
+    "assignedTo": "Góa",
     "kennitala": ""
   },
   {
     "machineId": "8626020714",
     "nayaxId": "0434334925283145",
     "type": "Tvöfaldur",
-    "status": "available",
-    "assignedTo": "",
+    "status": "used",
+    "assignedTo": "Lava Show",
     "kennitala": ""
   },
   {
@@ -104,11 +104,27 @@
     "kennitala": ""
   },
   {
+    "machineId": "82160675",
+    "nayaxId": "",
+    "type": "Tvöfaldur",
+    "status": "used",
+    "assignedTo": "Ísstormur",
+    "kennitala": ""
+  },
+  {
+    "machineId": "82160674",
+    "nayaxId": "",
+    "type": "Tvöfaldur",
+    "status": "used",
+    "assignedTo": "Reykjalundur",
+    "kennitala": ""
+  },
+  {
     "machineId": "8626020623",
     "nayaxId": "0434334825279882",
     "type": "Einfaldur",
     "status": "used",
-    "assignedTo": "Vinastræti",
+    "assignedTo": "Heima Test",
     "kennitala": ""
   },
   {
@@ -147,8 +163,8 @@
     "machineId": "8626020618",
     "nayaxId": "0434334825279937",
     "type": "Einfaldur",
-    "status": "available",
-    "assignedTo": "",
+    "status": "used",
+    "assignedTo": "Nordic Hostel",
     "kennitala": ""
   },
   {
@@ -296,7 +312,103 @@
     "kennitala": ""
   },
   {
+    "machineId": "62160493",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Skjól 1",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160492",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Heima Test Skápur",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160491",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Faxatorg",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160490",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Keflavík",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160489",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Valur II",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160488",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Evanger",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160487",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Íþróttafélag Reykjavíkur",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160486",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Verslanahöllin",
+    "kennitala": ""
+  },
+  {
     "machineId": "62160485",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Valur I",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160484",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Grótta hægri",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160483",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "KR",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160482",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Hótel Búrfell",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160481",
     "nayaxId": "",
     "type": "55\"",
     "status": "available",
@@ -312,11 +424,83 @@
     "kennitala": ""
   },
   {
-    "machineId": "62160492",
+    "machineId": "62160479",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Grótta vinstri",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160478",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Laugardagshöll",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160477",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Orkan Miklabraut N",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160476",
     "nayaxId": "",
     "type": "55\"",
     "status": "available",
     "assignedTo": "",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160475",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Dyrhólaey",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160474",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "12 Sporahúsið",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160473",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "F. Skautafélag Akureyrar",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160472",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Fylkir 2",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160043",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Gamli Valur",
+    "kennitala": ""
+  },
+  {
+    "machineId": "62160042",
+    "nayaxId": "",
+    "type": "55\"",
+    "status": "used",
+    "assignedTo": "Gamli Gerpla",
     "kennitala": ""
   }
 ]
