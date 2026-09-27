@@ -7837,12 +7837,14 @@ async function renderReports() {
 
   // Stats
   try {
-    const r = await API.get('/api/v1/reports/summary');
+    // Every other panel on this page passes _reportDays; this one did not, so the four tiles
+    // showed all-time totals next to panels showing the selected window.
+    const r = await API.get('/api/v1/reports/summary?days=' + _reportDays);
     if (r && r.ok) {
       const d = r.data;
       document.getElementById('report-stats').innerHTML =
-        '<div class="stat"><div class="stat-lbl">total revenue</div><div class="stat-val">' + formatKr(d.totalRevenueKr) + '</div></div>' +
-        '<div class="stat"><div class="stat-lbl">total orders</div><div class="stat-val">' + d.totalOrders + '</div></div>' +
+        '<div class="stat"><div class="stat-lbl">revenue · ' + _reportDays + 'd</div><div class="stat-val">' + formatKr(d.totalRevenueKr) + '</div></div>' +
+        '<div class="stat"><div class="stat-lbl">orders · ' + _reportDays + 'd</div><div class="stat-val">' + d.totalOrders + '</div></div>' +
         '<div class="stat"><div class="stat-lbl">avg order</div><div class="stat-val">' + formatKr(d.avgOrderValueKr) + '</div></div>' +
         '<div class="stat"><div class="stat-lbl">refund rate</div><div class="stat-val">' + d.refundRate + '%</div></div>';
       document.getElementById('report-table').innerHTML = (d.byMachine || []).map(m =>

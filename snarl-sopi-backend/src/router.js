@@ -3442,11 +3442,18 @@ function handleMachineSalesToday(req, res) {
 // ─── Reports ──────────────────────────────────────────────────────────────────
 
 function handleReportSummary(req, res) {
+  // The reports page has a 7D/30D/90D selector and this handler used to ignore it completely: it
+  // summed every order ever taken and labelled the result with whichever period was selected. The
+  // four tiles at the top of the page were all-time figures wearing a period's name.
+  const days = getDaysParam(req.query, 30);
+  const fromMs = startOfDayUTC(Date.now()) - (days - 1) * 86400000;
   const allowed = new Set(machinesForUser(req.user).map(m => m.deviceCode));
-  const scopedOrders = orders.filter(o => allowed.has(o.deviceCode));
+  const scopedOrders = orders.filter(o => allowed.has(o.deviceCode) && o.createTime >= fromMs);
   const success = scopedOrders.filter(o => o.status === 1);
   const total   = success.reduce((s, o) => s + o.totalAmount, 0);
   ok(res, {
+    days,
+    fromUTC:        fromMs,
     totalOrders:    scopedOrders.length,
     successOrders:  success.length,
     totalRevenueKr: Math.round(total / 100),
