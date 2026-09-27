@@ -1,0 +1,7 @@
+# Installed locally to run the backend against a throwaway database; Railway installs its own.
+node_modules/
+
+# Local SQLite used for development and for capturing screenshots.
+*.db
+*.db-shm
+*.db-wal

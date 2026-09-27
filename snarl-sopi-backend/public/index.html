@@ -146,11 +146,19 @@ tr:hover td{background:rgba(240,232,218,.3);}
 .al-time{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;padding-top:2px;}
 
 /* CHART */
-.bars{display:flex;align-items:flex-end;gap:5px;height:80px;}
-.bc{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+/* The bar's height is a percentage, so it needs a parent with a DEFINITE height. .bc used to size
+   itself to its label (align-items:flex-end on .bars shrink-wraps each column), which left the
+   percentage resolving against auto — every bar computed to 0 and the chart drew nothing but axis
+   labels. .bt is the track: stretched to the column, minus the label, so the percentage has
+   something real to resolve against. */
+.bars{display:flex;align-items:stretch;gap:5px;height:80px;}
+.bc{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;}
+.bt{flex:1;width:100%;display:flex;align-items:flex-end;min-height:0;}
 .bar{width:100%;border-radius:3px 3px 0 0;cursor:pointer;transition:opacity .15s;}
 .bar:hover{opacity:.7;}
-.bl{font-family:var(--mono);font-size:8.5px;color:var(--muted);letter-spacing:.3px;}
+/* Only every Nth column carries a label, so without a reserved height the labelled columns get a
+   shorter track than their neighbours and the bars sit on two different baselines. */
+.bl{font-family:var(--mono);font-size:8.5px;color:var(--muted);letter-spacing:.3px;height:12px;line-height:12px;flex:0 0 12px;}
 
 /* PRODUCT ROW */
 .pr{display:flex;align-items:center;gap:11px;padding:10px 18px;border-bottom:.5px solid var(--line);}
@@ -3148,7 +3156,7 @@ function renderRevenueBars(data) {
     const isToday = i === series.length - 1;
     const tooltip = new Date(b.dayUTC).toISOString().slice(0,10) + ': ' + formatKr(b.revenueKr) + ' · ' + b.orders + ' orders';
     return '<div class="bc" title="' + tooltip + '">' +
-           '<div class="bar" style="height:' + height + '%;background:' + (isToday ? 'var(--bronze)' : 'var(--bronze-light)') + ';opacity:' + (isToday ? 1 : .7) + '"></div>' +
+           '<div class="bt"><div class="bar" style="height:' + height + '%;background:' + (isToday ? 'var(--bronze)' : 'var(--bronze-light)') + ';opacity:' + (isToday ? 1 : .7) + '"></div></div>' +
            '<div class="bl" style="font-size:9.5px">' + lbl + '</div></div>';
   }).join('');
 
@@ -5424,7 +5432,7 @@ async function renderMachineDetail() {
           : '';
         const height = b.revenueKr > 0 ? Math.max(2, Math.round(b.revenueKr / maxR * 100)) : 0;
         return '<div class="bc" title="' + new Date(b.dayUTC).toISOString().slice(0,10) + ': ' + formatKr(b.revenueKr) + '">' +
-               '<div class="bar" style="height:' + height + '%;background:var(--bronze-light)"></div>' +
+               '<div class="bt"><div class="bar" style="height:' + height + '%;background:var(--bronze-light)"></div></div>' +
                '<div class="bl" style="font-size:9.5px">' + lbl + '</div></div>';
       }).join('');
 

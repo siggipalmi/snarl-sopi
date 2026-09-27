@@ -63,35 +63,39 @@ section{padding:44px 0;border-bottom:1px solid var(--line);}
 h2{font-family:var(--serif);font-style:italic;font-weight:500;font-size:27px;margin-bottom:8px;}
 .sub{font-size:14.5px;color:var(--muted-2);max-width:62ch;margin-bottom:24px;}
 
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:14px;}
+/* ── bands ───────────────────────────────────────────────────────────── */
+/* One band per thing an operator actually asks: what sold, what is in the machines, who needs a
+   visit. Text on one side, the real screen on the other, alternating. Three of them, and that is
+   the page - an operator scanning on a phone should be able to take in each one in a breath. */
+.band{display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:34px;align-items:center;}
+.band + .band{margin-top:52px;}
+/* Flipping puts the text on the right, so the COLUMN WIDTHS have to flip with it - otherwise the
+   screenshot lands in the narrow column and shrinks to the point of being unreadable. */
+.band.flip{grid-template-columns:minmax(0,1.28fr) minmax(0,.72fr);}
+.band.flip .band-txt{order:2;}
+.band-n{font-family:var(--mono);font-size:10px;letter-spacing:1.6px;color:var(--bronze-light);margin-bottom:10px;}
+.band h2{margin-bottom:10px;}
+.band p{font-size:15px;color:var(--ink-soft);margin-bottom:16px;}
+.pts{list-style:none;}
+.pts li{font-size:13.5px;color:var(--muted-2);padding:5px 0 5px 16px;position:relative;line-height:1.5;}
+.pts li::before{content:'';position:absolute;left:0;top:13px;width:5px;height:5px;border-radius:50%;background:var(--bronze-light);}
+@media (max-width:760px){
+  .band{grid-template-columns:1fr;gap:20px;}
+  .band.flip .band-txt{order:0;}
+  .band + .band{margin-top:40px;}
+}
+
+/* the short closing strip - one line each, no cards, no bullets */
+.also{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:20px 26px;}
+.also div{font-size:13.5px;color:var(--muted-2);line-height:1.5;}
+.also strong{display:block;color:var(--ink);font-size:14px;font-weight:600;margin-bottom:3px;}
+
 .card{background:var(--cream);border:.5px solid var(--line);border-radius:var(--r);padding:17px 18px;}
 .card h3{font-size:15px;font-weight:600;margin-bottom:6px;letter-spacing:-.1px;}
 .card p{font-size:13.5px;color:var(--muted-2);line-height:1.5;}
 .card ul{margin:9px 0 0;padding-left:0;list-style:none;}
 .card li{font-size:12.5px;color:var(--muted-2);padding:3px 0 3px 13px;position:relative;}
 .card li::before{content:'';position:absolute;left:0;top:11px;width:4px;height:4px;border-radius:50%;background:var(--bronze-light);}
-
-/* the one feature worth its own block */
-.feature{background:var(--bronze-bg);border:1px solid var(--clay);border-radius:var(--rlg);padding:24px 22px;}
-.feature h3{font-family:var(--serif);font-style:italic;font-size:22px;font-weight:500;margin-bottom:9px;}
-.feature p{font-size:14.5px;color:var(--ink-soft);max-width:58ch;}
-.feature .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:18px;}
-.feature .cols div{font-size:13px;color:var(--muted-2);}
-.feature .cols strong{display:block;color:var(--ink);font-size:13.5px;margin-bottom:3px;}
-
-/* roles table */
-.tw{overflow-x:auto;border:.5px solid var(--line);border-radius:var(--r);background:var(--cream);}
-table{border-collapse:collapse;width:100%;min-width:430px;}
-th{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);font-weight:400;}
-td{padding:10px 14px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:top;}
-td:first-child{font-weight:500;white-space:nowrap;}
-tr:last-child td{border-bottom:0;}
-
-/* integrations */
-.chips{display:flex;flex-wrap:wrap;gap:8px;}
-.chip{background:var(--cream);border:.5px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;}
-.chip b{font-weight:600;}
-.chip span{color:var(--muted);}
 
 /* ── form ────────────────────────────────────────────────────────────── */
 .formwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start;}
@@ -164,11 +168,12 @@ footer a:hover{text-decoration:underline;}
 <div class="wrap">
 
   <div class="hero">
-    <h1 data-is="Allur reksturinn á einum skjá." data-en="Your whole operation on one screen.">Allur reksturinn á einum skjá.</h1>
+    <h1 data-is="Hvað selst, hvað er að klárast, hvert þarf að fara."
+        data-en="What sold, what is running out, where you need to go.">Hvað selst, hvað er að klárast, hvert þarf að fara.</h1>
     <p class="lede"
-       data-is="Rekstrarkerfi fyrir sjálfsala og snjallkæla. Lager, sala, viðvaranir og fjarstýring — í símanum, hvar sem þú ert. Byggt í daglegum rekstri á sjálfsölum og kælum á höfuðborgarsvæðinu, ekki í kynningarumhverfi."
-       data-en="An operator backend for vending machines and smart fridges. Stock, sales, alerts and remote control — on your phone, wherever you are. Built in daily use on real machines and fridges in Reykjavík, not in a demo environment.">
-      Rekstrarkerfi fyrir sjálfsala og snjallkæla.
+       data-is="Þrjár spurningar sem þú svarar á hverjum degi. Rekstrarkerfi fyrir sjálfsala og snjallkæla sem svarar þeim á einum skjá — líka í símanum, á leiðinni milli véla."
+       data-en="Three questions you answer every day. An operator backend for vending machines and smart fridges that answers them on one screen — including on your phone, between stops.">
+      Þrjár spurningar sem þú svarar á hverjum degi.
     </p>
     <figure style="margin-top:30px">
       <img class="shot" src="/assets/shots/desk-dashboard.png"
@@ -177,187 +182,109 @@ footer a:hover{text-decoration:underline;}
       <figcaption data-is="Sýnigögn — raunverulegt viðmót, tilbúnar tölur."
                   data-en="Sample data — the real interface, illustrative figures.">Sýnigögn — raunverulegt viðmót, tilbúnar tölur.</figcaption>
     </figure>
-
     <div class="hero-meta">
-      <span data-is="Sjálfsalar og snjallkælar" data-en="Coil machines and smart fridges">Sjálfsalar og snjallkælar</span>
+      <span data-is="Sjálfsalar og snjallkælar" data-en="Vending machines and smart fridges">Sjálfsalar og snjallkælar</span>
       <span data-is="Íslenska og enska" data-en="Icelandic and English">Íslenska og enska</span>
       <span data-is="Hannað fyrir símann" data-en="Built for the phone">Hannað fyrir símann</span>
     </div>
   </div>
 
-  <!-- ── what it does ───────────────────────────────────────────────── -->
   <section>
-    <h2 data-is="Hvað það gerir" data-en="What it does">Hvað það gerir</h2>
-    <p class="sub"
-       data-is="Hver vél á sinn skjá: staða, lager, hitastig, sala og stýringar. Allt í sama viðmóti, hvort sem vélin er spíralsjálfsali eða kælir sem vigtar vöruna."
-       data-en="Every machine has its own screen: status, stock, temperature, sales and controls. One interface, whether it is a spiral machine or a fridge that weighs its stock.">
-      Hver vél á sinn skjá.
-    </p>
-
-    <div class="grid">
-      <div class="card">
-        <h3 data-is="Flotinn í einu auga" data-en="The fleet at a glance">Flotinn í einu auga</h3>
-        <ul>
-          <li data-is="Nettengd eða ekki, í rauntíma" data-en="Online or offline, live">Nettengd eða ekki</li>
-          <li data-is="Lagerstaða í prósentum á hverri vél" data-en="Stock level per machine">Lagerstaða á hverri vél</li>
-          <li data-is="Hitastig kælis og söguferill" data-en="Cabinet temperature and its history">Hitastig kælis</li>
-          <li data-is="Hvenær var síðast fyllt á" data-en="When it was last restocked">Síðasta áfylling</li>
+    <div class="band">
+      <div class="band-txt">
+        <div class="band-n">01</div>
+        <h2 data-is="Salan" data-en="Sales">Salan</h2>
+        <p data-is="Tekjur dagsins efst, og svo niður í hvern dag, hverja vél og hverja færslu. Sjö dagar, þrjátíu eða níutíu."
+           data-en="Today's revenue at the top, then down into each day, each machine and each transaction. Seven days, thirty or ninety.">
+          Tekjur dagsins efst, og svo niður í hvern dag, hverja vél og hverja færslu.
+        </p>
+        <ul class="pts">
+          <li data-is="Hvaða dagar skila og hvaða dagar ekki" data-en="Which days earn and which do not">Hvaða dagar skila</li>
+          <li data-is="Hvaða vélar bera sig — raðað eftir tekjum" data-en="Which machines carry themselves — ranked by revenue">Hvaða vélar bera sig</li>
+          <li data-is="Hver einasta færsla, með útflutningi í CSV" data-en="Every single transaction, exportable as CSV">Hver einasta færsla</li>
         </ul>
       </div>
-
-      <div class="card">
-        <h3 data-is="Vörur og hólf" data-en="Products and slots">Vörur og hólf</h3>
-        <ul>
-          <li data-is="Spíralhólf eða kælikörf, rétt uppsetning á hvora vél" data-en="Spiral lanes or fridge baskets, laid out as the machine really is">Spíralhólf eða kælikörf</li>
-          <li data-is="Verð og þyngd á hverja vöru eða hólf" data-en="Price and unit weight per product or basket">Verð og þyngd</li>
-          <li data-is="Loka hólfi fyrir sölu án þess að fara á staðinn" data-en="Close a lane to customers without a site visit">Loka hólfi fjarrænt</li>
-          <li data-is="Síðasti söludagur með lotum" data-en="Best-before dates, tracked per batch">Síðasti söludagur</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3 data-is="Sala og tekjur" data-en="Sales and revenue">Sala og tekjur</h3>
-        <ul>
-          <li data-is="Tekjur yfir dag, viku, mánuð eða fjórðung" data-en="Revenue by day, week, month or quarter">Tekjur yfir tímabil</li>
-          <li data-is="Hvenær dagsins er verslað — hitakort á klukkustund" data-en="When people actually buy — an hourly heatmap">Hitakort á klukkustund</li>
-          <li data-is="Mest sölu vörur á hverja vél" data-en="Top products per machine">Mest sölu vörur</li>
-          <li data-is="Pantanir með kvittunum" data-en="Order history with receipts">Pantanir og kvittanir</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3 data-is="Fjarstýring" data-en="Remote control">Fjarstýring</h3>
-        <ul>
-          <li data-is="Opna hurð kælis til áfyllingar" data-en="Open a fridge door to restock">Opna hurð</li>
-          <li data-is="Prófa hólf áður en það fer í sölu" data-en="Test a lane before it takes money">Prófa hólf</li>
-          <li data-is="Kælistilling, kæling af og á, afþíðing" data-en="Cooling setpoint, cooling on or off, defrost">Kælistillingar</li>
-          <li data-is="Endurræsa forrit vélarinnar" data-en="Restart the machine's app">Endurræsa forrit</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3 data-is="Viðskiptavinir" data-en="Customer care">Viðskiptavinir</h3>
-        <ul>
-          <li data-is="Kvartanir koma inn úr vélinni sjálfri" data-en="Complaints arrive from the machine itself">Kvartanir úr vélinni</li>
-          <li data-is="Svara og endurgreiða úr sama viðmóti" data-en="Reply and refund from the same screen">Svara og endurgreiða</li>
-          <li data-is="Kvittun í tölvupósti til kaupanda" data-en="Emailed receipt for the buyer">Kvittun í tölvupósti</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3 data-is="Uppgjör og reikningar" data-en="Settlement and invoicing">Uppgjör og reikningar</h3>
-        <ul>
-          <li data-is="Kvittanayfirlit yfir tímabil" data-en="Receipt history over any period">Kvittanayfirlit</li>
-          <li data-is="Leigureikningar og hreyfingayfirlit" data-en="Lease invoices and statements">Leigureikningar</li>
-          <li data-is="Útflutningur í CSV fyrir bókhaldið" data-en="CSV export for the accountant">CSV fyrir bókhaldið</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <h2 data-is="Allur flotinn, og hver vél fyrir sig" data-en="The whole fleet, and each machine in it">Allur flotinn, og hver vél fyrir sig</h2>
-    <p class="sub"
-       data-is="Listinn segir hún á hverri vél í einu auga: nettengd, lagerstaða, hvenær var síðast fyllt á. Og allt viðmótið virkar í símanum — það er þar sem reksturinn fer fram."
-       data-en="The list tells you where each machine stands at a glance: online, stock level, when it was last filled. And the whole interface works on a phone — which is where the work actually happens.">
-      Listinn segir hún á hverri vél í einu auga.
-    </p>
-    <div class="shots-two">
       <figure>
-        <img class="shot" loading="lazy" src="/assets/shots/desk-machines.png"
-             alt="Vélalisti" data-is-alt="Vélalisti" data-en-alt="The machine list"
-             width="2880" height="1800">
-        <figcaption data-is="Vélalisti í vafra" data-en="Machine list in the browser">Vélalisti í vafra</figcaption>
+        <img class="shot" loading="lazy" src="/assets/shots/sales-trends.png"
+             alt="Tekjur síðustu 30 daga" data-is-alt="Tekjur síðustu 30 daga" data-en-alt="Revenue over the last 30 days"
+             width="2328" height="464">
+        <figcaption data-is="Tekjur eftir dögum" data-en="Revenue by day">Tekjur eftir dögum</figcaption>
       </figure>
+    </div>
+
+    <div class="band flip">
+      <div class="band-txt">
+        <div class="band-n">02</div>
+        <h2 data-is="Lagerinn" data-en="Stock">Lagerinn</h2>
+        <p data-is="Hvað er eftir í hverri vél, niður í einstök hólf. Þú sérð hvað er búið áður en viðskiptavinurinn gerir það."
+           data-en="What is left in each machine, down to the individual slot. You see what has run out before the customer does.">
+          Hvað er eftir í hverri vél, niður í einstök hólf.
+        </p>
+        <ul class="pts">
+          <li data-is="Hvaða vara er búin, í hvaða vél, og hversu lengi" data-en="Which product is out, in which machine, and for how long">Hvað er búið og hversu lengi</li>
+          <li data-is="Lagerstaða í prósentum á hverja vél" data-en="Stock level as a percentage, per machine">Lagerstaða á hverja vél</li>
+          <li data-is="Síðasti söludagur eftir lotum" data-en="Best-before dates, tracked per batch">Síðasti söludagur</li>
+        </ul>
+      </div>
       <figure>
-        <img class="shot" loading="lazy" src="/assets/shots/phone-dashboard.png"
-             alt="Mælaborð í síma" data-is-alt="Mælaborð í síma" data-en-alt="The dashboard on a phone"
-             width="1170" height="2532">
-        <figcaption data-is="Sama mælaborð í símanum" data-en="The same dashboard on a phone">Sama mælaborð í símanum</figcaption>
+        <img class="shot" loading="lazy" src="/assets/shots/stock-soldout.png"
+             alt="Vörur sem eru uppseldar" data-is-alt="Vörur sem eru uppseldar" data-en-alt="Products currently sold out"
+             width="2328" height="814">
+        <figcaption data-is="Uppselt núna, yfir allan flotann" data-en="Sold out right now, across the fleet">Uppselt núna, yfir allan flotann</figcaption>
+      </figure>
+    </div>
+
+    <div class="band">
+      <div class="band-txt">
+        <div class="band-n">03</div>
+        <h2 data-is="Áfyllingin" data-en="Restocking">Áfyllingin</h2>
+        <p data-is="Vélunum raðað eftir því hverja er brýnast að heimsækja — dagar frá síðustu áfyllingu og hversu full hún er. Svo skráirðu áfyllinguna í símanum, við vélina."
+           data-en="Machines ranked by which most needs a visit — days since the last fill and how full it is. Then you record the fill on your phone, standing at the machine.">
+          Vélunum raðað eftir því hverja er brýnast að heimsækja.
+        </p>
+        <ul class="pts">
+          <li data-is="Hverja þarf að heimsækja í dag, og hverja ekki" data-en="Which need a visit today, and which do not">Hverja þarf að heimsækja</li>
+          <li data-is="Skráning hólf fyrir hólf, í símanum við vélina" data-en="Record it slot by slot, on your phone at the machine">Skráning hólf fyrir hólf</li>
+          <li data-is="Verð má leiðrétta um leið" data-en="Fix a price while you are there">Verð má leiðrétta um leið</li>
+        </ul>
+      </div>
+      <figure>
+        <img class="shot" loading="lazy" src="/assets/shots/restock-due.png"
+             alt="Vélar sem þarf að fylla á" data-is-alt="Vélar sem þarf að fylla á" data-en-alt="Machines due a restock"
+             width="2328" height="638">
+        <figcaption data-is="Brýnast efst" data-en="Most overdue first">Brýnast efst</figcaption>
       </figure>
     </div>
   </section>
 
-  <!-- ── the distinctive bit ────────────────────────────────────────── -->
   <section>
-    <h2 data-is="Það sem fer úrskeiðis, sagt upphátt" data-en="When something goes wrong, it says so">Það sem fer úrskeiðis, sagt upphátt</h2>
+    <h2 data-is="Og svo þetta" data-en="And then there is this">Og svo þetta</h2>
     <p class="sub"
-       data-is="Sjálfsali sem hættir að taka kort lítur eins út og sjálfsali sem enginn notaði. Kerfið er byggt í kringum þennan mun."
-       data-en="A machine that has stopped taking cards looks exactly like a machine nobody used. This system is built around that difference.">
+       data-is="Sjálfsali sem hættir að taka kort lítur nákvæmlega eins út og sjálfsali sem enginn notaði. Kerfið er byggt í kringum þann mun."
+       data-en="A machine that has stopped taking cards looks exactly like a machine nobody used. The system is built around that difference.">
       Sjálfsali sem hættir að taka kort lítur eins út og sjálfsali sem enginn notaði.
     </p>
-    <div class="feature">
-      <h3 data-is="viðvaranir og samræming." data-en="alerts and reconciliation.">viðvaranir og samræming.</h3>
-      <p data-is="Viðvaranir birtast á skjánum og fara í tölvupóst — ekki bara í loggskrá sem enginn opnar. Og þegar tölurnar stemma ekki er til verkfæri til að finna hvers vegna."
-         data-en="Alerts appear on screen and go to your inbox — not into a log nobody opens. And when the numbers don't agree, there is a tool for finding out why.">
-        Viðvaranir birtast á skjánum og fara í tölvupóst.
-      </p>
-      <div class="cols">
-        <div>
-          <strong data-is="Kæling og hitastig" data-en="Cooling and temperature">Kæling og hitastig</strong>
-          <span data-is="Kælir sem hlýnar of lengi lætur vita áður en varan skemmist."
-                data-en="A fridge that stays too warm for too long tells you before the stock spoils.">Kælir sem hlýnar of lengi lætur vita.</span>
-        </div>
-        <div>
-          <strong data-is="Tómt hólf" data-en="Empty lanes">Tómt hólf</strong>
-          <span data-is="Vörur sem eru búnar, með sögu um hvenær þær tæmdust."
-                data-en="What has sold out, with a record of when it went.">Vörur sem eru búnar.</span>
-        </div>
-        <div>
-          <strong data-is="Uppgjör sem stemmir ekki" data-en="Settlements that don't add up">Uppgjör sem stemmir ekki</strong>
-          <span data-is="Ef vigtin og greiðslan eru ekki sammála er það peningamál — og fær viðvörun og póst."
-                data-en="If the scales and the charge disagree, that is a money problem — it gets an alert and an email.">Vigt og greiðsla ósamræmi.</span>
-        </div>
-        <div>
-          <strong data-is="Leita að færslum á tímabili" data-en="Find transactions in a window">Leita að færslum á tímabili</strong>
-          <span data-is="Finna allar færslur vélar milli tveggja tímapunkta, með útflutningi í CSV, til að stemma af við kortafyrirtækið."
-                data-en="Every transaction on a machine between two moments in time, exportable as CSV, to match against the card processor.">Allar færslur milli tveggja tímapunkta.</span>
-        </div>
+    <div class="also">
+      <div>
+        <strong data-is="Viðvaranir í tölvupóst" data-en="Alerts in your inbox">Viðvaranir í tölvupóst</strong>
+        <span data-is="Vél dettur út, kælir hlýnar of lengi, hólf tæmist — á skjánum og í pósti, ekki í loggskrá sem enginn opnar."
+              data-en="A machine drops off, a fridge stays too warm, a slot empties — on screen and in your inbox, not in a log nobody opens.">Vél dettur út, kælir hlýnar, hólf tæmist.</span>
       </div>
-    </div>
-  </section>
-
-  <!-- ── access ─────────────────────────────────────────────────────── -->
-  <section>
-    <h2 data-is="Aðgangur og hlutverk" data-en="Access and roles">Aðgangur og hlutverk</h2>
-    <p class="sub"
-       data-is="Fleiri en einn rekstraraðili í sama kerfi, hver með sínar vélar. Starfsmaður sér aðeins það sem hann þarf."
-       data-en="More than one operator in the same system, each with their own machines. Staff see only what they need.">
-      Fleiri en einn rekstraraðili í sama kerfi.
-    </p>
-    <div class="tw">
-      <table>
-        <thead><tr>
-          <th data-is="Hlutverk" data-en="Role">Hlutverk</th>
-          <th data-is="Getur" data-en="Can">Getur</th>
-        </tr></thead>
-        <tbody>
-          <tr><td data-is="Rekstrarstjóri" data-en="Operator admin">Rekstrarstjóri</td>
-              <td data-is="Allar vélar rekstraraðilans, býður starfsmönnum aðgang, breytir uppsetningu"
-                  data-en="Every machine of the operator, invites staff, changes setup">Allar vélar, býður starfsmönnum aðgang</td></tr>
-          <tr><td data-is="Umsjónarmaður" data-en="Manager">Umsjónarmaður</td>
-              <td data-is="Vélar sem honum eru úthlutaðar, sér sölu, fyllir á og stýrir"
-                  data-en="Assigned machines: sees sales, restocks and operates">Úthlutaðar vélar, sala og áfylling</td></tr>
-          <tr><td data-is="Áhorfandi" data-en="Viewer">Áhorfandi</td>
-              <td data-is="Les tölur, breytir engu" data-en="Reads the numbers, changes nothing">Les tölur, breytir engu</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- ── integrations ───────────────────────────────────────────────── -->
-  <section>
-    <h2 data-is="Tengist því sem þú notar" data-en="Connects to what you already use">Tengist því sem þú notar</h2>
-    <p class="sub"
-       data-is="Kerfið er ekki eyland. Það talar við greiðslukerfið, vélarnar og bókhaldið."
-       data-en="The system is not an island. It talks to the payment terminal, the machines and the books.">
-      Kerfið er ekki eyland.
-    </p>
-    <div class="chips">
-      <span class="chip"><b>Nayax</b> <span data-is="kortagreiðslur" data-en="card payments">kortagreiðslur</span></span>
-      <span class="chip"><b>Weimi</b> <span data-is="vélar og vöruskrá" data-en="machines and product data">vélar og vöruskrá</span></span>
-      <span class="chip"><b>Payday</b> <span data-is="reikningar" data-en="invoicing">reikningar</span></span>
-      <span class="chip"><b data-is="Tölvupóstur" data-en="Email">Tölvupóstur</b> <span data-is="viðvaranir og kvittanir" data-en="alerts and receipts">viðvaranir og kvittanir</span></span>
+      <div>
+        <strong data-is="Fjarstýring" data-en="Remote control">Fjarstýring</strong>
+        <span data-is="Opna hurð kælis, stilla kælingu, taka vél úr sölu — án þess að fara á staðinn."
+              data-en="Open a fridge door, set the cooling, take a machine out of service — without driving there.">Opna hurð, stilla kælingu, taka úr sölu.</span>
+      </div>
+      <div>
+        <strong data-is="Fleiri en einn notandi" data-en="More than one user">Fleiri en einn notandi</strong>
+        <span data-is="Starfsmaður sér aðeins sínar vélar. Rekstrarstjóri sér allt og býður öðrum aðgang."
+              data-en="Staff see only their own machines. The manager sees everything and invites the rest.">Hver sér aðeins sínar vélar.</span>
+      </div>
+      <div>
+        <strong data-is="Kvartanir og endurgreiðslur" data-en="Complaints and refunds">Kvartanir og endurgreiðslur</strong>
+        <span data-is="Kvörtun kemur úr vélinni sjálfri; þú svarar og endurgreiðir úr sama viðmóti."
+              data-en="A complaint arrives from the machine itself; you reply and refund from the same screen.">Kvörtun kemur úr vélinni sjálfri.</span>
+      </div>
     </div>
   </section>
 
