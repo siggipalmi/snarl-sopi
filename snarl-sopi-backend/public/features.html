@@ -120,6 +120,16 @@ button.send:disabled{opacity:.5;cursor:default;}
 .msg.bad{background:var(--alert-bg);color:var(--alert);display:block;}
 .priv{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.45;}
 
+/* ── screenshots ─────────────────────────────────────────────────────── */
+figure{margin:0;}
+.shot{
+  display:block;width:100%;height:auto;border:.5px solid var(--line);border-radius:var(--r);
+  box-shadow:0 6px 28px rgba(0,0,0,.09);background:var(--cream);
+}
+figcaption{font-family:var(--mono);font-size:10px;letter-spacing:.6px;color:var(--muted);margin-top:9px;}
+.shots-two{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:18px;align-items:start;}
+@media (max-width:720px){ .shots-two{grid-template-columns:1fr;} }
+
 /* ── footer ──────────────────────────────────────────────────────────── */
 footer{padding:30px 0 46px;font-size:13px;color:var(--muted);}
 footer a{color:var(--bronze);text-decoration:none;}
@@ -160,6 +170,14 @@ footer a:hover{text-decoration:underline;}
        data-en="An operator backend for vending machines and smart fridges. Stock, sales, alerts and remote control — on your phone, wherever you are. Built in daily use on real machines and fridges in Reykjavík, not in a demo environment.">
       Rekstrarkerfi fyrir sjálfsala og snjallkæla.
     </p>
+    <figure style="margin-top:30px">
+      <img class="shot" src="/assets/shots/desk-dashboard.png"
+           alt="Mælaborð rekstrarkerfisins" data-is-alt="Mælaborð rekstrarkerfisins" data-en-alt="The operator dashboard"
+           width="2880" height="1800">
+      <figcaption data-is="Sýnigögn — raunverulegt viðmót, tilbúnar tölur."
+                  data-en="Sample data — the real interface, illustrative figures.">Sýnigögn — raunverulegt viðmót, tilbúnar tölur.</figcaption>
+    </figure>
+
     <div class="hero-meta">
       <span data-is="Sjálfsalar og snjallkælar" data-en="Coil machines and smart fridges">Sjálfsalar og snjallkælar</span>
       <span data-is="Íslenska og enska" data-en="Icelandic and English">Íslenska og enska</span>
@@ -234,6 +252,29 @@ footer a:hover{text-decoration:underline;}
           <li data-is="Útflutningur í CSV fyrir bókhaldið" data-en="CSV export for the accountant">CSV fyrir bókhaldið</li>
         </ul>
       </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 data-is="Allur flotinn, og hver vél fyrir sig" data-en="The whole fleet, and each machine in it">Allur flotinn, og hver vél fyrir sig</h2>
+    <p class="sub"
+       data-is="Listinn segir hún á hverri vél í einu auga: nettengd, lagerstaða, hvenær var síðast fyllt á. Og allt viðmótið virkar í símanum — það er þar sem reksturinn fer fram."
+       data-en="The list tells you where each machine stands at a glance: online, stock level, when it was last filled. And the whole interface works on a phone — which is where the work actually happens.">
+      Listinn segir hún á hverri vél í einu auga.
+    </p>
+    <div class="shots-two">
+      <figure>
+        <img class="shot" loading="lazy" src="/assets/shots/desk-machines.png"
+             alt="Vélalisti" data-is-alt="Vélalisti" data-en-alt="The machine list"
+             width="2880" height="1800">
+        <figcaption data-is="Vélalisti í vafra" data-en="Machine list in the browser">Vélalisti í vafra</figcaption>
+      </figure>
+      <figure>
+        <img class="shot" loading="lazy" src="/assets/shots/phone-dashboard.png"
+             alt="Mælaborð í síma" data-is-alt="Mælaborð í síma" data-en-alt="The dashboard on a phone"
+             width="1170" height="2532">
+        <figcaption data-is="Sama mælaborð í símanum" data-en="The same dashboard on a phone">Sama mælaborð í símanum</figcaption>
+      </figure>
     </div>
   </section>
 
@@ -414,6 +455,10 @@ function setLang(lang) {
   document.querySelectorAll('[data-is-ph]').forEach(function (el) {
     const v = el.getAttribute('data-' + l + '-ph');
     if (v != null) el.placeholder = v;
+  });
+  document.querySelectorAll('[data-is-alt]').forEach(function (el) {
+    const v = el.getAttribute('data-' + l + '-alt');
+    if (v != null) el.alt = v;
   });
   const bi = document.getElementById('b-is'), be = document.getElementById('b-en');
   if (bi && be) { bi.classList.toggle('on', l === 'is'); be.classList.toggle('on', l === 'en'); }
