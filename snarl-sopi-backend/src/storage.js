@@ -703,6 +703,10 @@ const stmts = {
       SET status='available', assignedTo=NULL, kennitala=NULL, assignedDate=NULL, updatedAt=@updatedAt
       WHERE assignedTo=@assignedTo`),
   deleteAllLeaseUnits: db.prepare('DELETE FROM lease_units'),
+  updateLeaseUnit: db.prepare(`UPDATE lease_units
+      SET nayaxId=@nayaxId, type=@type, status=@status, assignedTo=@assignedTo, kennitala=@kennitala,
+          assignedDate=@assignedDate, updatedAt=@updatedAt
+      WHERE machineId=@machineId`),
 
   // Orders
   insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime)
@@ -1281,6 +1285,25 @@ const storage = {
   freeLeaseUnit(machineId) {
     stmts.freeLeaseUnit.run({ machineId, updatedAt: new Date().toISOString() });
   },
+  // Edit one unit from the dashboard: correct its Nayax number or type, reassign it, or make
+  // it available. Only the fields given change. Making it available clears the assignee;
+  // assigning it keeps the original assignedDate unless the assignee changes.
+  updateLeaseUnit(machineId, patch) {
+    const cur = stmts.getLeaseUnit.get(machineId);
+    if (!cur) return null;
+    const next = { ...cur, ...patch };
+    if (next.status === 'available') {
+      next.assignedTo = null; next.kennitala = null; next.assignedDate = null;
+    } else if (!cur.assignedDate || (patch.assignedTo !== undefined && patch.assignedTo !== cur.assignedTo)) {
+      next.assignedDate = new Date().toISOString().slice(0, 10);
+    }
+    stmts.updateLeaseUnit.run({
+      machineId, nayaxId: next.nayaxId || '', type: next.type, status: next.status,
+      assignedTo: next.assignedTo || null, kennitala: next.kennitala || null,
+      assignedDate: next.assignedDate || null, updatedAt: new Date().toISOString(),
+    });
+    return stmts.getLeaseUnit.get(machineId);
+  },
   freeLeaseUnitsByAssignee(assignedTo) {
     const r = stmts.freeLeaseUnitsByAssignee.run({ assignedTo, updatedAt: new Date().toISOString() });
     return r.changes;
@@ -1302,12 +1325,21 @@ const storage = {
     return seed.length;
   },
   // Atomically claim N available units per type. wants = { 'Einfaldur':2, '55"':1 }
-  claimLeaseUnits(wants, assignedTo, kennitala) {
+  // opts.allOrNothing: if any type is short, claim nothing and report insufficient.
+  claimLeaseUnits(wants, assignedTo, kennitala, opts = {}) {
     const tx = db.transaction((wants, assignedTo, kennitala) => {
       const claimed = {};
       const warnings = [];
       const assignedDate = new Date().toISOString().slice(0, 10);
       const updatedAt = new Date().toISOString();
+      if (opts.allOrNothing) {
+        for (const [type, qtyRaw] of Object.entries(wants)) {
+          const qty = Number(qtyRaw) || 0;
+          const available = stmts.countLeaseAvailable.get(type).c;
+          if (qty > available) warnings.push(`Only ${available} '${type}' available, ${qty} requested`);
+        }
+        if (warnings.length) return { claimed, warnings, insufficient: true };
+      }
       for (const [type, qtyRaw] of Object.entries(wants)) {
         const qty = Number(qtyRaw) || 0;
         if (qty <= 0) continue;

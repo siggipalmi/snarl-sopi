@@ -262,6 +262,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/leases/units', handler: handleListLeaseUnits, middleware:[requireAuth, requireAgAdmin] },
   // Dashboard maintenance (top operator) — free one unit / reseed inventory
   { method:'POST', pattern:'/api/v1/leases/units/:machineId/free', handler: handleLeaseFreeOne,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'PUT',  pattern:'/api/v1/leases/units/:machineId',      handler: handleLeaseUpdateOne,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/leases/reseed',                handler: handleLeaseReseedAdmin, middleware:[requireAuth, requireAgAdmin] },
 ];
 
@@ -486,12 +487,29 @@ function handleHealth(req, res) {
 // ─── Lease-unit assignment handlers ──────────────────────────────────────────
 /**
  * POST /api/v1/leases/claim
- * Body: { einfaldur, tvofaldur, skjar, assignedTo, kennitala }
+ * Body: { einfaldur, tvofaldur, skjar, assignedTo, kennitala, requestId?, allOrNothing? }
  * Claims the next available unit(s) per type, marks them used, returns
  * contract-ready serial blocks.
+ *
+ * requestId (optional) makes the claim idempotent: the skraning Worker retries
+ * a claim whose response it never saw, and a retry must return the units the
+ * first call took, not take more. The handler is synchronous end to end, so two
+ * calls with the same requestId cannot interleave.
+ *
+ * allOrNothing (optional): when any type is short, claim nothing and answer 409
+ * insufficient_stock, instead of claiming what exists and warning. A contract must
+ * not go out with some serials missing.
  */
 function handleLeaseClaim(req, res) {
   const b = req.body || {};
+  const requestId = String(b.requestId || '').trim();
+  const metaKey = requestId ? 'leaseClaim:' + requestId : '';
+  if (metaKey) {
+    const prior = storage.getMeta(metaKey);
+    if (prior) {
+      try { return ok(res, { ...JSON.parse(prior), replayed: true }); } catch (e) { /* fall through and claim */ }
+    }
+  }
   const wants = {
     'Einfaldur': Number(b.einfaldur) || 0,
     'Tvöfaldur': Number(b.tvofaldur) || 0,
@@ -502,14 +520,21 @@ function handleLeaseClaim(req, res) {
     return badRequest(res, 'No units requested (einfaldur/tvofaldur/skjar all zero)');
   }
 
-  const { claimed, warnings } =
-    storage.claimLeaseUnits(wants, b.assignedTo || '', b.kennitala || '');
+  const allOrNothing = b.allOrNothing === true || b.allOrNothing === 'true';
+  const { claimed, warnings, insufficient } =
+    storage.claimLeaseUnits(wants, b.assignedTo || '', b.kennitala || '', { allOrNothing });
+
+  // Nothing was claimed and nothing is remembered under requestId, so the caller can
+  // retry once stock is added or freed.
+  if (insufficient) {
+    return json(res, 409, { ok: false, error: 'insufficient_stock', warnings });
+  }
 
   const order = ['Einfaldur', 'Tvöfaldur', '55"'];
   const flat = [];
   order.forEach(t => (claimed[t] || []).forEach(u => flat.push({ type: t, ...u })));
 
-  ok(res, {
+  const result = {
     radnumer_sjalfsala: flat.map(u => u.machineId).join('\n'),
     radnumer_nayax:     flat.map(u => u.nayaxId).join('\n'),
     units: flat,
@@ -519,7 +544,9 @@ function handleLeaseClaim(req, res) {
       skjar:     (claimed['55"'] || []).length,
     },
     warnings,
-  });
+  };
+  if (metaKey) storage.setMeta(metaKey, JSON.stringify(result));
+  ok(res, result);
 }
 
 /** GET /api/v1/leases/units — dashboard view (operator auth) */
@@ -538,6 +565,50 @@ function handleLeaseFreeOne(req, res) {
   } catch (e) {
     console.error('[LEASE] admin free failed', e);
     json(res, 500, { ok: false, error: 'free_failed', message: String((e && e.message) || e) });
+  }
+}
+
+/**
+ * PUT /api/v1/leases/units/:machineId — top operator edits one unit.
+ * Body (all optional): { nayaxId, type, status: 'available'|'used', assignedTo, kennitala }
+ * The manufacturer's serial lists have been wrong before, so the Nayax number and type are
+ * editable; reassigning or freeing a unit covers a lease that is cancelled or moved.
+ */
+const LEASE_TYPES = ['Einfaldur', 'Tvöfaldur', '55"'];
+function handleLeaseUpdateOne(req, res) {
+  const machineId = String(req.params.machineId || '').trim();
+  const b = req.body || {};
+  const unit = storage.getLeaseUnit(machineId);
+  if (!unit) return notFound(res, 'Unknown lease unit: ' + machineId);
+
+  const patch = {};
+  if (b.nayaxId !== undefined) {
+    const n = String(b.nayaxId || '').replace(/\s/g, '');
+    if (n && !/^\d{6,20}$/.test(n)) return badRequest(res, 'nayaxId must be digits only');
+    patch.nayaxId = n;
+  }
+  if (b.type !== undefined) {
+    if (!LEASE_TYPES.includes(b.type)) return badRequest(res, 'type must be one of ' + LEASE_TYPES.join(', '));
+    patch.type = b.type;
+  }
+  if (b.status !== undefined) {
+    if (!['available', 'used'].includes(b.status)) return badRequest(res, "status must be 'available' or 'used'");
+    patch.status = b.status;
+  }
+  if (b.assignedTo !== undefined) patch.assignedTo = String(b.assignedTo || '').trim().slice(0, 200);
+  if (b.kennitala !== undefined) patch.kennitala = String(b.kennitala || '').replace(/[\s-]/g, '').slice(0, 10);
+
+  const status = patch.status || unit.status;
+  const assignedTo = patch.assignedTo !== undefined ? patch.assignedTo : unit.assignedTo;
+  if (status === 'used' && !assignedTo) return badRequest(res, 'An assigned unit needs assignedTo (who has it)');
+
+  try {
+    const updated = storage.updateLeaseUnit(machineId, patch);
+    console.log(`[LEASE] ${req.user && req.user.name} updated ${machineId}: ${JSON.stringify(patch)}`);
+    ok(res, { unit: updated });
+  } catch (e) {
+    console.error('[LEASE] update failed', e);
+    json(res, 500, { ok: false, error: 'update_failed', message: String((e && e.message) || e) });
   }
 }
 

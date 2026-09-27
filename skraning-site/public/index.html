@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Skráning — AG Vending</title>
+<meta name="description" content="Skráðu leigu á sjálfsala frá AG Vending. Leigusamningur er útbúinn sjálfkrafa." />
+<meta name="theme-color" content="#E8DFD0" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231A1A1A'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-style='italic' font-size='30' fill='%23FAF7F2' text-anchor='middle'%3EAG%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500&family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{--bg:#E8DFD0;--card:#FAF7F2;--line:#E8E2D8;--line2:#D4CCBE;--ink:#1A1A1A;--ink2:#3A3A3A;--mute:#8A8275;--accent:#8B6B3E;--chip:#F7F0E6;--err:#A3261B}
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Geist',system-ui,sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}a:hover{color:var(--ink)}
+  h1,h2{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;margin:0}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px}
+  header{display:flex;justify-content:space-between;align-items:center;padding:26px 0}
+  .brand{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:26px;color:var(--ink)}
+  .lbl{font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;font-weight:500;letter-spacing:1.2px;text-transform:uppercase;color:var(--mute)}
+  .intro{padding:18px 0 30px}
+  .intro h1{font-size:48px;line-height:1.08;letter-spacing:-1.2px;margin:12px 0 12px;text-wrap:balance}
+  .intro p{margin:0;color:var(--ink2);max-width:36em}
+  .card{background:var(--card);border:.5px solid var(--line);border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);padding:32px}
+  section.step{padding:4px 0 26px;margin-bottom:26px;border-bottom:.5px solid var(--line)}
+  section.step:last-of-type{border-bottom:0;margin-bottom:0}
+  section.step h2{font-size:26px;letter-spacing:-.4px;margin:6px 0 16px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .fld{display:flex;flex-direction:column;gap:7px;position:relative}
+  .fld>label,.fld .flabel{font-family:'Geist Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--mute)}
+  input,textarea{font-family:inherit;font-size:16px;color:var(--ink);background:#FFF;border:.5px solid var(--line2);border-radius:8px;padding:12px 14px;width:100%}
+  input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,107,62,.12)}
+  input[aria-invalid="true"]{border-color:var(--err)}
+  .hint{font-size:13px;color:var(--mute)}
+  .err{font-size:13px;color:var(--err)}
+  .err:empty{display:none}
+  .company{margin-top:12px;background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:14px 16px;display:none}
+  .company.on{display:block}
+  .company .name{font-weight:500;font-size:16px}
+  .company dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:8px 0 0;font-size:14px}
+  .company dt{color:var(--mute)}.company dd{margin:0}
+  .sign-box{background:#FFFDF9;border:.5px solid var(--accent);border-left:3px solid var(--accent);border-radius:10px;padding:18px 18px 16px}
+  .signer{background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:12px 16px;margin-bottom:14px}
+  .signer dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 6px;font-size:15px}
+  .signer dt{color:var(--mute)}.signer dd{margin:0;font-weight:500}
+  .check{display:flex;align-items:center;gap:10px;font-size:15px;cursor:pointer}
+  .check input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+  .start{margin:0;font-size:17px}
+  .start strong{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:24px}
+  .machines{display:flex;flex-direction:column;gap:10px}
+  .machine{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:14px 16px}
+  .machine.sel{border-color:var(--accent);background:#FFFDF9}
+  .machine .mname{font-weight:500}
+  .machine .mprice{font-size:13px;color:var(--mute)}
+  .stepper{display:flex;align-items:center;gap:4px}
+  .stepper button{width:36px;height:36px;border-radius:999px;border:.5px solid var(--line2);background:var(--card);font-size:18px;line-height:1;cursor:pointer;color:var(--ink)}
+  .stepper button:hover:not(:disabled){border-color:var(--ink)}
+  .stepper button:disabled{opacity:.35;cursor:default}
+  .stepper output{min-width:28px;text-align:center;font-family:'Geist Mono',monospace;font-size:15px}
+  .total{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:14px;border-top:.5px dashed var(--line2)}
+  .total strong{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:30px;letter-spacing:-.6px}
+  .suggest{position:absolute;top:100%;left:0;right:0;margin:4px 0 0;padding:4px;list-style:none;background:#FFF;border:.5px solid var(--line2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.10);max-height:260px;overflow-y:auto;z-index:10}
+  .suggest[hidden]{display:none}
+  .suggest li{padding:9px 12px;border-radius:6px;cursor:pointer;font-size:15px}
+  .suggest li[aria-selected="true"],.suggest li:hover{background:var(--chip)}
+  .ok-mark{color:#2F6B3A;font-size:13px}
+  .btn{background:var(--ink);color:#FAF7F2;font-size:15px;font-weight:500;padding:15px 30px;border-radius:999px;border:0;cursor:pointer;font-family:inherit}
+  .btn:hover:not(:disabled){background:var(--accent)}
+  .btn:disabled{opacity:.55;cursor:progress}
+  .submit-row{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:24px}
+  .form-err{background:#FBEDEB;border:.5px solid #E7C3BE;color:var(--err);border-radius:10px;padding:12px 14px;font-size:14px;margin-top:18px}
+  .form-err[hidden]{display:none}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .done{text-align:center;padding:52px 32px}
+  .done h1{font-size:42px;letter-spacing:-1px;margin:14px 0 12px}
+  .done p{color:var(--ink2);max-width:30em;margin:0 auto 10px}
+  footer{padding:30px 0 50px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--mute);display:flex;gap:18px;flex-wrap:wrap}
+  footer a{color:var(--mute)}
+  @media (max-width:640px){
+    .intro h1{font-size:36px}
+    .card{padding:22px 18px;border-radius:14px}
+    .grid2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="https://agvending.is">AG Vending</a>
+    <a class="lbl" href="https://agvending.is/#verd">Verðskrá</a>
+  </header>
+
+  <div id="form-view">
+    <div class="intro">
+      <div class="lbl">Skráning leigutaka</div>
+      <h1>Leigðu sjálfsala</h1>
+      <p>Fylltu út upplýsingarnar hér að neðan. Upplýsingar um fyrirtækið eru sóttar í fyrirtækjaskrá og leigusamningur útbúinn sjálfkrafa.</p>
+    </div>
+
+    <form id="f" class="card" novalidate>
+      <div class="hp" aria-hidden="true"><label>Ekki fylla út <input name="vefsida" tabindex="-1" autocomplete="off" /></label></div>
+
+      <section class="step">
+        <div class="lbl">1 · Leigutaki</div>
+        <h2>Fyrirtækið</h2>
+        <div class="fld">
+          <label for="kennitala">Kennitala leigutaka</label>
+          <input id="kennitala" name="kennitala" inputmode="numeric" autocomplete="off" placeholder="000000-0000" maxlength="11" required aria-describedby="kennitala-err kennitala-hint" />
+          <span class="hint" id="kennitala-hint">Nafn, lögheimili og framkvæmdastjóri eru sótt í fyrirtækjaskrá.</span>
+          <span class="err" id="kennitala-err" role="alert"></span>
+        </div>
+        <div class="company" id="company" aria-live="polite">
+          <div class="name" id="c-name"></div>
+          <dl>
+            <dt>Lögheimili</dt><dd id="c-addr"></dd>
+          </dl>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="lbl">2 · Fyrir undirritun samnings</div>
+        <h2>Undirritandi</h2>
+        <div class="sign-box">
+          <p class="hint" style="margin:0 0 14px">Framkvæmdastjóri undirritar leigusamninginn rafrænt með rafrænum skilríkjum. Beiðni um undirritun er send á netfangið og farsímanúmerið hér að neðan.</p>
+          <div class="signer" id="signer" hidden>
+            <dl>
+              <dt>Nafn</dt><dd id="s-name"></dd>
+              <dt>Kennitala</dt><dd id="s-kt"></dd>
+            </dl>
+            <span class="hint">Úr fyrirtækjaskrá.</span>
+          </div>
+          <p class="hint" id="signer-wait" style="margin:0 0 14px">Sláðu inn kennitölu leigutaka hér að ofan til að sækja framkvæmdastjóra.</p>
+          <div id="signer-manual" hidden>
+            <p class="hint" style="margin:0 0 12px">Enginn framkvæmdastjóri er skráður í fyrirtækjaskrá. Hver undirritar samninginn fyrir hönd leigutaka?</p>
+            <div class="grid2" style="margin-bottom:14px">
+              <div class="fld">
+                <label for="undirritandi_nafn">Nafn undirritanda</label>
+                <input id="undirritandi_nafn" autocomplete="name" aria-describedby="undirritandi_nafn-err" />
+                <span class="err" id="undirritandi_nafn-err" role="alert"></span>
+              </div>
+              <div class="fld">
+                <label for="undirritandi_kt">Kennitala undirritanda</label>
+                <input id="undirritandi_kt" inputmode="numeric" autocomplete="off" placeholder="000000-0000" maxlength="11" aria-describedby="undirritandi_kt-err" />
+                <span class="err" id="undirritandi_kt-err" role="alert"></span>
+              </div>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="fld">
+              <label for="undirritandi_netfang">Netfang undirritanda</label>
+              <input id="undirritandi_netfang" type="email" autocomplete="email" required aria-describedby="undirritandi_netfang-err" />
+              <span class="err" id="undirritandi_netfang-err" role="alert"></span>
+            </div>
+            <div class="fld">
+              <label for="undirritandi_simi">Farsími undirritanda</label>
+              <input id="undirritandi_simi" type="tel" inputmode="tel" autocomplete="tel" required aria-describedby="undirritandi_simi-err" />
+              <span class="err" id="undirritandi_simi-err" role="alert"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="lbl">3 · Samskipti</div>
+        <h2>Tengiliður vegna reksturs</h2>
+        <label class="check"><input type="checkbox" id="same-as-signer" /> Sami tengiliður og undirritandi</label>
+        <div class="grid2" id="contact-fields" style="margin-top:14px">
+          <div class="fld">
+            <label for="netfang">Netfang</label>
+            <input id="netfang" name="netfang" type="email" autocomplete="email" required aria-describedby="netfang-err" />
+            <span class="err" id="netfang-err" role="alert"></span>
+          </div>
+          <div class="fld">
+            <label for="simi">Símanúmer</label>
+            <input id="simi" name="simi" type="tel" inputmode="tel" autocomplete="tel" required aria-describedby="simi-err" />
+            <span class="err" id="simi-err" role="alert"></span>
+          </div>
+        </div>
+        <label class="check" style="margin-top:16px"><input type="checkbox" id="invoice-other" /> Senda reikninga á annað netfang</label>
+        <div class="fld" id="invoice-fld" hidden style="margin-top:12px">
+          <label for="netfang_reikninga">Netfang fyrir reikninga</label>
+          <input id="netfang_reikninga" type="email" autocomplete="off" placeholder="t.d. bokhald@fyrirtaeki.is" aria-describedby="netfang_reikninga-err" />
+          <span class="hint">Annars eru reikningar sendir á netfang tengiliðar.</span>
+          <span class="err" id="netfang_reikninga-err" role="alert"></span>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="lbl">4 · Tæki</div>
+        <h2>Hvað viltu leigja?</h2>
+        <div class="machines" id="machines"></div>
+        <div class="total"><span class="lbl">Mánaðarleiga</span><span><strong id="total">0</strong> <span class="hint">kr. + vsk</span></span></div>
+        <span class="err" id="taeki-err" role="alert"></span>
+      </section>
+
+      <section class="step">
+        <div class="lbl">5 · Staðsetning</div>
+        <h2>Hvar verður sjálfsalinn?</h2>
+        <div class="fld">
+          <label for="heimilisfang">Heimilisfang</label>
+          <input id="heimilisfang" name="heimilisfang" autocomplete="off" placeholder="t.d. Fiskislóð 73" required
+                 role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="addr-list" aria-describedby="heimilisfang-err" />
+          <ul class="suggest" id="addr-list" role="listbox" hidden></ul>
+          <span class="ok-mark" id="addr-ok" hidden>✓ Staðfest heimilisfang</span>
+          <span class="err" id="heimilisfang-err" role="alert"></span>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="lbl">6 · Leigutími</div>
+        <h2>Upphaf leigutíma</h2>
+        <p class="start">Leigan hefst <strong id="start-label">1. næsta mánaðar</strong>.</p>
+        <p class="hint" style="margin:4px 0 0">Leigutími hefst alltaf fyrsta dag næsta mánaðar. Hann er ótímabundinn, með eins mánaðar uppsögn fyrstu þrjá mánuðina og þriggja mánaða uppsögn eftir það.</p>
+        <div class="fld" style="margin-top:18px">
+          <label for="athugasemdir">Athugasemdir (valfrjálst)</label>
+          <textarea id="athugasemdir" name="athugasemdir" rows="3" maxlength="2000"></textarea>
+        </div>
+      </section>
+
+      <div id="turnstile" style="margin-top:8px"></div>
+      <p class="form-err" id="form-err" role="alert" hidden></p>
+      <div class="submit-row">
+        <button class="btn" id="submit" type="submit">Senda skráningu</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="done-view" class="card done" hidden tabindex="-1">
+    <div class="lbl">Skráning móttekin</div>
+    <h1>Takk fyrir!</h1>
+    <p>Leigusamningurinn verður sendur á <strong id="done-email"></strong> til rafrænnar undirritunar.</p>
+    <p class="hint">Tilvísun: <span id="done-id"></span></p>
+    <p style="margin-top:22px"><a href="https://agvending.is">Til baka á agvending.is</a></p>
+  </div>
+
+  <footer>
+    <span>AG Vending ehf. · kt. 590922-0800</span>
+    <a href="mailto:agvending@agvending.is">agvending@agvending.is</a>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const form = $('f');
+  const state = { machines: [], counts: {}, company: null, verifiedAddress: '', turnstileToken: '', submitting: false };
+
+  const fmtKr = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const digits = v => String(v || '').replace(/\D/g, '');
+
+  function setError(field, msg) {
+    const el = $(field + '-err');
+    if (el) el.textContent = msg || '';
+    const input = $(field);
+    if (input) input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+  }
+
+  // An error message goes away as soon as the field it is about is edited.
+  ['undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi', 'netfang', 'simi', 'netfang_reikninga']
+    .forEach(k => $(k).addEventListener('input', () => setError(k, '')));
+
+  // Kennitala inputs format themselves as 000000-0000.
+  function formatKtInput(input) {
+    const d = digits(input.value).slice(0, 10);
+    input.value = d.length > 6 ? d.slice(0, 6) + '-' + d.slice(6) : d;
+    return d;
+  }
+  $('undirritandi_kt').addEventListener('input', e => formatKtInput(e.target));
+
+  $('invoice-other').addEventListener('change', e => {
+    $('invoice-fld').hidden = !e.target.checked;
+    setError('netfang_reikninga', '');
+    if (e.target.checked) $('netfang_reikninga').focus();
+  });
+
+  // "Same contact as the signer" hides the contact fields and uses the signer's.
+  $('same-as-signer').addEventListener('change', e => {
+    $('contact-fields').hidden = e.target.checked;
+    setError('netfang', ''); setError('simi', '');
+  });
+
+  // ─── Config ────────────────────────────────────────────────────────────────
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    state.machines = cfg.machines;
+    const params = new URLSearchParams(location.search);
+    cfg.machines.forEach(m => { state.counts[m.key] = Math.min(10, Math.max(0, parseInt(params.get(m.key), 10) || 0)); });
+    renderMachines();
+    $('start-label').textContent = cfg.startLabel;
+    if (cfg.turnstileSiteKey) loadTurnstile(cfg.turnstileSiteKey);
+  }).catch(() => showFormError('Ekki tókst að hlaða forminu. Endurhlaðið síðuna.'));
+
+  function loadTurnstile(siteKey) {
+    window.onTurnstileLoad = function () {
+      window.turnstile.render('#turnstile', { sitekey: siteKey, callback: t => { state.turnstileToken = t; } });
+    };
+    const s = document.createElement('script');
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad';
+    s.async = true;
+    document.head.appendChild(s);
+  }
+
+  // ─── Machines ──────────────────────────────────────────────────────────────
+  function renderMachines() {
+    const box = $('machines');
+    box.innerHTML = '';
+    state.machines.forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'machine';
+      row.innerHTML =
+        '<div><div class="mname"></div><div class="mprice"></div></div>' +
+        '<div class="stepper" role="group">' +
+        '<button type="button" data-d="-1">−</button><output aria-live="polite"></output><button type="button" data-d="1">+</button></div>';
+      row.querySelector('.mname').textContent = m.short;
+      row.querySelector('.mprice').textContent = fmtKr(m.price) + ' kr. á mánuði + vsk';
+      row.querySelector('.stepper').setAttribute('aria-label', 'Fjöldi: ' + m.short);
+      row.querySelector('[data-d="-1"]').setAttribute('aria-label', 'Fækka: ' + m.short);
+      row.querySelector('[data-d="1"]').setAttribute('aria-label', 'Fjölga: ' + m.short);
+      row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+        state.counts[m.key] = Math.min(10, Math.max(0, state.counts[m.key] + Number(b.dataset.d)));
+        setError('taeki', '');
+        updateMachines();
+      }));
+      row.dataset.key = m.key;
+      box.appendChild(row);
+    });
+    updateMachines();
+  }
+
+  function updateMachines() {
+    let total = 0;
+    document.querySelectorAll('.machine').forEach(row => {
+      const m = state.machines.find(x => x.key === row.dataset.key);
+      const n = state.counts[m.key];
+      total += n * m.price;
+      row.querySelector('output').textContent = n;
+      row.querySelector('[data-d="-1"]').disabled = n <= 0;
+      row.querySelector('[data-d="1"]').disabled = n >= 10;
+      row.classList.toggle('sel', n > 0);
+    });
+    $('total').textContent = fmtKr(total);
+  }
+
+  // ─── Company lookup ────────────────────────────────────────────────────────
+  let ktTimer, ktCtrl, ktLast = '';
+  const ktInput = $('kennitala');
+
+  ktInput.addEventListener('input', () => {
+    const d = formatKtInput(ktInput);
+    clearTimeout(ktTimer);
+    if (d.length < 10) { ktLast = ''; showCompany(null); setError('kennitala', ''); return; }
+    ktTimer = setTimeout(() => lookupCompany(d), 250);
+  });
+
+  async function lookupCompany(kt) {
+    if (kt === ktLast) return;
+    ktLast = kt;
+    if (ktCtrl) ktCtrl.abort();
+    ktCtrl = new AbortController();
+    setError('kennitala', '');
+    $('kennitala-hint').textContent = 'Sæki upplýsingar úr fyrirtækjaskrá…';
+    try {
+      const r = await fetch('/api/company?kt=' + kt, { signal: ktCtrl.signal });
+      const data = await r.json();
+      $('kennitala-hint').textContent = 'Nafn, lögheimili og framkvæmdastjóri eru sótt í fyrirtækjaskrá.';
+      if (r.status === 400) { showCompany(null); setError('kennitala', 'Kennitala er ekki gild.'); return; }
+      if (r.status === 404) { showCompany(null); setError('kennitala', 'Engar upplýsingar fundust fyrir þessa kennitölu í fyrirtækjaskrá.'); return; }
+      if (!r.ok) throw new Error('lookup');
+      showCompany(data);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      ktLast = '';
+      showCompany(null);
+      $('kennitala-hint').textContent = 'Nafn, lögheimili og framkvæmdastjóri eru sótt í fyrirtækjaskrá.';
+      setError('kennitala', 'Ekki tókst að sækja upplýsingar. Reyndu aftur.');
+    }
+  }
+
+  function showCompany(c) {
+    state.company = c;
+    $('company').classList.toggle('on', Boolean(c));
+    $('signer-wait').hidden = Boolean(c);
+    $('signer').hidden = !c || !c.hasManager;
+    $('signer-manual').hidden = !c || c.hasManager;
+    if (!c) return;
+    $('c-name').textContent = c.companyName;
+    $('c-addr').textContent = c.registeredAddress || '—';
+    $('s-name').textContent = c.managerName || '';
+    $('s-kt').textContent = c.managerNationalId || '—';
+  }
+
+  // ─── Address autocomplete (combobox) ───────────────────────────────────────
+  const addr = $('heimilisfang');
+  const list = $('addr-list');
+  let addrTimer, addrCtrl, options = [], active = -1;
+
+  addr.addEventListener('input', () => {
+    state.verifiedAddress = '';
+    $('addr-ok').hidden = true;
+    setError('heimilisfang', '');
+    clearTimeout(addrTimer);
+    const q = addr.value.trim();
+    if (q.length < 3) { closeList(); return; }
+    addrTimer = setTimeout(() => searchAddress(q), 250);
+  });
+
+  async function searchAddress(q) {
+    if (addrCtrl) addrCtrl.abort();
+    addrCtrl = new AbortController();
+    try {
+      const r = await fetch('/api/address?q=' + encodeURIComponent(q), { signal: addrCtrl.signal });
+      const data = await r.json();
+      openList(data.results || []);
+    } catch (e) { if (e.name !== 'AbortError') closeList(); }
+  }
+
+  function openList(results) {
+    options = results;
+    active = -1;
+    list.innerHTML = '';
+    if (!results.length) { closeList(); return; }
+    results.forEach((r, i) => {
+      const li = document.createElement('li');
+      li.id = 'addr-opt-' + i;
+      li.setAttribute('role', 'option');
+      li.textContent = r.full;
+      li.addEventListener('mousedown', e => { e.preventDefault(); choose(i); });
+      list.appendChild(li);
+    });
+    list.hidden = false;
+    addr.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeList() {
+    list.hidden = true;
+    addr.setAttribute('aria-expanded', 'false');
+    addr.removeAttribute('aria-activedescendant');
+  }
+
+  function choose(i) {
+    const r = options[i];
+    if (!r) return;
+    addr.value = r.full;
+    state.verifiedAddress = r.full;
+    $('addr-ok').hidden = false;
+    setError('heimilisfang', '');
+    closeList();
+  }
+
+  function highlight(i) {
+    const items = list.querySelectorAll('li');
+    items.forEach((li, j) => li.setAttribute('aria-selected', j === i ? 'true' : 'false'));
+    active = i;
+    if (items[i]) { addr.setAttribute('aria-activedescendant', items[i].id); items[i].scrollIntoView({ block: 'nearest' }); }
+  }
+
+  addr.addEventListener('keydown', e => {
+    if (list.hidden) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); highlight(Math.min(options.length - 1, active + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); highlight(Math.max(0, active - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); choose(active >= 0 ? active : 0); }
+    else if (e.key === 'Escape') closeList();
+  });
+  addr.addEventListener('blur', () => setTimeout(closeList, 120));
+
+  // ─── Submit ────────────────────────────────────────────────────────────────
+  function showFormError(msg) {
+    $('form-err').textContent = msg;
+    $('form-err').hidden = !msg;
+  }
+
+  function validateClient() {
+    const errs = {};
+    if (digits(ktInput.value).length !== 10) errs.kennitala = 'Sláðu inn 10 stafa kennitölu.';
+    else if (!state.company) errs.kennitala = errs.kennitala || $('kennitala-err').textContent || 'Bíddu eftir að upplýsingar berist úr fyrirtækjaskrá.';
+    if (state.company && !state.company.hasManager) {
+      if (!$('undirritandi_nafn').value.trim()) errs.undirritandi_nafn = 'Skráðu nafn þess sem undirritar.';
+      if (!ktValid($('undirritandi_kt').value)) errs.undirritandi_kt = 'Kennitala er ekki gild.';
+    }
+    if (!emailOk($('undirritandi_netfang').value)) errs.undirritandi_netfang = 'Netfang er ekki gilt.';
+    if (digits($('undirritandi_simi').value).length < 7) errs.undirritandi_simi = 'Farsímanúmer er ekki gilt.';
+    if (!$('same-as-signer').checked) {
+      if (!emailOk($('netfang').value)) errs.netfang = 'Netfang er ekki gilt.';
+      if (digits($('simi').value).length < 7) errs.simi = 'Símanúmer er ekki gilt.';
+    }
+    if ($('invoice-other').checked && !emailOk($('netfang_reikninga').value)) errs.netfang_reikninga = 'Netfang er ekki gilt.';
+    if (!Object.values(state.counts).some(n => n > 0)) errs.taeki = 'Veldu að minnsta kosti eitt tæki.';
+    if (!state.verifiedAddress || addr.value.trim() !== state.verifiedAddress) errs.heimilisfang = 'Veldu staðsetningu úr listanum.';
+    return errs;
+  }
+
+  const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
+
+  // Þjóðskrá check digit, same rule as the server.
+  function ktValid(v) {
+    const kt = digits(v);
+    if (kt.length !== 10) return false;
+    const w = [3, 2, 7, 6, 5, 4, 3, 2];
+    let c = 11 - (w.reduce((a, x, i) => a + x * Number(kt[i]), 0) % 11);
+    if (c === 11) c = 0;
+    return c !== 10 && c === Number(kt[8]);
+  }
+
+  function applyErrors(errs) {
+    ['kennitala', 'undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi',
+     'netfang', 'simi', 'netfang_reikninga', 'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
+    const first = Object.keys(errs)[0];
+    if (first) {
+      const el = first === 'taeki' ? document.querySelector('.machine button[data-d="1"]') : $(first);
+      if (el) el.focus();
+    }
+  }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (state.submitting) return;
+    showFormError('');
+    const errs = validateClient();
+    applyErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    state.submitting = true;
+    const btn = $('submit');
+    btn.disabled = true;
+    btn.textContent = 'Sendi…';
+    const body = {
+      vefsida: form.vefsida.value,
+      kennitala: digits(ktInput.value),
+      undirritandi_nafn: $('undirritandi_nafn').value.trim(),
+      undirritandi_kt: digits($('undirritandi_kt').value),
+      undirritandi_netfang: $('undirritandi_netfang').value.trim(),
+      undirritandi_simi: $('undirritandi_simi').value.trim(),
+      netfang: ($('same-as-signer').checked ? $('undirritandi_netfang') : $('netfang')).value.trim(),
+      simi: ($('same-as-signer').checked ? $('undirritandi_simi') : $('simi')).value.trim(),
+      netfang_reikninga: $('invoice-other').checked ? $('netfang_reikninga').value.trim() : '',
+      heimilisfang: state.verifiedAddress,
+      athugasemdir: $('athugasemdir').value.trim(),
+      turnstile: state.turnstileToken,
+    };
+    state.machines.forEach(m => { body[m.key] = state.counts[m.key]; });
+
+    // Only a request that never got an answer is a connection problem; anything
+    // else says what the server answered, so a failure can be told apart.
+    let r;
+    try {
+      r = await fetch('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } catch (err) {
+      console.error('[skraning] submit request failed', err);
+      showFormError('Ekki náðist samband. Athugaðu nettenginguna og reyndu aftur.');
+    }
+    if (r) {
+      try {
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.ok) {
+          $('done-email').textContent = body.undirritandi_netfang;
+          $('done-id').textContent = data.id;
+          $('form-view').hidden = true;
+          $('done-view').hidden = false;
+          $('done-view').focus();
+          window.scrollTo(0, 0);
+          return;
+        }
+        if (data.errors) applyErrors(data.errors);
+        showFormError(data.message || (data.errors ? 'Vinsamlegast lagfærðu reitina sem eru merktir.'
+          : 'Ekki tókst að senda skráninguna (villa ' + r.status + '). Reyndu aftur eða sendu okkur línu á agvending@agvending.is.'));
+      } catch (err) {
+        console.error('[skraning] handling the submit response failed', err);
+        showFormError('Ekki tókst að senda skráninguna (villa ' + r.status + '). Reyndu aftur eða sendu okkur línu á agvending@agvending.is.');
+      }
+      if (window.turnstile) { window.turnstile.reset(); state.turnstileToken = ''; }
+    }
+    state.submitting = false;
+    btn.disabled = false;
+    btn.textContent = 'Senda skráningu';
+  });
+})();
+</script>
+</body>
+</html>

@@ -8919,7 +8919,7 @@ function lzBuild() {
     + `<div class="lz-filters"><div class="lz-chips" id="lz-typechips"></div><div class="lz-chips" id="lz-statuschips"></div>`
     + `<input class="lz-search" id="lz-search" placeholder="search serial / Nayax / customer" oninput="lzSetQ(this.value)"></div>`
     + `<div id="lz-rows"></div>`
-    + `<div class="lz-footer"><span>Read-only — units flip to “assigned” automatically when the lease flow claims them.</span><button class="lz-reseed" onclick="lzReseed()">Reset inventory to baseline</button></div>`;
+    + `<div class="lz-footer"><span>Units flip to “assigned” automatically when the lease flow claims them. Use Edit to correct a Nayax number, reassign a unit, or make it available.</span><button class="lz-reseed" onclick="lzReseed()">Reset inventory to baseline</button></div>`;
   lzChips(); lzRows();
 }
 function lzChips() {
@@ -8947,9 +8947,10 @@ function lzRows() {
     const used = u.status !== 'available';
     const nyx = u.nayaxId ? ('Nayax ' + rsEsc(u.nayaxId)) : '<span style="opacity:.5">no Nayax</span>';
     const assign = used ? (rsEsc(u.assignedTo || '—') + (u.assignedDate ? ' <span class="date">· ' + rsEsc(u.assignedDate) + '</span>' : '')) : '<span style="color:var(--muted)">—</span>';
+    const edit = `<button class="lz-free" onclick="lzEdit('${rsEsc(u.machineId)}')">Edit</button>`;
     const act = used
-      ? `<span class="lz-pill used">assigned</span><button class="lz-free" onclick="lzFree('${rsEsc(u.machineId)}')">Free</button>`
-      : '<span class="lz-pill avail">available</span>';
+      ? `<span class="lz-pill used">assigned</span><button class="lz-free" onclick="lzFree('${rsEsc(u.machineId)}')">Free</button>${edit}`
+      : `<span class="lz-pill avail">available</span>${edit}`;
     return `<div class="lz-row">
       <div class="lz-mid"><div class="lz-serial">${rsEsc(u.machineId)}</div><div class="lz-nyx">${nyx}</div></div>
       <div class="lz-mid"><div class="lz-typ">${rsEsc(label(u.type))}</div><div class="lz-assign">${assign}</div></div>
@@ -8979,9 +8980,48 @@ function lzFree(machineId) {
       else { showToast('Could not free unit: ' + ((r && (r.message || r.error)) || 'unknown error')); }
     });
 }
+function lzEdit(machineId) {
+  const u = _lzUnits.find(x => x.machineId === machineId); if (!u) return;
+  const TYPES = ['Einfaldur', 'Tvöfaldur', '55"'];
+  const used = u.status !== 'available';
+  const opt = (v, cur, lbl) => `<option value="${rsEsc(v)}"${v === cur ? ' selected' : ''}>${rsEsc(lbl || v)}</option>`;
+  const modal = document.getElementById('modal-dyn');
+  modal.innerHTML = `<div class="modal-card" style="max-width:420px">
+    <div class="modal-title">edit unit ${rsEsc(machineId)}.</div>
+    <div class="field"><div class="fl">Nayax number</div><input class="fi" id="lz-e-nayax" inputmode="numeric" value="${rsEsc(u.nayaxId || '')}" placeholder="e.g. 0434334925283145"></div>
+    <div class="field"><div class="fl">type</div><select class="fi" id="lz-e-type">${TYPES.map(t => opt(t, u.type, t === '55"' ? '55" skjár' : t)).join('')}</select></div>
+    <div class="field"><div class="fl">status</div><select class="fi" id="lz-e-status" onchange="lzEditStatus()">${opt('available', u.status, 'Available — the next contract may claim it')}${opt('used', used ? 'used' : '', 'Assigned')}</select></div>
+    <div id="lz-e-assign"${used ? '' : ' hidden'}>
+      <div class="field"><div class="fl">assigned to (customer / location)</div><input class="fi" id="lz-e-to" value="${rsEsc(u.assignedTo || '')}"></div>
+      <div class="field"><div class="fl">customer kennitala <span style="color:var(--muted);font-weight:400">· optional</span></div><input class="fi" id="lz-e-kt" inputmode="numeric" value="${rsEsc(u.kennitala || '')}" placeholder="000000-0000"></div>
+    </div>
+    <div id="lz-e-err" style="color:var(--alert);font-size:13px;min-height:18px"></div>
+    <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:6px">
+      <button class="lz-btn-ghost" onclick="closeModal('modal-dyn')">Cancel</button>
+      <button class="lz-btn-go" id="lz-e-save">Save</button>
+    </div></div>`;
+  modal.classList.add('show');
+  document.getElementById('lz-e-save').onclick = () => lzEditSave(machineId);
+}
+function lzEditStatus() {
+  const box = document.getElementById('lz-e-assign');
+  if (box) box.hidden = document.getElementById('lz-e-status').value !== 'used';
+}
+async function lzEditSave(machineId) {
+  const v = id => document.getElementById(id).value.trim();
+  const body = { nayaxId: v('lz-e-nayax').replace(/\s/g, ''), type: v('lz-e-type'), status: v('lz-e-status') };
+  if (body.status === 'used') { body.assignedTo = v('lz-e-to'); body.kennitala = v('lz-e-kt'); }
+  const err = document.getElementById('lz-e-err');
+  err.textContent = '';
+  if (body.nayaxId && !/^\d{6,20}$/.test(body.nayaxId)) { err.textContent = 'Nayax number must be digits only.'; return; }
+  if (body.status === 'used' && !body.assignedTo) { err.textContent = 'Who has this unit? Fill in “assigned to”.'; return; }
+  const r = await API.put('/api/v1/leases/units/' + encodeURIComponent(machineId), body);
+  if (r && r.ok) { closeModal('modal-dyn'); showToast('Unit ' + machineId + ' saved'); await renderLeases(); }
+  else { err.textContent = 'Could not save: ' + ((r && (r.message || r.error)) || 'unknown error'); }
+}
 function lzReseed() {
   lzConfirm('Reset lease inventory',
-    'This wipes <b>all</b> lease units and restores the original 40-unit baseline (35 available, 5 assigned). <b>Current assignments will be lost.</b> Use this only for initial setup or test cleanup.',
+    'This wipes <b>all</b> lease units and restores the baseline list shipped with the backend (<code>lease-units-seed.json</code>). <b>Current assignments and edits will be lost.</b> Use this only to load a new baseline or to clean up after tests.',
     'Reset inventory', true, async () => {
       const r = await API.post('/api/v1/leases/reseed', {});
       if (r && r.ok && r.data) {
