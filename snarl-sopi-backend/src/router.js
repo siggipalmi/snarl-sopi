@@ -52,6 +52,7 @@ const weimi = require('./weimi');
 
 const routes = [
   { method:'GET',  pattern:'/health',                                        handler: handleHealth },
+  { method:'POST', pattern:'/api/v1/demo-request',                             handler: handleDemoRequest },
   { method:'GET',  pattern:'/downloads',                                     handler: handleDownloadsPage },
   { method:'GET',  pattern:'/api/v1/downloads',                             handler: handleGetDownloads,  middleware:[requireAuth, requireAgAdmin] },
   { method:'PUT',  pattern:'/api/v1/downloads',                             handler: handleSetDownloads,  middleware:[requireAuth, requireAgAdmin] },
@@ -385,6 +386,78 @@ function requireLeaseKey(req, res, next) {
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────────
+
+// ── Demo requests from the public features page ───────────────────────────────
+// Deliberately unauthenticated — it is a "talk to us" form on a page anyone can read. That makes it
+// the only route on this backend a stranger can POST to, so it is kept as small as possible: no
+// database write, no HTML in the mail, nothing echoed back that wasn't sent, and a hard cap on every
+// field. Worst case for an abuser is a rejected request or a rate-limit.
+const DEMO_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const DEMO_LIMIT_PER_IP = 3;
+const DEMO_LIMIT_TOTAL = 30;
+const _demoHits = new Map();   // ip -> [timestamps]
+let _demoAll = [];             // timestamps, all sources
+
+function clientIp(req) {
+  // Cloudflare then Railway both prepend the caller; take the first hop and cap it so a crafted
+  // header can't be used as an unbounded map key.
+  const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return (xf || (req.socket && req.socket.remoteAddress) || 'unknown').slice(0, 64);
+}
+
+function demoRateLimited(ip) {
+  const now = Date.now(), cutoff = now - DEMO_LIMIT_WINDOW_MS;
+  _demoAll = _demoAll.filter(t => t > cutoff);
+  const mine = (_demoHits.get(ip) || []).filter(t => t > cutoff);
+  if (_demoHits.size > 5000) _demoHits.clear();   // bound the map; a flood shouldn't grow memory
+  if (mine.length >= DEMO_LIMIT_PER_IP || _demoAll.length >= DEMO_LIMIT_TOTAL) return true;
+  mine.push(now); _demoHits.set(ip, mine); _demoAll.push(now);
+  return false;
+}
+
+function handleDemoRequest(req, res) {
+  const b = req.body || {};
+  // Honeypot: a real person never fills a field they cannot see. Answer 200 so a bot learns nothing.
+  if (String(b.botField || '').trim()) return ok(res, { received: true });
+
+  const str = (v, max) => String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim().slice(0, max);
+  const name = str(b.name, 100);
+  const senderEmail = str(b.email, 200);
+  const company = str(b.company, 120);
+  const phone = str(b.phone, 40);
+  const machines = str(b.machines, 60);
+  const note = String(b.note == null ? '' : b.note).trim().slice(0, 1000);
+
+  if (!name) return badRequest(res, 'name is required');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(senderEmail)) return badRequest(res, 'a valid email is required');
+
+  if (demoRateLimited(clientIp(req))) {
+    return json(res, 429, { ok: false, error: 'Too many requests from here just now. Please try again later, or email us directly.' });
+  }
+
+  const to = process.env.DEMO_REQUEST_TO || process.env.EMAIL_FROM || 'hallo@snarlogsopi.is';
+  // Plain text only. Nothing a stranger typed is rendered as markup anywhere.
+  const text = [
+    'Demo request from the features page',
+    '',
+    'Name:     ' + name,
+    'Email:    ' + senderEmail,
+    'Company:  ' + (company || '-'),
+    'Phone:    ' + (phone || '-'),
+    'Machines: ' + (machines || '-'),
+    '',
+    'Note:',
+    note || '-',
+    '',
+    'Received: ' + new Date().toISOString(),
+  ].join('\n');
+
+  email.send({ to, subject: 'Demo request — ' + name + (company ? ' (' + company + ')' : ''), text, fromName: 'AG Vending site' })
+    .catch(err => console.error('[DEMO] email failed:', err && err.message));
+  console.log('[DEMO] request from ' + senderEmail + (company ? ' (' + company + ')' : ''));
+
+  ok(res, { received: true });
+}
 
 function handleHealth(req, res) {
   let version = '0.0.0';

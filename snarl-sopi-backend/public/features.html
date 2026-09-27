@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AG Vending — Operator backend</title>
+<meta name="description" content="Rekstrarkerfi fyrir sjálfsala og snjallkæla: lager, sala, viðvaranir og fjarstýring á einum stað.">
+<link rel="icon" type="image/png" href="/favicon_light.png" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/png" href="/favicon_dark.png" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Same tokens as the operator dashboard, so this page and the product it describes are visibly
+   the same thing. Light only, matching production. */
+:root{
+  --cream:#FAF7F2; --cream-deep:#F0E8DA; --cream-shadow:#E8DFD0;
+  --ink:#1A1A1A; --ink-soft:#3A3A3A;
+  --bronze:#8B6B3E; --bronze-light:#B8946B; --bronze-bg:#F7F0E6;
+  --clay:#D4CCBE; --line:#E8E2D8; --muted:#8A8275; --muted-2:#6B6B6B;
+  --alert:#B8471F; --alert-bg:#FAEEE9;
+  --success:#4A6B2E; --success-bg:#EBF2E6;
+  --warn-ink:#7A4E1A; --warn-bg:#F9F0E2;
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'Geist',system-ui,-apple-system,sans-serif;
+  --mono:'Geist Mono',ui-monospace,Menlo,monospace;
+  --rsm:6px; --r:10px; --rlg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--sans);background:var(--cream-shadow);color:var(--ink);font-size:15px;line-height:1.55;}
+.wrap{max-width:940px;margin:0 auto;padding:0 18px;}
+
+/* ── top bar ─────────────────────────────────────────────────────────── */
+.top{
+  position:sticky;top:0;z-index:20;background:rgba(250,247,242,.92);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+}
+.top-in{max-width:940px;margin:0 auto;padding:11px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.brand{font-family:var(--serif);font-style:italic;font-size:19px;font-weight:500;}
+.brand span{font-family:var(--mono);font-style:normal;font-size:8.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);display:block;margin-top:-1px;}
+.top-right{display:flex;align-items:center;gap:8px;}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--cream);}
+.lang button{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:1px;text-transform:uppercase;
+  padding:5px 10px;border:0;background:transparent;color:var(--muted);cursor:pointer;
+}
+.lang button.on{background:var(--ink);color:var(--cream);}
+.signin{
+  font-size:12.5px;text-decoration:none;color:var(--bronze);border:1px solid var(--bronze);
+  border-radius:999px;padding:5px 13px;white-space:nowrap;
+}
+.signin:hover{background:var(--bronze-bg);}
+
+/* ── hero ────────────────────────────────────────────────────────────── */
+.hero{padding:52px 0 40px;border-bottom:1px solid var(--line);}
+h1{font-family:var(--serif);font-style:italic;font-weight:500;font-size:44px;line-height:1.05;text-wrap:balance;margin-bottom:16px;}
+.lede{font-size:17px;color:var(--ink-soft);max-width:60ch;}
+.hero-meta{display:flex;flex-wrap:wrap;gap:7px 20px;margin-top:22px;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+
+/* ── sections ────────────────────────────────────────────────────────── */
+section{padding:44px 0;border-bottom:1px solid var(--line);}
+h2{font-family:var(--serif);font-style:italic;font-weight:500;font-size:27px;margin-bottom:8px;}
+.sub{font-size:14.5px;color:var(--muted-2);max-width:62ch;margin-bottom:24px;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:14px;}
+.card{background:var(--cream);border:.5px solid var(--line);border-radius:var(--r);padding:17px 18px;}
+.card h3{font-size:15px;font-weight:600;margin-bottom:6px;letter-spacing:-.1px;}
+.card p{font-size:13.5px;color:var(--muted-2);line-height:1.5;}
+.card ul{margin:9px 0 0;padding-left:0;list-style:none;}
+.card li{font-size:12.5px;color:var(--muted-2);padding:3px 0 3px 13px;position:relative;}
+.card li::before{content:'';position:absolute;left:0;top:11px;width:4px;height:4px;border-radius:50%;background:var(--bronze-light);}
+
+/* the one feature worth its own block */
+.feature{background:var(--bronze-bg);border:1px solid var(--clay);border-radius:var(--rlg);padding:24px 22px;}
+.feature h3{font-family:var(--serif);font-style:italic;font-size:22px;font-weight:500;margin-bottom:9px;}
+.feature p{font-size:14.5px;color:var(--ink-soft);max-width:58ch;}
+.feature .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:18px;}
+.feature .cols div{font-size:13px;color:var(--muted-2);}
+.feature .cols strong{display:block;color:var(--ink);font-size:13.5px;margin-bottom:3px;}
+
+/* roles table */
+.tw{overflow-x:auto;border:.5px solid var(--line);border-radius:var(--r);background:var(--cream);}
+table{border-collapse:collapse;width:100%;min-width:430px;}
+th{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);font-weight:400;}
+td{padding:10px 14px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:top;}
+td:first-child{font-weight:500;white-space:nowrap;}
+tr:last-child td{border-bottom:0;}
+
+/* integrations */
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{background:var(--cream);border:.5px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;}
+.chip b{font-weight:600;}
+.chip span{color:var(--muted);}
+
+/* ── form ────────────────────────────────────────────────────────────── */
+.formwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start;}
+@media (max-width:720px){ .formwrap{grid-template-columns:1fr;} }
+form{background:var(--cream);border:.5px solid var(--line);border-radius:var(--rlg);padding:20px;}
+.fl{font-family:var(--mono);font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.field{margin-bottom:12px;}
+input,textarea{
+  width:100%;font-family:var(--sans);font-size:14px;color:var(--ink);background:var(--cream);
+  border:1px solid var(--line);border-radius:var(--rsm);padding:9px 11px;
+}
+input:focus,textarea:focus{outline:2px solid var(--bronze-light);outline-offset:1px;border-color:var(--bronze-light);}
+textarea{min-height:76px;resize:vertical;}
+.row2{display:flex;gap:10px;}
+.row2>*{flex:1;min-width:0;}
+button.send{
+  width:100%;font-family:var(--sans);font-size:14.5px;font-weight:500;
+  background:var(--ink);color:var(--cream);border:0;border-radius:var(--rsm);
+  padding:11px;cursor:pointer;margin-top:4px;
+}
+button.send:hover{background:var(--ink-soft);}
+button.send:disabled{opacity:.5;cursor:default;}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
+.msg{font-size:13px;line-height:1.5;border-radius:var(--rsm);padding:10px 12px;margin-top:11px;display:none;}
+.msg.ok{background:var(--success-bg);color:var(--success);display:block;}
+.msg.bad{background:var(--alert-bg);color:var(--alert);display:block;}
+.priv{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.45;}
+
+/* ── footer ──────────────────────────────────────────────────────────── */
+footer{padding:30px 0 46px;font-size:13px;color:var(--muted);}
+footer a{color:var(--bronze);text-decoration:none;}
+footer a:hover{text-decoration:underline;}
+.foot-in{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:baseline;justify-content:space-between;}
+
+@media (max-width:560px){
+  h1{font-size:33px;}
+  .hero{padding:36px 0 30px;}
+  section{padding:34px 0;}
+  h2{font-size:23px;}
+  body{font-size:14.5px;}
+}
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="top-in">
+    <div class="brand">AG Vending<span data-is="rekstrarkerfi" data-en="operator backend">rekstrarkerfi</span></div>
+    <div class="top-right">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" id="b-is" class="on" onclick="setLang('is')">ÍS</button>
+        <button type="button" id="b-en" onclick="setLang('en')">EN</button>
+      </div>
+      <a class="signin" href="/" data-is="Innskráning" data-en="Sign in">Innskráning</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <h1 data-is="Allur reksturinn á einum skjá." data-en="Your whole operation on one screen.">Allur reksturinn á einum skjá.</h1>
+    <p class="lede"
+       data-is="Rekstrarkerfi fyrir sjálfsala og snjallkæla. Lager, sala, viðvaranir og fjarstýring — í símanum, hvar sem þú ert. Byggt í daglegum rekstri á sjálfsölum og kælum á höfuðborgarsvæðinu, ekki í kynningarumhverfi."
+       data-en="An operator backend for vending machines and smart fridges. Stock, sales, alerts and remote control — on your phone, wherever you are. Built in daily use on real machines and fridges in Reykjavík, not in a demo environment.">
+      Rekstrarkerfi fyrir sjálfsala og snjallkæla.
+    </p>
+    <div class="hero-meta">
+      <span data-is="Sjálfsalar og snjallkælar" data-en="Coil machines and smart fridges">Sjálfsalar og snjallkælar</span>
+      <span data-is="Íslenska og enska" data-en="Icelandic and English">Íslenska og enska</span>
+      <span data-is="Hannað fyrir símann" data-en="Built for the phone">Hannað fyrir símann</span>
+    </div>
+  </div>
+
+  <!-- ── what it does ───────────────────────────────────────────────── -->
+  <section>
+    <h2 data-is="Hvað það gerir" data-en="What it does">Hvað það gerir</h2>
+    <p class="sub"
+       data-is="Hver vél á sinn skjá: staða, lager, hitastig, sala og stýringar. Allt í sama viðmóti, hvort sem vélin er spíralsjálfsali eða kælir sem vigtar vöruna."
+       data-en="Every machine has its own screen: status, stock, temperature, sales and controls. One interface, whether it is a spiral machine or a fridge that weighs its stock.">
+      Hver vél á sinn skjá.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h3 data-is="Flotinn í einu auga" data-en="The fleet at a glance">Flotinn í einu auga</h3>
+        <ul>
+          <li data-is="Nettengd eða ekki, í rauntíma" data-en="Online or offline, live">Nettengd eða ekki</li>
+          <li data-is="Lagerstaða í prósentum á hverri vél" data-en="Stock level per machine">Lagerstaða á hverri vél</li>
+          <li data-is="Hitastig kælis og söguferill" data-en="Cabinet temperature and its history">Hitastig kælis</li>
+          <li data-is="Hvenær var síðast fyllt á" data-en="When it was last restocked">Síðasta áfylling</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 data-is="Vörur og hólf" data-en="Products and slots">Vörur og hólf</h3>
+        <ul>
+          <li data-is="Spíralhólf eða kælikörf, rétt uppsetning á hvora vél" data-en="Spiral lanes or fridge baskets, laid out as the machine really is">Spíralhólf eða kælikörf</li>
+          <li data-is="Verð og þyngd á hverja vöru eða hólf" data-en="Price and unit weight per product or basket">Verð og þyngd</li>
+          <li data-is="Loka hólfi fyrir sölu án þess að fara á staðinn" data-en="Close a lane to customers without a site visit">Loka hólfi fjarrænt</li>
+          <li data-is="Síðasti söludagur með lotum" data-en="Best-before dates, tracked per batch">Síðasti söludagur</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 data-is="Sala og tekjur" data-en="Sales and revenue">Sala og tekjur</h3>
+        <ul>
+          <li data-is="Tekjur yfir dag, viku, mánuð eða fjórðung" data-en="Revenue by day, week, month or quarter">Tekjur yfir tímabil</li>
+          <li data-is="Hvenær dagsins er verslað — hitakort á klukkustund" data-en="When people actually buy — an hourly heatmap">Hitakort á klukkustund</li>
+          <li data-is="Mest sölu vörur á hverja vél" data-en="Top products per machine">Mest sölu vörur</li>
+          <li data-is="Pantanir með kvittunum" data-en="Order history with receipts">Pantanir og kvittanir</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 data-is="Fjarstýring" data-en="Remote control">Fjarstýring</h3>
+        <ul>
+          <li data-is="Opna hurð kælis til áfyllingar" data-en="Open a fridge door to restock">Opna hurð</li>
+          <li data-is="Prófa hólf áður en það fer í sölu" data-en="Test a lane before it takes money">Prófa hólf</li>
+          <li data-is="Kælistilling, kæling af og á, afþíðing" data-en="Cooling setpoint, cooling on or off, defrost">Kælistillingar</li>
+          <li data-is="Endurræsa forrit vélarinnar" data-en="Restart the machine's app">Endurræsa forrit</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 data-is="Viðskiptavinir" data-en="Customer care">Viðskiptavinir</h3>
+        <ul>
+          <li data-is="Kvartanir koma inn úr vélinni sjálfri" data-en="Complaints arrive from the machine itself">Kvartanir úr vélinni</li>
+          <li data-is="Svara og endurgreiða úr sama viðmóti" data-en="Reply and refund from the same screen">Svara og endurgreiða</li>
+          <li data-is="Kvittun í tölvupósti til kaupanda" data-en="Emailed receipt for the buyer">Kvittun í tölvupósti</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 data-is="Uppgjör og reikningar" data-en="Settlement and invoicing">Uppgjör og reikningar</h3>
+        <ul>
+          <li data-is="Kvittanayfirlit yfir tímabil" data-en="Receipt history over any period">Kvittanayfirlit</li>
+          <li data-is="Leigureikningar og hreyfingayfirlit" data-en="Lease invoices and statements">Leigureikningar</li>
+          <li data-is="Útflutningur í CSV fyrir bókhaldið" data-en="CSV export for the accountant">CSV fyrir bókhaldið</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the distinctive bit ────────────────────────────────────────── -->
+  <section>
+    <h2 data-is="Það sem fer úrskeiðis, sagt upphátt" data-en="When something goes wrong, it says so">Það sem fer úrskeiðis, sagt upphátt</h2>
+    <p class="sub"
+       data-is="Sjálfsali sem hættir að taka kort lítur eins út og sjálfsali sem enginn notaði. Kerfið er byggt í kringum þennan mun."
+       data-en="A machine that has stopped taking cards looks exactly like a machine nobody used. This system is built around that difference.">
+      Sjálfsali sem hættir að taka kort lítur eins út og sjálfsali sem enginn notaði.
+    </p>
+    <div class="feature">
+      <h3 data-is="viðvaranir og samræming." data-en="alerts and reconciliation.">viðvaranir og samræming.</h3>
+      <p data-is="Viðvaranir birtast á skjánum og fara í tölvupóst — ekki bara í loggskrá sem enginn opnar. Og þegar tölurnar stemma ekki er til verkfæri til að finna hvers vegna."
+         data-en="Alerts appear on screen and go to your inbox — not into a log nobody opens. And when the numbers don't agree, there is a tool for finding out why.">
+        Viðvaranir birtast á skjánum og fara í tölvupóst.
+      </p>
+      <div class="cols">
+        <div>
+          <strong data-is="Kæling og hitastig" data-en="Cooling and temperature">Kæling og hitastig</strong>
+          <span data-is="Kælir sem hlýnar of lengi lætur vita áður en varan skemmist."
+                data-en="A fridge that stays too warm for too long tells you before the stock spoils.">Kælir sem hlýnar of lengi lætur vita.</span>
+        </div>
+        <div>
+          <strong data-is="Tómt hólf" data-en="Empty lanes">Tómt hólf</strong>
+          <span data-is="Vörur sem eru búnar, með sögu um hvenær þær tæmdust."
+                data-en="What has sold out, with a record of when it went.">Vörur sem eru búnar.</span>
+        </div>
+        <div>
+          <strong data-is="Uppgjör sem stemmir ekki" data-en="Settlements that don't add up">Uppgjör sem stemmir ekki</strong>
+          <span data-is="Ef vigtin og greiðslan eru ekki sammála er það peningamál — og fær viðvörun og póst."
+                data-en="If the scales and the charge disagree, that is a money problem — it gets an alert and an email.">Vigt og greiðsla ósamræmi.</span>
+        </div>
+        <div>
+          <strong data-is="Leita að færslum á tímabili" data-en="Find transactions in a window">Leita að færslum á tímabili</strong>
+          <span data-is="Finna allar færslur vélar milli tveggja tímapunkta, með útflutningi í CSV, til að stemma af við kortafyrirtækið."
+                data-en="Every transaction on a machine between two moments in time, exportable as CSV, to match against the card processor.">Allar færslur milli tveggja tímapunkta.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── access ─────────────────────────────────────────────────────── -->
+  <section>
+    <h2 data-is="Aðgangur og hlutverk" data-en="Access and roles">Aðgangur og hlutverk</h2>
+    <p class="sub"
+       data-is="Fleiri en einn rekstraraðili í sama kerfi, hver með sínar vélar. Starfsmaður sér aðeins það sem hann þarf."
+       data-en="More than one operator in the same system, each with their own machines. Staff see only what they need.">
+      Fleiri en einn rekstraraðili í sama kerfi.
+    </p>
+    <div class="tw">
+      <table>
+        <thead><tr>
+          <th data-is="Hlutverk" data-en="Role">Hlutverk</th>
+          <th data-is="Getur" data-en="Can">Getur</th>
+        </tr></thead>
+        <tbody>
+          <tr><td data-is="Rekstrarstjóri" data-en="Operator admin">Rekstrarstjóri</td>
+              <td data-is="Allar vélar rekstraraðilans, býður starfsmönnum aðgang, breytir uppsetningu"
+                  data-en="Every machine of the operator, invites staff, changes setup">Allar vélar, býður starfsmönnum aðgang</td></tr>
+          <tr><td data-is="Umsjónarmaður" data-en="Manager">Umsjónarmaður</td>
+              <td data-is="Vélar sem honum eru úthlutaðar, sér sölu, fyllir á og stýrir"
+                  data-en="Assigned machines: sees sales, restocks and operates">Úthlutaðar vélar, sala og áfylling</td></tr>
+          <tr><td data-is="Áhorfandi" data-en="Viewer">Áhorfandi</td>
+              <td data-is="Les tölur, breytir engu" data-en="Reads the numbers, changes nothing">Les tölur, breytir engu</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── integrations ───────────────────────────────────────────────── -->
+  <section>
+    <h2 data-is="Tengist því sem þú notar" data-en="Connects to what you already use">Tengist því sem þú notar</h2>
+    <p class="sub"
+       data-is="Kerfið er ekki eyland. Það talar við greiðslukerfið, vélarnar og bókhaldið."
+       data-en="The system is not an island. It talks to the payment terminal, the machines and the books.">
+      Kerfið er ekki eyland.
+    </p>
+    <div class="chips">
+      <span class="chip"><b>Nayax</b> <span data-is="kortagreiðslur" data-en="card payments">kortagreiðslur</span></span>
+      <span class="chip"><b>Weimi</b> <span data-is="vélar og vöruskrá" data-en="machines and product data">vélar og vöruskrá</span></span>
+      <span class="chip"><b>Payday</b> <span data-is="reikningar" data-en="invoicing">reikningar</span></span>
+      <span class="chip"><b data-is="Tölvupóstur" data-en="Email">Tölvupóstur</b> <span data-is="viðvaranir og kvittanir" data-en="alerts and receipts">viðvaranir og kvittanir</span></span>
+    </div>
+  </section>
+
+  <!-- ── demo request ───────────────────────────────────────────────── -->
+  <section id="demo">
+    <h2 data-is="Fá kynningu" data-en="Ask for a demo">Fá kynningu</h2>
+    <p class="sub"
+       data-is="Skildu eftir nokkrar upplýsingar og við setjum upp kynningaraðgang fyrir þig og förum yfir kerfið með þér."
+       data-en="Leave a few details and we will set up a demo account for you and walk you through it.">
+      Skildu eftir nokkrar upplýsingar.
+    </p>
+
+    <div class="formwrap">
+      <form id="demo-form" onsubmit="submitDemo(event)">
+        <div class="field">
+          <div class="fl" data-is="Nafn" data-en="Name">Nafn</div>
+          <input id="d-name" name="name" required maxlength="100" autocomplete="name">
+        </div>
+        <div class="field">
+          <div class="fl" data-is="Netfang" data-en="Email">Netfang</div>
+          <input id="d-email" name="email" type="email" required maxlength="200" autocomplete="email">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <div class="fl" data-is="Fyrirtæki" data-en="Company">Fyrirtæki</div>
+            <input id="d-company" maxlength="120" autocomplete="organization">
+          </div>
+          <div class="field">
+            <div class="fl" data-is="Sími" data-en="Phone">Sími</div>
+            <input id="d-phone" maxlength="40" autocomplete="tel">
+          </div>
+        </div>
+        <div class="field">
+          <div class="fl" data-is="Hvað ertu með í rekstri?" data-en="What are you running?">Hvað ertu með í rekstri?</div>
+          <input id="d-machines" maxlength="60"
+                 data-is-ph="t.d. 6 sjálfsalar, 2 kælar" data-en-ph="e.g. 6 machines, 2 fridges"
+                 placeholder="t.d. 6 sjálfsalar, 2 kælar">
+        </div>
+        <div class="field">
+          <div class="fl" data-is="Eitthvað annað?" data-en="Anything else?">Eitthvað annað?</div>
+          <textarea id="d-note" maxlength="1000"></textarea>
+        </div>
+        <!-- Not visible to a person. A filled value means a bot, and the request is dropped. -->
+        <div class="hp" aria-hidden="true"><label>Leave this empty<input id="d-bot" tabindex="-1" autocomplete="off"></label></div>
+        <button class="send" type="submit" id="d-send" data-is="Senda fyrirspurn" data-en="Send request">Senda fyrirspurn</button>
+        <div class="msg" id="d-msg"></div>
+        <p class="priv"
+           data-is="Við notum þetta eingöngu til að hafa samband um kynninguna. Engin gögn eru vistuð hér og engum þriðja aðila afhent."
+           data-en="We use this only to get in touch about the demo. Nothing is stored here and nothing is passed to anyone else.">
+          Við notum þetta eingöngu til að hafa samband um kynninguna.
+        </p>
+      </form>
+
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <h3 data-is="Hvað gerist næst" data-en="What happens next">Hvað gerist næst</h3>
+          <ul>
+            <li data-is="Við svörum og bókum stuttan yfirlitsfund" data-en="We reply and set up a short walkthrough">Við svörum og bókum yfirlit</li>
+            <li data-is="Þú fær kynningaraðgang með sýnigögnum" data-en="You get a demo account with sample data">Kynningaraðgangur með sýnigögnum</li>
+            <li data-is="Svo skoðum við hvað passar þínum rekstri" data-en="Then we look at what fits your operation">Svo skoðum við hvað passar þér</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 data-is="Meira um okkur" data-en="More about us">Meira um okkur</h3>
+          <p data-is="AG Vending rekur sjálfsala og snjallkæla á höfuðborgarsvæðinu. Kerfið hér er það sama og við notum sjálf, alla daga."
+             data-en="AG Vending runs vending machines and smart fridges in the Reykjavík area. This system is the one we use ourselves, every day.">
+            AG Vending rekur sjálfsala og snjallkæla á höfuðborgarsvæðinu.
+          </p>
+          <p style="margin-top:9px"><a href="https://agvending.is" style="color:var(--bronze);text-decoration:none">agvending.is →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="foot-in">
+      <span>AG Vending · <a href="https://agvending.is">agvending.is</a></span>
+      <span><a href="/" data-is="Innskráning rekstraraðila" data-en="Operator sign in">Innskráning rekstraraðila</a></span>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+// Two languages, no framework: every translatable node carries data-is and data-en, and placeholders
+// carry data-is-ph / data-en-ph. The choice is remembered per browser, and the document's lang
+// attribute is updated so screen readers and spellcheckers follow along.
+function setLang(lang) {
+  const l = (lang === 'en') ? 'en' : 'is';
+  document.documentElement.lang = l;
+  document.querySelectorAll('[data-is]').forEach(function (el) {
+    const v = el.getAttribute('data-' + l);
+    if (v != null) el.textContent = v;
+  });
+  document.querySelectorAll('[data-is-ph]').forEach(function (el) {
+    const v = el.getAttribute('data-' + l + '-ph');
+    if (v != null) el.placeholder = v;
+  });
+  const bi = document.getElementById('b-is'), be = document.getElementById('b-en');
+  if (bi && be) { bi.classList.toggle('on', l === 'is'); be.classList.toggle('on', l === 'en'); }
+  try { localStorage.setItem('agv-lang', l); } catch (e) { /* private mode — the page still works */ }
+}
+
+(function () {
+  let saved = null;
+  try { saved = localStorage.getItem('agv-lang'); } catch (e) {}
+  // No stored choice: Icelandic, always. Deliberately NOT browser-sniffed — plenty of Icelandic
+  // operators run their phone in English, so navigator.language would send most of the actual
+  // audience to the wrong language. Anyone else is one visible tap from EN.
+  setLang(saved || 'is');
+})();
+
+async function submitDemo(ev) {
+  ev.preventDefault();
+  const en = document.documentElement.lang === 'en';
+  const btn = document.getElementById('d-send');
+  const msg = document.getElementById('d-msg');
+  const val = function (id) { const e = document.getElementById(id); return e ? e.value : ''; };
+  btn.disabled = true;
+  msg.className = 'msg';
+  msg.textContent = '';
+  try {
+    const r = await fetch('/api/v1/demo-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: val('d-name'), email: val('d-email'), company: val('d-company'),
+        phone: val('d-phone'), machines: val('d-machines'), note: val('d-note'),
+        botField: val('d-bot'),
+      }),
+    });
+    const body = await r.json().catch(function () { return null; });
+    if (r.ok && body && body.ok) {
+      document.getElementById('demo-form').reset();
+      msg.className = 'msg ok';
+      msg.textContent = en
+        ? 'Thank you — we have your request and will be in touch shortly.'
+        : 'Þakka þér — fyrirspurnin er komin til okkar og við verðum í sambandi.';
+    } else {
+      msg.className = 'msg bad';
+      // Show what the server actually said when it explains itself; it is written for a person.
+      msg.textContent = (body && body.error) ? body.error : (en
+        ? 'That did not go through. Please try again, or find us at agvending.is.'
+        : 'Þetta fór ekki í gegn. Reyndu aftur, eða finndu okkur á agvending.is.');
+    }
+  } catch (e) {
+    msg.className = 'msg bad';
+    msg.textContent = en
+      ? 'No connection just now. Please try again shortly.'
+      : 'Engin tenging núna. Reyndu aftur eftir smástund.';
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
