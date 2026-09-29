@@ -4813,6 +4813,20 @@ function _normInvoice(inv) {
   };
 }
 
+// An operator provisioned from the registration form exists before the Zap creates
+// its Payday customer, so it has a kennitala and no customer id. Resolve and store
+// the id the first time it is needed.
+async function _paydayCustomerId(op) {
+  if (op.paydayCustomerId && _isGuid(op.paydayCustomerId)) return op.paydayCustomerId;
+  if (!op.kennitala) return null;
+  const cust = await require('./payday').findCustomerBySsn(op.kennitala);
+  if (!cust || !cust.id) return null;
+  storage.setOperatorPaydayLink(op.id, op.kennitala, cust.id);
+  if (operators[op.id]) operators[op.id].paydayCustomerId = cust.id;
+  op.paydayCustomerId = cust.id;
+  return cust.id;
+}
+
 // GET /operators/:operatorId/invoices
 async function handleOperatorInvoices(req, res) {
   const payday = require('./payday');
@@ -4820,7 +4834,7 @@ async function handleOperatorInvoices(req, res) {
     if (!payday.paydayConfigured()) return ok(res, { configured: false, linked: false, invoices: [] });
     const op = storage.getOperator(req.params.operatorId);
     if (!op) return notFound(res, 'Operator not found');
-    if (!op.paydayCustomerId || !_isGuid(op.paydayCustomerId)) return ok(res, { configured: true, linked: false, invoices: [] });
+    if (!(await _paydayCustomerId(op))) return ok(res, { configured: true, linked: false, invoices: [] });
     const raw = await payday.getCustomerInvoices(op.paydayCustomerId);
     ok(res, { configured: true, linked: true, invoices: raw.map(_normInvoice) });
   } catch (e) {
@@ -4835,7 +4849,7 @@ async function handleOperatorLedger(req, res) {
     if (!payday.paydayConfigured()) return ok(res, { configured: false, linked: false, movements: [], balance: 0 });
     const op = storage.getOperator(req.params.operatorId);
     if (!op) return notFound(res, 'Operator not found');
-    if (!op.paydayCustomerId || !_isGuid(op.paydayCustomerId)) return ok(res, { configured: true, linked: false, movements: [], balance: 0 });
+    if (!(await _paydayCustomerId(op))) return ok(res, { configured: true, linked: false, movements: [], balance: 0 });
     const inv = await payday.getCustomerInvoices(op.paydayCustomerId);
     const movements = payday.buildLedger(inv);
     ok(res, { configured: true, linked: true, movements, balance: movements.length ? movements[0].balance : 0 });
@@ -4874,12 +4888,17 @@ async function handleProvisionOperator(req, res) {
   if (!name || !emailAddr) return badRequest(res, 'name and email are required');
   const kennitala = String(b.kennitala || '').replace(/[\s-]/g, '').trim() || null;
   const paydayCustomerId = String(b.paydayCustomerId || '').trim() || null;
+  // The person who gets the login (skraning.agvending.is sends the aðalnotandi);
+  // the operator itself is named after the company.
+  const personName = String(b.contactName || '').trim() || name;
 
   // Idempotent: a matching operator (same kennitala or Payday customer) means the
   // Zap already ran — return it without creating a duplicate or re-emailing.
   const existing = Object.values(operators).find(o =>
     (kennitala && o.kennitala === kennitala) ||
     (paydayCustomerId && o.paydayCustomerId === paydayCustomerId));
+  // No invite for an existing operator: anyone can type a kennitala into the public
+  // form, so a returning customer's extra users are added from the admin dashboard.
   if (existing) return ok(res, { operatorId: existing.id, created: false, invited: false, note: 'Operator already exists' });
 
   const slug = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
@@ -4898,7 +4917,7 @@ async function handleProvisionOperator(req, res) {
     storage.upsertOperator(operators[id]);
     storage.setOperatorPaydayLink(id, kennitala, paydayCustomerId);
 
-    invite = createInvitation({ email: emailAddr, name, role: 'operator_admin', operatorId: id, inviterId: null, machineAccess: 'all' });
+    invite = createInvitation({ email: emailAddr, name: personName, role: 'operator_admin', operatorId: id, inviterId: null, machineAccess: 'all' });
     inviteUrl = `${process.env.APP_URL || 'https://admin.agvending.is'}/?invite=${invite.token}`;
   } catch (e) {
     // Never let a storage failure kill the request with no response (that surfaces as a
@@ -4912,7 +4931,7 @@ async function handleProvisionOperator(req, res) {
   // invite token is valid, so a slow email must not hold the request open (that was 502-ing
   // the provision call at the platform edge). The email has its own timeout; we log the
   // outcome. The response reports the invite as queued, not confirmed-delivered.
-  email.sendInvitation({ to: emailAddr, name, inviterName: 'AG Vending', operatorName: name, role: 'operator_admin', inviteToken: invite.token })
+  email.sendInvitation({ to: emailAddr, name: personName, inviterName: 'AG Vending', operatorName: name, role: 'operator_admin', inviteToken: invite.token })
     .then(() => console.log(`[PROVISION] invite emailed → ${emailAddr}`))
     .catch(e => console.warn(`[PROVISION] invite email FAILED → ${emailAddr}: ${e.message} (operator ${id} still created; invite link: ${inviteUrl})`));
 

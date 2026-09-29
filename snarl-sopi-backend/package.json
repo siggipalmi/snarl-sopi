@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.36.1",
-  "description": "Snarl and Sopi operator backend v6.36.1: the two answers the operator gave about positioning, put on the page. Pricing - the backend is not sold separately, it is included in the machine lease, so there is no per-machine monthly software fee at all. Against VendSoft's 1-2 dollars per machine per month that is the strongest single line on the page, so it goes in the first screen as a fit chip and again in the closing block. Routes - the page previously conceded that having no route optimisation was a gap next to Cantaloupe, Parlevel, VendSoft and VendSys, all of which lead with dynamic routing. From actually running the machines the operator's experience is the opposite: machines are not equal, some need weekly attention and others sit half full for months, and a fixed route sends you to both just as often. That is now section 04, Priority not fixed routes, arguing the design rather than apologising for it. Its screenshot makes the case on its own - six days at 88 percent full ranks below seven days at 19 percent. Cumulative over v6.36.0.",
+  "version": "6.37.0",
+  "description": "Snarl and Sopi operator backend v6.37.0: accounts from the lease form. /api/v1/operators/provision takes contactName, so the invite email greets the aðalnotandi named on skraning.agvending.is rather than the company, and it never invites anyone to an operator that already exists. An operator created from the form has a kennitala but no Payday customer yet (the Zap creates that afterwards), so its invoices and ledger now resolve the Payday customer by kennitala the first time they are opened and store the link. Cumulative over v6.36.1.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

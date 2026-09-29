@@ -47,6 +47,7 @@
   .signer{background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:12px 16px;margin-bottom:14px}
   .signer dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 6px;font-size:15px}
   .signer dt{color:var(--mute)}.signer dd{margin:0;font-weight:500}
+  .account-box{margin-top:22px;padding-top:18px;border-top:.5px solid var(--line)}
   .check{display:flex;align-items:center;gap:10px;font-size:15px;cursor:pointer}
   .check input{width:18px;height:18px;accent-color:var(--accent);margin:0}
   .start{margin:0;font-size:17px}
@@ -187,6 +188,31 @@
           <span class="hint">Annars eru reikningar sendir á netfang tengiliðar.</span>
           <span class="err" id="netfang_reikninga-err" role="alert"></span>
         </div>
+
+        <div class="account-box">
+          <div class="lbl" style="margin-bottom:6px">Aðalnotandi</div>
+          <p class="hint" style="margin:0 0 12px">Aðalnotandi fær aðgang að stjórnborði sjálfsalanna á admin.agvending.is og getur bætt öðrum notendum við. Boð um aðgang er sent á netfang hans.</p>
+          <label class="check"><input type="checkbox" id="adalnotandi-sami" checked /> Undirritandi er aðalnotandi</label>
+          <div id="adalnotandi-fields" hidden style="margin-top:14px">
+            <div class="fld" style="margin-bottom:14px">
+              <label for="adalnotandi_nafn">Nafn aðalnotanda</label>
+              <input id="adalnotandi_nafn" autocomplete="off" aria-describedby="adalnotandi_nafn-err" />
+              <span class="err" id="adalnotandi_nafn-err" role="alert"></span>
+            </div>
+            <div class="grid2">
+              <div class="fld">
+                <label for="adalnotandi_netfang">Netfang aðalnotanda</label>
+                <input id="adalnotandi_netfang" type="email" autocomplete="off" aria-describedby="adalnotandi_netfang-err" />
+                <span class="err" id="adalnotandi_netfang-err" role="alert"></span>
+              </div>
+              <div class="fld">
+                <label for="adalnotandi_simi">Farsími <span class="hint">(valfrjálst)</span></label>
+                <input id="adalnotandi_simi" type="tel" inputmode="tel" autocomplete="off" aria-describedby="adalnotandi_simi-err" />
+                <span class="err" id="adalnotandi_simi-err" role="alert"></span>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="step">
@@ -233,6 +259,7 @@
     <div class="lbl">Skráning móttekin</div>
     <h1>Takk fyrir!</h1>
     <p>Leigusamningurinn verður sendur á <strong id="done-email"></strong> til rafrænnar undirritunar.</p>
+    <p><strong id="done-account"></strong> fær boð um aðgang að stjórnborði sjálfsalanna, nema fyrirtækið sé þegar með aðgang.</p>
     <p class="hint">Tilvísun: <span id="done-id"></span></p>
     <p style="margin-top:22px"><a href="https://agvending.is">Til baka á agvending.is</a></p>
   </div>
@@ -261,7 +288,8 @@
   }
 
   // An error message goes away as soon as the field it is about is edited.
-  ['undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi', 'netfang', 'simi', 'netfang_reikninga']
+  ['undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi', 'netfang', 'simi', 'netfang_reikninga',
+   'adalnotandi_nafn', 'adalnotandi_netfang', 'adalnotandi_simi']
     .forEach(k => $(k).addEventListener('input', () => setError(k, '')));
 
   // Kennitala inputs format themselves as 000000-0000.
@@ -282,6 +310,13 @@
   $('same-as-signer').addEventListener('change', e => {
     $('contact-fields').hidden = e.target.checked;
     setError('netfang', ''); setError('simi', '');
+  });
+
+  // The signer gets the login unless someone else is named.
+  $('adalnotandi-sami').addEventListener('change', e => {
+    $('adalnotandi-fields').hidden = e.target.checked;
+    ['adalnotandi_nafn', 'adalnotandi_netfang', 'adalnotandi_simi'].forEach(k => setError(k, ''));
+    if (!e.target.checked) $('adalnotandi_nafn').focus();
   });
 
   // ─── Config ────────────────────────────────────────────────────────────────
@@ -487,6 +522,12 @@
       if (!emailOk($('netfang').value)) errs.netfang = 'Netfang er ekki gilt.';
       if (digits($('simi').value).length < 7) errs.simi = 'Símanúmer er ekki gilt.';
     }
+    if (!$('adalnotandi-sami').checked) {
+      if (!$('adalnotandi_nafn').value.trim()) errs.adalnotandi_nafn = 'Skráðu nafn aðalnotanda.';
+      if (!emailOk($('adalnotandi_netfang').value)) errs.adalnotandi_netfang = 'Netfang er ekki gilt.';
+      const as = digits($('adalnotandi_simi').value);
+      if (as && as.length < 7) errs.adalnotandi_simi = 'Símanúmer er ekki gilt.';
+    }
     if ($('invoice-other').checked && !emailOk($('netfang_reikninga').value)) errs.netfang_reikninga = 'Netfang er ekki gilt.';
     if (!Object.values(state.counts).some(n => n > 0)) errs.taeki = 'Veldu að minnsta kosti eitt tæki.';
     if (!state.verifiedAddress || addr.value.trim() !== state.verifiedAddress) errs.heimilisfang = 'Veldu staðsetningu úr listanum.';
@@ -507,7 +548,8 @@
 
   function applyErrors(errs) {
     ['kennitala', 'undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi',
-     'netfang', 'simi', 'netfang_reikninga', 'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
+     'netfang', 'simi', 'netfang_reikninga', 'adalnotandi_nafn', 'adalnotandi_netfang', 'adalnotandi_simi',
+     'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
     const first = Object.keys(errs)[0];
     if (first) {
       const el = first === 'taeki' ? document.querySelector('.machine button[data-d="1"]') : $(first);
@@ -537,6 +579,10 @@
       netfang: ($('same-as-signer').checked ? $('undirritandi_netfang') : $('netfang')).value.trim(),
       simi: ($('same-as-signer').checked ? $('undirritandi_simi') : $('simi')).value.trim(),
       netfang_reikninga: $('invoice-other').checked ? $('netfang_reikninga').value.trim() : '',
+      adalnotandi_sami: $('adalnotandi-sami').checked,
+      adalnotandi_nafn: $('adalnotandi_nafn').value.trim(),
+      adalnotandi_netfang: $('adalnotandi_netfang').value.trim(),
+      adalnotandi_simi: $('adalnotandi_simi').value.trim(),
       heimilisfang: state.verifiedAddress,
       athugasemdir: $('athugasemdir').value.trim(),
       turnstile: state.turnstileToken,
@@ -557,6 +603,7 @@
         const data = await r.json().catch(() => ({}));
         if (r.ok && data.ok) {
           $('done-email').textContent = body.undirritandi_netfang;
+          $('done-account').textContent = body.adalnotandi_sami ? body.undirritandi_netfang : body.adalnotandi_netfang;
           $('done-id').textContent = data.id;
           $('form-view').hidden = true;
           $('done-view').hidden = false;

@@ -159,11 +159,28 @@ export function validateForm(body, now) {
   const netfangReikninga = String(b.netfang_reikninga || '').trim();
   if (netfangReikninga && !isValidEmail(netfangReikninga)) errors.netfang_reikninga = 'Netfang er ekki gilt.';
 
+  // Aðalnotandi: the person who gets the operator login to admin.agvending.is.
+  // Either the signer (default) or someone named here.
+  const saSami = !(b.adalnotandi_sami === false || b.adalnotandi_sami === 'false' || b.adalnotandi_sami === '0');
+  const adalnotandi = saSami
+    ? { sami: true, nafn: '', netfang: '', simi: '' }
+    : {
+      sami: false,
+      nafn: String(b.adalnotandi_nafn || '').trim().slice(0, 120),
+      netfang: String(b.adalnotandi_netfang || '').trim(),
+      simi: String(b.adalnotandi_simi || '').trim(),
+    };
+  if (!adalnotandi.sami) {
+    if (!adalnotandi.nafn) errors.adalnotandi_nafn = 'Skráðu nafn aðalnotanda.';
+    if (!isValidEmail(adalnotandi.netfang)) errors.adalnotandi_netfang = 'Netfang er ekki gilt.';
+    if (adalnotandi.simi && !isValidPhone(adalnotandi.simi)) errors.adalnotandi_simi = 'Símanúmer er ekki gilt.';
+  }
+
   const athugasemdir = String(b.athugasemdir || '').trim().slice(0, 2000);
 
   return {
     errors,
-    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, netfangReikninga, athugasemdir },
+    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, adalnotandi, netfangReikninga, athugasemdir },
   };
 }
 
@@ -174,6 +191,14 @@ export function signerFor(company, form) {
     return { nafn: company.managerName, kennitala: normalizeKennitala(company.managerNationalId) };
   }
   return { nafn: form.undirritandi.nafn, kennitala: form.undirritandi.kennitala };
+}
+
+// Who gets the operator login. Registrations stored before this field existed
+// have no adalnotandi and fall back to the signer.
+export function accountHolderFor(company, form) {
+  const a = form.adalnotandi;
+  if (a && !a.sami) return { nafn: a.nafn, netfang: a.netfang, simi: a.simi || '' };
+  return { nafn: signerFor(company, form).nafn, netfang: form.undirritandi.netfang, simi: form.undirritandi.simi };
 }
 
 // The claim must cover every machine requested. A short claim means the contract
@@ -269,6 +294,7 @@ export function parseCpiOverride(value) {
 export function buildContractPayload({ id, form, company, claim, cpi, now }) {
   const counts = form.counts;
   const signer = signerFor(company, form);
+  const holder = accountHolderFor(company, form);
   const total = monthlyTotal(counts);
   return {
     // Template placeholders
@@ -298,6 +324,11 @@ export function buildContractPayload({ id, form, company, claim, cpi, now }) {
     Kennitala_Undirritanda: signer.kennitala,        // 10 digits, no dash
     Netfang_Undirritanda: form.undirritandi.netfang,
     Simi_Undirritanda: normalizePhone(form.undirritandi.simi),
+
+    // Aðalnotandi: gets the operator login to admin.agvending.is
+    Nafn_Adalnotanda: holder.nafn,
+    Netfang_Adalnotanda: holder.netfang,
+    Simi_Adalnotanda: holder.simi ? normalizePhone(holder.simi) : '',
 
     kennitala: form.kennitala,
     netfang: form.netfang,

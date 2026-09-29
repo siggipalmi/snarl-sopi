@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   addressLookupQuery, buildContractPayload, buildCpiQuery, claimShortfall, dedupeKey, describeMachines,
   firstOfNextMonth, formatKennitala, formatKr, formatLongDate, formatPhone, formatStartDate, isValidKennitala,
-  parseCpiOverride, pickLatestCpi, signerFor, validateForm,
+  accountHolderFor, parseCpiOverride, pickLatestCpi, signerFor, validateForm,
 } from '../src/lib.js';
 
 const NOW = new Date('2026-09-25T10:00:00Z');
@@ -134,6 +134,34 @@ test('invoices go to their own address when given, otherwise to the contact', ()
   assert.equal(build(none.value).reikningar_serstakt_netfang, false);
 
   assert.ok(validateForm({ ...base, netfang_reikninga: 'ekki-netfang' }, NOW).errors.netfang_reikninga);
+});
+
+test('the account holder is the signer unless someone else is named', () => {
+  const base = { kennitala: '4607161010', netfang: 'a@b.is', simi: '8237777', einfaldur: 1, heimilisfang: 'x', ...SIGNER };
+  const company = { companyName: 'X ehf.', managerName: 'Júlíus Ingi Jónsson', managerNationalId: '010180-1234' };
+  const build = form => buildContractPayload({ id: 'x', form, company, now: NOW,
+    claim: { radnumer_sjalfsala: '1', radnumer_nayax: '2', counts: { einfaldur: 1 } }, cpi: { vnv: '1', manudur: 'm' } });
+
+  const same = validateForm(base, NOW);
+  assert.deepEqual(same.errors, {});
+  assert.deepEqual(accountHolderFor(company, same.value),
+    { nafn: 'Júlíus Ingi Jónsson', netfang: 'julius@lavashow.com', simi: '823 7777' });
+  assert.equal(build(same.value).Netfang_Adalnotanda, 'julius@lavashow.com');
+  assert.equal(build(same.value).Simi_Adalnotanda, '8237777');
+
+  const other = validateForm({ ...base, adalnotandi_sami: false, adalnotandi_nafn: 'Sigga Rekstrar',
+    adalnotandi_netfang: 'sigga@lavashow.com' }, NOW);
+  assert.deepEqual(other.errors, {});
+  assert.equal(build(other.value).Nafn_Adalnotanda, 'Sigga Rekstrar');
+  assert.equal(build(other.value).Netfang_Adalnotanda, 'sigga@lavashow.com');
+  assert.equal(build(other.value).Simi_Adalnotanda, '');
+
+  const bad = validateForm({ ...base, adalnotandi_sami: 'false', adalnotandi_netfang: 'nope', adalnotandi_simi: '12' }, NOW);
+  assert.deepEqual(Object.keys(bad.errors).sort(), ['adalnotandi_nafn', 'adalnotandi_netfang', 'adalnotandi_simi']);
+
+  // Stored before the field existed: falls back to the signer
+  const { adalnotandi, ...old } = same.value;
+  assert.equal(accountHolderFor(company, old).netfang, 'julius@lavashow.com');
 });
 
 test('a claim that did not cover every machine is a shortfall', () => {

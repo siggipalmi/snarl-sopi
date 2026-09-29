@@ -9,6 +9,7 @@ browser ──▶ skraning Worker ──▶ D1 (every registration, with its ste
                ├─ fyrirtækjaskrá   (skattur-company-lookup Worker, checked again on submit)
                ├─ staðfangaskrá    (iceland-address-proxy Worker, checked again on submit)
                ├─ serials          (admin.agvending.is /api/v1/leases/claim, idempotent by registration id)
+               ├─ login            (admin.agvending.is /api/v1/operators/provision, idempotent by kennitala)
                ├─ vísitala         (Hagstofa, cached 6 h)
                └─ ONE webhook ──▶ Zapier: Catch Hook ──▶ Create Document From Template ──▶ …
 ```
@@ -39,6 +40,12 @@ browser ──▶ skraning Worker ──▶ D1 (every registration, with its ste
   customer does not choose it.
 - **The signer is collected for e-signing.** Name and kennitala of the framkvæmdastjóri come from
   fyrirtækjaskrá (typed in when the registry has none); the form asks for their email and mobile.
+- **The aðalnotandi gets a login.** The form names who runs the machines day to day: the signer by
+  default, or someone else. Just before the Zap is called, the backend creates the operator for the
+  company and emails that person an `operator_admin` invite to admin.agvending.is. If the company
+  already has an operator (same kennitala), nothing new is created and no invite is sent: anyone can
+  type a kennitala into a public form, so extra users for an existing customer are added from the
+  dashboard. A failed login step is recorded on the registration and never holds up the contract.
 - **Duplicate submissions are collapsed.** Same kennitala, address, machines and start date within
   24 h returns the existing registration.
 - **The Zap only copies fields.** Every template placeholder arrives already computed, with a key of
@@ -99,6 +106,9 @@ In the lease-agreement Zap:
    | `Netfang_Undirritanda` | julius@lavashow.com |
    | `Simi_Undirritanda` | 8237777 (digits, `+` kept for foreign numbers) |
 
+   The aðalnotandi (already given a login by the Worker, so the Zap does not need to call
+   `/operators/provision`): `Nafn_Adalnotanda`, `Netfang_Adalnotanda`, `Simi_Adalnotanda` (may be empty).
+
 Deploy the Worker (step 3), submit one test registration, then use it in the Zap editor as the
 trigger's sample data so every field appears when you map.
 
@@ -111,6 +121,7 @@ npx wrangler d1 execute skraning --remote --file=schema.sql
 npx wrangler secret put ZAPIER_HOOK_URL      # from step 2
 npx wrangler secret put LEASE_CLAIM_SECRET   # same value as on the backend
 npx wrangler secret put ADMIN_TOKEN          # any long random string
+npx wrangler secret put PROVISION_KEY        # same value as PROVISION_KEY on the backend (Railway)
 npx wrangler deploy
 ```
 
@@ -158,7 +169,9 @@ curl -H "$T" -X POST https://skraning.agvending.is/api/admin/submissions/skr_…
 A `failed` row has stopped after 8 attempts. `last_error` names the step and the reason. Fix the
 cause, then call `retry`: it resumes from that step and does not claim a second machine.
 `lease claim 409 … insufficient_stock` means not enough machines were available: add or free units
-in the admin dashboard and the registration goes through on its next attempt. `retry`
+in the admin dashboard and the registration goes through on its next attempt. The detail view has a `provision` field with the login step's result: `created: true` (invite
+sent), `created: false` (the company already had an operator), `ok: false` with the backend's answer
+(for example a wrong `PROVISION_KEY`), or `null` when `PROVISION_KEY` was not set. `retry`
 on a `sent` row sends the same payload to Zapier again, which is how you re-create a document.
 
 Prices and contract wording for each machine type are in `MACHINES` at the top of `src/lib.js`.
