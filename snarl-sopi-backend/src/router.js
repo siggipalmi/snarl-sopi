@@ -2094,55 +2094,22 @@ function validateLedPolicy(raw) {
 const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update'];
 const CMD_TTL_MS = 5 * 60 * 1000;
 
-// ── Payment serial port: what "correct" is, and why a wrong one is invisible ───────────────────
-// Three different answers, and none is inferable from the others (full note in db.js):
-//   coil           : Nayax on ttyS3  (ttyS1 is the motor bus)
-//   gravity double : Nayax on ttyS1  (ttyS3 is the weight bus)
-//   gravity single : Nayax on ttyS4  (ttyS3 is the weight bus)
-// The two fridge sizes do NOT match each other, which is the part that keeps being got wrong in
-// both directions: ttyS4 is dead on a double (three days on 8626020716), and ttyS1 is dead on a
-// single. Both confirmed on real hardware. A dead payment port reports nothing — the machine
-// simply stops taking cards — so the check has to happen here, at the point of setting it.
+// ── Payment serial port ───────────────────────────────────────────────────────────────────────
+// This used to refuse any port that did not match a per-machine-type rule (coil ttyS3, double
+// ttyS1, single ttyS4). That rule is WRONG and the refusal has been removed.
 //
-// Size comes from the model, so a machine whose model is not GR-* cannot be placed: isKioskModel
-// can say "not a kiosk" while the model string still says coil (a fridge registered before model
-// support existed). In that state we genuinely do not know which port is right, so we must not
-// refuse a plausible one — say what is unresolved and let it through.
-function machineKindForPort(m) {
-  const spec = require('./db').fridgeSpec((m && m.model) || '');
-  const flagSaysGravity = !!(m && m.isKioskModel === false);
-  return {
-    isFridgeByModel: spec.isFridge,
-    doors: spec.doors || 0,
-    flagSaysGravity,
-    // Size known only when the model actually identifies a fridge.
-    resolved: spec.isFridge || !flagSaysGravity,
-  };
-}
-function expectedPaymentPort(m) {
-  const k = machineKindForPort(m);
-  if (!k.resolved) return null;                          // model not set — size unknown
-  if (!k.isFridgeByModel) return '/dev/ttyS3';           // coil
-  return k.doors === 2 ? '/dev/ttyS1' : '/dev/ttyS4';    // double vs single fridge
-}
-
-// Returns an explanation when this port shouldn't be accepted, or null when it's fine.
-function paymentPortRejection(m, port, accepted) {
-  if (accepted === true) return null;   // explicit override — the caller has said they mean it
-  const want = expectedPaymentPort(m);
-  // Unknown size: refusing here would block the only person who can fix it, so allow and explain.
-  if (!want) return null;
-  if (port === want) return null;
-  const k = machineKindForPort(m);
-  const kindLabel = !k.isFridgeByModel ? 'Coil machines'
-    : (k.doors === 2 ? 'Double-door fridges' : 'Single-door fridges');
-  const busNote = !k.isFridgeByModel ? 'ttyS1 is the motor bus' : 'ttyS3 is the weight bus';
-  return `${port} is not where Nayax is wired on this machine. ${kindLabel} read payment on ${want} `
-    + `(${busNote}). The two fridge sizes differ here and neither follows from the other, so this is `
-    + `worth double-checking against the machine in front of you. A port with nothing on the other `
-    + `end never reports an error — the machine just stops taking cards. `
-    + `If you really do mean ${port}, resend with acceptNonStandardPort: true.`;
-}
+// The evidence that killed it: 8626020716 and 8626020714 are both DOUBLES, and 8626020716
+// handshakes on ttyS1 while 8626020714 handshakes on ttyS4. The port is a property of how the
+// individual machine was wired at the factory, not of its type, so nothing here can derive it and
+// this code has no business overruling someone holding a multimeter. It was rejecting a correct
+// port for three weeks.
+//
+// What is still checked, because it does not depend on knowing the answer:
+//   - the port must look like a real device path
+//   - it must not be the bus this machine already uses (motors on coil, weights on gravity):
+//     opening a second reader on a live bus corrupts both at once
+// A port with nothing on the other end still fails silently - the machine simply stops taking
+// cards - but the fix for that is the app probing the ports, which the kiosk team is adding.
 
 const isoOrNull = (ms) => (ms ? new Date(ms).toISOString() : null);
 
@@ -2242,10 +2209,6 @@ function handleEnqueueCommand(req, res) {
     if (busPort && busPort === port) {
       return badRequest(res, `${port} is already this machine's ${(mp.isKioskModel === false) ? 'weight' : 'motor'} bus. Opening a second reader on it would corrupt weights and payment at once — choose a different port.`);
     }
-    // Collision isn't the only way to be wrong: a port that simply has nothing on it passes every
-    // check above and takes the machine off cards without a word. Name the expected one instead.
-    const portProblem = paymentPortRejection(mp, port, params.acceptNonStandardPort);
-    if (portProblem) return badRequest(res, portProblem);
   } else if (type === 'clear_device_owner') {
     // One-way door on a placed machine: surrendering Device Owner ends silent OTA, so every future
     // build needs someone on site with adb. Deliberately console-only — no dashboard button — and
@@ -3274,8 +3237,6 @@ function handleUpdateSettings(req, res) {
     if (busPort && busPort === pp) {
       return badRequest(res, `${pp} is already this machine's ${(m.isKioskModel === false) ? 'weight' : 'motor'} bus — choose a different port.`);
     }
-    const ppProblem = paymentPortRejection(m, pp, req.body.acceptNonStandardPort);
-    if (ppProblem) return badRequest(res, ppProblem);
   }
   // tempReporting drives what the temperature panel says. 'unsupported' means this board exposes no
   // cabinet temperature at all, so the panel states that rather than looking like missing data.

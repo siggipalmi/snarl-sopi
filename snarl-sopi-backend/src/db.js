@@ -576,18 +576,21 @@ function fridgePlanogramBlock(machine) {
       enabled,
     };
   });
-  // ── Serial ports: the assignment differs by machine type AND by fridge size ──
-  //   Coil          : ttyS3 = Nayax payment,  ttyS1 = motors
-  //   Gravity double : ttyS3 = weight bus,    ttyS1 = Nayax payment
-  //   Gravity single : ttyS3 = weight bus,    ttyS4 = Nayax payment
-  // None of these can be inferred from the others, and the two fridge sizes do NOT match each
-  // other — that is the part that is easy to get wrong. Assuming coil and gravity matched cost
-  // three days on 8626020716 (a DOUBLE), where the app talked to ttyS4 and never received a single
-  // byte; ttyS1 handshook in two seconds. The opposite mistake is just as available: ttyS1 is dead
-  // on a SINGLE, where Nayax is on ttyS4. Confirmed on real hardware for both sizes.
-  // Serve the port explicitly so a reinstall, a restart or a cleared app can't silently revert to
-  // a wrong default — a machine that comes back up on the wrong port takes no cards and says
-  // nothing about it.
+  // ── Serial ports: the payment port is PER MACHINE, not per machine type ──
+  // We believed the Nayax port followed from the machine's type and size (coil ttyS3, double ttyS1,
+  // single ttyS4). It does not. 8626020716 and 8626020714 are both DOUBLES: the first handshakes on
+  // ttyS1, the second on ttyS4. It appears to depend on how each unit was wired at the factory.
+  //
+  // So `defaultPaymentPort` below is a STARTING GUESS, nothing more, and any machine that disagrees
+  // with it needs settings.paymentSerialPort set — that value wins and is the only authority here.
+  // Getting this wrong is invisible: a port with nothing on the other end reports no error, the
+  // machine just stops taking cards.
+  //
+  // The guess is still served rather than omitted, because the app falls back to its own
+  // type-derived default when the field is absent, which is the same wrong answer. That is what
+  // broke 8626020714: the app came up on ttyS4, the planogram arrived, the cabinet count moved it
+  // to ttyS1, and payment died. The kiosk team is changing the app to probe both ports, after which
+  // this field stops mattering and the guess can go.
   const cfg2 = machine.settings || {};
   const defaultPaymentPort = (spec.doors === 2) ? '/dev/ttyS1' : '/dev/ttyS4';
   const paymentSerialPort = (typeof cfg2.paymentSerialPort === 'string' && cfg2.paymentSerialPort.trim())

@@ -1203,8 +1203,16 @@ select.fi{cursor:pointer;}
                 <label class="tgl"><input type="checkbox" id="ds-hasLedStrips"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
               </div>
               <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.45">Brightness, schedule and the shopping wake live on each fridge's <strong>Controls</strong> tab — they are per-machine and are sent to the machine, which the old 0–10 field here never was.</div>
-              <div class="field"><div class="fl">motor serial port</div><input class="fi mono" id="ds-motorSerialPort"></div>
+              <div class="field"><div class="fl">motor serial port</div><input class="fi mono" id="ds-motorSerialPort" placeholder="/dev/ttyS3"></div>
+              <div class="field"><div class="fl">payment serial port (Nayax)</div><input class="fi mono" id="ds-paymentSerialPort" placeholder="/dev/ttyS1"></div>
               <div class="field"><div class="fl">control board address</div><input class="fi mono" id="ds-controlBoardAddress" type="number"></div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.45;margin:-2px 0 10px">
+                The Nayax port is <strong>per machine</strong>, not per type — 8626020716 and 8626020714 are both doubles
+                and sit on ttyS1 and ttyS4 respectively. Leave blank to use the type default; set it when this machine
+                disagrees. A wrong port reports nothing, the machine just stops taking cards.
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="saveWiring()" style="width:100%">save wiring &rarr;</button>
+              <div id="ds-wiring-msg" style="font-size:11.5px;line-height:1.45;margin-top:7px"></div>
             </div>
           </div>
           <div class="panel">
@@ -7385,7 +7393,7 @@ function renderDisplayPage() {
     'ds-showIdleScreen':s.showIdleScreen, 'ds-idleTimeoutSeconds':s.idleTimeoutSeconds,
     'ds-hasHeatedGlass':s.hasHeatedGlass, 'ds-heatedGlassDefaultOn':s.heatedGlassDefaultOn,
     'ds-hasLedStrips':s.hasLedStrips,
-    'ds-motorSerialPort':s.motorSerialPort, 'ds-controlBoardAddress':s.controlBoardAddress,
+    'ds-motorSerialPort':s.motorSerialPort, 'ds-paymentSerialPort':s.paymentSerialPort, 'ds-controlBoardAddress':s.controlBoardAddress,
   };
   Object.entries(map).forEach(([id,val])=>{
     const el=document.getElementById(id); if(!el) return;
@@ -7424,6 +7432,39 @@ function updateBrandPreview() {
   const name = document.getElementById('ds-operatorName')?.value?.trim()||'';
   const prev = document.getElementById('ds-brand-preview');
   if(prev) prev.textContent = name ? `Snarl & Sopi — ${name}` : 'Snarl & Sopi';
+}
+
+// Wiring goes straight to the backend, unlike the rest of this page: saveDisplaySettings() only
+// writes to localStorage, so anything set there never reaches the config the machine polls and is
+// wiped by the next hydrate. Serial ports have to persist server-side to be worth anything, and
+// the backend gates these three keys to ag_admin.
+async function saveWiring() {
+  const code = document.getElementById('display-machine-select')?.value;
+  const msg  = document.getElementById('ds-wiring-msg');
+  if (!code || !msg) return;
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  const body = {};
+  const pay = val('ds-paymentSerialPort'), mot = val('ds-motorSerialPort');
+  const addr = document.getElementById('ds-controlBoardAddress')?.value;
+  // Only send what was actually filled in: an empty payment port means "use the default", and
+  // sending "" would fail validation rather than clear it.
+  if (pay) body.paymentSerialPort = pay;
+  if (mot) body.motorSerialPort = mot;
+  if (addr !== '' && addr != null && isFinite(parseInt(addr, 10))) body.controlBoardAddress = parseInt(addr, 10);
+  if (!Object.keys(body).length) { msg.style.color = 'var(--muted)'; msg.textContent = 'Nothing to save.'; return; }
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Saving…';
+  const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/settings', body);
+  if (r && r.ok) {
+    const st = DB.machines[code] && DB.machines[code].settings;
+    if (st) Object.assign(st, body);
+    saveData();
+    msg.style.color = 'var(--success)';
+    msg.textContent = 'Saved. The machine picks this up on its next config poll (about two minutes).';
+  } else {
+    msg.style.color = 'var(--alert)';
+    msg.textContent = (r && (r.error || r.message)) || 'Could not save — check you are signed in as AG admin.';
+  }
 }
 
 function saveDisplaySettings() {
