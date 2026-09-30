@@ -1,0 +1,97 @@
+<resources>
+    <!-- Polish. New for the fridge — coil has no values-pl. Keys must match
+         values/strings.xml exactly; a missing key falls back to Icelandic. -->
+    <string name="app_name">Snarl Fridge</string>
+
+    <string name="step_pay">zapłać</string>
+    <string name="step_open">otwórz</string>
+    <string name="step_take">weź</string>
+
+    <string name="idle_step1">zapłać kartą</string>
+    <string name="idle_step2">otwórz drzwi</string>
+    <string name="idle_step3">weź, czego chcesz</string>
+    <string name="idle_sub">użyj karty lub telefonu, aby zacząć</string>
+
+    <string name="authorizing_title">chwila…</string>
+    <string name="authorizing_sub">sprawdzamy kartę — nic nie jest jeszcze pobierane</string>
+
+    <string name="unlocked_title">otwórz drzwi</string>
+    <string name="unlocked_sub">drzwi są otwarte — weź, co potrzebujesz</string>
+
+    <string name="shopping_title">twój koszyk</string>
+    <string name="shopping_sub">aktualizuje się, gdy coś bierzesz</string>
+    <string name="shopping_hint">zamknij drzwi, aby zakończyć</string>
+    <string name="shopping_empty">weź, czego\npotrzebujesz</string>
+
+    <string name="door_warn">zamknij drzwi — są wciąż otwarte</string>
+
+    <string name="calculating_title">obliczamy…</string>
+    <string name="calculating_sub">ważymy koszyki i liczymy kwotę</string>
+
+    <string name="receipt_title">dziękujemy</string>
+    <string name="receipt_sub">karta została obciążona</string>
+    <string name="total_label">razem</string>
+    <string name="amount_isk">%1$d kr</string>
+    <string name="quantity_badge">×%1$d</string>
+    <string name="close_door_firmly">domknij drzwi</string>
+
+    <string name="nothing_taken_title">nic nie zabrano</string>
+    <string name="nothing_taken_sub">drzwi zamknięte, koszyki bez zmian — karta nie została obciążona</string>
+
+    <string name="declined_title">karta odrzucona</string>
+    <string name="declined_sub">drzwi pozostały zamknięte — spróbuj ponownie lub użyj innej karty</string>
+
+    <string name="sensor_fault_title">urządzenie niedostępne</string>
+    <string name="sensor_fault_sub">z powodu usterki nie otwieramy drzwi, aby nie pobrać błędnej kwoty. karta nie została obciążona.</string>
+
+    <string name="pending_offline_title">dziękujemy — gotowe</string>
+    <string name="pending_offline_sub">kwota jest zapisana i zostanie pobrana po przywróceniu połączenia</string>
+
+    <string name="restock_title">uzupełnianie</string>
+    <string name="restock_sub">urządzenie jest uzupełniane</string>
+    <string name="restock_door_open">drzwi %1$s otwarte z backendu</string>
+    <string name="restock_no_charging">sterowane z backendu · bez opłat</string>
+    <string name="restock_footer">rozmieszczenie pochodzi z backendu · liczba po prawej to aktualny odczyt wagi · otwarte są jedne drzwi naraz · uzupełnianie kończy się po zamknięciu drzwi</string>
+    <string name="restock_units">szt</string>
+    <string name="restock_empty">puste</string>
+    <string name="restock_disabled">nieużywane</string>
+    <string name="restock_sensor">czujnik</string>
+    <string name="restock_machine">urządzenie %1$s</string>
+
+    <string name="info_title">kontakt.</string>
+    <string name="info_operated_by">To urządzenie obsługuje %1$s. Skontaktuj się, jeśli coś jest nie tak.</string>
+    <string name="info_operated_by_generic">Skontaktuj się, jeśli coś jest nie tak.</string>
+    <string name="info_email_label">e-mail</string>
+    <string name="info_machine_label">numer urządzenia</string>
+    <string name="info_partner_divider">we współpracy z</string>
+    <string name="info_how_pay">przyłóż kartę do czytnika na drzwiach. na tym etapie nic nie jest pobierane.</string>
+    <string name="info_how_open">drzwi otworzą się same. weź tyle, ile chcesz.</string>
+    <string name="info_how_take">produkt można odłożyć do tego samego koszyka — inaczej zostanie doliczony.</string>
+    <string name="info_ad_pitch">To urządzenie jest wynajmowane od AG Vending.</string>
+    <string name="info_ad_sub">Skontaktuj się, jeśli chcesz wynająć automat.</string>
+    <string name="info_ad_qr_caption">zeskanuj, aby dowiedzieć się więcej</string>
+    <string name="close">zamknij</string>
+
+    <string name="complaint_entry">czy coś było nie tak?</string>
+    <string name="complaint_title">prześlij nam szczegóły</string>
+    <string name="complaint_sub">pomożemy to wyjaśnić.</string>
+    <string name="complaint_which">co było nie tak?</string>
+    <string name="complaint_reason_label">dlaczego?</string>
+    <string name="complaint_reason_not_taken">nie zabrano</string>
+    <string name="complaint_reason_wrong_quantity">nieprawidłowa liczba</string>
+    <string name="complaint_reason_returned">odłożone z powrotem</string>
+    <string name="complaint_reason_expired">produkt przeterminowany</string>
+    <string name="complaint_reason_cooling">chłodzenie nie działa</string>
+    <string name="complaint_reason_other">coś innego</string>
+    <string name="complaint_note_label">uwaga — opcjonalnie</string>
+    <string name="complaint_note_hint">nie zabrano, czy odłożono z powrotem?</string>
+    <string name="complaint_email_label">e-mail do odpowiedzi</string>
+    <string name="complaint_email_hint">ty@email.com</string>
+    <string name="complaint_email_note">e-mail użyjemy tylko do odpowiedzi.</string>
+    <string name="complaint_send_failed">nie udało się wysłać. spróbuj ponownie za chwilę.</string>
+    <string name="complaint_cancel">anuluj</string>
+    <string name="complaint_send">wyślij zgłoszenie</string>
+    <string name="complaint_done_title">zgłoszenie przyjęte.</string>
+    <string name="complaint_done_sub">odpowiemy e-mailem jak najszybciej.</string>
+    <string name="complaint_reference">numer zgłoszenia</string>
+</resources>

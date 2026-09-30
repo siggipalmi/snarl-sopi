@@ -1,0 +1,122 @@
+<resources>
+    <!--
+      ICELANDIC IS THE DEFAULT RESOURCE SET, and it lives HERE in values/ —
+      there must never be a values-is/ folder. Language.code "is" falls through
+      to this file, which is exactly what we want; a values-is/ would create a
+      second Icelandic string set that quietly drifts out of step with this one.
+
+      Voice: lowercase throughout. Cormorant italic carries the display lines,
+      Geist the body, so the copy reads as editorial rather than shouted.
+    -->
+    <string name="app_name">Snarl Fridge</string>
+
+    <!-- ==== the three steps, matching the sticker on the glass door ====
+         The physical sticker reads Borga / Opna / Taka. "borga" means PAY, so
+         the Icelandic reads pay-open-take while the English on the same sticker
+         reads tap-open-take. Match the sticker, not grammatical symmetry — the
+         point is that screen and door teach the same three words. -->
+    <string name="step_pay">borga</string>
+    <string name="step_open">opna</string>
+    <string name="step_take">taka</string>
+
+    <!-- The idle screen narrates itself: these three cycle in step with the
+         animation, so the words say what the drawing is doing at that moment.
+         Same three actions as the sticker and the strip, in full sentences. -->
+    <string name="idle_step1">borgaðu með korti</string>
+    <string name="idle_step2">opnaðu skápinn</string>
+    <string name="idle_step3">taktu það sem þú vilt</string>
+    <string name="idle_sub">notaðu kort eða síma til að byrja</string>
+
+    <string name="authorizing_title">augnablik…</string>
+    <string name="authorizing_sub">staðfesti kortið þitt — ekkert er dregið af strax</string>
+
+    <string name="unlocked_title">opnaðu hurðina</string>
+    <string name="unlocked_sub">hurðin er ólæst — taktu það sem þig vantar</string>
+
+    <string name="shopping_title">karfan þín</string>
+    <string name="shopping_sub">uppfærist eftir því sem þú tekur</string>
+    <string name="shopping_hint">lokaðu hurðinni til að ljúka</string>
+    <!-- Door open, nothing taken yet: an invitation, not an empty grid. -->
+    <string name="shopping_empty">taktu það sem\nþig vantar</string>
+
+    <string name="door_warn">lokaðu hurðinni — hún er enn opin</string>
+
+    <string name="calculating_title">reikna…</string>
+    <string name="calculating_sub">vigta körfurnar og reikna upphæðina</string>
+
+    <!-- No "estimated/áætlað" qualifier anywhere: the figure genuinely is what
+         gets charged, and hedging it invites doubt about a correct amount. -->
+    <string name="receipt_title">takk fyrir</string>
+    <string name="receipt_sub">upphæðin hefur verið dregin af kortinu</string>
+    <string name="total_label">samtals</string>
+    <string name="amount_isk">%1$d kr</string>
+    <string name="quantity_badge">×%1$d</string>
+    <!-- Prominent bronze banner. Matters because the weight-stability fallback
+         can settle with the door still standing open. -->
+    <string name="close_door_firmly">lokaðu hurðinni vel</string>
+
+    <string name="nothing_taken_title">ekkert tekið</string>
+    <string name="nothing_taken_sub">hurðin lokaðist og körfurnar voru óbreyttar — ekkert var dregið af kortinu</string>
+
+    <string name="declined_title">korti synjað</string>
+    <string name="declined_sub">hurðin var ekki opnuð — reyndu aftur eða annað kort</string>
+
+    <!-- We refuse to open rather than risk a charge we cannot compute. -->
+    <string name="sensor_fault_title">skápurinn er óvirkur</string>
+    <string name="sensor_fault_sub">vegna tækniörðugleika opnast hurðin ekki. ekkert var dregið af kortinu.</string>
+
+    <string name="pending_offline_title">takk — allt klárt</string>
+    <string name="pending_offline_sub">upphæðin er skráð og verður dregin af um leið og samband næst</string>
+
+    <string name="restock_title">áfylling í gangi</string>
+    <string name="restock_sub">skápurinn er í þjónustu</string>
+    <string name="restock_door_open">hurð %1$s opin frá bakendanum</string>
+    <string name="restock_no_charging">stýrt frá bakendanum · engin gjaldfærsla</string>
+    <string name="restock_footer">staðsetning kemur frá bakendanum · talan til hægri er það sem vigtin sér núna · aðeins ein hurð er opin í einu · áfyllingu lýkur þegar hurðin lokast</string>
+    <string name="restock_units">stk</string>
+    <string name="restock_empty">tómt</string>
+    <string name="restock_disabled">ekki í notkun</string>
+    <string name="restock_sensor">skynjari</string>
+    <string name="restock_machine">vélnúmer %1$s</string>
+
+    <string name="info_title">hafðu samband.</string>
+    <string name="info_operated_by">Þessi skápur er rekinn af %1$s. Hafðu samband ef eitthvað er að.</string>
+    <string name="info_operated_by_generic">Hafðu samband ef eitthvað er að.</string>
+    <string name="info_email_label">netfang</string>
+    <string name="info_machine_label">vélnúmer</string>
+    <string name="info_partner_divider">í samstarfi við</string>
+    <string name="info_how_pay">leggðu kortið á lesarann á hurðinni. ekkert er dregið af strax.</string>
+    <string name="info_how_open">hurðin opnast sjálf. taktu eins mikið eða lítið og þú vilt.</string>
+    <!-- Customers genuinely need telling this; the stock app's own tips say it. -->
+    <string name="info_how_take">ef þú vilt ekki vöruna, settu hana aftur í sömu körfu — annars er hún greidd.</string>
+    <string name="info_ad_pitch">Þetta tæki er leigt af AG Vending.</string>
+    <string name="info_ad_sub">Hafðu samband ef þú vilt leigja sjálfsala.</string>
+    <string name="info_ad_qr_caption">skannaðu fyrir nánari upplýsingar</string>
+    <string name="close">loka</string>
+
+    <!-- Coil's complaint is "the product never came out", which cannot happen
+         here — the customer takes it themselves. Every fridge failure is a
+         wrong charge. -->
+    <string name="complaint_entry">var eitthvað rangt?</string>
+    <string name="complaint_title">sendu okkur upplýsingar</string>
+    <string name="complaint_sub">við hjálpum þér að fá þetta leyst.</string>
+    <string name="complaint_which">hvað var rangt?</string>
+    <string name="complaint_reason_label">hvers vegna?</string>
+    <string name="complaint_reason_not_taken">tók þetta ekki</string>
+    <string name="complaint_reason_wrong_quantity">rangur fjöldi</string>
+    <string name="complaint_reason_returned">setti til baka</string>
+    <string name="complaint_reason_expired">útrunnin vara</string>
+    <string name="complaint_reason_cooling">kæling ekki í lagi</string>
+    <string name="complaint_reason_other">annað</string>
+    <string name="complaint_note_label">athugasemd — valfrjálst</string>
+    <string name="complaint_note_hint">tókstu þetta ekki, eða settir þú það til baka?</string>
+    <string name="complaint_email_label">netfang fyrir svar</string>
+    <string name="complaint_email_hint">þitt@netfang.is</string>
+    <string name="complaint_email_note">netfang aðeins notað til að svara þér.</string>
+    <string name="complaint_send_failed">tókst ekki að senda. reyndu aftur eftir smástund.</string>
+    <string name="complaint_cancel">hætta við</string>
+    <string name="complaint_send">senda kvörtun</string>
+    <string name="complaint_done_title">kvörtun móttekin.</string>
+    <string name="complaint_done_sub">við svörum þér sem fyrst með tölvupósti.</string>
+    <string name="complaint_reference">tilvísunarnúmer</string>
+</resources>
