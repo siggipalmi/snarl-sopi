@@ -1,9 +1,13 @@
 package isl.snudursopi.fridge.hardware.nayax
 
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
+
 /**
  * The ONE Nayax link for the whole app.
  *
- * Two MarshallPaymentControllers on /dev/ttyS4 fight over the port: both run
+ * Two MarshallPaymentControllers on the same port fight over it: both run
  * their own link thread, both register SDK callbacks, and every event fires
  * twice (visible in logcat as exactly duplicated lines). The reader ends up
  * talking to whichever won the race, and disconnecting one kills the other.
@@ -13,65 +17,72 @@ package isl.snudursopi.fridge.hardware.nayax
  */
 object NayaxLink {
 
+    private const val TAG = "MarshallPay"
+    private const val PREFS = "nayax_link"
+    private const val KEY_CONFIRMED = "confirmed_port"
+
     /**
-     * *** WHICH PORT THE NAYAX IS ON HAS NEVER BEEN VERIFIED ON THIS HARDWARE.
+     * *** THE PORT IS FOUND, NOT GUESSED. See [PaymentPortProbe].
      *
-     * ttyS4 was inherited from earlier work and has never once produced a
-     * received byte on machine 8626020716. Weimi's own app handshakes with the
-     * same terminal on the same board — confirmed on site 2026-09-06 — so the
-     * hardware is fine and our side is not. The port is the leading suspect:
-     * the coil machines put Nayax on ttyS3, and the gravity boards use ttyS3
-     * for the weight bus, so the assignment clearly differs by machine type.
+     * It varies per machine — two doubles are on different ports — so no rule
+     * by cabinet count or machine type holds. v0.54.0 had one, and it broke a
+     * working link on 2026-09-29.
      *
-     * *** THE PORT DIFFERS BY MACHINE TYPE. BOTH VALUES ARE CONFIRMED.
-     *
-     *   SINGLE cabinet -> /dev/ttyS4   (8626020623, handshake 2026-09-15)
-     *   DOUBLE cabinet -> /dev/ttyS1   (8626020716, handshake 2026-09-06)
-     *
-     * Do not collapse these to one value. The double was diagnosed first and the
-     * default was changed to ttyS1 for everything on the strength of it — which
-     * would have broken payment on every single-cabinet machine in the fleet had
-     * 8626020623 not been set up the same week and caught it.
-     *
-     * Nor can either be inferred from the coil machines: those use ttyS3 for
-     * Nayax and ttyS1 for motors, while the gravity boards use ttyS3 for the
-     * weight bus. Three machine types, three assignments, no pattern. Confirm on
-     * hardware, never by analogy.
-     *
-     * [DEFAULT_SINGLE] is the starting value because a machine has no planogram
-     * until its first config poll and payment should not wait for the backend.
-     * [applyForCabinets] corrects it when the spec arrives; config
-     * (paymentSerialPort) and set_payment_port override both.
+     * The port that first produces onReady is saved, so a machine searches
+     * once and then starts on the right port at every boot after. Config
+     * (paymentSerialPort) and set_payment_port still override everything.
      */
-    const val DEFAULT_SINGLE = "/dev/ttyS4"
-    const val DEFAULT_DOUBLE = "/dev/ttyS1"
+    private val probe = PaymentPortProbe()
+
+    private var prefs: SharedPreferences? = null
 
     @Volatile
-    var portPath: String = DEFAULT_SINGLE
+    var portPath: String = probe.initial()
         private set
 
-    @Volatile
-    private var overridden = false
-
-    /**
-     * Pick the default for this machine's cabinet count.
-     *
-     * Skipped once anything has set the port deliberately — otherwise a machine
-     * corrected by config or command would be undone on the next planogram poll.
-     */
-    fun applyForCabinets(cabinets: Int): Boolean {
-        if (overridden) return false
-        return setPortPath(if (cabinets >= 2) DEFAULT_DOUBLE else DEFAULT_SINGLE)
+    /** Load the port this machine confirmed before. Call before connecting. */
+    fun init(context: Context) {
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs = p
+        probe.confirmed = p.getString(KEY_CONFIRMED, null)?.takeIf { PaymentPortProbe.isValid(it) }
+        Log.i(
+            TAG,
+            "payment port: " + (probe.confirmed?.let { "$it (confirmed earlier)" }
+                ?: "none confirmed yet — probing ${PaymentPortProbe.CANDIDATES}"),
+        )
+        setPortPath(probe.initial())
     }
 
-    /** Set deliberately, so cabinet-count defaults stop applying. */
+    /** Set deliberately, so probing stops. Returns true if a reconnect is needed. */
     fun setPortPathExplicit(path: String): Boolean {
-        overridden = true
+        probe.explicit = path
         return setPortPath(path)
     }
 
+    /**
+     * Forget both the explicit and the confirmed port and search again. For a
+     * board moved to another machine, or a confirmation that must be redone.
+     */
+    fun useAutomatic(): Boolean {
+        probe.explicit = null
+        probe.confirmed = null
+        prefs?.edit()?.remove(KEY_CONFIRMED)?.apply()
+        Log.w(TAG, "payment port: automatic — probing ${PaymentPortProbe.CANDIDATES}")
+        return setPortPath(probe.initial())
+    }
+
+    /** For the admin sheet: the port, and whether it was set, found or is being searched. */
+    fun describe(): String {
+        val how = when {
+            probe.explicit != null -> "stillt"
+            probe.confirmed != null -> "fundið"
+            else -> "leitar"
+        }
+        return "${portPath.removePrefix("/dev/")} · $how"
+    }
+
     /** Returns true if the port changed and a reconnect is needed. */
-    fun setPortPath(path: String): Boolean {
+    private fun setPortPath(path: String): Boolean {
         if (path == portPath) return false
         portPath = path
         controller.setPortPath(path)
@@ -89,7 +100,22 @@ object NayaxLink {
             // prevent, and cost real time on 2026-09-04 chasing a duplicate
             // controller that was never there.
             log = {},
-        )
+        ).also { c ->
+            c.onReadyTimeout = { failed ->
+                val next = probe.nextAfterTimeout(failed)
+                if (next != failed) {
+                    Log.w(TAG, "probe: no onReady on $failed — trying $next")
+                    portPath = next
+                    c.setPortPath(next)
+                }
+            }
+            c.onLinkUp = { port ->
+                if (probe.confirm(port)) {
+                    prefs?.edit()?.putString(KEY_CONFIRMED, port)?.apply()
+                    Log.w(TAG, "payment port confirmed: $port — saved, used at every start")
+                }
+            }
+        }
     }
 
     val payment: MarshallFridgePayment by lazy { MarshallFridgePayment(controller) }

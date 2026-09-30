@@ -8,14 +8,14 @@ import com.bitmick.marshall.vmc.vmc_vend_t
 
 /**
  * Drives a card payment through the real Nayax Marshall SDK, with our app as
- * the host (serial via [AndroidMarshallSerial] on ttyS4).
+ * the host (serial via [AndroidMarshallSerial] on the port [NayaxLink] picks).
  *
  * STAGE 1 (this version): charge only. On approval we do NOT dispense — we just
  * accept the charge and settle. This proves the money half end-to-end with a
  * real card before we couple dispensing.
  *
  * Lifecycle:
- *   connect()  -> SDK opens ttyS4, handshake, onReady (host up, V00 clears)
+ *   connect()  -> SDK opens the port, handshake, onReady (host up, V00 clears)
  *   charge(amount) -> session_start -> [customer taps] onSessionBegin ->
  *                     vend_request(amount) -> onVendApproved (return true) ->
  *                     onSettlement(true) -> result callback APPROVED
@@ -125,6 +125,16 @@ class MarshallPaymentController(
     var onLogLine: ((String) -> Unit)? = null
 
     /**
+     * Called by the watchdog when [portPath] produced no onReady in time, after
+     * the link is torn down and before it reconnects. The owner may call
+     * [setPortPath] here to try another port — that is how probing works.
+     */
+    var onReadyTimeout: ((failedPort: String) -> Unit)? = null
+
+    /** Called with the port the handshake just succeeded on. */
+    var onLinkUp: ((port: String) -> Unit)? = null
+
+    /**
      * *** THE LINK MUST RECOVER BY ITSELF.
      *
      * link.start() runs once and then waits for onReady forever. If the Nayax
@@ -161,8 +171,9 @@ class MarshallPaymentController(
                 ) {
                     return@Thread
                 }
-                emit("no onReady in ${READY_TIMEOUT_MS / 1000}s — restarting the link")
+                emit("no onReady on $portPath in ${READY_TIMEOUT_MS / 1000}s — restarting the link")
                 runCatching { disconnect() }
+                runCatching { onReadyTimeout?.invoke(portPath) }
                 Thread.sleep(2_000)
                 state = State.IDLE
                 // Clear any stray interrupt before re-entering the SDK, whose
@@ -258,7 +269,8 @@ class MarshallPaymentController(
                     // Handshake landed — stop the retry timer.
                     readyWatchdog?.interrupt()
                     readyWatchdog = null
-                    emit("✅ link onReady — host up. decimal_place=${config.decimal_place} default_credit=${config.default_credit}")
+                    emit("✅ link onReady on $portPath — host up. decimal_place=${config.decimal_place} default_credit=${config.default_credit}")
+                    runCatching { onLinkUp?.invoke(portPath) }
                     onReaderStateChanged?.invoke(true)
                     onReady()
                 }
@@ -420,7 +432,11 @@ class MarshallPaymentController(
         } catch (t: Throwable) {
             state = State.ERROR
             Log.e(TAG, "connect failed", t)
-            emit("connect threw: ${t.message}")
+            emit("connect threw on $portPath: ${t.message} — will retry")
+            // A port that fails to open must not end the search: without this
+            // nothing re-arms, and a board with no such port would never go on
+            // to try the next candidate — or recover at all.
+            armReadyWatchdog()
         }
     }
 

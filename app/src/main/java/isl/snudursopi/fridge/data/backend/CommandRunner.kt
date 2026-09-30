@@ -272,21 +272,18 @@ class CommandRunner(
      * which destroys every remote channel on the board at once.
      */
     /**
-     * Point the Nayax link at a different serial port and reconnect.
+     * Point the Nayax link at a serial port and reconnect, or `{port:"auto"}`
+     * to forget any set or confirmed port and let the machine probe again.
      *
-     * *** THE PORT HAS NEVER BEEN VERIFIED ON GRAVITY HARDWARE. ttyS4 was
-     * inherited and has never produced a received byte on 8626020716, while
-     * Weimi's own app handshakes with the same terminal on the same board.
-     * The coil machines use ttyS3 for Nayax; our ttyS3 is the weight bus, so
-     * the assignment differs by machine type and ours is unconfirmed.
-     *
-     * Exists so the candidates can be tried from a dashboard rather than one
-     * rebuild and one site visit per attempt.
+     * The machine normally finds its own port (NayaxLink). This is for
+     * overriding that from the dashboard without a rebuild or a site visit.
+     * An override lasts until the app restarts; paymentSerialPort in config is
+     * the durable one.
      */
     private suspend fun setPaymentPort(cmd: MachineCommand): CommandOutcome {
         val path = cmd.str("port")
-            ?: return CommandOutcome.Failed("give a port, e.g. {port:\"/dev/ttyS1\"}")
-        if (!Regex("^/dev/ttyS[0-9]$").matches(path)) {
+            ?: return CommandOutcome.Failed("give a port, e.g. {port:\"/dev/ttyS1\"} or {port:\"auto\"}")
+        if (path != "auto" && !Regex("^/dev/ttyS[0-9]$").matches(path)) {
             return CommandOutcome.Failed("refused: '$path' is not a /dev/ttySn path")
         }
         // ttyS3 carries the weight bus on this hardware. Opening a second

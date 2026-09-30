@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    /** Real Nayax on ttyS4 — the ONE shared link (see NayaxLink). */
+    /** Real Nayax — the ONE shared link (see NayaxLink for how its port is found). */
     private val realPayment get() = NayaxLink.payment
 
     /**
@@ -310,17 +310,12 @@ class MainActivity : ComponentActivity() {
                     // reaches to tray 35 — asking for 32 would stop four short
                     // and miss cabinet B's last four baskets entirely.
                     val cabinets = p.spec.cabinets.size.coerceAtLeast(1)
-                    // Apply the backend's payment port before anything uses the
-                    // link, so a machine wired differently is corrected without
-                    // a rebuild — and stays corrected across reinstalls.
-                    // Cabinet count picks the default; an explicit config value
-                    // still wins. Both may trigger a reconnect.
+                    // An explicit payment port in config wins over probing and
+                    // survives reinstalls. With none, the link finds its own
+                    // port (NayaxLink) — cabinet count says nothing about it:
+                    // two doubles are on different ports.
                     val nayax = isl.snudursopi.fridge.hardware.nayax.NayaxLink
-                    val portChanged = if (p.paymentSerialPort != null) {
-                        nayax.setPortPathExplicit(p.paymentSerialPort!!)
-                    } else {
-                        nayax.applyForCabinets(p.spec.cabinets.size)
-                    }
+                    val portChanged = p.paymentSerialPort?.let { nayax.setPortPathExplicit(it) } ?: false
                     if (portChanged) {
                         android.util.Log.w("MarshallPay", "payment port now ${nayax.portPath}")
                         lifecycleScope.launch {
@@ -415,11 +410,16 @@ class MainActivity : ComponentActivity() {
                 }
             },
             onSetPaymentPort = { path ->
-                isl.snudursopi.fridge.hardware.nayax.NayaxLink.setPortPathExplicit(path)
+                val nayax = isl.snudursopi.fridge.hardware.nayax.NayaxLink
+                if (path == "auto") nayax.useAutomatic() else nayax.setPortPathExplicit(path)
                 realPayment.disconnect()
                 kotlinx.coroutines.delay(1_000)
                 realPayment.connect()
-                "payment port set to $path — reconnecting, watch for onReady"
+                if (path == "auto") {
+                    "payment port automatic — probing from ${nayax.portPath}, watch for onReady"
+                } else {
+                    "payment port set to $path — reconnecting, watch for onReady"
+                }
             },
             onClearDeviceOwner = {
                 KioskManager.clearDeviceOwner(applicationContext)
@@ -476,6 +476,7 @@ class MainActivity : ComponentActivity() {
         realPayment.onCardPresented = {
             runOnUiThread { viewModel.onCardTapped() }
         }
+        NayaxLink.init(applicationContext)
         realPayment.connect { android.util.Log.i("MarshallPay", "reader ready") }
 
         // Foreground heartbeat. The watchdog reads this: a stale stamp means the

@@ -42,6 +42,8 @@ import android.util.Log
 import isl.snudursopi.fridge.BuildConfig
 import isl.snudursopi.fridge.DevBarPrefs
 import isl.snudursopi.fridge.KioskManager
+import isl.snudursopi.fridge.hardware.nayax.MarshallPaymentController
+import isl.snudursopi.fridge.hardware.nayax.NayaxLink
 import isl.snudursopi.fridge.scheduleAppRelaunch
 import isl.snudursopi.fridge.ui.theme.AppColors
 import isl.snudursopi.fridge.ui.theme.AppFonts
@@ -333,6 +335,18 @@ private fun Diagnostics(deviceCode: String?, lastPollOkMs: Long?) {
     Column {
         DiagLine("vél", deviceCode ?: "ÓSKRÁÐ", deviceCode == null)
         DiagLine("síðasta svar", pollText, stale)
+        // Payment port, and whether the link is up on it. "leitar" (searching)
+        // for more than a few minutes means neither candidate port answers.
+        val payState = NayaxLink.controller.state
+        val payUp = payState == MarshallPaymentController.State.READY ||
+            payState == MarshallPaymentController.State.AWAITING_CARD ||
+            payState == MarshallPaymentController.State.VENDING
+        DiagLine(
+            "posi",
+            NayaxLink.describe() +
+                if (payUp) " · tengdur" else " · ótengdur",
+            !payUp,
+        )
         DiagLine(
             "klukka",
             SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(now)),
