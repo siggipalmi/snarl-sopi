@@ -890,6 +890,20 @@ select.fi{cursor:pointer;}
           <div id="md-actions" style="padding:4px 14px 16px"></div>
         </div>
 
+        <div class="panel" style="margin-bottom:16px;display:none" id="md-pair-panel">
+          <div class="ph"><div class="ph-title">pairing code.</div></div>
+          <div style="padding:14px 18px 16px">
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:11px">
+              Install the app on the machine, open the pairing screen behind the admin PIN, and type this code.
+              The app fetches its own identity — no cable, and the machine key is never shown to anyone.
+            </div>
+            <div id="md-pair-code" style="font-family:var(--mono);font-size:30px;letter-spacing:6px;font-weight:500;margin-bottom:4px">—</div>
+            <div id="md-pair-meta" style="font-size:11.5px;color:var(--muted);margin-bottom:11px"></div>
+            <button class="btn btn-ghost btn-sm" onclick="issuePairingCode()" id="md-pair-btn" style="width:100%">generate code &rarr;</button>
+            <div id="md-pair-msg" style="font-size:11.5px;line-height:1.45;margin-top:8px"></div>
+          </div>
+        </div>
+
         <div class="panel" style="margin-bottom:16px" id="md-lang-panel">
           <div class="ph"><div class="ph-title">kiosk language.</div></div>
           <div style="padding:14px 18px 16px">
@@ -5361,6 +5375,53 @@ async function openFridgeDoor(code, cabinet) {
   } catch (e) { showToast('error: ' + e.message); }
 }
 
+// Pairing codes. AG-admin only, so the panel stays hidden for everyone else rather than showing a
+// button that 403s. Generating supersedes any live code for this machine — a code read off a screen
+// an hour ago should not still work.
+function renderMdPairing() {
+  const panel = document.getElementById('md-pair-panel');
+  if (!panel) return;
+  if (currentUser?.role !== 'ag_admin') { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  document.getElementById('md-pair-code').textContent = '—';
+  document.getElementById('md-pair-meta').textContent = '';
+  document.getElementById('md-pair-msg').textContent = '';
+  // Show a code that is still live, so reopening the page during a site visit does not force a new
+  // one and invalidate the digits already written on someone's hand.
+  API.get('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/pairing-code').then(r => {
+    if (r && r.ok && r.data && r.data.code) showPairCode(r.data);
+  }).catch(() => {});
+}
+
+function showPairCode(d) {
+  const el = document.getElementById('md-pair-code');
+  const meta = document.getElementById('md-pair-meta');
+  if (!el || !meta) return;
+  el.textContent = String(d.code).replace(/(\d{3})(\d{3})/, '$1 $2');
+  const exp = new Date(d.expiresAt);
+  const hrs = Math.max(0, Math.round((exp - Date.now()) / 3600000));
+  meta.textContent = 'Single use · expires ' + fmtDateTime(exp.getTime()) + (hrs ? ' (' + hrs + 'h)' : '');
+}
+
+async function issuePairingCode() {
+  const btn = document.getElementById('md-pair-btn');
+  const msg = document.getElementById('md-pair-msg');
+  if (!_mdDeviceCode || !btn || !msg) return;
+  btn.disabled = true;
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Generating…';
+  const r = await API.post('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/pairing-code', {});
+  if (r && r.ok && r.data) {
+    showPairCode(r.data);
+    msg.style.color = 'var(--success)';
+    msg.textContent = 'Type this on the machine. Redeeming it issues a new machine key and retires the old one.';
+  } else {
+    msg.style.color = 'var(--alert)';
+    msg.textContent = (r && (r.error || r.message)) || 'Could not generate a code.';
+  }
+  btn.disabled = false;
+}
+
 // Kiosk language for one machine. Writes defaultLanguageCode (is|en|pl), which is the field the
 // config block is actually built from — NOT settings.defaultLanguage, the 'Icelandic'/'English'
 // string in the Kiosk-setup panel. That string reaches neither the backend nor the machine; it is
@@ -5441,6 +5502,7 @@ async function renderMachineDetail() {
       '</span>';
 
     renderMdLanguage(m);
+    renderMdPairing();
 
     // Operator assignment (AG admin only)
     const opEl = document.getElementById('md-operator');

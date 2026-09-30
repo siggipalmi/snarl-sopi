@@ -623,7 +623,7 @@ module.exports = {
   operators, machines, alerts: alertsProxy, orders: ordersProxy,
   users: usersProxy, authTokens, apiConfig,
   storage,
-  provisionMachine, validateMachineKey, revokeKey,
+  provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
   markKioskSeen, isKioskAlive,
   buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,

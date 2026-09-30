@@ -33,7 +33,7 @@
 const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
-  provisionMachine, validateMachineKey, revokeKey,
+  provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
   buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
@@ -53,8 +53,13 @@ const weimi = require('./weimi');
 const routes = [
   { method:'GET',  pattern:'/health',                                        handler: handleHealth },
   { method:'POST', pattern:'/api/v1/demo-request',                             handler: handleDemoRequest },
+  // Unauthenticated BY DESIGN: the machine has no key yet, which is the point. Rate-limited hard
+  // in the handler, because six digits is only a million values.
+  { method:'POST', pattern:'/api/v1/provisioning/pair',                       handler: handlePairExchange },
   { method:'GET',  pattern:'/downloads',                                     handler: handleDownloadsPage },
   { method:'GET',  pattern:'/api/v1/downloads',                             handler: handleGetDownloads,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/pairing-code',      handler: handleIssuePairingCode, middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/pairing-code',      handler: handleGetPairingCode,   middleware:[requireAuth, requireAgAdmin] },
   { method:'PUT',  pattern:'/api/v1/downloads',                             handler: handleSetDownloads,  middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/whatismyip',                                    handler: handleWhatIsMyIp },
   { method:'GET',  pattern:'/api/v1/proxy/status',                           handler: handleProxyStatus, middleware:[requireAuth] },
@@ -414,6 +419,92 @@ function demoRateLimited(ip) {
   if (mine.length >= DEMO_LIMIT_PER_IP || _demoAll.length >= DEMO_LIMIT_TOTAL) return true;
   mine.push(now); _demoHits.set(ip, mine); _demoAll.push(now);
   return false;
+}
+
+// ─── Pairing codes: getting a machine's identity onto it without adb ──────────
+// The device code and machine key used to go in as intent extras, which only adb can send, so
+// every new machine needed someone on site with a laptop — and the key ended up pasted into shell
+// history and chat more than once. Instead: an operator generates a six-digit code for one machine,
+// someone types it on the kiosk, and the app exchanges it for the identity over TLS. The key is
+// never read by a human.
+const PAIR_CODE_TTL_MS = 24 * 60 * 60 * 1000;
+const PAIR_WINDOW_MS   = 60 * 1000;
+const PAIR_PER_IP      = 5;      // a person typing six digits gets a handful of goes a minute
+const PAIR_TOTAL       = 60;     // and the endpoint as a whole is capped too
+const _pairHits = new Map();     // ip -> [timestamps]
+let _pairAll = [];               // timestamps, all sources
+
+function pairRateLimited(ip) {
+  const now = Date.now(), cutoff = now - PAIR_WINDOW_MS;
+  _pairAll = _pairAll.filter(t => t > cutoff);
+  const mine = (_pairHits.get(ip) || []).filter(t => t > cutoff);
+  if (_pairHits.size > 5000) _pairHits.clear();   // bound the map; a flood shouldn't grow memory
+  if (mine.length >= PAIR_PER_IP || _pairAll.length >= PAIR_TOTAL) return true;
+  mine.push(now); _pairHits.set(ip, mine); _pairAll.push(now);
+  return false;
+}
+
+// Six digits, uniformly drawn, leading zeros allowed. Math.random is not good enough for something
+// that is the sole credential for a minute or two.
+function newPairCode() {
+  for (let i = 0; i < 40; i++) {
+    const n = crypto.randomBytes(4).readUInt32BE(0);
+    if (n >= 4294000000) continue;              // reject the tail so the modulo stays unbiased
+    const code = String(n % 1000000).padStart(6, '0');
+    if (!storage.getPairingCode(code)) return code;   // don't reuse a code still on record
+  }
+  return null;
+}
+
+// POST /machines/:deviceCode/pairing-code  (ag_admin) — issue one.
+function handleIssuePairingCode(req, res) {
+  const { deviceCode } = req.params;
+  const m = machines[deviceCode];
+  if (!m) return notFound(res, `Machine ${deviceCode} not found`);
+  storage.purgePairingCodes();
+  const code = newPairCode();
+  if (!code) return serverError(res, 'Could not allocate a pairing code — try again.');
+  const rec = storage.issuePairingCode(code, deviceCode, PAIR_CODE_TTL_MS, req.user?.id || null);
+  console.log(`[PAIR] code issued for ${deviceCode} by ${req.user?.email || 'unknown'}`);
+  created(res, { code: rec.code, deviceCode, expiresAt: new Date(rec.expiresAt).toISOString() });
+}
+
+// GET /machines/:deviceCode/pairing-code  (ag_admin) — the live one, if any.
+function handleGetPairingCode(req, res) {
+  const { deviceCode } = req.params;
+  if (!machines[deviceCode]) return notFound(res, `Machine ${deviceCode} not found`);
+  const rec = storage.livePairingCode(deviceCode);
+  if (!rec) return ok(res, { code: null });
+  ok(res, { code: rec.code, deviceCode, expiresAt: new Date(rec.expiresAt).toISOString() });
+}
+
+// POST /provisioning/pair  (no auth — the machine has no key yet)
+function handlePairExchange(req, res) {
+  const ip = clientIp(req);
+  if (pairRateLimited(ip)) {
+    return json(res, 429, { ok: false, error: 'Too many attempts. Wait a minute and try again.' });
+  }
+  const code = String((req.body && req.body.code) || '').trim();
+  // Answer the same way for malformed, unknown, expired and already-used: telling an attacker which
+  // of a million codes exist is the one thing this endpoint must not do. The operator generating the
+  // code sees the real state in the dashboard.
+  const deny = () => json(res, 404, { ok: false, error: 'invalid_code',
+    detail: 'That code is not valid. It may have expired, been used already, or been mistyped. Generate a new one from the dashboard.' });
+  if (!/^\d{6}$/.test(code)) return deny();
+  const rec = storage.getPairingCode(code);
+  if (!rec) return deny();
+  if (rec.consumedAt || rec.expiresAt <= Date.now()) return deny();
+  const m = machines[rec.deviceCode];
+  if (!m) return deny();
+  // Consume first: the UPDATE is conditional on still being unconsumed, so if two devices race,
+  // exactly one wins and the loser is told the code is spent rather than both getting the identity.
+  if (!storage.consumePairingCode(code, ip)) return deny();
+  // Rotate the key on every pair. A machine being paired is one that does not have a working key,
+  // and rotating retires anything that leaked into a terminal or a chat message.
+  const machineKey = generateMachineKey();
+  storage.insertMachineKey(rec.deviceCode, machineKey);
+  console.log(`[PAIR] ${rec.deviceCode} paired from ${ip} — key rotated`);
+  ok(res, { deviceCode: rec.deviceCode, machineKey });
 }
 
 function handleDemoRequest(req, res) {
