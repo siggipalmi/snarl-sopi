@@ -4072,7 +4072,11 @@ async function launchSupport(code) {
 // is empty, not whether to "force".
 async function tareAllBaskets(code) {
   if (!code) return;
-  const empty = confirm('Is this machine completely EMPTY?\n\nOK — yes, it is empty. Every basket will be zeroed.\n\nCancel — no, there is product in it. Only baskets that read as empty will be zeroed; the rest will be reported back untouched.');
+  // Two steps on purpose. This used to be one confirm where Cancel meant "not empty" and still sent
+  // a tare — so anyone who opened the dialog and changed their mind, or pressed Escape, fired a
+  // command at the machine anyway. The first question is the one that can abort.
+  if (!confirm('Tare all baskets on this machine?\n\nNothing is sent to the machine until you answer the next question.')) return;
+  const empty = confirm('Is this machine completely EMPTY?\n\nOK — yes, it is empty. Every basket will be zeroed (force).\n\nCancel — no, there is product in it. Only baskets that already read as empty will be zeroed; the rest are reported back untouched.');
   try {
     const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'tare_all', params: empty ? { force: true } : {} });
     if (r && r.ok) showToast(empty ? 'Taring every basket — result in command history' : 'Taring empty baskets — result in command history');
@@ -5465,6 +5469,8 @@ async function setMdLanguage(code) {
   }
 }
 
+let _mdModel = '';   // model from the last /detail response — authoritative, unlike DB.machines
+
 async function renderMachineDetail() {
   if (!_mdDeviceCode) return;
   const code = _mdDeviceCode;
@@ -5490,6 +5496,12 @@ async function renderMachineDetail() {
       return;
     }
     const m = dr.data.machine;
+    // Remember the model from the response. showMdTab decides whether to show the fridge-only
+    // panels (scales, lighting) and has no access to this data, so it used to read DB.machines --
+    // the browser's local copy, which can be stale, missing on a machine added since the last
+    // hydrate, or empty on a fresh browser. When it was wrong the scale panel simply never
+    // appeared, on a real fridge, with no hint as to why.
+    _mdModel = String(m.model || '');
     document.getElementById('md-name').textContent = m.deviceName;
     document.getElementById('md-meta').innerHTML =
       m.deviceCode + ' · ' + (m.location || '—') + ' · ' + (dr.data.operatorName || '—') +
@@ -5746,8 +5758,10 @@ function showMdTab(name, el) {
       var tags = document.getElementById('md-tags-panel');
       if (tags) tags.style.display = '';
       // Scale maintenance is fridge-only; the dispense log is coil-only.
-      var machX = DB.machines[_mdDeviceCode] || {};
-      var isFridgeX = /^GR-/.test(String(machX.model || ''));
+      // Prefer the model from the last detail response; fall back to the local copy only if the
+      // detail fetch has not landed yet.
+      var modelX = _mdModel || String((DB.machines[_mdDeviceCode] || {}).model || '');
+      var isFridgeX = /^GR-/.test(modelX);
       var scale = document.getElementById('md-scale-panel');
       if (scale) scale.style.display = isFridgeX ? '' : 'none';
       var light = document.getElementById('md-light-panel');
