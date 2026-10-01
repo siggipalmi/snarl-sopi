@@ -527,6 +527,15 @@ function buildConfigResponse(machine) {
     })(),
     featured: (machine.featured || []).slice().sort((a,b) => a.order - b.order),
     ads: machine.ads || [],
+    // Screen layout flags. These were stored and editable in the dashboard but never sent, so the
+    // poster area toggle was a control with nothing on the other end: the posters themselves
+    // arrived in `ads` while the flag saying the region is switched on did not. Defaults match
+    // DEFAULT_SETTINGS, so a machine that has never been configured behaves as the dashboard shows.
+    showAdRegion:       cfg.showAdRegion   !== false,
+    showLeftHero:       cfg.showLeftHero   !== false,
+    showRightHero:      cfg.showRightHero  !== false,
+    showIdleScreen:     cfg.showIdleScreen === true,
+    idleTimeoutSeconds: Number.isFinite(Number(cfg.idleTimeoutSeconds)) ? Number(cfg.idleTimeoutSeconds) : 60,
     deals: storage.activeDealsForMachine(machine.deviceCode) || [],
     idle: storage.resolveIdleForMachine(machine.deviceCode) || { rotationSeconds: 6, attractTimeoutSeconds: 30, cards: [] },
     offers: storage.offersForMachine(machine.deviceCode) || [],
