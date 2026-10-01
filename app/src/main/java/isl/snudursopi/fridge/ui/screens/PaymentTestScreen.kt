@@ -72,7 +72,7 @@ fun PaymentTestScreen(onExit: () -> Unit) {
             .background(AppColors.Cream)
             .padding(24.dp)
     ) {
-        Text("payment test — /dev/ttyS4 @ 115200", fontSize = 22.sp, color = AppColors.Ink)
+        Text("payment test — ${NayaxLink.portPath} @ 115200", fontSize = 22.sp, color = AppColors.Ink)
         Spacer(Modifier.height(4.dp))
         Text(
             "state: $state",

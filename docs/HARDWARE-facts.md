@@ -4,32 +4,38 @@ Everything here was established by testing on real hardware, usually after a
 plausible assumption turned out to be wrong. None of it can be inferred from
 documentation or from the other machine types.
 
-App is at **v0.54.0 / versionCode 135**.
+App is at **v0.56.0 / versionCode 137**.
 
 ---
 
-## Serial ports differ by machine type. There is no pattern.
+## The Nayax port differs per machine. Not by type — per machine.
 
-| Machine | Nayax payment | Other |
+| Machine | Type | Nayax payment |
 |---|---|---|
-| **Gravity fridge, SINGLE cabinet** | `/dev/ttyS4` | weight bus `ttyS3` |
-| **Gravity fridge, DOUBLE cabinet** | `/dev/ttyS1` | weight bus `ttyS3` |
-| **Coil machine (WM55)** | `/dev/ttyS3` | motors `ttyS1` @ 9600 |
+| `8626020716` | double | `/dev/ttyS1` (confirmed 2026-09-06) |
+| `8626020714` | double | `/dev/ttyS4` |
+| `8626020623` | single | `/dev/ttyS4` (confirmed 2026-09-15) |
+| other singles so far | single | `/dev/ttyS4` |
 
-Nayax runs at **115200 8N1** on all of them.
+The weight bus is `ttyS3` on every gravity fridge. Coil machines (WM55) put
+Nayax on `ttyS3` and motors on `ttyS1` @ 9600. Nayax runs at **115200 8N1**
+everywhere.
 
-- Double confirmed on `8626020716`, 2026-09-06.
-- Single confirmed on `8626020623`, 2026-09-15.
+**Two doubles, two different ports.** v0.54.0 picked the port from the
+cabinet count (double → ttyS1), and on 2026-09-29 that broke a working link.
+Before that, the one double known at the time had nearly set ttyS1 as the
+default for the whole fleet. Each time the rule came from one machine and was
+wrong for the next.
 
-**Do not collapse these.** The double was diagnosed first and the app default was
-changed to ttyS1 for every machine on the strength of it — which would have
-broken payment on every single-cabinet fridge in the fleet, including the one
-taking real money at the hostel, had a single not been set up the same week and
-caught it.
-
-v0.54.0 picks the default from the planogram's cabinet count. A config value
-(`paymentSerialPort`) or the `set_payment_port` command marks the port as
-deliberately set and stops the cabinet-count default applying.
+**From v0.56.0 the machine finds its own port.** It tries `ttyS4`, then
+`ttyS1`, moving on when `onReady` has not arrived within the 90s watchdog.
+The first port that handshakes is saved and used at every start after that. A
+saved port is sticky: a terminal that is off or rebooting does not send the
+link off onto the other port. `paymentSerialPort` in config, or
+`set_payment_port`, overrides the probe; `set_payment_port {port:"auto"}`
+forgets everything and searches again. The admin sheet's `posi` line shows the
+port and whether it was set (`stillt`), found (`fundið`) or is still being
+searched (`leitar`).
 
 **What a wrong port looks like:** the port opens fine, `link.start()` succeeds,
 and `onReady` never arrives. Not one received byte, ever, and no error from

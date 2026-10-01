@@ -3,7 +3,7 @@ package isl.snudursopi.fridge.hardware.nayax
 import isl.snudursopi.fridge.ui.state.PaymentGateway
 
 /**
- * Real Nayax payment for the fridge, on /dev/ttyS4.
+ * Real Nayax payment for the fridge, on whichever port [NayaxLink] found.
  *
  * ORDER OF OPERATIONS — this is the bit that differs from a normal vending
  * machine, and the bit that was wrong in v0.7.x:
