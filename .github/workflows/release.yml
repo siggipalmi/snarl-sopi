@@ -1,0 +1,121 @@
+# Build, test, sign and publish every fridge version that lands on main.
+#
+# Bump versionCode + versionName in app/build.gradle.kts, merge to main, and
+# this attaches the APK to a `fridge-v<versionName>` release on
+# siggipalmi/snarl-sopi. The dashboard's "load latest fridge build" button then
+# fills the OTA publish form from that release; who gets it is still chosen by
+# hand there. Nothing here reaches a machine on its own.
+#
+# The release lives on snarl-sopi, not here, because this repo is private and
+# the backend fetches the APK without credentials.
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   DEBUG_KEYSTORE_BASE64     base64 of the ~/.android/debug.keystore every
+#                             machine's APK was signed with. Android refuses an
+#                             update signed with any other key, so a build
+#                             signed with the runner's own key could never
+#                             install over the fleet.
+#   SNARL_SOPI_RELEASE_TOKEN  fine-grained token, Contents: read and write on
+#                             siggipalmi/snarl-sopi only.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_REPO: siggipalmi/snarl-sopi
+      GH_TOKEN: ${{ secrets.SNARL_SOPI_RELEASE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          code=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' app/build.gradle.kts)
+          name=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "tag=fridge-v$name" >> "$GITHUB_OUTPUT"
+          echo "fridge $name (versionCode $code)"
+
+      - name: Skip if already released
+        id: exists
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" --repo "$RELEASE_REPO" >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ steps.version.outputs.tag }} is already released — bump versionCode and versionName to publish a new build."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.exists.outputs.already == 'false'
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Install the fleet signing key
+        if: steps.exists.outputs.already == 'false'
+        run: |
+          if [ -z "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" ]; then
+            echo "::error::DEBUG_KEYSTORE_BASE64 is not set. Without the fleet's key the APK cannot update any machine."
+            exit 1
+          fi
+          mkdir -p ~/.android
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
+          keytool -list -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -v | grep -E "SHA256:"
+
+      - name: Build and test
+        if: steps.exists.outputs.already == 'false'
+        run: |
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug 2>&1 | tee build.log
+          # One APK serves every machine. A build carrying a machine's identity
+          # provisions every machine it reaches as that machine.
+          grep -q "snarl-fridge provisioning: deviceCode=<none>, machineKey=<none>" build.log || {
+            echo "::error::build carries a machine identity — refusing to release"; exit 1; }
+
+      - name: Publish release
+        if: steps.exists.outputs.already == 'false'
+        run: |
+          apk="snarl-fridge-${{ steps.version.outputs.name }}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$apk"
+          # Changes since the previous fridge release: its notes record the
+          # commit it was built from.
+          prev_tag=$(gh release list --repo "$RELEASE_REPO" --limit 100 --json tagName \
+            --jq '[.[] | select(.tagName | startswith("fridge-v"))][0].tagName // empty')
+          prev_sha=""
+          if [ -n "$prev_tag" ]; then
+            prev_sha=$(gh release view "$prev_tag" --repo "$RELEASE_REPO" --json body --jq .body \
+              | grep -oP '^commit: \K[0-9a-f]{40}' || true)
+          fi
+          {
+            echo "versionCode: ${{ steps.version.outputs.code }}"
+            echo "versionName: ${{ steps.version.outputs.name }}"
+            echo "commit: ${{ github.sha }}"
+            echo "sha256: $(sha256sum "$apk" | cut -d' ' -f1)"
+            echo
+            if [ -n "$prev_sha" ] && git cat-file -e "$prev_sha" 2>/dev/null; then
+              echo "Changes since $prev_tag:"
+              git log --no-merges --format='- %s' "$prev_sha..${{ github.sha }}"
+            else
+              echo "Recent changes:"
+              git log --no-merges --format='- %s' -n 15
+            fi
+          } > notes.md
+          gh release create "${{ steps.version.outputs.tag }}" "$apk" \
+            --repo "$RELEASE_REPO" \
+            --title "fridge v${{ steps.version.outputs.name }}" \
+            --notes-file notes.md
+          echo "::notice::Released ${{ steps.version.outputs.tag }} — load it from the dashboard's App updates panel."
