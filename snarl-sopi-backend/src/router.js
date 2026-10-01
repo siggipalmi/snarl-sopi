@@ -558,6 +558,20 @@ function handleHealth(req, res) {
     status: 'ok', version, contract: 'v0.1', uptime: process.uptime(),
     node: process.version,
     imaging: (() => { try { require('sharp'); return 'ok'; } catch (e) { return 'unavailable'; } })(),
+    // imaging above only says whether sharp (the resizer) loaded. Posters are STORED on R2 and
+    // served from its public host, so "imaging: ok" with R2 unset means uploads fail and no poster
+    // ever reaches a machine. The host is reported because it is the URL the kiosk has to fetch
+    // over TLS, and a custom domain there has broken machines before (see the APK note in the
+    // release handler) — it is not a secret, it is already inside every poster URL.
+    imageHosting: (() => {
+      try {
+        const r2 = require('./r2');
+        if (!r2.isConfigured()) return { configured: false, publicHost: null };
+        let host = null;
+        try { host = new URL(r2.r2Config().publicUrl).host; } catch (e) { host = null; }
+        return { configured: true, publicHost: host };
+      } catch (e) { return { configured: false, publicHost: null }; }
+    })(),
     // Onboarding readiness — booleans only, never the secret values. Lets you confirm the
     // operator-signup path is wired before running a real operator through it.
     onboarding: {
