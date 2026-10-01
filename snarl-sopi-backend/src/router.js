@@ -180,6 +180,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/app-release',                            handler: handleGetAppRelease,  middleware:[requireAuth, requireAgAdmin] },
   { method:'PUT',  pattern:'/api/v1/app-release',                            handler: handlePublishAppRelease, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/app-release/cohort',                     handler: handleSetAppCohort,   middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/latest-build',               handler: handleLatestBuild,    middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/:app/apk',                   handler: handleServeApk },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/complaints',        handler: handleComplaintIngest, middleware:[requireMachineKey] },
@@ -3403,6 +3404,25 @@ function handleSetAppRollout(req, res) {
   if (!rel) return notFound(res, `No active ${appKey} release to halt`);
   rel.rolloutEnabled = !!(req.body && req.body.on === true);
   storage.setAppRelease(rel, appKey);
+  ok(res, { release: rel });
+}
+
+// POST /api/v1/app-release/cohort (ag-admin)  body { app, cohort: 'all' | [deviceCodes] }
+//
+// Widen (or narrow) who gets the CURRENT release, without re-publishing it. The canary flow is
+// "publish to one machine, check it, then give it to everyone" — and the forward-only guard rightly
+// refuses to publish the same versionCode twice, so without this the only way from canary to fleet
+// was a version bump that changed nothing. Same APK, same sha256; only the cohort moves.
+function handleSetAppCohort(req, res) {
+  const appKey = (req.body && req.body.app === 'fridge') ? 'fridge' : 'coil';
+  const rel = storage.getAppRelease(appKey);
+  if (!rel) return notFound(res, `No active ${appKey} release`);
+  const c = req.body && req.body.cohort;
+  if (c === 'all') rel.cohort = 'all';
+  else if (Array.isArray(c) && c.length) rel.cohort = c.map(String);
+  else return badRequest(res, "cohort must be 'all' or a non-empty array of device codes");
+  storage.setAppRelease(rel, appKey);
+  console.log(`[APP-RELEASE] ${appKey} ${rel.targetVersionCode} cohort -> ${rel.cohort === 'all' ? 'all' : rel.cohort.join(',')} by ${req.user?.email || 'unknown'}`);
   ok(res, { release: rel });
 }
 

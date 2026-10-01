@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.42.0",
-  "description": "Snarl and Sopi operator backend v6.42.0: a warning when a fridge cannot take cards. Fridge v0.58.0+ reports its Nayax link state to POST /api/v1/machines/:code/payment-status on every change and every 5 minutes. Down for PAYLINK_DOWN_MIN minutes (default 10, timed on the server clock) raises one critical payment_link_down alert per machine and emails the AG admins (or OPS_ALERT_EMAIL); the first report of up resolves it and emails again. A once-a-minute sweep catches a link that goes down and stays down. Cumulative over v6.41.0.",
+  "version": "6.42.1",
+  "description": "Snarl and Sopi operator backend v6.42.1: widen a canary to every machine without re-publishing. POST /api/v1/app-release/cohort (ag_admin) changes who gets the current release; the Fridge and Coil release cards gain a roll out to all machines button while the release is on a canary list. The forward-only publish guard rightly refuses the same versionCode twice, which left no way from canary to fleet short of a version bump that changed nothing. Cumulative over v6.42.0.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
