@@ -53,7 +53,7 @@ object RecoveryGuard {
     fun check(app: Application) {
         try {
             val p = prefs(app)
-            val cur = BuildConfig.VERSION_CODE
+            val cur = AppVersion.code
             val pending = p.getInt(KEY_PENDING, 0)
 
             // Running something other than the pending build (known-good after a revert,
@@ -115,7 +115,7 @@ object RecoveryGuard {
     fun confirmHealthy(app: Application) {
         try {
             val p = prefs(app)
-            val cur = BuildConfig.VERSION_CODE
+            val cur = AppVersion.code
             val alreadyGood = p.getInt(KEY_KNOWN_GOOD, 0) == cur && knownGoodFile(app).exists()
             p.edit()
                 .putInt(KEY_PENDING, 0)

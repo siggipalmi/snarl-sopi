@@ -81,7 +81,7 @@ class ComplaintClient(
             )
             put("reason", reason.wire)
             put("timestampMs", timestampMs)
-            put("kioskAppVersion", BuildConfig.VERSION_NAME)
+            put("kioskAppVersion", isl.snudursopi.fridge.AppVersion.name)
             note.trim().takeIf { it.isNotEmpty() }?.let { put("note", it) }
             customerEmail.trim().takeIf { it.isNotEmpty() }?.let { put("customerEmail", it) }
         }

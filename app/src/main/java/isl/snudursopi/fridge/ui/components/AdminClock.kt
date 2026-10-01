@@ -232,7 +232,7 @@ private fun Actions(
     )
     Spacer(Modifier.height(6.dp))
     Text(
-        "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        "${isl.snudursopi.fridge.AppVersion.name} (${isl.snudursopi.fridge.AppVersion.code})",
         fontFamily = FontFamily.Monospace,
         fontSize = 14.sp,
         color = AppColors.MutedSoft,

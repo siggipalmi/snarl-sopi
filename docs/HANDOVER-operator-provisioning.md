@@ -60,6 +60,12 @@ Every step below is currently manual and needs adb.
 11. **Stop the Weimi apps** — `com.weimi.monitor` and `com.weimi.gs_vendor` hold
     the serial port. Do NOT touch `com.weimi.launcher` before Device Owner is set
     and our app is home, or the board has no launcher.
+12. **Upload the Nayax settings** once Nayax has onboarded the terminal, with
+    **0 decimal places** for ISK. Then check the payment log line reads
+    `decimal_place=0`. A terminal still on factory defaults reports
+    `decimal_place=2`, and the app sends whole krónur, so a 350 kr basket would
+    be charged as 3.50 kr. The app does not guard against this; this step is
+    the control.
 
 ---
 

@@ -22,6 +22,9 @@ import java.io.File
 class FridgeApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Before RecoveryGuard: it compares the running build with the one it
+        // is watching, and must use the installed version, not a constant.
+        AppVersion.init(this)
         if (isMainProcess()) RecoveryGuard.check(this)
         CrashRecovery.install(this)
     }

@@ -210,7 +210,7 @@ class MainActivity : ComponentActivity() {
         // install or an auto-revert the only witness is the log.
         android.util.Log.i(
             "FridgeBoot",
-            "snarl-fridge ${BuildConfig.VERSION_NAME} (versionCode ${BuildConfig.VERSION_CODE})",
+            "snarl-fridge ${AppVersion.name} (versionCode ${AppVersion.code})",
         )
 
         // FIRST, before anything touches the serial ports: reclaim them. The
