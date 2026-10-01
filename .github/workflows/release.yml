@@ -107,9 +107,20 @@ jobs:
       - name: Verify the APK carries the fleet's certificate
         if: steps.exists.outputs.already == 'false'
         run: |
-          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          got=$("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
-                  | grep -oP 'Signer #1 certificate SHA-256 digest: \K[0-9a-f]+')
+          # build-tools 34.0.0 first (the version this was tested with); else the
+          # newest. Newer apksigner builds may need a newer Java than the build's.
+          apksigner="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          [ -x "$apksigner" ] || apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          echo "using $apksigner"
+          # Never let a failed search end the step silently: keep apksigner's
+          # whole output and show it when the certificate line is not there.
+          out=$("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk 2>&1) || true
+          got=$(printf '%s\n' "$out" | grep -oP 'Signer #1 certificate SHA-256 digest: \K[0-9a-f]+' || true)
+          if [ -z "$got" ]; then
+            printf '%s\n' "$out" | head -20
+            echo "::error::Could not read the APK's signing certificate (apksigner output above). Not releasing."
+            exit 1
+          fi
           echo "APK certificate: $got"
           echo "fleet expects:   $FLEET_CERT_SHA256"
           if [ "$got" != "$FLEET_CERT_SHA256" ]; then
