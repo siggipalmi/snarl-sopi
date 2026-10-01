@@ -169,6 +169,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/settlements',  handler: handleListFridgeSettlements, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/transactions',       handler: handleMachineTransactions, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetry,      middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/payment-status',    handler: handlePaymentStatus,  middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleGetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleSetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleKioskLogs,      middleware:[requireMachineKey] },
@@ -1698,6 +1699,111 @@ function handleSetComplaintStatus(req, res) {
 // this just gives the probe a live target and lets us read back real values to
 // confirm scaling before building persistence/alerting.
 const lastTelemetry = {};
+
+// ── Payment link watch ────────────────────────────────────────────────────────
+// A machine whose Nayax link is down cannot take a card, and nothing on the customer screen says so
+// until someone tries. The fridge app reports its link state on every change and every 5 minutes:
+//   POST /machines/:code/payment-status { up, port, lastReadyAt }
+// "Down" is timed on OUR clock from the first report that says so — a machine with a wrong clock
+// is exactly the one whose own timestamps can't be trusted. Down for PAYLINK_DOWN_MIN (default 10)
+// raises one alert and emails the AG admins; the first report of "up" resolves it and says so.
+// Ten minutes rides out what is normal: a restart, an OTA, the port probe's 90s steps, a terminal
+// rebooting after a settings push.
+const PAYLINK_DOWN_MS = (Number(process.env.PAYLINK_DOWN_MIN) || 10) * 60 * 1000;
+
+function handlePaymentStatus(req, res) {
+  const code = req.params.deviceCode;
+  const m = machines[code];
+  if (!m) return notFound(res, `Machine ${code} not found`);
+  const b = req.body || {};
+  if (typeof b.up !== 'boolean') return badRequest(res, 'up (boolean) is required');
+  let prev = null;
+  try { prev = JSON.parse(storage.getMeta('paylink:' + code) || 'null'); } catch (e) { prev = null; }
+  const now = Date.now();
+  const rec = nextPaymentLinkRecord(prev, b, now);
+  storage.setMeta('paylink:' + code, JSON.stringify(rec));
+  // Act on a recovery straight away rather than on the next sweep.
+  try { applyPaymentLinkAlert(code, rec, now); } catch (e) { console.error('[PAYLINK] alert error:', e.message); }
+  ok(res, { recorded: true });
+}
+
+// Pure: fold one report into the stored record. downSince starts at the first "down" report and is
+// kept while the link stays down; any "up" clears it.
+function nextPaymentLinkRecord(prev, report, now) {
+  const up = report.up === true;
+  const downSince = up ? null : ((prev && prev.up === false && prev.downSince) ? prev.downSince : now);
+  return {
+    up, downSince, reportedAt: now,
+    port: typeof report.port === 'string' ? report.port.slice(0, 32) : null,
+    lastReadyAt: typeof report.lastReadyAt === 'string' ? report.lastReadyAt.slice(0, 40) : null,
+  };
+}
+
+// Pure: what to do with the alert, given the record and whether one is open.
+function paymentLinkAction(rec, alertOpen, now, thresholdMs) {
+  if (!rec) return null;
+  if (rec.up) return alertOpen ? 'resolve' : null;
+  if (!alertOpen && rec.downSince != null && now - rec.downSince >= thresholdMs) return 'raise';
+  return null;
+}
+
+function applyPaymentLinkAlert(code, rec, now) {
+  const m = machines[code];
+  if (!m) return;
+  const id = 'alert_paylink_down_' + code;
+  const existing = storage.getAlert(id);
+  const action = paymentLinkAction(rec, !!(existing && !existing.resolved), now, PAYLINK_DOWN_MS);
+  if (!action) return;
+  const name = m.deviceName || code;
+  const mins = rec.downSince != null ? Math.round((now - rec.downSince) / 60000) : 0;
+  if (action === 'raise') {
+    // Same id every time, so a machine has at most one open payment alert; INSERT OR REPLACE
+    // reopens a resolved one rather than stacking a new row per outage.
+    storage.insertAlert({
+      id, type: 'payment_link_down', severity: 'critical',
+      title: `Posi ótengdur — ${name}`,
+      detail: `${code} · the Nayax payment link has been down for ${mins} min` +
+        (rec.port ? ` (port ${rec.port})` : '') +
+        (rec.lastReadyAt ? `; last handshake ${rec.lastReadyAt}` : '; no handshake reported') +
+        '. The machine cannot take cards. Check the relayed MarshallPay log, then the terminal and its cable.',
+      deviceCode: code, resolved: false, createdAt: new Date(now).toISOString(),
+    });
+    console.warn(`[PAYLINK] ${code} down ${mins} min — alert raised`);
+    notifyAgAdmins(m, `Posi ótengdur — ${name}`,
+      `Nayax payment link on ${name} (${code}) has been down for ${mins} minutes. The machine cannot take cards.` +
+      (rec.port ? ` Port: ${rec.port}.` : ''));
+  } else if (action === 'resolve') {
+    storage.resolveAlert(id);
+    console.log(`[PAYLINK] ${code} link up again — alert resolved`);
+    notifyAgAdmins(m, `Posi tengdur aftur — ${name}`,
+      `Nayax payment link on ${name} (${code}) is up again` + (rec.port ? ` on ${rec.port}` : '') + '.');
+  }
+}
+
+// AG admins by role, or OPS_ALERT_EMAIL (comma-separated) when set. Fire-and-forget: a slow or
+// failing mail API must never hold up a machine's request or the sweep.
+function notifyAgAdmins(m, title, detail) {
+  const fromEnv = String(process.env.OPS_ALERT_EMAIL || '').split(',').map(s => s.trim()).filter(Boolean);
+  const to = fromEnv.length ? fromEnv
+    : storage.listUsers().filter(u => u.role === 'ag_admin' && u.email).map(u => u.email);
+  const dashboardUrl = (process.env.APP_URL || 'https://admin.agvending.is') + '/?page=machines&code=' + m.deviceCode;
+  for (const addr of to) {
+    email.sendOperatorAlert({ to: addr, operatorName: 'AG Vending', title, detail, dashboardUrl })
+      .catch(err => console.error('[PAYLINK] email failed:', err && err.message));
+  }
+}
+
+// A link that goes down and stays down sends no further reports to act on, so the threshold is
+// checked here too.
+setInterval(() => {
+  const now = Date.now();
+  for (const code of Object.keys(machines)) {
+    let rec = null;
+    try { rec = JSON.parse(storage.getMeta('paylink:' + code) || 'null'); } catch (e) { rec = null; }
+    if (!rec) continue;
+    try { applyPaymentLinkAlert(code, rec, now); } catch (e) { console.error('[PAYLINK] sweep error:', e.message); }
+  }
+}, 60 * 1000).unref();
 
 function handleTelemetryIngest(req, res) {
   const deviceCode = req.params.deviceCode;
