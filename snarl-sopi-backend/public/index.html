@@ -9767,19 +9767,21 @@ async function renderAppUpdates() {
   if (!el) return;
   if (!backendOnline || !API_TOKEN) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Backend offline.</div>'; return; }
   el.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
-  let rel = null, list = [];
+  let rel = null, relFridge = null, list = [];
   try {
     const r = await API.get('/api/v1/app-release');
-    if (r && r.ok && r.data) { rel = r.data.release; list = r.data.machines || []; }
+    if (r && r.ok && r.data) { rel = r.data.release; relFridge = r.data.releaseFridge || null; list = r.data.machines || []; }
   } catch (e) { el.innerHTML = '<div style="color:var(--alert);font-size:12px">Error: ' + rsEsc(e.message) + '</div>'; return; }
 
-  // current release summary
-  let cur;
-  if (rel) {
+  // Current release per app line. The fridge line used to have no card here at all, so what the
+  // fridges were being offered — and the halt button for it — were invisible from the dashboard.
+  const releaseCard = (rel, app, label) => {
+    if (!rel) return `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${label}: no active release.</div>`;
     const cohortTxt = rel.cohort === 'all' ? 'all machines' : (Array.isArray(rel.cohort) ? rel.cohort.length + ' machine' + (rel.cohort.length === 1 ? '' : 's') + ' (canary)' : '—');
     const on = !!rel.rolloutEnabled;
-    cur = `<div style="padding:13px 15px;background:var(--cream-deep);border-radius:var(--rsm);margin-bottom:16px">
+    return `<div style="padding:13px 15px;background:var(--cream-deep);border-radius:var(--rsm);margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-size:12px;color:var(--muted)">${label}</span>
         <span style="font-size:15px;font-weight:600;font-family:var(--mono)">v${rsEsc(rel.versionName || '?')} · code ${rel.targetVersionCode}</span>
         ${on ? '<span class="pill pill-up">rolling out</span>' : '<span class="pill pill-dn">halted</span>'}
         <span class="pill pill-out">${cohortTxt}</span>
@@ -9787,12 +9789,12 @@ async function renderAppUpdates() {
       <div style="font-size:11px;color:var(--muted);font-family:var(--mono);word-break:break-all">${rsEsc(rel.apkUrl || '')}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${rel.sha256 ? 'sha256 ✓' : 'no sha256'} · published ${rel.publishedAt ? fmtDateTime(rel.publishedAt) : '—'}${rel.publishedBy ? ' by ' + rsEsc(rel.publishedBy) : ''}</div>
       <div style="margin-top:10px">${on
-        ? '<button class="btn btn-sm" style="background:var(--alert);color:#fff" onclick="haltAppRollout(false)">⏸ halt rollout</button>'
-        : '<button class="btn btn-sm btn-ghost" onclick="haltAppRollout(true)">▶ resume rollout</button>'}</div>
+        ? `<button class="btn btn-sm" style="background:var(--alert);color:#fff" onclick="haltAppRollout(false,'${app}')">⏸ halt rollout</button>`
+        : `<button class="btn btn-sm btn-ghost" onclick="haltAppRollout(true,'${app}')">▶ resume rollout</button>`}</div>
     </div>`;
-  } else {
-    cur = '<div style="font-size:12px;color:var(--muted);margin-bottom:16px">No active release. Publish one below to roll it out.</div>';
-  }
+  };
+  const relCoil = rel;
+  const cur = releaseCard(rel, 'coil', 'Coil kiosk') + releaseCard(relFridge, 'fridge', 'Fridge');
 
   // publish form
   const machineCheckboxes = list.map(m =>
@@ -9800,7 +9802,11 @@ async function renderAppUpdates() {
       <input type="checkbox" class="ota-cm" value="${rsEsc(m.deviceCode)}">
       <span>${rsEsc(m.deviceName || m.deviceCode)} <span style="color:var(--muted);font-family:var(--mono)">${rsEsc(m.deviceCode)}</span></span>
     </label>`).join('');
-  const form = `<div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Publish update</div>
+  const form = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 10px">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Publish update</div>
+      <button class="btn btn-sm btn-ghost" id="ota-load-latest" onclick="loadLatestFridgeBuild()">↓ load latest fridge build</button>
+    </div>
+    <div id="ota-latest"></div>
     <div class="field"><div class="fl">app <span style="color:var(--muted);font-weight:400">· which build line</span></div>
       <div style="display:flex;gap:16px">
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="coil" checked>coil kiosk</label>
@@ -9823,9 +9829,12 @@ async function renderAppUpdates() {
     <button class="btn btn-full" onclick="publishAppUpdate()"><span>publish</span><span>→</span></button>`;
 
   // per-machine version table
-  const target = rel ? rel.targetVersionCode : null;                                // for the rejected-badge history
-  const healthyTarget = (rel && rel.rolloutEnabled) ? rel.targetVersionCode : null; // "behind" only counts a healthy, rolling build
   const rows = list.slice().sort((a, b) => (a.deviceName || '').localeCompare(b.deviceName || '')).map(m => {
+    // Each machine against its OWN line's release — a fridge measured against the coil build reads
+    // as "behind" or "up to date" for reasons that have nothing to do with it.
+    const rel = m.app === 'fridge' ? relFridge : relCoil;
+    const target = rel ? rel.targetVersionCode : null;                                // for the rejected-badge history
+    const healthyTarget = (rel && rel.rolloutEnabled) ? rel.targetVersionCode : null; // "behind" only counts a healthy, rolling build
     let st;
     const rejectedHealthy = m.rejectedVersionCode != null && healthyTarget != null && m.rejectedVersionCode === healthyTarget;
     if (m.versionCode == null) st = '<span class="pill pill-out">unknown</span>';
@@ -9877,10 +9886,37 @@ async function publishAppUpdate() {
   } catch (e) { if (msg) msg.innerHTML = '<div class="rs-msg err">error: ' + rsEsc(e.message) + '</div>'; }
 }
 
-async function haltAppRollout(on) {
+// Fill the publish form from the newest build CI attached to a fridge-v* release. Fills only —
+// publishing and the choice of machines stay with whoever presses publish.
+async function loadLatestFridgeBuild() {
+  const btn = document.getElementById('ota-load-latest');
+  const box = document.getElementById('ota-latest');
+  if (btn) { btn.disabled = true; btn.textContent = 'loading…'; }
+  try {
+    const r = await API.get('/api/v1/app-release/latest-build?app=fridge');
+    if (!r || !r.ok || !r.data) throw new Error((r && r.error) || 'no build found');
+    const b = r.data;
+    const radio = document.querySelector('input[name="ota-app"][value="fridge"]');
+    if (radio) radio.checked = true;
+    document.getElementById('ota-vc').value = b.versionCode;
+    document.getElementById('ota-vname').value = b.versionName || '';
+    document.getElementById('ota-apk').value = b.apkUrl;
+    const stale = b.currentVersionCode != null && b.versionCode <= b.currentVersionCode;
+    if (box) box.innerHTML = `<div class="rs-msg ${stale ? 'err' : ''}" style="margin-bottom:10px">
+        <div><b>fridge v${rsEsc(b.versionName)}</b> · code ${b.versionCode}${b.publishedAt ? ' · built ' + fmtDateTime(b.publishedAt) : ''}${b.releaseUrl ? ` · <a href="${rsEsc(b.releaseUrl)}" target="_blank" rel="noopener">release</a>` : ''}</div>
+        ${stale ? `<div style="margin-top:4px">Not newer than the current fridge release (code ${b.currentVersionCode}) — publishing would be refused. Bump the version in the app and merge again.</div>` : ''}
+        <pre style="margin:6px 0 0;white-space:pre-wrap;font-size:11px;max-height:140px;overflow-y:auto">${rsEsc(b.notes || '')}</pre>
+      </div>`;
+  } catch (e) {
+    if (box) box.innerHTML = '<div class="rs-msg err" style="margin-bottom:10px">' + rsEsc(e.message) + '</div>';
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '↓ load latest fridge build'; }
+}
+
+async function haltAppRollout(on, app) {
   if (!on && !confirm('Halt the rollout?\n\nMachines that haven’t updated yet will stop pulling this build. Machines already updated stay as they are (Android can’t downgrade).')) return;
   try {
-    const r = await API.post('/api/v1/app-release/rollout', { on: !!on });
+    const r = await API.post('/api/v1/app-release/rollout', { on: !!on, app: app === 'fridge' ? 'fridge' : 'coil' });
     if (r && r.ok) { showToast(on ? 'Rollout resumed' : 'Rollout halted'); renderAppUpdates(); }
     else showToast('failed: ' + ((r && r.error) || 'unknown'));
   } catch (e) { showToast('error: ' + e.message); }

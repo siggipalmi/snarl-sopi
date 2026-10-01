@@ -179,6 +179,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/app-release',                            handler: handleGetAppRelease,  middleware:[requireAuth, requireAgAdmin] },
   { method:'PUT',  pattern:'/api/v1/app-release',                            handler: handlePublishAppRelease, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/app-release/latest-build',               handler: handleLatestBuild,    middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/:app/apk',                   handler: handleServeApk },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/complaints',        handler: handleComplaintIngest, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/complaints', handler: handleFridgeComplaint, middleware:[requireMachineKey] },
@@ -3297,6 +3298,57 @@ function handleSetAppRollout(req, res) {
   rel.rolloutEnabled = !!(req.body && req.body.on === true);
   storage.setAppRelease(rel, appKey);
   ok(res, { release: rel });
+}
+
+// GET /api/v1/app-release/latest-build?app=fridge (ag-admin)
+//
+// The newest build CI has published, so the dashboard can fill the publish form instead of someone
+// copying a version code and an asset URL by hand — the step where a stale number or a wrong link
+// gets in. The snarl-fridge release workflow attaches each build to a `fridge-v<name>` release on
+// this repo with `versionCode: N` in its notes. This only READS: publishing, and choosing which
+// machines get it, stays a deliberate step in the form.
+const RELEASES_REPO = process.env.RELEASES_REPO || 'siggipalmi/snarl-sopi';
+async function handleLatestBuild(req, res) {
+  const appKey = (req.query && req.query.app) === 'coil' ? 'coil' : 'fridge';
+  if (appKey !== 'fridge') return badRequest(res, 'Only the fridge line is published by CI so far');
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 15000);
+  let list;
+  try {
+    const headers = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'snarl-sopi-backend' };
+    if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
+    const r = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=50`, { headers, signal: ctrl.signal });
+    if (!r.ok) return json(res, 502, { ok: false, error: `GitHub answered HTTP ${r.status} listing releases` });
+    list = await r.json();
+  } catch (e) {
+    return json(res, 502, { ok: false, error: 'Could not reach GitHub: ' + e.message });
+  } finally { clearTimeout(to); }
+  const build = latestFridgeBuild(list);
+  if (!build) return notFound(res, `No fridge-v* release with an APK and a versionCode on ${RELEASES_REPO}`);
+  const current = storage.getAppRelease(appKey);
+  ok(res, { ...build, currentVersionCode: current ? current.targetVersionCode : null });
+}
+
+// Pure, so the selection is checkable without GitHub: newest published fridge-v* release that has
+// an .apk asset and states its versionCode.
+function latestFridgeBuild(releases) {
+  for (const rel of (Array.isArray(releases) ? releases : [])) {
+    if (!rel || rel.draft || typeof rel.tag_name !== 'string' || !rel.tag_name.startsWith('fridge-v')) continue;
+    const m = /^versionCode:\s*(\d+)\s*$/m.exec(rel.body || '');
+    const asset = (rel.assets || []).find(a => /\.apk$/i.test(a.name || ''));
+    if (!m || !asset) continue;
+    return {
+      app: 'fridge',
+      versionCode: Number(m[1]),
+      versionName: rel.tag_name.slice('fridge-v'.length),
+      apkUrl: asset.browser_download_url,
+      tag: rel.tag_name,
+      releaseUrl: rel.html_url || null,
+      publishedAt: rel.published_at || null,
+      notes: String(rel.body || '').slice(0, 4000),
+    };
+  }
+  return null;
 }
 
 // ── PUT /api/v1/machines/:deviceCode/grid-order ───────────────────────────────
