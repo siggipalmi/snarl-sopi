@@ -68,14 +68,27 @@ jobs:
 
       - name: Install the fleet signing key
         if: steps.exists.outputs.already == 'false'
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
-          if [ -z "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" ]; then
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
             echo "::error::DEBUG_KEYSTORE_BASE64 is not set. Without the fleet's key the APK cannot update any machine."
             exit 1
           fi
           mkdir -p ~/.android
-          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
-          keytool -list -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -v | grep -E "SHA256:"
+          # Strip whitespace first: a secret pasted from a terminal can carry
+          # line breaks or a trailing newline that a strict decode rejects.
+          printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > ~/.android/debug.keystore
+          echo "keystore: $(wc -c < ~/.android/debug.keystore) bytes"
+          # keytool prints its errors on stdout, so filtering its output for
+          # the fingerprint hid the reason it failed. Show it when it fails.
+          if ! out=$(keytool -list -v -keystore ~/.android/debug.keystore \
+                       -storepass android -alias androiddebugkey 2>&1); then
+            echo "$out" | head -5
+            echo "::error::keytool cannot read the keystore from DEBUG_KEYSTORE_BASE64 (see above)"
+            exit 1
+          fi
+          echo "$out" | grep -E "SHA256:"
 
       - name: Build and test
         if: steps.exists.outputs.already == 'false'
