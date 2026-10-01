@@ -586,25 +586,20 @@ function fridgePlanogramBlock(machine) {
     };
   });
   // ── Serial ports: the payment port is PER MACHINE, not per machine type ──
-  // We believed the Nayax port followed from the machine's type and size (coil ttyS3, double ttyS1,
-  // single ttyS4). It does not. 8626020716 and 8626020714 are both DOUBLES: the first handshakes on
-  // ttyS1, the second on ttyS4. It appears to depend on how each unit was wired at the factory.
+  // The Nayax port is NOT a function of type or size: 8626020716 and 8626020714 are both doubles,
+  // the first on ttyS1, the second on ttyS4. It depends on how each unit was wired at the factory.
   //
-  // So `defaultPaymentPort` below is a STARTING GUESS, nothing more, and any machine that disagrees
-  // with it needs settings.paymentSerialPort set — that value wins and is the only authority here.
-  // Getting this wrong is invisible: a port with nothing on the other end reports no error, the
-  // machine just stops taking cards.
+  // So nothing is served unless settings.paymentSerialPort says so. From fridge v0.56.0 the app
+  // treats this field as an operator override and otherwise PROBES both ports, saving the one that
+  // handshakes. A guess served here would be indistinguishable from an override and would stop the
+  // probe dead — on a double wired to ttyS4, exactly the failure that took 8626020714 down.
   //
-  // The guess is still served rather than omitted, because the app falls back to its own
-  // type-derived default when the field is absent, which is the same wrong answer. That is what
-  // broke 8626020714: the app came up on ttyS4, the planogram arrived, the cabinet count moved it
-  // to ttyS1, and payment died. The kiosk team is changing the app to probe both ports, after which
-  // this field stops mattering and the guess can go.
+  // Older apps treat a missing field by falling back to their own cabinet-count default, which is
+  // the same guess this used to serve, so they behave as before.
   const cfg2 = machine.settings || {};
-  const defaultPaymentPort = (spec.doors === 2) ? '/dev/ttyS1' : '/dev/ttyS4';
   const paymentSerialPort = (typeof cfg2.paymentSerialPort === 'string' && cfg2.paymentSerialPort.trim())
     ? cfg2.paymentSerialPort.trim()
-    : defaultPaymentPort;
+    : null;
   return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, paymentSerialPort, led: ledPolicy(machine), baskets: rows } };
 }
 
