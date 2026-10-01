@@ -70,6 +70,7 @@ class FridgeBackend(
     private var settlements: SettlementRepository? = null
     private var logRelay: LogRelay? = null
     private var telemetryClient: TelemetryClient? = null
+    private var paymentReporter: PaymentStatusReporter? = null
 
     /** The deviceCode this session is authenticated as; scopes the config cache. */
     private var cachedOwner: String? = null
@@ -203,6 +204,7 @@ class FridgeBackend(
         onSetPaymentPort: (suspend (String) -> String)? = null,
         onLaunchSupport: (suspend () -> String)? = null,
         telemetry: ((TelemetryClient) -> TelemetryLoop)? = null,
+        paymentStatus: (() -> PaymentLinkStatus)? = null,
     ) {
         scope.launch {
             // The client is built asynchronously inside start(), so don't assume
@@ -221,6 +223,7 @@ class FridgeBackend(
             // where we know the http client exists AND where the caller has
             // handed us the hardware to read from.
             telemetryClient?.let { tc -> telemetry?.invoke(tc)?.start(scope) }
+            paymentStatus?.let { s -> paymentReporter?.start(scope, s) }
 
             CommandRunner(
                 client = client,
@@ -256,6 +259,7 @@ class FridgeBackend(
         _complaints.value = ComplaintClient(http, deviceCode, complaintQueue)
         logRelay = LogRelay(http, deviceCode)
         telemetryClient = TelemetryClient(http, deviceCode)
+        paymentReporter = PaymentStatusReporter(http, deviceCode)
         cachedOwner = deviceCode
         _provisionedAs.value = deviceCode
 
