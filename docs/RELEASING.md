@@ -27,6 +27,14 @@ installed app. Every machine runs a debug build signed with the
 stored as the `DEBUG_KEYSTORE_BASE64` secret. A build signed with any other key
 fails to install on every machine, silently from the dashboard's point of view.
 
+CI writes that keystore to a file and points `FLEET_DEBUG_KEYSTORE` at it, which
+`app/build.gradle.kts` uses for debug signing; on the Mac the variable is unset
+and the default keystore is used. After the build, the workflow checks the
+**APK's own certificate** against the fleet's (`FLEET_CERT_SHA256`,
+`c3d1dfdb…4a746f52`) and refuses to release on a mismatch. Checking the
+keystore file alone is not enough: on 2026-10-01 the file was right and the
+runner signed with a key of its own anyway.
+
 The workflow log prints the key's SHA-256 fingerprint. It must match:
 
 ```

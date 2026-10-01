@@ -53,14 +53,37 @@ android {
         targetSdk = 34
         // Fridge app starts its OWN forward-only version line at 1 (decision D5),
         // never shared with the coil app's ~128 line.
-        versionCode = 139
-        versionName = "0.57.1"
+        versionCode = 140
+        versionName = "0.57.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
         buildConfigField("String", "TEST_MACHINE_KEY", "\"$testMachineKey\"")
         buildConfigField("String", "TEST_MACHINE_DEVICE_CODE", "\"$testMachineDeviceCode\"")
+    }
+
+    /*
+     * *** THE FLEET'S SIGNING KEY, NAMED EXPLICITLY WHEN CI BUILDS.
+     *
+     * Every machine runs a debug build signed with the debug.keystore on
+     * Siggi's Mac (SHA-256 c3d1dfdb…4a746f52), and Android refuses an update
+     * signed with anything else. CI writes that keystore to a file and points
+     * FLEET_DEBUG_KEYSTORE at it. Left to find "the" debug keystore by itself,
+     * the build on the GitHub runner signed with a key of its own (1e7a0842…),
+     * and the first OTA failed with INSTALL_FAILED_UPDATE_INCOMPATIBLE.
+     *
+     * Unset on the Mac, so local builds keep the default — which is the same key.
+     */
+    signingConfigs {
+        getByName("debug") {
+            System.getenv("FLEET_DEBUG_KEYSTORE")?.takeIf { it.isNotBlank() }?.let {
+                storeFile = file(it)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildTypes {
