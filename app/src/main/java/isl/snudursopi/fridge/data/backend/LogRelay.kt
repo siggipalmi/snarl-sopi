@@ -63,7 +63,7 @@ class LogRelay(
         if (lines.isEmpty()) return
         val body = mapper.writeValueAsString(
             mapOf(
-                "kioskAppVersion" to BuildConfig.VERSION_NAME,
+                "kioskAppVersion" to isl.snudursopi.fridge.AppVersion.name,
                 "at" to System.currentTimeMillis(),
                 "lines" to lines,
             ),
@@ -94,7 +94,10 @@ class LogRelay(
                 // anyone with adb; this only changes what we ship.
                 "FridgeBoot:I", "FridgeBackend:I", "FridgeFlow:I", "FridgeDoor:I",
                 "FridgeSettlement:I", "FridgeComplaint:I",
-                "PriceTagSync:I", "AppUpdater:I", "RecoveryGuard:I",
+                // OtaScheduler carries each update check's outcome. Without it the
+                // relay showed the backend's offer but not what the machine did
+                // with it (2026-10-01: "NotDeviceOwner" was visible only over adb).
+                "PriceTagSync:I", "AppUpdater:I", "OtaScheduler:I", "RecoveryGuard:I",
                 "AdminClock:I", "SelfHealing:I", "CommandRunner:I",
                 // *** THE PAYMENT LINK MUST BE VISIBLE HERE.
                 //

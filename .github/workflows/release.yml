@@ -35,7 +35,7 @@ jobs:
       RELEASE_REPO: siggipalmi/snarl-sopi
       GH_TOKEN: ${{ secrets.SNARL_SOPI_RELEASE_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -59,7 +59,7 @@ jobs:
             echo "already=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: steps.exists.outputs.already == 'false'
         with:
           distribution: temurin

@@ -9,7 +9,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
-import isl.snudursopi.fridge.BuildConfig
+import isl.snudursopi.fridge.AppVersion
 import isl.snudursopi.fridge.RecoveryGuard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -112,7 +112,7 @@ class AppUpdater(private val context: Context) {
             Log.i(
                 TAG,
                 "backend offers $name (code $target) — this machine has code " +
-                    "${BuildConfig.VERSION_CODE}${if (manual) " [manual check]" else ""}",
+                    "${AppVersion.code}${if (manual) " [manual check]" else ""}",
             )
 
             if (target < 0 || apkUrl.isBlank()) {
@@ -127,7 +127,7 @@ class AppUpdater(private val context: Context) {
             // origin it is already on.
             val downloadUrl = resolveApkUrl(apkUrl, manifestUrl)
             if (downloadUrl != apkUrl) Log.i(TAG, "apkUrl resolved to $downloadUrl")
-            if (target <= BuildConfig.VERSION_CODE) return@withContext UpdateResult.UpToDate
+            if (target <= AppVersion.code) return@withContext UpdateResult.UpToDate
             if (RecoveryGuard.isBlocked(context, target)) {
                 Log.w(TAG, "target $target is blocked (previously auto-reverted) — refusing")
                 return@withContext UpdateResult.Halted
@@ -171,7 +171,7 @@ class AppUpdater(private val context: Context) {
             if (machineKey != null) setRequestProperty("X-Machine-Key", machineKey)
             // Doubles as a heartbeat: lets the backend record this machine's
             // installed version and last check time.
-            setRequestProperty("X-App-Version-Code", BuildConfig.VERSION_CODE.toString())
+            setRequestProperty("X-App-Version-Code", AppVersion.code.toString())
         }
         try {
             if (conn.responseCode !in 200..299) {
