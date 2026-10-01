@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -112,6 +114,7 @@ fun AdminSheet(
     var entered by remember { mutableStateOf("") }
     var unlocked by remember { mutableStateOf(false) }
     var wrong by remember { mutableStateOf(false) }
+    var pairing by remember { mutableStateOf(false) }
 
     Box(
         Modifier
@@ -126,6 +129,9 @@ fun AdminSheet(
                 .clip(RoundedCornerShape(20.dp))
                 .background(AppColors.Cream)
                 .clickable(enabled = false) {}
+                // The pairing keypad is taller than the action list; on a short
+                // panel the buttons under it must stay reachable.
+                .verticalScroll(rememberScrollState())
                 .padding(40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -142,8 +148,10 @@ fun AdminSheet(
                     },
                     onBack = { if (entered.isNotEmpty()) entered = entered.dropLast(1) },
                 )
+            } else if (pairing) {
+                PairingPane(deviceCode) { pairing = false }
             } else {
-                Actions(onClose, deviceCode, lastPollOkMs)
+                Actions(onClose, deviceCode, lastPollOkMs) { pairing = true }
             }
             Spacer(Modifier.height(24.dp))
             SheetButton("loka", AppColors.Ink, onClose)
@@ -192,7 +200,7 @@ private fun PinPad(
 }
 
 @Composable
-private fun Key(label: String, onClick: () -> Unit) {
+internal fun Key(label: String, onClick: () -> Unit) {
     Box(
         Modifier
             .size(96.dp, 68.dp)
@@ -211,6 +219,7 @@ private fun Actions(
     onClose: () -> Unit,
     deviceCode: String?,
     lastPollOkMs: Long?,
+    onPair: () -> Unit,
 ) {
     val context = LocalContext.current
     Text(
@@ -231,6 +240,13 @@ private fun Actions(
     Spacer(Modifier.height(14.dp))
     Diagnostics(deviceCode, lastPollOkMs)
     Spacer(Modifier.height(20.dp))
+
+    // First on an unprovisioned machine, because it is the only thing that
+    // machine needs; below the everyday tools once it has an identity.
+    if (deviceCode == null) {
+        SheetButton("para vél með kóða", AppColors.Bronze, onPair)
+        Spacer(Modifier.height(10.dp))
+    }
 
     // *** ORDER MATTERS: Lock Task must be released BEFORE launching Settings,
     // or the launch is silently blocked and the button looks broken.
@@ -301,6 +317,10 @@ private fun Actions(
         leaveForUrl(context, TEAMVIEWER_URL, onClose)
     }
     Spacer(Modifier.height(10.dp))
+    if (deviceCode != null) {
+        SheetButton("para vél með kóða", AppColors.InkSoft, onPair)
+        Spacer(Modifier.height(10.dp))
+    }
     SheetButton("slökkva á kioskham", AppColors.InkSoft) {
         (context as? Activity)?.let { KioskManager.disableLockTask(it) }
         onClose()
@@ -375,7 +395,7 @@ private fun DiagLine(label: String, value: String, warn: Boolean) {
 }
 
 @Composable
-private fun SheetButton(label: String, color: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+internal fun SheetButton(label: String, color: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
