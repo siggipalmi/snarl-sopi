@@ -445,6 +445,13 @@ class MainActivity : ComponentActivity() {
                         (realHardware.setpointC.value?.let { ", setpoint $it C" } ?: "")
                 }
             },
+            paymentStatus = {
+                isl.snudursopi.fridge.data.backend.PaymentLinkStatus(
+                    up = NayaxLink.isUp(),
+                    port = NayaxLink.portPath,
+                    lastReadyAtMs = NayaxLink.lastReadyAtMs,
+                )
+            },
             telemetry = { client ->
                 isl.snudursopi.fridge.data.backend.TelemetryLoop(
                     client = client,

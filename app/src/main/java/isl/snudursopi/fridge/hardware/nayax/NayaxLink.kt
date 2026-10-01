@@ -36,6 +36,19 @@ object NayaxLink {
 
     private var prefs: SharedPreferences? = null
 
+    /** When the link last completed a handshake, for the payment-status report. */
+    @Volatile
+    var lastReadyAtMs: Long? = null
+        private set
+
+    /** True while the reader can take a card. */
+    fun isUp(): Boolean = when (controller.state) {
+        MarshallPaymentController.State.READY,
+        MarshallPaymentController.State.AWAITING_CARD,
+        MarshallPaymentController.State.VENDING -> true
+        else -> false
+    }
+
     @Volatile
     var portPath: String = probe.initial()
         private set
@@ -110,6 +123,7 @@ object NayaxLink {
                 }
             }
             c.onLinkUp = { port ->
+                lastReadyAtMs = System.currentTimeMillis()
                 if (probe.confirm(port)) {
                     prefs?.edit()?.putString(KEY_CONFIRMED, port)?.apply()
                     Log.w(TAG, "payment port confirmed: $port — saved, used at every start")
