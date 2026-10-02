@@ -5024,9 +5024,24 @@ function copyMachineLogs() {
 // The kiosk ad region is HD landscape (1920x1080, 16:9). Posters are hosted on R2 and referenced by
 // URL in config, so a change lands on the machine at its next config poll — no app update.
 let _mdAds = [];
+// Whose posters the editor is showing: one machine's, or an operator's (the default for all its
+// machines; a machine with its own posters shows those instead).
+let _adScope = { kind: 'machine', id: null };
+function adBase() {
+  return _adScope.kind === 'operator'
+    ? '/api/v1/operators/' + encodeURIComponent(_adScope.id) + '/ads'
+    : '/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/ads';
+}
+function rerenderAds() {
+  if (_adScope.kind === 'operator') { renderOperatorAdsList(); return; }
+  const machine = DB.machines[_mdDeviceCode] || {};
+  machine.ads = _mdAds;
+  renderMachineAds(_mdDeviceCode, machine);
+}
 async function renderMachineAds(code, machine) {
   const el = document.getElementById('md-ads');
   if (!el) return;
+  _adScope = { kind: 'machine', id: code };
   _mdAds = Array.isArray(machine && machine.ads) ? JSON.parse(JSON.stringify(machine.ads)) : [];
   const regionOn = !(machine && machine.settings && machine.settings.showAdRegion === false);
   let h = '<label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:13px">' +
@@ -5036,10 +5051,54 @@ async function renderMachineAds(code, machine) {
     h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">The area is hidden, so posters below won\'t appear until it\'s switched on.</div>';
   }
   if (!_mdAds.length) {
-    h += '<div style="font-size:12.5px;color:var(--muted)">No poster set. Add one — 1920&times;1080 (16:9) is the size the screen expects.</div>';
+    h += '<div id="ads-inherit" style="font-size:12.5px;color:var(--muted)">No poster set for this machine. Add one — 1920&times;1080 (16:9) is the size the screen expects.</div>';
   } else {
     h += _mdAds.map(function (ad, i) { return adRow(ad, i); }).join('');
     h += '<div style="margin-top:12px"><button class="btn btn-sm" onclick="saveAds()">save posters</button></div>';
+  }
+  el.innerHTML = h;
+  // With none of its own, the machine shows its operator's posters — say so, or the panel reads
+  // "nothing set" while the screen is showing posters.
+  if (!_mdAds.length && machine && machine.operatorId) {
+    try {
+      const r = await API.get('/api/v1/operators/' + encodeURIComponent(machine.operatorId) + '/ads');
+      const n = (r && r.ok && r.data && r.data.ads) ? r.data.ads.length : 0;
+      const box = document.getElementById('ads-inherit');
+      if (n && box && _adScope.kind === 'machine' && _adScope.id === code) {
+        const opName = (machine.settings && machine.settings.operatorName) || 'its operator';
+        box.innerHTML = 'Showing <b>' + rsEsc(opName) + '</b>’s ' + n + ' poster' + (n === 1 ? '' : 's') +
+          ' (set on the operator). Add posters here to replace them on this machine only.';
+      }
+    } catch (e) { /* offline: the plain note stands */ }
+  }
+}
+
+// The operator-wide poster editor, inside the edit-operator dialog.
+let _opAdsInfo = null;
+async function renderOperatorAds(operatorId) {
+  _adScope = { kind: 'operator', id: operatorId };
+  _mdAds = [];
+  _opAdsInfo = null;
+  try {
+    const r = await API.get('/api/v1/operators/' + encodeURIComponent(operatorId) + '/ads');
+    if (r && r.ok && r.data) { _mdAds = r.data.ads || []; _opAdsInfo = r.data; }
+  } catch (e) { /* render empty */ }
+  renderOperatorAdsList();
+}
+function renderOperatorAdsList() {
+  const el = document.getElementById('op-ads');
+  if (!el) return;
+  let h = '';
+  if (_opAdsInfo && _opAdsInfo.overriding && _opAdsInfo.overriding.length) {
+    h += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">' + _opAdsInfo.overriding.length +
+      ' machine' + (_opAdsInfo.overriding.length === 1 ? ' has' : 's have') + ' posters of its own and won’t show these: ' +
+      _opAdsInfo.overriding.map(rsEsc).join(', ') + '</div>';
+  }
+  if (!_mdAds.length) {
+    h += '<div style="font-size:12.5px;color:var(--muted)">No operator posters. Posters added here show on every machine of this operator that has none of its own.</div>';
+  } else {
+    h += _mdAds.map(function (ad, i) { return adRow(ad, i); }).join('');
+    h += '<div style="margin-top:10px"><button class="btn btn-sm" onclick="saveAds()">save operator posters</button></div>';
   }
   el.innerHTML = h;
 }
@@ -5076,24 +5135,17 @@ function renderAdsAgain() {
     const i = Number(el.getAttribute('data-i'));
     if (_mdAds[i]) _mdAds[i].type = el.value;
   });
-  const machine = DB.machines[_mdDeviceCode] || {};
-  machine.ads = _mdAds;
-  renderMachineAds(_mdDeviceCode, machine);
+  rerenderAds();
 }
 
 function addAdSlot() {
   _mdAds.push({ type: 'image', url: '', durationSec: 10, overlayText: null });
-  const el = document.getElementById('md-ads');
-  const machine = DB.machines[_mdDeviceCode] || {};
-  machine.ads = _mdAds;
-  renderMachineAds(_mdDeviceCode, machine);
+  rerenderAds();
 }
 
 function removeAd(i) {
   _mdAds.splice(i, 1);
-  const machine = DB.machines[_mdDeviceCode] || {};
-  machine.ads = _mdAds;
-  renderMachineAds(_mdDeviceCode, machine);
+  rerenderAds();
   saveAds();
 }
 
@@ -5110,13 +5162,11 @@ function pickAdImage(i) {
     const reader = new FileReader();
     reader.onload = async function () {
       try {
-        const r = await API.post('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/ads/upload', { data: reader.result });
+        const r = await API.post(adBase() + '/upload', { data: reader.result });
         if (!r || !r.ok) { showToast((r && r.error) || 'upload failed'); return; }
         _mdAds[i].url = r.data.url;
         _mdAds[i].type = 'image';
-        const machine = DB.machines[_mdDeviceCode] || {};
-        machine.ads = _mdAds;
-        renderMachineAds(_mdDeviceCode, machine);
+        rerenderAds();
         await saveAds();
         showToast(r.data.note ? r.data.note : 'Poster uploaded');
       } catch (e) { showToast('error: ' + e.message); }
@@ -5127,7 +5177,7 @@ function pickAdImage(i) {
 }
 
 async function saveAds() {
-  if (!_mdDeviceCode) return;
+  if (_adScope.kind === 'machine' && !_mdDeviceCode) return;
   document.querySelectorAll('.ad-dur').forEach(function (el) {
     const i = Number(el.getAttribute('data-i'));
     if (_mdAds[i]) _mdAds[i].durationSec = Number(el.value) || 10;
@@ -5148,8 +5198,10 @@ async function saveAds() {
   _mdAds.forEach(function (a) { if (a.type === 'video') a.durationSec = a.durationSec || 15; });
   const payload = _mdAds.filter(function (a) { return a.url; });
   try {
-    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/ads', payload);
-    if (r && r.ok) showToast('Posters saved — live on the machine within ~2 min');
+    const r = await API.put(adBase(), payload);
+    if (r && r.ok) showToast(_adScope.kind === 'operator'
+      ? 'Operator posters saved — live on ' + ((r.data && r.data.machinesUpdated) || 0) + ' machine(s) within ~2 min'
+      : 'Posters saved — live on the machine within ~2 min');
     else showToast((r && r.detail && r.detail[0]) || (r && r.error) || 'could not save');
   } catch (e) { showToast('error: ' + e.message); }
 }
@@ -9236,6 +9288,14 @@ function operatorFormHtml(mode, op) {
       <div class="field"><div class="fl">card rotation <span style="color:var(--muted);font-weight:400">· seconds each deal card shows · 3–30</span></div><input class="fi" id="op-idle-rotation" type="number" min="3" max="30" step="1" value="${(op.idleConfig && op.idleConfig.rotationSeconds) || 6}"></div>
       <div class="field"><div class="fl">attract timeout <span style="color:var(--muted);font-weight:400">· seconds of inactivity before the attract loop · 10–120</span></div><input class="fi" id="op-idle-attract" type="number" min="10" max="120" step="1" value="${(op.idleConfig && op.idleConfig.attractTimeoutSeconds) || 30}"></div>
     </div>` : ''}
+    ${mode === 'edit' ? `
+    <div style="border-top:.5px solid var(--line);margin:14px 0 10px;padding-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Screen posters <span style="text-transform:none;letter-spacing:0">· all this operator’s machines · 1920×1080</span></div>
+        <span class="pill pill-out" style="cursor:pointer" onclick="addAdSlot()">+ add poster</span>
+      </div>
+      <div id="op-ads"><span style="font-size:12px;color:var(--muted)">Loading…</span></div>
+    </div>` : ''}
     <div class="field"><div class="fl">logo <span style="color:var(--muted);font-weight:400">· optional</span></div>
       <input type="file" id="op-logo" accept="image/*" onchange="onOpLogo(this)" style="font-size:12px;color:var(--muted)">
       <div id="op-logo-preview" style="margin-top:8px">${logoPreview}</div>
@@ -9263,6 +9323,7 @@ async function openEditOperator(id) {
   const modal = document.getElementById('modal-dyn');
   modal.innerHTML = operatorFormHtml('edit', op);
   modal.classList.add('show');
+  renderOperatorAds(id);
 }
 
 function onOpLogo(input) {

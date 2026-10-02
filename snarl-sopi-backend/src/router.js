@@ -34,7 +34,7 @@ const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
-  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED,
+  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
@@ -209,6 +209,9 @@ const routes = [
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/grid-order',         handler: handleSetGridOrder, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/ads',               handler: handleSetAds,       middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/ads/upload',        handler: handleUploadAd,     middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/ads',              handler: handleGetOperatorAds, middleware:[requireAuth, requireOperatorAccess] },
+  { method:'PUT',  pattern:'/api/v1/operators/:operatorId/ads',              handler: handleSetOperatorAds, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'POST', pattern:'/api/v1/operators/:operatorId/ads/upload',       handler: handleUploadOperatorAd, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/settings',          handler: handleUpdateSettings,middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/stock-source',      handler: handleStockSource, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/key',               handler: handleShowMachineKey, middleware:[requireAuth, requireAgAdmin] },
@@ -2026,6 +2029,16 @@ function handleSetFeatured(req, res) {
 async function handleUploadAd(req, res) {
   const m = machines[req.params.deviceCode];
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
+  return storePosterUpload(req, res, String(req.params.deviceCode));
+}
+
+async function handleUploadOperatorAd(req, res) {
+  if (!operators[req.params.operatorId]) return notFound(res, `Operator ${req.params.operatorId} not found`);
+  return storePosterUpload(req, res, 'op-' + String(req.params.operatorId));
+}
+
+// Host a poster on R2, checked against the 16:9 target. Shared by the machine and operator uploads.
+async function storePosterUpload(req, res, namePrefix) {
   const r2 = require('./r2');
   if (!r2.isConfigured()) return badRequest(res, 'Image hosting is not configured (R2 env missing)');
   const b = req.body || {};
@@ -2061,7 +2074,7 @@ async function handleUploadAd(req, res) {
   } catch (e) { /* sharp unavailable or unreadable image — store as-is rather than refuse */ }
 
   const ext = /png/.test(outType) ? 'png' : /webp/.test(outType) ? 'webp' : 'jpg';
-  const safe = String(req.params.deviceCode).replace(/[^a-zA-Z0-9_-]/g, '');
+  const safe = String(namePrefix).replace(/[^a-zA-Z0-9_-]/g, '');
   try {
     const url = await r2.putObject(`ads/${safe}-${Date.now()}.${ext}`, out, outType);
     ok(res, { url, width, height, bytes: out.length, note });
@@ -2073,23 +2086,54 @@ async function handleUploadAd(req, res) {
 function handleSetAds(req, res) {
   const m = machines[req.params.deviceCode];
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
-  if (!Array.isArray(req.body)) return badRequest(res, 'Body must be an array');
+  const v = validateAdList(req.body);
+  if (v.error) return badRequest(res, v.error, v.errors);
+  m.ads = v.ads;
+  touchConfig(m);
+  ok(res, { ads: m.ads, configVersion: m.configVersion });
+}
+
+function handleGetOperatorAds(req, res) {
+  const id = req.params.operatorId;
+  if (!operators[id]) return notFound(res, `Operator ${id} not found`);
+  const opMachines = Object.values(machines).filter(m => m.operatorId === id);
+  ok(res, {
+    ads: operatorAds(id),
+    machines: opMachines.length,
+    // Machines with their own posters ignore the operator's — worth saying beside the editor.
+    overriding: opMachines.filter(m => Array.isArray(m.ads) && m.ads.length).map(m => m.deviceCode),
+  });
+}
+
+function handleSetOperatorAds(req, res) {
+  const id = req.params.operatorId;
+  if (!operators[id]) return notFound(res, `Operator ${id} not found`);
+  const v = validateAdList(req.body);
+  if (v.error) return badRequest(res, v.error, v.errors);
+  setOperatorAds(id, v.ads);
+  // Config is served 304-on-configVersion, so every machine that could inherit these must be
+  // bumped or it would never fetch them.
+  const opMachines = Object.values(machines).filter(m => m.operatorId === id);
+  for (const m of opMachines) touchConfig(m);
+  ok(res, { ads: v.ads, machinesUpdated: opMachines.length });
+}
+
+function validateAdList(body) {
+  if (!Array.isArray(body)) return { error: 'Body must be an array' };
   const errors = [];
-  req.body.forEach((ad, i) => {
+  body.forEach((ad, i) => {
     if (!['video','image'].includes(ad.type)) errors.push(`[${i}] type must be "video" or "image"`);
     if (!ad.url?.startsWith('https://'))      errors.push(`[${i}] url must be an HTTPS URL`);
     if (ad.type === 'image' && typeof ad.durationSec !== 'number') errors.push(`[${i}] durationSec required for images`);
     if (ad.overlayText && ad.overlayText.length > 80) errors.push(`[${i}] overlayText must be ≤80 chars`);
   });
-  if (errors.length) return badRequest(res, 'Validation failed', errors);
-  m.ads = req.body.map(ad => ({
+  if (errors.length) return { error: 'Validation failed', errors };
+  return { ads: body.map(ad => ({
     type:        ad.type,
     url:         ad.url,
     durationSec: ad.durationSec ?? null,
     overlayText: ad.overlayText ?? null,
-  }));
-  touchConfig(m);
-  ok(res, { ads: m.ads, configVersion: m.configVersion });
+  })) };
 }
 
 // ── Expiry tracking ───────────────────────────────────────────────────────────
