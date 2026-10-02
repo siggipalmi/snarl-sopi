@@ -52,6 +52,19 @@ data class FridgeSpec(
      */
     val doorIndices: List<Int> get() = cabinets.indices.map { it + 1 }
 
+    /**
+     * Every basket position this model physically has, as (cabinet, basket 1..16)
+     * with its bus address. Used where the hardware matters rather than what is
+     * stocked: tare_all on a new machine has no planogram baskets yet, and a
+     * basket with no product still has a scale that wants zeroing.
+     */
+    val physicalBaskets: List<Triple<Cabinet, Int, Int>>
+        get() = cabinets.flatMap { c ->
+            (1..Planogram.BASKETS_PER_CABINET).map { b ->
+                Triple(c, b, c.ordinal * Planogram.ADDRESS_BLOCK_PER_CABINET + (b - 1))
+            }
+        }
+
     companion object {
         /**
          * Resolve a spec from a model string, or null if it isn't a GR- fridge.
