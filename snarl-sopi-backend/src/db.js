@@ -529,7 +529,11 @@ function buildConfigResponse(machine) {
       return saved.concat(extras);
     })(),
     featured: (machine.featured || []).slice().sort((a,b) => a.order - b.order),
-    ads: machine.ads || [],
+    // The machine's own posters when it has any, otherwise its operator's. adsSource says which, so
+    // the dashboard and the logs can tell an empty machine list from an inherited one.
+    ads: (Array.isArray(machine.ads) && machine.ads.length) ? machine.ads : operatorAds(machine.operatorId),
+    adsSource: (Array.isArray(machine.ads) && machine.ads.length) ? 'machine'
+      : (operatorAds(machine.operatorId).length ? 'operator' : 'none'),
     // Screen layout flags. These were stored and editable in the dashboard but never sent, so the
     // poster area toggle was a control with nothing on the other end: the posters themselves
     // arrived in `ads` while the flag saying the region is switched on did not. Defaults match
@@ -620,6 +624,19 @@ function ledPolicy(machine) {
   };
 }
 
+// Operator-wide screen posters: the default for every machine of the operator. A machine with its
+// own posters shows those instead (override, not merge), so a one-machine operator keeps working
+// exactly as before and a multi-machine operator sets posters once. Stored as meta, like the
+// operator's idle config, and served through buildConfigResponse.
+function operatorAds(operatorId) {
+  if (!operatorId) return [];
+  try { const v = JSON.parse(storage.getMeta('opads:' + operatorId) || '[]'); return Array.isArray(v) ? v : []; }
+  catch (e) { return []; }
+}
+function setOperatorAds(operatorId, ads) {
+  storage.setMeta('opads:' + operatorId, JSON.stringify(Array.isArray(ads) ? ads : []));
+}
+
 function touchConfig(machine) {
   machine.configVersion = new Date().toISOString();
   machine.updatedAt = machine.configVersion;
@@ -632,7 +649,7 @@ module.exports = {
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
   markKioskSeen, isKioskAlive,
-  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED,
+  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
