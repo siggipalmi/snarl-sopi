@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.44.1",
-  "description": "Snarl and Sopi operator backend v6.44.1: the lighting panel says the fridges switch rather than dim. Measured on 8626020623: the board takes ctlLed on/off and ignores levels, so any brightness above 0 means on. One note under the capability line, in English and Icelandic. Cumulative over v6.44.0.",
+  "version": "6.45.0",
+  "description": "Snarl and Sopi operator backend v6.45.0: email receipts for fridge customers. POST /machines/:deviceCode/fridge/receipt sends an operator-branded receipt (name, kennitala, contact, logo, lines, total, VSK per rate) in the customer's language, reply-to the operator. The address is held in memory only until sent. Config gains receipts.enabled (operator has name + kennitala); operator edits now bump their machines' config. Cumulative over v6.44.1.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

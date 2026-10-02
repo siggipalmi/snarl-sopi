@@ -34,7 +34,7 @@ const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
-  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds,
+  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
@@ -43,6 +43,7 @@ const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
         revokeToken } = require('./auth');
 const email = require('./email');
+const { buildCustomerReceipt } = require('./customerReceipt');
 const crypto = require('crypto');
 const { ok, created, notFound, badRequest, serverError, json,
         validateSettings, validateFeatured } = require('./helpers');
@@ -164,6 +165,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/product-details',   handler: handleMachineProductDetails, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/sales',             handler: handleSalesIngest, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/settlement', handler: handleFridgeSettlement, middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/receipt',    handler: handleFridgeReceipt,    middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/baskets',     handler: handleGetFridgeBaskets, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/fridge/baskets',     handler: handleSetFridgeBaskets, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/settlements',  handler: handleListFridgeSettlements, middleware:[requireAuth, requireMachineAccess] },
@@ -1004,7 +1006,131 @@ function handleFridgeSettlement(req, res) {
     // gets an alert AND an email. Don't re-alert on a replayed settlement: same order, same fact.
     if (!isRepost) notifyMoneyMismatch(m, settlement, lineRows);
   }
+  // A receipt the customer asked for before this settlement reached us (it travels on its own
+  // queue and can arrive first) goes out now.
+  const waiting = pendingReceipts.get(receiptKey(deviceCode, settlement.orderId));
+  if (waiting) {
+    pendingReceipts.delete(receiptKey(deviceCode, settlement.orderId));
+    sendCustomerReceipt(m, settlement.orderId, waiting.email, waiting.language)
+      .catch(e => console.error(`[RECEIPT] ${deviceCode} order ${settlement.orderId}: ${e.message}`));
+  }
   json(res, 200, { ok: true, orderId: b.orderId, recorded: true, wasRepost: isRepost, recomputedIsk, mismatch: !!settlement.mismatch });
+}
+
+// ── Customer receipts by email ───────────────────────────────────────────────
+//
+// The customer types an address on the fridge after paying; the machine posts it here with the
+// order id. The receipt is built from the backend's stored settlement: the lines and total the
+// customer was charged and saw on screen, with product names and VSK rates from the catalogue.
+//
+// The address is used once: it is held in memory only until the email is sent, never written to
+// the database. If the settlement hasn't arrived yet, the request waits here for it (up to a day),
+// and a restart of the backend drops it — the trade for not storing customer addresses.
+const pendingReceipts = new Map();  // `${deviceCode}:${orderId}` -> { email, language, at }
+const RECEIPT_WAIT_MS = 24 * 60 * 60 * 1000;
+const receiptKey = (deviceCode, orderId) => `${deviceCode}:${orderId}`;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// Receipts carry the operator's name and kennitala; without both they are not offered at all.
+const receiptsAvailable = machine => receiptsOffered(operators[machine.operatorId]);
+
+// Same contact rule as the fridge's info screen (buildConfigResponse): a real per-machine support
+// address wins, then the operator's, then the house address.
+function receiptContact(machine) {
+  const HOUSE_EMAIL = 'hallo@snarlogsopi.is';
+  const op = operators[machine.operatorId] || {};
+  const p = machine.profile || {};
+  const machineEmail = (p.supportEmail && p.supportEmail !== HOUSE_EMAIL) ? p.supportEmail : '';
+  return {
+    email: machineEmail || (op.contactEmail || '').trim() || HOUSE_EMAIL,
+    phone: (p.supportPhone || '') || (op.contactPhone || '').trim() || null,
+  };
+}
+
+async function sendCustomerReceipt(machine, orderId, to, language) {
+  const settlement = storage.getFridgeSettlement(machine.deviceCode, orderId);
+  if (!settlement) throw new Error('settlement not found');
+  if (settlement.outcome !== 'charged') throw new Error(`settlement outcome is ${settlement.outcome}, not charged`);
+  const op = operators[machine.operatorId] || {};
+  const contact = receiptContact(machine);
+  // What was CHARGED (the app's quantities and line amounts, which sum to totalIsk), not the scales
+  // recompute: a receipt whose lines don't add up to the amount on the card statement is wrong
+  // whichever figure is right. A recompute disagreement is already its own alert.
+  const lines = (settlement.lines || [])
+    .filter(l => (l.quantity || 0) > 0)
+    .map(l => {
+      const p = l.productId ? storage.getProduct(l.productId) : null;
+      const lineIsk = l.lineIsk != null ? l.lineIsk : (l.priceIsk || 0) * l.quantity;
+      return {
+        name: (p && p.name) || l.productId || '—',
+        quantity: l.quantity,
+        unitIsk: Math.round(lineIsk / l.quantity),
+        lineIsk,
+        vatRate: p ? p.vatRate : null,
+      };
+    });
+  // The customer was charged settlement.totalIsk; that is the figure the receipt states.
+  const receipt = buildCustomerReceipt({
+    operator: { name: op.name, kennitala: op.kennitala, email: contact.email, phone: contact.phone, logoUrl: op.logoUrl },
+    place: (machine.profile && machine.profile.machineLabel) || machine.deviceName || machine.deviceCode,
+    deviceCode: machine.deviceCode, orderId,
+    closedAtMs: Date.parse(settlement.closedAt || '') || settlement.receivedAt || Date.now(),
+    totalIsk: settlement.totalIsk, language, lines,
+  });
+  if (receipt.vat.unknownRateLines) {
+    console.warn(`[RECEIPT] ${machine.deviceCode} order ${orderId}: ${receipt.vat.unknownRateLines} line(s) with no VSK rate on the product — left out of the VSK breakdown`);
+  }
+  if (settlement.mismatch) {
+    console.warn(`[RECEIPT] ${machine.deviceCode} order ${orderId}: settlement has a money mismatch; receipt states the charged ${settlement.totalIsk} kr`);
+  }
+  await email.send({ to, subject: receipt.subject, text: receipt.text, html: receipt.html, fromName: op.name, replyTo: contact.email });
+  // The address is not logged: it is the one thing this feature promises not to keep.
+  console.log(`[RECEIPT] ${machine.deviceCode} order ${orderId}: sent (${receipt.language})`);
+}
+
+// POST /api/v1/machines/:deviceCode/fridge/receipt  body: { orderId, email, language }
+//   200 { status: 'sent' }    — the settlement was here and the email went out
+//   202 { status: 'waiting' } — the settlement hasn't arrived yet; it goes out when it does
+async function handleFridgeReceipt(req, res) {
+  const { deviceCode } = req.params;
+  const m = machines[deviceCode];
+  if (!m) return notFound(res, `Machine ${deviceCode} not found`);
+  const b = req.body || {};
+  const orderId = String(b.orderId || '').trim();
+  const to = String(b.email || '').trim();
+  if (!orderId) return badRequest(res, 'orderId is required');
+  if (!EMAIL_RE.test(to) || to.length > 254) return badRequest(res, 'email is not a valid address');
+  if (!receiptsAvailable(m)) return badRequest(res, 'receipts are not available on this machine (operator has no kennitala on file)');
+  const language = String(b.language || 'is').toLowerCase();
+
+  const settlement = storage.getFridgeSettlement(deviceCode, orderId);
+  if (!settlement) {
+    pendingReceipts.set(receiptKey(deviceCode, orderId), { email: to, language, at: Date.now() });
+    console.log(`[RECEIPT] ${deviceCode} order ${orderId}: waiting for the settlement`);
+    return json(res, 202, { ok: true, status: 'waiting' });
+  }
+  if (settlement.outcome !== 'charged') return badRequest(res, `order ${orderId} was not charged (${settlement.outcome})`);
+  try {
+    await sendCustomerReceipt(m, orderId, to, language);
+    ok(res, { status: 'sent' });
+  } catch (e) {
+    console.error(`[RECEIPT] ${deviceCode} order ${orderId}: ${e.message}`);
+    // A 5xx so the machine keeps the request and retries; SendGrid hiccups are transient.
+    json(res, 502, { ok: false, error: 'receipt email failed: ' + e.message });
+  }
+}
+
+setInterval(() => {
+  const cutoff = Date.now() - RECEIPT_WAIT_MS;
+  for (const [k, v] of pendingReceipts) {
+    if (v.at < cutoff) { pendingReceipts.delete(k); console.warn(`[RECEIPT] ${k}: settlement never arrived — dropped`); }
+  }
+}, 60 * 60 * 1000).unref();
+
+// Operator details printed on receipts changed: every machine of theirs must refetch config, or the
+// fridge keeps offering (or not offering) receipts on stale information. Config is 304-on-version.
+function touchOperatorMachines(operatorId) {
+  for (const mm of Object.values(machines)) if (mm.operatorId === operatorId) touchConfig(mm);
 }
 
 // Settlement mismatch → dashboard alert + operator email, on the same recipient rule as complaints.
@@ -5078,6 +5204,8 @@ async function handleSetPaydayLink(req, res) {
     }
     storage.setOperatorPaydayLink(id, kennitala, paydayCustomerId);
     if (operators[id]) { operators[id].kennitala = kennitala; operators[id].paydayCustomerId = paydayCustomerId; }
+    // The kennitala decides whether this operator's fridges offer email receipts.
+    touchOperatorMachines(id);
     ok(res, { operatorId: id, kennitala, paydayCustomerId, resolved, matchedName, lookupError });
   } catch (e) {
     json(res, 500, { ok: false, error: String((e && e.message) || e) });
@@ -5227,6 +5355,8 @@ async function handleUpdateOperator(req, res) {
     catch (e) { return json(res, 502, { error: 'logo upload failed: ' + e.message }); }
   }
   storage.upsertOperator(op);
+  // Name, contact and logo all reach the fridges (info screen, receipts).
+  touchOperatorMachines(op.id);
   ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id) });
 }
 
