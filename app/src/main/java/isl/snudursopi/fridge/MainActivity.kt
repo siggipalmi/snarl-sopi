@@ -297,61 +297,73 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             backend.planogram.collect { p ->
-                if (p != null && p.baskets.isNotEmpty()) {
-                    android.util.Log.i(
-                        "FridgeBackend",
-                        "planogram applied: ${p.baskets.size} baskets, " +
-                            "${p.spec.cabinets.size} cabinet(s) [${p.spec.model}], " +
-                            "posters=${p.posters.size} ${if (p.showPosters) "on" else "off"}, " +
-                            "idle ${p.idleTimeoutSeconds}s, logo=${if (p.logoUrl != null) "yes" else "no"}",
-                    )
-                    // *** WIDEN THE WEIGHT POLL FOR A DOUBLE BEFORE ANYTHING
-                    // ELSE USES IT. 16 trays per cabinet; a double is 32. Left
-                    // at 16, cabinet B never reports a weight change and every
-                    // item taken from it is free — with cabinet A behaving
-                    // perfectly, so nothing looks broken.
-                    // *** THE READ RANGE MUST SPAN THE ADDRESS BLOCKS, NOT THE
-                    // BASKET COUNT. Cabinet B is addressed from 20, so a double
-                    // reaches to tray 35 — asking for 32 would stop four short
-                    // and miss cabinet B's last four baskets entirely.
-                    val cabinets = p.spec.cabinets.size.coerceAtLeast(1)
-                    // An explicit payment port in config wins over probing and
-                    // survives reinstalls. With none, the link finds its own
-                    // port (NayaxLink) — cabinet count says nothing about it:
-                    // two doubles are on different ports.
-                    val nayax = isl.snudursopi.fridge.hardware.nayax.NayaxLink
-                    val portChanged = p.paymentSerialPort?.let { nayax.setPortPathExplicit(it) } ?: false
-                    if (portChanged) {
-                        android.util.Log.w("MarshallPay", "payment port now ${nayax.portPath}")
-                        lifecycleScope.launch {
-                            runCatching {
-                                realPayment.disconnect()
-                                kotlinx.coroutines.delay(1_000)
-                                realPayment.connect()
-                            }
+                if (p == null) return@collect
+                // *** MACHINE SETTINGS APPLY WHETHER OR NOT ANYTHING IS STOCKED.
+                //
+                // All of this used to sit behind the baskets check below, so a
+                // machine with no products yet (a new one, mid-setup) ignored
+                // its language, lights, logo, posters, payment port and — on a
+                // double — read only cabinet A's scales, which looks exactly
+                // like cabinet B being unwired. Only the sellable basket list
+                // stays guarded.
+                android.util.Log.i(
+                    "FridgeBackend",
+                    "machine settings applied: ${p.spec.cabinets.size} cabinet(s) [${p.spec.model}], " +
+                        "posters=${p.posters.size} ${if (p.showPosters) "on" else "off"}, " +
+                        "idle ${p.idleTimeoutSeconds}s, logo=${if (p.logoUrl != null) "yes" else "no"}",
+                )
+                // *** WIDEN THE WEIGHT POLL FOR A DOUBLE BEFORE ANYTHING
+                // ELSE USES IT. 16 trays per cabinet; a double is 32. Left
+                // at 16, cabinet B never reports a weight change and every
+                // item taken from it is free — with cabinet A behaving
+                // perfectly, so nothing looks broken.
+                // *** THE READ RANGE MUST SPAN THE ADDRESS BLOCKS, NOT THE
+                // BASKET COUNT. Cabinet B is addressed from 20, so a double
+                // reaches to tray 35 — asking for 32 would stop four short
+                // and miss cabinet B's last four baskets entirely.
+                val cabinets = p.spec.cabinets.size.coerceAtLeast(1)
+                realHardware.setTrayCount(
+                    (cabinets - 1) * Planogram.ADDRESS_BLOCK_PER_CABINET +
+                        Planogram.BASKETS_PER_CABINET,
+                )
+                // An explicit payment port in config wins over probing and
+                // survives reinstalls. With none, the link finds its own
+                // port (NayaxLink) — cabinet count says nothing about it:
+                // two doubles are on different ports.
+                val nayax = isl.snudursopi.fridge.hardware.nayax.NayaxLink
+                val portChanged = p.paymentSerialPort?.let { nayax.setPortPathExplicit(it) } ?: false
+                if (portChanged) {
+                    android.util.Log.w("MarshallPay", "payment port now ${nayax.portPath}")
+                    lifecycleScope.launch {
+                        runCatching {
+                            realPayment.disconnect()
+                            kotlinx.coroutines.delay(1_000)
+                            realPayment.connect()
                         }
                     }
-                    realHardware.setTrayCount(
-                        (cabinets - 1) * Planogram.ADDRESS_BLOCK_PER_CABINET +
-                            Planogram.BASKETS_PER_CABINET,
-                    )
-                    viewModel.setPlanogram(p)
-                    lights.policy = p.led
-                    // Machine-level language settings ride the planogram, so
-                    // apply them here rather than plumbing a second channel.
-                    viewModel.setLanguageOptions(p.defaultLanguage, p.availableLanguages)
-                    // Bring the shelf-edge LED tags in line with the prices we
-                    // just received. Launched separately because sync() can wait
-                    // out a whole customer session — blocking the collector would
-                    // hold up the NEXT planogram update behind it. Overlapping
-                    // syncs are serialised by a mutex inside. A failure here must
-                    // never disturb the purchase flow.
-                    lifecycleScope.launch {
-                        runCatching { priceTags.sync(p) }
-                            .onFailure {
-                                android.util.Log.w("PriceTagSync", "sync failed: ${it.message}")
-                            }
-                    }
+                }
+                lights.policy = p.led
+                viewModel.setLanguageOptions(p.defaultLanguage, p.availableLanguages)
+                viewModel.setMachineSettings(p)
+
+                // The sellable basket list is the one thing an empty config must
+                // not replace: a transient empty response would otherwise wipe a
+                // working machine's products. Removing every product therefore
+                // takes effect at the next restart, as it always has.
+                if (p.baskets.isEmpty()) return@collect
+                android.util.Log.i("FridgeBackend", "planogram applied: ${p.baskets.size} baskets")
+                viewModel.setPlanogram(p)
+                // Bring the shelf-edge LED tags in line with the prices we
+                // just received. Launched separately because sync() can wait
+                // out a whole customer session — blocking the collector would
+                // hold up the NEXT planogram update behind it. Overlapping
+                // syncs are serialised by a mutex inside. A failure here must
+                // never disturb the purchase flow.
+                lifecycleScope.launch {
+                    runCatching { priceTags.sync(p) }
+                        .onFailure {
+                            android.util.Log.w("PriceTagSync", "sync failed: ${it.message}")
+                        }
                 }
             }
         }

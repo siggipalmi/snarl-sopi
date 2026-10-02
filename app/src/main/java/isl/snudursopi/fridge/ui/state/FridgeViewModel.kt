@@ -71,6 +71,15 @@ class FridgeViewModel(
 
     fun setPlanogram(p: Planogram) {
         planogram = p
+        setMachineSettings(p)
+    }
+
+    /**
+     * The parts of a config that describe the machine rather than what it sells.
+     * Applied on every config, stocked or not — a machine mid-setup has no
+     * baskets yet but still needs its logo, posters and cabinet count.
+     */
+    fun setMachineSettings(p: Planogram) {
         // The idle animation draws a single or a double from this, so it must
         // follow the config rather than a build flag.
         _ui.value = _ui.value.copy(
@@ -123,11 +132,25 @@ class FridgeViewModel(
     private var defaultLanguage: Language = Language.Icelandic
 
     fun setLanguageOptions(default: Language, available: List<Language>) {
+        val offered = available.ifEmpty { listOf(default) }
+        val changed = default != defaultLanguage || offered != _ui.value.availableLanguages
         defaultLanguage = default
-        _ui.value = _ui.value.copy(
-            language = default,
-            availableLanguages = available.ifEmpty { listOf(default) },
-        )
+        val current = _ui.value
+        // Every config poll that brings a change (a price, a poster) lands here.
+        // A customer mid-purchase keeps the language they picked unless it is no
+        // longer offered; at idle the screen switches to the new default at once.
+        val language = when {
+            current.phase == FridgePhase.IDLE -> default
+            current.language !in offered -> default
+            else -> current.language
+        }
+        _ui.value = current.copy(language = language, availableLanguages = offered)
+        if (changed) {
+            android.util.Log.i(
+                "FridgeFlow",
+                "language: default=${default.code} available=${offered.joinToString(",") { it.code }} showing=${language.code}",
+            )
+        }
     }
 
     fun startIdleWatch() {
