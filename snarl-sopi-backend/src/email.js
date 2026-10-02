@@ -40,11 +40,12 @@ if (API_KEY) {
  * Send an email. Falls back to console.log if SendGrid is not configured,
  * so the rest of the app works in development without email setup.
  */
-async function send({ to, subject, text, html, fromName }) {
+async function send({ to, subject, text, html, fromName, replyTo }) {
   if (!sgMail) {
     console.log('\n──── [EMAIL DEV MODE] ────────────────────────');
     console.log('To:     ', to);
     console.log('From:   ', `${fromName || FROM_NAME} <${FROM_EMAIL}>`);
+    if (replyTo) console.log('ReplyTo:', replyTo);
     console.log('Subject:', subject);
     console.log('Text:\n', text);
     console.log('──────────────────────────────────────────────\n');
@@ -56,6 +57,8 @@ async function send({ to, subject, text, html, fromName }) {
       from: { email: FROM_EMAIL, name: fromName || FROM_NAME },
       subject, text, html,
     };
+    // Customer receipts: answers go to the operator who runs the machine, not to the sender.
+    if (replyTo) msg.replyTo = replyTo;
     // Never let a slow/hung SendGrid call hold a request open — cap it and surface a clear
     // error instead. Without this, a stalled email API keeps the HTTP request open until
     // the platform edge times out and returns a 502.

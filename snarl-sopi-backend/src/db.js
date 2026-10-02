@@ -486,6 +486,10 @@ function fridgeLanguageBlock(cfg) {
   return { default: def, available, labels: LABELS };
 }
 
+function receiptsOffered(op) {
+  return !!(String((op && op.name) || '').trim() && String((op && op.kennitala) || '').replace(/\D/g, '').length === 10);
+}
+
 function buildConfigResponse(machine) {
   const HOUSE_EMAIL = 'hallo@snarlogsopi.is';
   const op = operators[machine.operatorId] || {};
@@ -514,6 +518,9 @@ function buildConfigResponse(machine) {
     // "is" falling through to the default res/values). Per-machine default so a workplace can
     // open in Icelandic and a hotel in English. Labels are for a language-name UI if needed.
     language: fridgeLanguageBlock(cfg),
+    // Email receipts after a fridge sale. Offered only when the operator has a name and a kennitala
+    // on file, because both are printed on the receipt.
+    receipts: { enabled: receiptsOffered(op) },
     commands: {
       restartApp: cfg.restartAppAt || null,
       restartMachine: cfg.restartMachineAt || null,
@@ -649,7 +656,7 @@ module.exports = {
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
   markKioskSeen, isKioskAlive,
-  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds,
+  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
