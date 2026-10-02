@@ -95,4 +95,18 @@
     <string name="complaint_done_title">report received.</string>
     <string name="complaint_done_sub">we\'ll get back to you by email as soon as we can.</string>
     <string name="complaint_reference">reference</string>
+
+    <!-- Email receipt after a sale -->
+    <string name="receipt_email_button">get a receipt by email</string>
+    <string name="receipt_email_title">receipt by email</string>
+    <string name="receipt_email_hint">your email address</string>
+    <string name="receipt_email_note">your address is used only to send this receipt.</string>
+    <string name="receipt_email_send">send</string>
+    <string name="receipt_email_cancel">cancel</string>
+    <string name="receipt_email_invalid">check the email address</string>
+    <string name="receipt_email_failed">the receipt could not be sent — try again</string>
+    <string name="receipt_sent_title">receipt sent</string>
+    <string name="receipt_sent_to">to %1$s</string>
+    <string name="receipt_sent_queued">it will go out as soon as the machine is back online</string>
+    <string name="receipt_returning">back to start in %1$d s</string>
 </resources>

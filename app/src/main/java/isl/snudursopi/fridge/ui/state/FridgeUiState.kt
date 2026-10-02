@@ -30,6 +30,9 @@ enum class FridgePhase {
     // ---- complaint (UI 8) ----
     COMPLAINT,      // customer filling in the "something was wrong" form
     COMPLAINT_DONE, // complaint accepted; reference number shown
+    // ---- email receipt ----
+    RECEIPT_EMAIL,  // customer typing an address for an emailed receipt
+    RECEIPT_SENT,   // handed to the backend (or held until it is reachable)
 }
 
 /**
@@ -64,6 +67,18 @@ data class RestockCell(
 enum class RestockCellState { STOCKED, EMPTY, DISABLED, FAULT }
 
 /** A tentative or final cart line for the tiled UI (image + name + price). */
+/** The email-receipt form. Reset each time it is opened; the address is never stored. */
+data class ReceiptDraft(
+    val email: String = "",
+    val sending: Boolean = false,
+    /** The address doesn't look like one; shown under the field. */
+    val invalid: Boolean = false,
+    /** The backend refused it; the customer can correct and retry. */
+    val error: Boolean = false,
+    /** Held on the machine until the backend is reachable. */
+    val queued: Boolean = false,
+)
+
 /** In-progress complaint form. Lives in UI state so a rotation can't lose it. */
 data class ComplaintDraft(
     val selectedLines: Set<Int> = emptySet(),
@@ -141,6 +156,11 @@ data class FridgeUiState(
     val receiptLines: List<ComplaintLine> = emptyList(),
     /** Draft state for the complaint form, reset whenever the form is opened. */
     val complaint: ComplaintDraft = ComplaintDraft(),
+    /** Offer an emailed receipt after a sale (from config). */
+    val receiptsEnabled: Boolean = false,
+    val receipt: ReceiptDraft = ReceiptDraft(),
+    /** When this screen returns to idle on its own (epoch ms), for the countdown bar. */
+    val idleReturnAtMs: Long? = null,
 ) {
     companion object {
         fun tilesFrom(lines: List<Settlement.Line>): List<CartTile> =

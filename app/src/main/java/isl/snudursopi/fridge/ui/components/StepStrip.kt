@@ -117,6 +117,8 @@ fun stepForPhase(phase: FridgePhase): Int = when (phase) {
     // the customer moves receipt -> form -> confirmation, rather than appearing
     // to undo the transaction they just made.
     FridgePhase.COMPLAINT, FridgePhase.COMPLAINT_DONE -> 4
+    // Same: the purchase is done; the receipt is an extra after it.
+    FridgePhase.RECEIPT_EMAIL, FridgePhase.RECEIPT_SENT -> 4
 }
 
 @Composable

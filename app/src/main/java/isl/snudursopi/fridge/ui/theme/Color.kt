@@ -15,5 +15,9 @@ object AppColors {
     val MutedSoft = Color(0xFF6B6B6B)
     val Alert = Color(0xFFB8471F)
     val Success = Color(0xFF4A6B2E)
+    /** The email-receipt button: a deeper, warmer cousin of [Alert], so it reads
+     *  as an invitation rather than a warning. [BrickDeep] is its pressed edge. */
+    val Brick = Color(0xFFA63A24)
+    val BrickDeep = Color(0xFF7E2A19)
     val White = Color(0xFFFFFFFF)
 }

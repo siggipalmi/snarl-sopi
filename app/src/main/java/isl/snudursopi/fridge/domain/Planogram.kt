@@ -95,6 +95,12 @@ data class Planogram(
     val idleTimeoutSeconds: Int = 60,
     /** Cabinet lighting (fridge.led). On/off only on this hardware — see [LightPolicy]. */
     val led: LightPolicy = LightPolicy(),
+    /**
+     * Offer an email receipt after a sale (config.receipts.enabled). The backend
+     * turns it on only when the operator has a name and kennitala on file, since
+     * both are printed on the receipt. Off when the config doesn't say.
+     */
+    val receiptsEnabled: Boolean = false,
 ) {
     /**
      * Keyed by TRAY, not by basket number. Keying by number alone silently lost

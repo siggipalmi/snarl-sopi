@@ -4,7 +4,7 @@ Everything here was established by testing on real hardware, usually after a
 plausible assumption turned out to be wrong. None of it can be inferred from
 documentation or from the other machine types.
 
-App is at **v0.60.3 / versionCode 147**.
+App is at **v0.61.0 / versionCode 148**.
 
 ---
 

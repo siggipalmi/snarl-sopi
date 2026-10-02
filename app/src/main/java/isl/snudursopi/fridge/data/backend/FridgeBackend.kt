@@ -82,6 +82,9 @@ class FridgeBackend(
      */
     private val _complaints = MutableStateFlow<ComplaintClient?>(null)
     val complaints: StateFlow<ComplaintClient?> = _complaints.asStateFlow()
+
+    private val _receipts = MutableStateFlow<ReceiptClient?>(null)
+    val receipts: StateFlow<ReceiptClient?> = _receipts.asStateFlow()
     private var configClient: FridgeConfigClient? = null
     private var commandClient: CommandClient? = null
 
@@ -103,6 +106,7 @@ class FridgeBackend(
             // Anything stranded from a previous run goes first.
             runCatching { settlements?.flushQueue() }
             runCatching { _complaints.value?.flush() }
+            runCatching { _receipts.value?.flush() }
 
             while (isActive) {
                 pollOnce()
@@ -127,6 +131,7 @@ class FridgeBackend(
                 // moment to retry.
                 runCatching { settlements?.flushQueue() }
                 runCatching { _complaints.value?.flush() }
+                runCatching { _receipts.value?.flush() }
                 delay(FridgeBackendConfig.CONFIG_POLL_INTERVAL_MS)
             }
         }
@@ -259,6 +264,7 @@ class FridgeBackend(
         configClient = FridgeConfigClient(http, deviceCode)
         commandClient = CommandClient(http, deviceCode)
         _complaints.value = ComplaintClient(http, deviceCode, complaintQueue)
+        _receipts.value = ReceiptClient(http, deviceCode)
         logRelay = LogRelay(http, deviceCode)
         telemetryClient = TelemetryClient(http, deviceCode)
         paymentReporter = PaymentStatusReporter(http, deviceCode)

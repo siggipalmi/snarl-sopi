@@ -16,6 +16,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import isl.snudursopi.fridge.data.backend.ComplaintClient
+import isl.snudursopi.fridge.data.backend.ReceiptResult
 import isl.snudursopi.fridge.data.backend.ComplaintLine
 import isl.snudursopi.fridge.data.backend.ComplaintResult
 import isl.snudursopi.fridge.domain.ComplaintReason
@@ -52,6 +53,8 @@ class FridgeViewModel(
      * complaint would silently fail to send. Read it at send time instead.
      */
     private val complaintClient: () -> ComplaintClient? = { null },
+    /** Same reasoning as [complaintClient]: read when sending, not at construction. */
+    private val receiptClient: () -> isl.snudursopi.fridge.data.backend.ReceiptClient? = { null },
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(FridgeUiState())
@@ -90,6 +93,7 @@ class FridgeViewModel(
             posters = p.posters,
             showPosters = p.showPosters,
             idleTimeoutSeconds = p.idleTimeoutSeconds,
+            receiptsEnabled = p.receiptsEnabled,
         )
     }
 
@@ -786,7 +790,13 @@ class FridgeViewModel(
                     )
                 }
             }
-            autoReturnToIdle()
+            // The receipt screen stays up longer where an emailed receipt is on
+            // offer: 6 s is enough to read the amount, not to notice a button,
+            // decide and tap it.
+            // (Decided before the capture callback lands, so a queued offline
+            // charge gets the longer hold too — harmless, and it has no button.)
+            val soldSomething = !result.nothingTaken
+            autoReturnToIdle(afterMs = if (soldSomething && _ui.value.receiptsEnabled) RECEIPT_HOLD_MS else 6_000)
         }
     }
 
@@ -856,10 +866,27 @@ class FridgeViewModel(
      * dropping it here made the admin sheet say ÓSKRÁÐ after the first sale.
      */
     private fun freshIdle() = _ui.value.let {
+        // *** KEEP EVERYTHING THAT DESCRIBES THE MACHINE.
+        //
+        // Machine settings are pushed into this state only when the config
+        // changes, so anything dropped here stays dropped until the next config
+        // edit. This used to keep three fields: after the first sale a machine
+        // lost its posters, logo, operator name, idle timeout and language
+        // options, and fell back to Icelandic whatever its default.
         FridgeUiState(
             machineLabel = it.machineLabel,
+            operatorName = it.operatorName,
+            supportEmail = it.supportEmail,
+            logoUrl = it.logoUrl,
+            posters = it.posters,
+            showPosters = it.showPosters,
+            idleTimeoutSeconds = it.idleTimeoutSeconds,
+            cabinetCount = it.cabinetCount,
+            language = defaultLanguage,
+            availableLanguages = it.availableLanguages,
             deviceCode = it.deviceCode,
             lastPollOkMs = it.lastPollOkMs,
+            receiptsEnabled = it.receiptsEnabled,
         )
     }
 
@@ -867,9 +894,73 @@ class FridgeViewModel(
 
     private fun autoReturnToIdle(afterMs: Long = 6000) {
         idleReturnJob?.cancel()
+        _ui.value = _ui.value.copy(idleReturnAtMs = System.currentTimeMillis() + afterMs)
         idleReturnJob = viewModelScope.launch {
             delay(afterMs)
             _ui.value = freshIdle()
+        }
+    }
+
+    // ---------------------------------------------------------- email receipt
+
+    fun openReceiptEmail() {
+        if (!_ui.value.receiptsEnabled || _ui.value.orderId.isBlank()) return
+        _ui.value = _ui.value.copy(phase = FridgePhase.RECEIPT_EMAIL, receipt = ReceiptDraft())
+        // Someone who opens the form and walks away must not leave the machine
+        // stuck on it; every keystroke restarts this.
+        autoReturnToIdle(afterMs = RECEIPT_FORM_IDLE_MS)
+    }
+
+    fun setReceiptEmail(email: String) {
+        val clean = email.replace(" ", "").take(254)
+        _ui.value = _ui.value.copy(receipt = _ui.value.receipt.copy(email = clean, invalid = false, error = false))
+        if (_ui.value.phase == FridgePhase.RECEIPT_EMAIL) autoReturnToIdle(afterMs = RECEIPT_FORM_IDLE_MS)
+    }
+
+    /** One-tap domain: replaces whatever follows the @, or appends it. */
+    fun addReceiptDomain(domain: String) {
+        val local = _ui.value.receipt.email.substringBefore('@')
+        setReceiptEmail(local + domain)
+    }
+
+    /** Back to the receipt, with its timer restarted: they may still want to complain. */
+    fun cancelReceiptEmail() {
+        _ui.value = _ui.value.copy(phase = FridgePhase.RECEIPT, receipt = ReceiptDraft())
+        autoReturnToIdle(afterMs = RECEIPT_HOLD_MS)
+    }
+
+    fun sendReceipt() {
+        val state = _ui.value
+        val d = state.receipt
+        if (d.sending) return
+        val email = d.email.trim()
+        if (!EMAIL_SHAPE.matches(email)) {
+            _ui.value = state.copy(receipt = d.copy(invalid = true))
+            return
+        }
+        val client = receiptClient() ?: run {
+            android.util.Log.e("FridgeFlow", "receipt send with no client wired")
+            _ui.value = state.copy(receipt = d.copy(error = true))
+            return
+        }
+        _ui.value = state.copy(receipt = d.copy(sending = true, invalid = false, error = false))
+        viewModelScope.launch {
+            val res = client.send(state.orderId, email, state.language.code)
+            val cur = _ui.value
+            // A slow network can outlast the form's idle timer; by then the
+            // machine is back at idle and the next customer must not see this.
+            if (cur.phase != FridgePhase.RECEIPT_EMAIL) return@launch
+            when (res) {
+                is ReceiptResult.Accepted, is ReceiptResult.Queued -> {
+                    _ui.value = cur.copy(
+                        phase = FridgePhase.RECEIPT_SENT,
+                        receipt = cur.receipt.copy(sending = false, queued = res is ReceiptResult.Queued),
+                    )
+                    autoReturnToIdle(afterMs = 8_000)
+                }
+                is ReceiptResult.Rejected ->
+                    _ui.value = cur.copy(receipt = cur.receipt.copy(sending = false, error = true))
+            }
         }
     }
 
@@ -969,6 +1060,17 @@ class FridgeViewModel(
         // Longer than the receipt's six seconds: there is a reference number on
         // this screen that someone may want to write down.
         autoReturnToIdle(afterMs = 15_000)
+    }
+
+    private companion object {
+        /** Receipt screen when an emailed receipt is offered. Siggi chose 15 s on the mockup. */
+        const val RECEIPT_HOLD_MS = 15_000L
+
+        /** The address form returns to idle after this long with no typing. */
+        const val RECEIPT_FORM_IDLE_MS = 60_000L
+
+        /** Enough to catch a missing @ or domain; the backend has the final say. */
+        val EMAIL_SHAPE = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$")
     }
 }
 

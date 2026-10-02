@@ -119,4 +119,18 @@
     <string name="complaint_done_title">kvörtun móttekin.</string>
     <string name="complaint_done_sub">við svörum þér sem fyrst með tölvupósti.</string>
     <string name="complaint_reference">tilvísunarnúmer</string>
+
+    <!-- Email receipt after a sale -->
+    <string name="receipt_email_button">fá kvittun í tölvupósti</string>
+    <string name="receipt_email_title">kvittun í tölvupósti</string>
+    <string name="receipt_email_hint">netfangið þitt</string>
+    <string name="receipt_email_note">netfangið er aðeins notað til að senda þessa kvittun.</string>
+    <string name="receipt_email_send">senda</string>
+    <string name="receipt_email_cancel">hætta við</string>
+    <string name="receipt_email_invalid">athugaðu netfangið</string>
+    <string name="receipt_email_failed">ekki tókst að senda kvittunina — reyndu aftur</string>
+    <string name="receipt_sent_title">kvittun send</string>
+    <string name="receipt_sent_to">á %1$s</string>
+    <string name="receipt_sent_queued">hún fer af stað um leið og vélin nær sambandi</string>
+    <string name="receipt_returning">aftur á upphafsskjá eftir %1$d s</string>
 </resources>

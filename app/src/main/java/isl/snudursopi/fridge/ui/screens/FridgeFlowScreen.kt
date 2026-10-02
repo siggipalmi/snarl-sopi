@@ -56,6 +56,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import isl.snudursopi.fridge.ui.components.ComplaintForm
 import isl.snudursopi.fridge.ui.components.ComplaintDone
+import isl.snudursopi.fridge.ui.components.IdleCountdown
+import isl.snudursopi.fridge.ui.components.ReceiptEmailButton
+import isl.snudursopi.fridge.ui.components.ReceiptEmailForm
+import isl.snudursopi.fridge.ui.components.ReceiptSent
 import isl.snudursopi.fridge.domain.ComplaintReason
 
 /**
@@ -78,6 +82,12 @@ fun FridgeFlowScreen(
     onComplaintEmail: (String) -> Unit = {},
     onComplaintCancel: () -> Unit = {},
     onComplaintSend: () -> Unit = {},
+    // ---- email receipt ----
+    onReceiptEmailOpen: () -> Unit = {},
+    onReceiptEmail: (String) -> Unit = {},
+    onReceiptDomain: (String) -> Unit = {},
+    onReceiptCancel: () -> Unit = {},
+    onReceiptSend: () -> Unit = {},
 ) {
     // Admin is local UI state, not app state — it must work even if the backend
     // is unreachable, which is exactly when someone needs it.
@@ -101,7 +111,9 @@ fun FridgeFlowScreen(
 
     val fullScreenPhase = state.phase == FridgePhase.RESTOCK ||
         state.phase == FridgePhase.COMPLAINT ||
-        state.phase == FridgePhase.COMPLAINT_DONE
+        state.phase == FridgePhase.COMPLAINT_DONE ||
+        state.phase == FridgePhase.RECEIPT_EMAIL ||
+        state.phase == FridgePhase.RECEIPT_SENT
     Box(
         Modifier
             .fillMaxSize()
@@ -135,7 +147,15 @@ fun FridgeFlowScreen(
                 titleRes = R.string.calculating_title,
                 subRes = R.string.calculating_sub,
             )
-            FridgePhase.RECEIPT -> ReceiptView(state, onComplaint = onComplaintOpen)
+            FridgePhase.RECEIPT -> ReceiptView(state, onComplaint = onComplaintOpen, onReceiptEmail = onReceiptEmailOpen)
+            FridgePhase.RECEIPT_EMAIL -> ReceiptEmailForm(
+                state = state,
+                onEmail = onReceiptEmail,
+                onDomain = onReceiptDomain,
+                onCancel = onReceiptCancel,
+                onSend = onReceiptSend,
+            )
+            FridgePhase.RECEIPT_SENT -> ReceiptSent(state)
             FridgePhase.COMPLAINT -> ComplaintForm(
                 state = state,
                 onToggleLine = onComplaintToggleLine,
@@ -446,7 +466,7 @@ private fun ShoppingView(state: FridgeUiState, warn: Boolean) {
 }
 
 @Composable
-private fun ReceiptView(state: FridgeUiState, onComplaint: () -> Unit) {
+private fun ReceiptView(state: FridgeUiState, onComplaint: () -> Unit, onReceiptEmail: () -> Unit) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(8.dp))
         // The thank-you is a courtesy; the AMOUNT is the fact. It used to be
@@ -482,7 +502,15 @@ private fun ReceiptView(state: FridgeUiState, onComplaint: () -> Unit) {
         // charged misses it before the screen returns to idle — Siggi reviewed
         // this weight on the mockup and kept it.
         Spacer(Modifier.weight(1f))
-        ComplaintEntryButton(state.language, onComplaint)
+        if (state.receiptsEnabled && state.orderId.isNotBlank()) {
+            ReceiptEmailButton(state.language, onReceiptEmail)
+            Spacer(Modifier.height(14.dp))
+            ComplaintEntryButton(state.language, onComplaint)
+            Spacer(Modifier.height(10.dp))
+            IdleCountdown(state, totalMs = 15_000)
+        } else {
+            ComplaintEntryButton(state.language, onComplaint)
+        }
         Spacer(Modifier.height(6.dp))
     }
 }

@@ -130,7 +130,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private val viewModel: FridgeViewModel by viewModels {
-        FridgeViewModelFactory(realHardware, realPayment) { backend.complaints.value }
+        FridgeViewModelFactory(
+            realHardware,
+            realPayment,
+            complaintClient = { backend.complaints.value },
+            receiptClient = { backend.receipts.value },
+        )
     }
 
     /**
@@ -598,6 +603,11 @@ class MainActivity : ComponentActivity() {
                                 onComplaintEmail = { viewModel.setComplaintEmail(it) },
                                 onComplaintCancel = { viewModel.cancelComplaint() },
                                 onComplaintSend = { viewModel.sendComplaint() },
+                                onReceiptEmailOpen = { viewModel.openReceiptEmail() },
+                                onReceiptEmail = { viewModel.setReceiptEmail(it) },
+                                onReceiptDomain = { viewModel.addReceiptDomain(it) },
+                                onReceiptCancel = { viewModel.cancelReceiptEmail() },
+                                onReceiptSend = { viewModel.sendReceipt() },
                             )
                             // Runtime toggle, not BuildConfig.DEBUG: field
                             // machines run the debug variant because Device

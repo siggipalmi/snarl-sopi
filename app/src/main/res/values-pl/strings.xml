@@ -94,4 +94,18 @@
     <string name="complaint_done_title">zgłoszenie przyjęte.</string>
     <string name="complaint_done_sub">odpowiemy e-mailem jak najszybciej.</string>
     <string name="complaint_reference">numer zgłoszenia</string>
+
+    <!-- Email receipt after a sale -->
+    <string name="receipt_email_button">otrzymaj paragon e-mailem</string>
+    <string name="receipt_email_title">paragon e-mailem</string>
+    <string name="receipt_email_hint">twój adres e-mail</string>
+    <string name="receipt_email_note">adres zostanie użyty wyłącznie do wysłania tego paragonu.</string>
+    <string name="receipt_email_send">wyślij</string>
+    <string name="receipt_email_cancel">anuluj</string>
+    <string name="receipt_email_invalid">sprawdź adres e-mail</string>
+    <string name="receipt_email_failed">nie udało się wysłać paragonu — spróbuj ponownie</string>
+    <string name="receipt_sent_title">paragon wysłany</string>
+    <string name="receipt_sent_to">na %1$s</string>
+    <string name="receipt_sent_queued">zostanie wysłany, gdy automat odzyska połączenie</string>
+    <string name="receipt_returning">powrót do ekranu startowego za %1$d s</string>
 </resources>
