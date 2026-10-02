@@ -98,7 +98,7 @@ class LogRelay(
                 // relay showed the backend's offer but not what the machine did
                 // with it (2026-10-01: "NotDeviceOwner" was visible only over adb).
                 "PriceTagSync:I", "AppUpdater:I", "OtaScheduler:I", "RecoveryGuard:I",
-                "AdminClock:I", "SelfHealing:I", "CommandRunner:I", "PaymentWatch:I",
+                "AdminClock:I", "SelfHealing:I", "CommandRunner:I", "PaymentWatch:I", "FridgeLights:I",
                 // *** THE PAYMENT LINK MUST BE VISIBLE HERE.
                 //
                 // These were missing until 2026-09-04, when the Blue Hotel

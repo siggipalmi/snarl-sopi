@@ -49,6 +49,7 @@ class CommandRunner(
     private val onClearDeviceOwner: (suspend () -> String)? = null,
     /** Point the Nayax link at a different serial port. */
     private val onSetPaymentPort: (suspend (String) -> String)? = null,
+    private val onSetLights: ((Boolean) -> String)? = null,
     /** Open TeamViewer QuickSupport on the machine's screen. */
     private val onLaunchSupport: (suspend () -> String)? = null,
 ) {
@@ -121,19 +122,22 @@ class CommandRunner(
     // ---- handlers ----
 
     /**
-     * Lighting. The backend's set_led carries `brightness` 0-100, but how that
-     * maps onto the board's ctlLed/ledBrightnessAdjustment arguments is not
-     * known yet, so a plain brightness is refused rather than guessed at.
+     * Lighting. set_led { brightness 0-100 } is an instant override until the
+     * next config change: 0 is off, anything above 0 is on — this board does
+     * not dim (measured 2026-10-02, see LightPolicy).
      *
-     * For finding out: add `fn` ("ctlLed" | "brightness") and `a`, `b`, `c`, and
-     * exactly that one call is sent. Watch the lights, read the reply in the
-     * log, then build the real mapping from what was seen.
+     * With `fn` ("ctlLed" | "brightness") and `a`, `b`, `c` it instead sends
+     * exactly that one raw call, for investigating a different board.
      */
     private fun setLed(cmd: MachineCommand): CommandOutcome {
         val fn = cmd.str("fn")
-            ?: return CommandOutcome.Unsupported(
-                "brightness → board mapping not established yet; probe with fn/a/b/c",
-            )
+        if (fn == null) {
+            val level = cmd.int("brightness")
+                ?: return CommandOutcome.Failed("give brightness 0-100 (0 = off, above 0 = on)")
+            val set = onSetLights
+                ?: return CommandOutcome.Unsupported("this build cannot drive the lights")
+            return CommandOutcome.Ok(set(level > 0))
+        }
         if (fn != "ctlLed" && fn != "brightness") {
             return CommandOutcome.Failed("fn must be \"ctlLed\" or \"brightness\"")
         }

@@ -4,7 +4,7 @@ Everything here was established by testing on real hardware, usually after a
 plausible assumption turned out to be wrong. None of it can be inferred from
 documentation or from the other machine types.
 
-App is at **v0.56.0 / versionCode 137**.
+App is at **v0.60.0 / versionCode 144**.
 
 ---
 
@@ -92,6 +92,22 @@ thermostat; the setpoint is the only way to reach it. Twelve combinations of
 is *read* — so the sweep never once wrote a setpoint.
 
 Confirmed driving the compressor: cabinet went 12 °C → 10 °C and kept falling.
+
+---
+
+## Cabinet lights: on/off only
+
+    ctlLed(0, 1, 0)  — lights OFF      (address 0, mode 1 = set, value)
+    ctlLed(0, 1, 1)  — lights ON
+
+Measured on `8626020623` (single), 2026-10-02. The board answers each with a
+`0x43` frame within ~0.1s. `ctlLed(0, 1, 10)`, `(0, 1, 50)` and `(0, 1, 100)`
+look exactly like `(0, 1, 1)`: **this board does not dim.** `ctlLed(0, 0, 0)` —
+mode 0, by analogy with ctlTemp's read — gets no reply.
+`ledBrightnessAdjustment(0, 1, 50)` gets **no reply at all**.
+
+So every brightness in the backend's lighting policy reads as 0 = off, above 0
+= on (app v0.60.0, `domain/Lighting.kt`). Untested on a double.
 
 ---
 

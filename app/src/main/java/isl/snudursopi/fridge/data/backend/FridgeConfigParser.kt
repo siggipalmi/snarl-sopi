@@ -5,6 +5,7 @@ import isl.snudursopi.fridge.domain.Basket
 import isl.snudursopi.fridge.domain.Cabinet
 import isl.snudursopi.fridge.domain.FridgeSpec
 import isl.snudursopi.fridge.domain.Language
+import isl.snudursopi.fridge.domain.LightPolicy
 import isl.snudursopi.fridge.domain.Planogram
 import isl.snudursopi.fridge.domain.Poster
 import isl.snudursopi.fridge.domain.Settlement
@@ -113,6 +114,7 @@ object FridgeConfigParser {
             posters = posters,
             showPosters = data.field("showAdRegion")?.asBoolean() ?: true,
             idleTimeoutSeconds = (data.field("idleTimeoutSeconds")?.asInt() ?: 60).coerceIn(10, 3600),
+            led = parseLed(fridge.field("led")),
         )
     }
 
@@ -143,6 +145,40 @@ object FridgeConfigParser {
             else -> n.asText()
         }?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: return null
         return Language.entries.firstOrNull { it.code == code }
+    }
+
+    /**
+     * fridge.led → [LightPolicy]. Anything missing or malformed falls back to the
+     * default (lights on, wake on unlock) rather than to dark: a fridge too
+     * bright at 3am is a nuisance, a fridge dark at midday is lost sales.
+     */
+    private fun parseLed(n: JsonNode?): LightPolicy {
+        if (n == null || !n.isObject) return LightPolicy()
+        val mode = n.field("mode")?.asText()?.takeIf { it in setOf("off", "on", "schedule") } ?: "on"
+        val night = n.field("night")?.takeIf { it.isObject }?.let { w ->
+            runCatching {
+                LightPolicy.NightWindow(
+                    from = java.time.LocalTime.parse(w.field("from")!!.asText()),
+                    to = java.time.LocalTime.parse(w.field("to")!!.asText()),
+                    brightness = w.field("brightness")?.asInt() ?: 0,
+                    zone = java.time.ZoneId.of(w.field("timezone")?.asText() ?: "Atlantic/Reykjavik"),
+                    requiresClockProof = w.field("requiresClockProof")?.asBoolean() ?: true,
+                )
+            }.getOrNull()
+        }
+        val wake = n.field("wake")?.takeIf { it.isObject }?.let { w ->
+            LightPolicy.Wake(
+                enabled = w.field("enabled")?.asBoolean() ?: true,
+                brightness = w.field("brightness")?.asInt() ?: 100,
+                holdSeconds = (w.field("holdSeconds")?.asInt() ?: 45).coerceIn(0, 600),
+            )
+        } ?: LightPolicy.Wake()
+        return LightPolicy(
+            mode = mode,
+            brightness = n.field("brightness")?.asInt() ?: 100,
+            night = night,
+            wake = wake,
+        )
     }
 
     private fun parseBasket(n: JsonNode): Basket? {

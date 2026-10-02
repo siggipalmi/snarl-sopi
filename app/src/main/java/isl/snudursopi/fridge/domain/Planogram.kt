@@ -93,6 +93,8 @@ data class Planogram(
     val showPosters: Boolean = true,
     /** Seconds idle before posters join the rotation (config.idleTimeoutSeconds). */
     val idleTimeoutSeconds: Int = 60,
+    /** Cabinet lighting (fridge.led). On/off only on this hardware — see [LightPolicy]. */
+    val led: LightPolicy = LightPolicy(),
 ) {
     /**
      * Keyed by TRAY, not by basket number. Keying by number alone silently lost

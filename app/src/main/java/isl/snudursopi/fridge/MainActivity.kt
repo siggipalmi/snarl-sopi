@@ -88,6 +88,9 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    /** Cabinet lights, driven from the config policy. */
+    private val lights by lazy { LightController(realHardware) }
+
     /** Real Nayax — the ONE shared link (see NayaxLink for how its port is found). */
     private val realPayment get() = NayaxLink.payment
 
@@ -333,6 +336,7 @@ class MainActivity : ComponentActivity() {
                             Planogram.BASKETS_PER_CABINET,
                     )
                     viewModel.setPlanogram(p)
+                    lights.policy = p.led
                     // Machine-level language settings ride the planogram, so
                     // apply them here rather than plumbing a second channel.
                     viewModel.setLanguageOptions(p.defaultLanguage, p.availableLanguages)
@@ -411,6 +415,7 @@ class MainActivity : ComponentActivity() {
                     kotlin.system.exitProcess(0)
                 }
             },
+            onSetLights = { on -> lights.override(on) },
             onSetPaymentPort = { path ->
                 val nayax = isl.snudursopi.fridge.hardware.nayax.NayaxLink
                 if (path == "auto") nayax.useAutomatic() else nayax.setPortPathExplicit(path)
@@ -482,6 +487,12 @@ class MainActivity : ComponentActivity() {
         // Bring the hardware up: weight bus, then the reader. A card tap is
         // what starts a purchase, so route it into the state machine.
         realHardware.start { ok -> android.util.Log.i("WeightHW", "weight bus start ok=$ok") }
+        // Lights follow the policy, the session (wake on unlock) and the clock
+        // proof (a night window is not applied until a poll has succeeded).
+        lifecycleScope.launch { viewModel.ui.collect { lights.phase = it.phase } }
+        lifecycleScope.launch { backend.lastPollOkMs.collect { lights.clockProven = it != null } }
+        lights.start(lifecycleScope)
+
         realPayment.onCardPresented = {
             runOnUiThread { viewModel.onCardTapped() }
         }

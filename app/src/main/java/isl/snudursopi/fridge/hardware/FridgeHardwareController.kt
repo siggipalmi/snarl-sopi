@@ -134,6 +134,13 @@ interface FridgeHardwareController {
     fun ledRaw(fn: String, a: Int, b: Int, c: Int): String = "this hardware has no lighting control"
 
     /**
+     * Cabinet lights on or off. On/off is all this board does — see LightPolicy.
+     * Returns false when nothing could be sent (bus not up yet), so the caller
+     * tries again rather than believing the lights are already right.
+     */
+    fun setLights(on: Boolean): Boolean = false
+
+    /**
      * Turn the compressor on or off and set the target temperature.
      *
      * *** SETPOINT IS WHOLE DEGREES; THE PROBE READING IS SIGNED TENTHS.

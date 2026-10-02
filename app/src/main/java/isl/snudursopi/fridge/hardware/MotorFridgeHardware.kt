@@ -482,6 +482,20 @@ class MotorFridgeHardware(
         return "sent $call — watch the lights; the board's reply is in the log (MotorFridgeHW)"
     }
 
+    /**
+     * ctlLed(address 0, mode 1 = set, value): 0 is off, 1 is on. Measured on
+     * 8626020623, 2026-10-02; the board answers each with a 0x43 frame. Values
+     * above 1 look identical to 1 — this board does not dim.
+     */
+    override fun setLights(on: Boolean): Boolean {
+        val ei = kit.getEnergyInstruct() ?: return false
+        Thread {
+            runCatching { ei.ctlLed(0, 1, if (on) 1 else 0, null, 50) }
+                .onFailure { Log.w(TAG, "setLights($on) threw: ${it.message}") }
+        }.start()
+        return true
+    }
+
     override fun tareTray(tray: Int) {
         kit.getWeightInstruct()?.tare(tray, null, 50)
         emit("tare tray=$tray requested", null)
