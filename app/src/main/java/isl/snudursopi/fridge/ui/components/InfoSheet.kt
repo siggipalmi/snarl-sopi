@@ -111,6 +111,19 @@ fun InfoSheet(state: FridgeUiState, onClose: () -> Unit) {
                         color = AppColors.Ink,
                     )
                     Spacer(Modifier.height(10.dp))
+                    // The operator's own logo, when they have uploaded one, sits
+                    // above the "operated by" line. Fit, never crop: it is their
+                    // brand, and a cut-off logo looks worse than none.
+                    state.logoUrl?.let { url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = state.operatorName.ifBlank { null },
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.CenterStart,
+                            modifier = Modifier.height(72.dp).fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
                     Text(
                         if (state.operatorName.isNotBlank()) {
                             localized(state.language, R.string.info_operated_by, state.operatorName)

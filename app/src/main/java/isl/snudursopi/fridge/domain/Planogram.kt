@@ -80,6 +80,14 @@ data class Planogram(
         Language.English,
         Language.Polish,
     ),
+    /** The operator's uploaded logo, for the info screen. Null shows the name alone. */
+    val logoUrl: String? = null,
+    /** Idle-screen posters (config.ads, images). Empty means the animation alone. */
+    val posters: List<Poster> = emptyList(),
+    /** Dashboard switch for the poster idle screen (config.showIdleScreen). */
+    val showIdleScreen: Boolean = false,
+    /** Seconds idle before posters join the rotation (config.idleTimeoutSeconds). */
+    val idleTimeoutSeconds: Int = 60,
 ) {
     /**
      * Keyed by TRAY, not by basket number. Keying by number alone silently lost

@@ -125,6 +125,15 @@ interface FridgeHardwareController {
     fun readTemperature()
 
     /**
+     * Send one raw lighting call to the energy board, for finding out what its
+     * arguments mean. [fn] is "ctlLed" or "brightness" (ledBrightnessAdjustment);
+     * [a], [b], [c] go through unchanged. Returns what was sent, for the command
+     * result. The board's reply arrives through the normal response path and is
+     * logged there.
+     */
+    fun ledRaw(fn: String, a: Int, b: Int, c: Int): String = "this hardware has no lighting control"
+
+    /**
      * Turn the compressor on or off and set the target temperature.
      *
      * *** SETPOINT IS WHOLE DEGREES; THE PROBE READING IS SIGNED TENTHS.
