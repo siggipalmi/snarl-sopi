@@ -228,7 +228,7 @@ fun FridgeFlowScreen(
         // the sheets: in turn with the animation, never while a customer or the
         // info sheet has the screen. Bleeds through the 44dp padding to the panel
         // edge, because a poster with a cream frame looks like a mistake.
-        if (state.showIdleScreen && state.posters.isNotEmpty()) {
+        if (state.showPosters && state.posters.isNotEmpty()) {
             IdlePosters(
                 posters = state.posters,
                 active = state.phase == FridgePhase.IDLE && !state.showInfo && !showAdmin,

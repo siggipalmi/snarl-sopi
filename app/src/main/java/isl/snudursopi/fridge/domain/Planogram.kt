@@ -84,8 +84,13 @@ data class Planogram(
     val logoUrl: String? = null,
     /** Idle-screen posters (config.ads, images). Empty means the animation alone. */
     val posters: List<Poster> = emptyList(),
-    /** Dashboard switch for the poster idle screen (config.showIdleScreen). */
-    val showIdleScreen: Boolean = false,
+    /**
+     * The poster panel's own checkbox, "Show the poster area on this machine's
+     * screen" (config.showAdRegion, on unless switched off). v0.59.0 followed
+     * showIdleScreen instead — a different setting, off by default, on another
+     * page — so a machine with a poster saved and its box ticked showed nothing.
+     */
+    val showPosters: Boolean = true,
     /** Seconds idle before posters join the rotation (config.idleTimeoutSeconds). */
     val idleTimeoutSeconds: Int = 60,
 ) {

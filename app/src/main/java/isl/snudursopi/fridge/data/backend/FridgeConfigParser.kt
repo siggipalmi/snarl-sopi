@@ -111,7 +111,7 @@ object FridgeConfigParser {
             availableLanguages = available,
             logoUrl = logo,
             posters = posters,
-            showIdleScreen = data.field("showIdleScreen")?.asBoolean() ?: false,
+            showPosters = data.field("showAdRegion")?.asBoolean() ?: true,
             idleTimeoutSeconds = (data.field("idleTimeoutSeconds")?.asInt() ?: 60).coerceIn(10, 3600),
         )
     }

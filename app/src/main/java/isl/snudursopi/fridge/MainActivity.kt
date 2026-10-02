@@ -298,7 +298,9 @@ class MainActivity : ComponentActivity() {
                     android.util.Log.i(
                         "FridgeBackend",
                         "planogram applied: ${p.baskets.size} baskets, " +
-                            "${p.spec.cabinets.size} cabinet(s) [${p.spec.model}]",
+                            "${p.spec.cabinets.size} cabinet(s) [${p.spec.model}], " +
+                            "posters=${p.posters.size} ${if (p.showPosters) "on" else "off"}, " +
+                            "idle ${p.idleTimeoutSeconds}s, logo=${if (p.logoUrl != null) "yes" else "no"}",
                     )
                     // *** WIDEN THE WEIGHT POLL FOR A DOUBLE BEFORE ANYTHING
                     // ELSE USES IT. 16 trays per cabinet; a double is 32. Left

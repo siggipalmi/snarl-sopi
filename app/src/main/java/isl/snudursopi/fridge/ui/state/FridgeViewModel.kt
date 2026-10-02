@@ -79,7 +79,7 @@ class FridgeViewModel(
             supportEmail = p.supportEmail,
             logoUrl = p.logoUrl,
             posters = p.posters,
-            showIdleScreen = p.showIdleScreen,
+            showPosters = p.showPosters,
             idleTimeoutSeconds = p.idleTimeoutSeconds,
         )
     }
