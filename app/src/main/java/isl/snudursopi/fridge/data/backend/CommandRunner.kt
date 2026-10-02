@@ -385,7 +385,7 @@ class CommandRunner(
     }
 
     /**
-     * Tare every basket in the planogram in one go, with the machine EMPTY.
+     * Tare every physical basket of the model in one go, with the machine EMPTY.
      *
      * *** THIS EXISTS BECAUSE 32 SEPARATE COMMANDS IS HOW MISTAKES HAPPEN.
      *
@@ -405,7 +405,15 @@ class CommandRunner(
      */
     private suspend fun tareAll(cmd: MachineCommand): CommandOutcome {
         val plan = planogram() ?: return CommandOutcome.Failed("no planogram loaded yet")
-        if (plan.baskets.isEmpty()) return CommandOutcome.Failed("planogram has no baskets")
+        // Walk the model's physical baskets, not the planogram's: a new machine
+        // is tared empty, before any product is assigned, and used to fail here
+        // with "planogram has no baskets". The model still has to be known —
+        // before the first fridge config the spec is a placeholder single, and
+        // on a double that would quietly skip cabinet B.
+        if (plan.spec.model == Planogram.EMPTY.spec.model) {
+            return CommandOutcome.Failed("no fridge config yet — wait for the first config poll")
+        }
+        val slots = plan.spec.physicalBaskets
         val force = cmd.bool("force")
 
         val done = mutableListOf<String>()
@@ -413,9 +421,8 @@ class CommandRunner(
         val failed = mutableListOf<String>()
 
         withBusQuiet {
-            for (basket in plan.baskets.sortedBy { it.trayIndex }) {
-                val tray = basket.trayIndex
-                val name = "${basket.cabinet}${basket.basket}"
+            for ((cabinet, basket, tray) in slots) {
+                val name = "$cabinet$basket"
                 val grams = hardware.readTraysFresh(tray, 1)?.get(tray)
                 if (grams == null) {
                     // No reply at all — an absent module, not a loaded basket.
@@ -435,7 +442,7 @@ class CommandRunner(
         }
 
         val parts = buildList {
-            add("tared ${done.size}/${plan.baskets.size}")
+            add("tared ${done.size}/${slots.size}")
             if (refused.isNotEmpty()) add("refused (not empty): ${refused.joinToString(",")}")
             if (failed.isNotEmpty()) add("no reply: ${failed.joinToString(",")}")
         }
@@ -547,9 +554,9 @@ class CommandRunner(
         // So a tare or calibrate aimed at B5 landed on B1, and every later sale
         // from that basket would have been mis-charged with no error anywhere.
         //
-        // tare_all was never affected — it walks the planogram and uses
-        // Basket.trayIndex, which was already correct. Only the single-basket
-        // commands used this path.
+        // tare_all was never affected — it used Basket.trayIndex, which was
+        // already correct (it now uses FridgeSpec.physicalBaskets, same
+        // arithmetic). Only the single-basket commands used this path.
         return cabinet.ordinal * Planogram.ADDRESS_BLOCK_PER_CABINET + (basket - 1)
     }
 
