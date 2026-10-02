@@ -1903,6 +1903,7 @@ const I18N = {
     'lt.unsupported':'This machine\u2019s app cannot control the lights yet.',
     'lt.loading':'Loading\u2026','lt.loadErr':'Could not load lighting.',
     'lt.clockNote':'The night level only applies once the machine has reached the backend since booting \u2014 that is what proves its clock is right.',
+    'lt.onOff':'These fridges switch their lights on or off \u2014 they do not dim. Any brightness above 0 means on; 0 means off.',
     'sc.title':'scale','sc.hint':'these act on the machine straight away — there is nothing to save',
     'sc.read':'read weight','sc.tare':'tare','sc.calibrate':'calibrate',
     'sc.notRead':'not read','sc.working':'working','sc.done':'done','sc.failed':'failed','sc.unsupported':'unsupported',
@@ -1980,6 +1981,7 @@ const I18N = {
     'lt.unsupported':'Forriti\u00f0 \u00ed \u00feessari v\u00e9l r\u00e6\u00f0ur ekki vi\u00f0 l\u00fdsingarst\u00fdringu enn.',
     'lt.loading':'Hle\u00f0\u2026','lt.loadErr':'T\u00f3kst ekki a\u00f0 hla\u00f0a l\u00fdsingu.',
     'lt.clockNote':'N\u00e6turbirtan tekur gildi \u00feegar v\u00e9lin hefur n\u00e1\u00f0 sambandi vi\u00f0 bakendann eftir r\u00e6singu \u2014 \u00fea\u00f0 sta\u00f0festir a\u00f0 klukkan s\u00e9 r\u00e9tt.',
+    'lt.onOff':'L\u00fdsingin \u00ed \u00feessum k\u00e6lum er anna\u00f0hvort kveikt e\u00f0a sl\u00f6kkt \u2014 h\u00fan dimmist ekki. Birta yfir 0 \u00fe\u00fd\u00f0ir kveikt; 0 \u00fe\u00fd\u00f0ir sl\u00f6kkt.',
     'sc.title':'vigt','sc.hint':'\u00feetta virkar strax \u00e1 v\u00e9linni \u2014 ekkert a\u00f0 vista',
     'sc.read':'lesa \u00feyngd','sc.tare':'n\u00fallstilla','sc.calibrate':'kvar\u00f0a',
     'sc.notRead':'ekki lesi\u00f0','sc.working':'vinn','sc.done':'loki\u00f0','sc.failed':'mist\u00f3kst','sc.unsupported':'\u00f3stutt',
@@ -6371,6 +6373,12 @@ function ltSeg(mode) {
 // control below it is then saving settings that do nothing — which is worth knowing BEFORE spending
 // five minutes setting a schedule, not after pressing test.
 function ltCapBanner() {
+  return ltCapBannerOnly() +
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">' + rsEsc(t('lt.onOff')) + '</div>';
+}
+// The board accepts a level but only acts on 0 vs above 0 (measured on 8626020623, 2026-10-02), so
+// the panel says so under the capability line rather than letting a 30% slider promise a dimmer fridge.
+function ltCapBannerOnly() {
   if (!_ltCap) {
     return '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">' + rsEsc(t('lt.capUnknown')) + '</div>';
   }

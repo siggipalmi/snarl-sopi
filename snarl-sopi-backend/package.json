@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.44.0",
-  "description": "Snarl and Sopi operator backend v6.44.0: operator-wide screen posters. Posters set on an operator show on every machine of that operator; a machine with posters of its own shows those instead. GET/PUT /api/v1/operators/:id/ads and POST .../ads/upload; saving bumps every machine of the operator so the 304-on-configVersion config is re-fetched. The config gains adsSource (machine | operator | none). In the dashboard the edit-operator dialog gets a posters section, and a machine with no posters says when it is showing its operator's. Cumulative over v6.43.0.",
+  "version": "6.44.1",
+  "description": "Snarl and Sopi operator backend v6.44.1: the lighting panel says the fridges switch rather than dim. Measured on 8626020623: the board takes ctlLed on/off and ignores levels, so any brightness above 0 means on. One note under the capability line, in English and Icelandic. Cumulative over v6.44.0.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
