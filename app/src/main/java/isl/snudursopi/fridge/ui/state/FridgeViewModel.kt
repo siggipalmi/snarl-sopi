@@ -77,6 +77,10 @@ class FridgeViewModel(
             cabinetCount = p.spec.cabinets.size.coerceAtLeast(1),
             operatorName = p.operatorName,
             supportEmail = p.supportEmail,
+            logoUrl = p.logoUrl,
+            posters = p.posters,
+            showIdleScreen = p.showIdleScreen,
+            idleTimeoutSeconds = p.idleTimeoutSeconds,
         )
     }
 

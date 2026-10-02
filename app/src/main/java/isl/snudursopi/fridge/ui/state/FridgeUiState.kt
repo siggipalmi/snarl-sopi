@@ -89,6 +89,10 @@ data class FridgeUiState(
     val machineLabel: String = "",
     val operatorName: String = "",
     val supportEmail: String = "",
+    val logoUrl: String? = null,
+    val posters: List<isl.snudursopi.fridge.domain.Poster> = emptyList(),
+    val showIdleScreen: Boolean = false,
+    val idleTimeoutSeconds: Int = 60,
     /** The ⓘ sheet is open. */
     val showInfo: Boolean = false,
     /** 1 or 2 — the idle animation draws itself from this, no separate art. */

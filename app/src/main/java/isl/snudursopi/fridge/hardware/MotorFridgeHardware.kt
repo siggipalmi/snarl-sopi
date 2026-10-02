@@ -452,6 +452,36 @@ class MotorFridgeHardware(
         Thread { ei.ctlTemp(0, 0, 0, null, 50) }.start()
     }
 
+    /**
+     * *** INSTRUMENT, DON'T GUESS.
+     *
+     * EnergyInstruct.ctlLed(int, int, int, String, int) and
+     * ledBrightnessAdjustment(int, int, int, String, int) exist, and nothing says
+     * what the three ints mean. ctlTemp's are (address, mode, value) — mode 0
+     * READ, 1 WRITE — and nothing proves these follow it. This sends exactly
+     * what it is given so each combination can be tried from the dashboard while
+     * someone watches the lights.
+     *
+     * Careful with this bus: driving the second lock header put traffic on the
+     * energy board and cycled the lights AND the compressor (HARDWARE-facts.md).
+     * One call per command, never a sweep.
+     */
+    override fun ledRaw(fn: String, a: Int, b: Int, c: Int): String {
+        val ei = kit.getEnergyInstruct() ?: return "getEnergyInstruct() is NULL — bus not up"
+        val call = "$fn($a, $b, $c, null, 50)"
+        Log.w(TAG, "LED probe >>> $call")
+        Thread {
+            runCatching {
+                when (fn) {
+                    "ctlLed" -> ei.ctlLed(a, b, c, null, 50)
+                    "brightness" -> ei.ledBrightnessAdjustment(a, b, c, null, 50)
+                    else -> error("unknown fn '$fn'")
+                }
+            }.onFailure { Log.w(TAG, "LED probe $call threw: ${it.message}") }
+        }.start()
+        return "sent $call — watch the lights; the board's reply is in the log (MotorFridgeHW)"
+    }
+
     override fun tareTray(tray: Int) {
         kit.getWeightInstruct()?.tare(tray, null, 50)
         emit("tare tray=$tray requested", null)

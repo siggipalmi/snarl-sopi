@@ -6,6 +6,7 @@ import isl.snudursopi.fridge.domain.Cabinet
 import isl.snudursopi.fridge.domain.FridgeSpec
 import isl.snudursopi.fridge.domain.Language
 import isl.snudursopi.fridge.domain.Planogram
+import isl.snudursopi.fridge.domain.Poster
 import isl.snudursopi.fridge.domain.Settlement
 
 /**
@@ -82,6 +83,23 @@ object FridgeConfigParser {
             ?.takeIf { Regex("^/dev/ttyS[0-9]$").matches(it) }
 
         val email = profile?.get("supportEmail")?.takeIf { !it.isNull }?.asText().orEmpty()
+        val logo = profile?.field("logoUrl")?.asText()?.takeIf { it.startsWith("https://") }
+
+        // Posters for the idle screen. Images only for now: a video entry is
+        // skipped, not half-shown. Duration is clamped so a typo can neither
+        // flash a poster nor park the screen on one for an hour.
+        val posters = data.field("ads")?.takeIf { it.isArray }?.mapNotNull { ad ->
+            val url = ad.field("url")?.asText()?.takeIf { it.startsWith("https://") }
+            if (url == null || ad.field("type")?.asText() != "image") {
+                null
+            } else {
+                Poster(
+                    url = url,
+                    durationSec = (ad.field("durationSec")?.asInt() ?: 8).coerceIn(3, 120),
+                    overlayText = ad.field("overlayText")?.asText()?.takeIf { it.isNotBlank() },
+                )
+            }
+        }.orEmpty()
 
         return Planogram(
             spec = spec,
@@ -91,6 +109,10 @@ object FridgeConfigParser {
             paymentSerialPort = paymentPort,
             defaultLanguage = defaultLang,
             availableLanguages = available,
+            logoUrl = logo,
+            posters = posters,
+            showIdleScreen = data.field("showIdleScreen")?.asBoolean() ?: false,
+            idleTimeoutSeconds = (data.field("idleTimeoutSeconds")?.asInt() ?: 60).coerceIn(10, 3600),
         )
     }
 

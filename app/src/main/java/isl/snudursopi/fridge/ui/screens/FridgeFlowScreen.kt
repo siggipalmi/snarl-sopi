@@ -36,6 +36,7 @@ import isl.snudursopi.fridge.ui.components.CloseDoorBanner
 import isl.snudursopi.fridge.ui.components.AdminClock
 import isl.snudursopi.fridge.ui.components.AdminSheet
 import isl.snudursopi.fridge.ui.components.IdleMachine
+import isl.snudursopi.fridge.ui.components.IdlePosters
 import isl.snudursopi.fridge.ui.components.InfoButton
 import isl.snudursopi.fridge.ui.components.InfoSheet
 import isl.snudursopi.fridge.ui.components.idleNarrationIndex
@@ -220,6 +221,19 @@ fun FridgeFlowScreen(
                 code = state.language.code,
                 onClick = onCycleLanguage,
                 modifier = Modifier.align(Alignment.BottomEnd),
+            )
+        }
+
+        // Posters over everything on the idle screen except the admin clock and
+        // the sheets: in turn with the animation, never while a customer or the
+        // info sheet has the screen. Bleeds through the 44dp padding to the panel
+        // edge, because a poster with a cream frame looks like a mistake.
+        if (state.showIdleScreen && state.posters.isNotEmpty()) {
+            IdlePosters(
+                posters = state.posters,
+                active = state.phase == FridgePhase.IDLE && !state.showInfo && !showAdmin,
+                idleTimeoutSeconds = state.idleTimeoutSeconds,
+                bleed = 44.dp,
             )
         }
 

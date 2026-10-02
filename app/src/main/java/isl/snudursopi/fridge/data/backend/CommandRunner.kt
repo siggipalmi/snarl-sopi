@@ -105,6 +105,7 @@ class CommandRunner(
         "set_payment_port" -> setPaymentPort(cmd)
         "launch_support" -> launchSupport()
         "read_all_trays" -> readAllTrays()
+        "set_led" -> setLed(cmd)
         // probe_addresses REMOVED in v0.49.1 — it reported "answered=0, NO
         // modules on the bus" in the same minute read_all_trays returned 27
         // working trays. The probe was wrong, not the bus. A diagnostic that
@@ -118,6 +119,32 @@ class CommandRunner(
     }
 
     // ---- handlers ----
+
+    /**
+     * Lighting. The backend's set_led carries `brightness` 0-100, but how that
+     * maps onto the board's ctlLed/ledBrightnessAdjustment arguments is not
+     * known yet, so a plain brightness is refused rather than guessed at.
+     *
+     * For finding out: add `fn` ("ctlLed" | "brightness") and `a`, `b`, `c`, and
+     * exactly that one call is sent. Watch the lights, read the reply in the
+     * log, then build the real mapping from what was seen.
+     */
+    private fun setLed(cmd: MachineCommand): CommandOutcome {
+        val fn = cmd.str("fn")
+            ?: return CommandOutcome.Unsupported(
+                "brightness → board mapping not established yet; probe with fn/a/b/c",
+            )
+        if (fn != "ctlLed" && fn != "brightness") {
+            return CommandOutcome.Failed("fn must be \"ctlLed\" or \"brightness\"")
+        }
+        val a = cmd.int("a") ?: return CommandOutcome.Failed("give a, b and c (whole numbers)")
+        val b = cmd.int("b") ?: return CommandOutcome.Failed("give a, b and c (whole numbers)")
+        val c = cmd.int("c") ?: return CommandOutcome.Failed("give a, b and c (whole numbers)")
+        if (listOf(a, b, c).any { it !in 0..255 }) {
+            return CommandOutcome.Failed("a, b and c must be 0-255")
+        }
+        return CommandOutcome.Ok(hardware.ledRaw(fn, a, b, c))
+    }
 
     /**
      * Restocking. The open-door command IS the trigger; the door CLOSING ends it
