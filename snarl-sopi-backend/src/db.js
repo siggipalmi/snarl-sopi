@@ -504,6 +504,9 @@ function buildConfigResponse(machine) {
       supportEmail,
       supportPhone: supportPhone || null,
       machineLabel: p.machineLabel || null,
+      // The operator's uploaded logo (R2), for the fridge's info screen. Null when none — the kiosk
+      // then shows the operator name alone, as it always has.
+      logoUrl: (op.logoUrl || '').trim() || null,
     },
     outOfService: !!cfg.outOfService,
     outOfServiceReason: cfg.outOfServiceReason || null,
