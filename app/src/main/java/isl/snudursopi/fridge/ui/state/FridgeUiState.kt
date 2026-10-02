@@ -91,7 +91,7 @@ data class FridgeUiState(
     val supportEmail: String = "",
     val logoUrl: String? = null,
     val posters: List<isl.snudursopi.fridge.domain.Poster> = emptyList(),
-    val showIdleScreen: Boolean = false,
+    val showPosters: Boolean = true,
     val idleTimeoutSeconds: Int = 60,
     /** The ⓘ sheet is open. */
     val showInfo: Boolean = false,
