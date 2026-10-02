@@ -827,13 +827,26 @@ class FridgeViewModel(
      * flow — see [openComplaint]. It is restarted, with a longer fuse, once the
      * complaint is done or abandoned.
      */
+    /**
+     * A clean idle state that keeps what describes the machine rather than the
+     * customer. deviceCode is pushed once at startup and never re-sent, so
+     * dropping it here made the admin sheet say ÓSKRÁÐ after the first sale.
+     */
+    private fun freshIdle() = _ui.value.let {
+        FridgeUiState(
+            machineLabel = it.machineLabel,
+            deviceCode = it.deviceCode,
+            lastPollOkMs = it.lastPollOkMs,
+        )
+    }
+
     private var idleReturnJob: Job? = null
 
     private fun autoReturnToIdle(afterMs: Long = 6000) {
         idleReturnJob?.cancel()
         idleReturnJob = viewModelScope.launch {
             delay(afterMs)
-            _ui.value = FridgeUiState(machineLabel = _ui.value.machineLabel)
+            _ui.value = freshIdle()
         }
     }
 
@@ -884,7 +897,7 @@ class FridgeViewModel(
 
     /** Abandon: straight back to idle, no partial complaint sent. */
     fun cancelComplaint() {
-        _ui.value = FridgeUiState(machineLabel = _ui.value.machineLabel)
+        _ui.value = freshIdle()
     }
 
     /**
