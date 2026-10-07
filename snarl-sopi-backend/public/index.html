@@ -9971,10 +9971,15 @@ async function loadLatestFridgeBuild() {
     document.getElementById('ota-vc').value = b.versionCode;
     document.getElementById('ota-vname').value = b.versionName || '';
     document.getElementById('ota-apk').value = b.apkUrl;
-    const stale = b.currentVersionCode != null && b.versionCode <= b.currentVersionCode;
+    // Equal is the normal state between releases: the newest build IS the current release, so there
+    // is nothing to publish — not an error, and "bump the version" was the wrong advice for it. Only a
+    // build OLDER than the current release means something is off.
+    const same = b.currentVersionCode != null && b.versionCode === b.currentVersionCode;
+    const stale = b.currentVersionCode != null && b.versionCode < b.currentVersionCode;
     if (box) box.innerHTML = `<div class="rs-msg ${stale ? 'err' : ''}" style="margin-bottom:10px">
         <div><b>fridge v${rsEsc(b.versionName)}</b> · code ${b.versionCode}${b.publishedAt ? ' · built ' + fmtDateTime(b.publishedAt) : ''}${b.releaseUrl ? ` · <a href="${rsEsc(b.releaseUrl)}" target="_blank" rel="noopener">release</a>` : ''}</div>
-        ${stale ? `<div style="margin-top:4px">Not newer than the current fridge release (code ${b.currentVersionCode}) — publishing would be refused. Bump the version in the app and merge again.</div>` : ''}
+        ${same ? `<div style="margin-top:4px">This is already the current fridge release — nothing new to publish. Its rollout is on the release card above.</div>` : ''}
+        ${stale ? `<div style="margin-top:4px">Older than the current fridge release (code ${b.currentVersionCode}) — publishing would be refused.</div>` : ''}
         <pre style="margin:6px 0 0;white-space:pre-wrap;font-size:11px;max-height:140px;overflow-y:auto">${rsEsc(b.notes || '')}</pre>
       </div>`;
   } catch (e) {

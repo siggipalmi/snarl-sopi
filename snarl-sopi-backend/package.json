@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.45.0",
-  "description": "Snarl and Sopi operator backend v6.45.0: email receipts for fridge customers. POST /machines/:deviceCode/fridge/receipt sends an operator-branded receipt (name, kennitala, contact, logo, lines, total, VSK per rate) in the customer's language, reply-to the operator. The address is held in memory only until sent. Config gains receipts.enabled (operator has name + kennitala); operator edits now bump their machines' config. Cumulative over v6.44.1.",
+  "version": "6.45.1",
+  "description": "Snarl and Sopi operator backend v6.45.1: loading the latest fridge build when it is already the current release now says so, instead of an error telling you to bump the version. Cumulative over v6.45.0.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
