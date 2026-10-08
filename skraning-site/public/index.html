@@ -167,8 +167,15 @@
       <section class="step">
         <div class="lbl">3 · Samskipti</div>
         <h2>Tengiliður vegna reksturs</h2>
+        <p class="hint" style="margin:-6px 0 14px">Sá sem sér um sjálfsalana dags daglega. Hann fær aðgang að stjórnborði sjálfsalanna á admin.agvending.is og getur bætt öðrum notendum við.</p>
         <label class="check"><input type="checkbox" id="same-as-signer" /> Sami tengiliður og undirritandi</label>
-        <div class="grid2" id="contact-fields" style="margin-top:14px">
+        <div id="contact-fields" style="margin-top:14px">
+        <div class="fld" style="margin-bottom:14px">
+          <label for="tengilidur_nafn">Nafn</label>
+          <input id="tengilidur_nafn" autocomplete="name" aria-describedby="tengilidur_nafn-err" />
+          <span class="err" id="tengilidur_nafn-err" role="alert"></span>
+        </div>
+        <div class="grid2">
           <div class="fld">
             <label for="netfang">Netfang</label>
             <input id="netfang" name="netfang" type="email" autocomplete="email" required aria-describedby="netfang-err" />
@@ -179,6 +186,7 @@
             <input id="simi" name="simi" type="tel" inputmode="tel" autocomplete="tel" required aria-describedby="simi-err" />
             <span class="err" id="simi-err" role="alert"></span>
           </div>
+        </div>
         </div>
         <label class="check" style="margin-top:16px"><input type="checkbox" id="invoice-other" /> Senda reikninga á annað netfang</label>
         <div class="fld" id="invoice-fld" hidden style="margin-top:12px">
@@ -233,6 +241,7 @@
     <div class="lbl">Skráning móttekin</div>
     <h1>Takk fyrir!</h1>
     <p>Leigusamningurinn verður sendur á <strong id="done-email"></strong> til rafrænnar undirritunar.</p>
+    <p><strong id="done-account"></strong> fær boð um aðgang að stjórnborði sjálfsalanna, nema fyrirtækið sé þegar með aðgang.</p>
     <p class="hint">Tilvísun: <span id="done-id"></span></p>
     <p style="margin-top:22px"><a href="https://agvending.is">Til baka á agvending.is</a></p>
   </div>
@@ -261,7 +270,7 @@
   }
 
   // An error message goes away as soon as the field it is about is edited.
-  ['undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi', 'netfang', 'simi', 'netfang_reikninga']
+  ['undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi', 'netfang', 'simi', 'netfang_reikninga', 'tengilidur_nafn']
     .forEach(k => $(k).addEventListener('input', () => setError(k, '')));
 
   // Kennitala inputs format themselves as 000000-0000.
@@ -281,7 +290,7 @@
   // "Same contact as the signer" hides the contact fields and uses the signer's.
   $('same-as-signer').addEventListener('change', e => {
     $('contact-fields').hidden = e.target.checked;
-    setError('netfang', ''); setError('simi', '');
+    setError('netfang', ''); setError('simi', ''); setError('tengilidur_nafn', '');
   });
 
   // ─── Config ────────────────────────────────────────────────────────────────
@@ -484,6 +493,7 @@
     if (!emailOk($('undirritandi_netfang').value)) errs.undirritandi_netfang = 'Netfang er ekki gilt.';
     if (digits($('undirritandi_simi').value).length < 7) errs.undirritandi_simi = 'Farsímanúmer er ekki gilt.';
     if (!$('same-as-signer').checked) {
+      if (!$('tengilidur_nafn').value.trim()) errs.tengilidur_nafn = 'Skráðu nafn tengiliðar.';
       if (!emailOk($('netfang').value)) errs.netfang = 'Netfang er ekki gilt.';
       if (digits($('simi').value).length < 7) errs.simi = 'Símanúmer er ekki gilt.';
     }
@@ -507,7 +517,8 @@
 
   function applyErrors(errs) {
     ['kennitala', 'undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi',
-     'netfang', 'simi', 'netfang_reikninga', 'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
+     'tengilidur_nafn', 'netfang', 'simi', 'netfang_reikninga',
+     'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
     const first = Object.keys(errs)[0];
     if (first) {
       const el = first === 'taeki' ? document.querySelector('.machine button[data-d="1"]') : $(first);
@@ -537,6 +548,8 @@
       netfang: ($('same-as-signer').checked ? $('undirritandi_netfang') : $('netfang')).value.trim(),
       simi: ($('same-as-signer').checked ? $('undirritandi_simi') : $('simi')).value.trim(),
       netfang_reikninga: $('invoice-other').checked ? $('netfang_reikninga').value.trim() : '',
+      tengilidur_sami: $('same-as-signer').checked,
+      tengilidur_nafn: $('same-as-signer').checked ? '' : $('tengilidur_nafn').value.trim(),
       heimilisfang: state.verifiedAddress,
       athugasemdir: $('athugasemdir').value.trim(),
       turnstile: state.turnstileToken,
@@ -557,6 +570,7 @@
         const data = await r.json().catch(() => ({}));
         if (r.ok && data.ok) {
           $('done-email').textContent = body.undirritandi_netfang;
+          $('done-account').textContent = body.netfang;
           $('done-id').textContent = data.id;
           $('form-view').hidden = true;
           $('done-view').hidden = false;

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   addressLookupQuery, buildContractPayload, buildCpiQuery, claimShortfall, dedupeKey, describeMachines,
   firstOfNextMonth, formatKennitala, formatKr, formatLongDate, formatPhone, formatStartDate, isValidKennitala,
-  parseCpiOverride, pickLatestCpi, signerFor, validateForm,
+  accountHolderFor, parseCpiOverride, pickLatestCpi, signerFor, validateForm,
 } from '../src/lib.js';
 
 const NOW = new Date('2026-09-25T10:00:00Z');
@@ -134,6 +134,32 @@ test('invoices go to their own address when given, otherwise to the contact', ()
   assert.equal(build(none.value).reikningar_serstakt_netfang, false);
 
   assert.ok(validateForm({ ...base, netfang_reikninga: 'ekki-netfang' }, NOW).errors.netfang_reikninga);
+});
+
+test('the operations contact gets the login: the signer unless someone else is named', () => {
+  const base = { kennitala: '4607161010', netfang: 'julius@lavashow.com', simi: '823 7777', einfaldur: 1, heimilisfang: 'x', ...SIGNER };
+  const company = { companyName: 'X ehf.', managerName: 'Júlíus Ingi Jónsson', managerNationalId: '010180-1234' };
+  const build = form => buildContractPayload({ id: 'x', form, company, now: NOW,
+    claim: { radnumer_sjalfsala: '1', radnumer_nayax: '2', counts: { einfaldur: 1 } }, cpi: { vnv: '1', manudur: 'm' } });
+
+  const same = validateForm({ ...base, tengilidur_sami: true }, NOW);
+  assert.deepEqual(same.errors, {});
+  assert.deepEqual(accountHolderFor(company, same.value),
+    { nafn: 'Júlíus Ingi Jónsson', netfang: 'julius@lavashow.com', simi: '823 7777' });
+  assert.equal(build(same.value).Nafn_Tengilids, 'Júlíus Ingi Jónsson');
+
+  const other = validateForm({ ...base, netfang: 'sigga@lavashow.com', tengilidur_sami: false, tengilidur_nafn: 'Sigga Rekstrar' }, NOW);
+  assert.deepEqual(other.errors, {});
+  assert.deepEqual(accountHolderFor(company, other.value),
+    { nafn: 'Sigga Rekstrar', netfang: 'sigga@lavashow.com', simi: '823 7777' });
+  assert.equal(build(other.value).Nafn_Tengilids, 'Sigga Rekstrar');
+
+  assert.ok(validateForm({ ...base, tengilidur_sami: 'false' }, NOW).errors.tengilidur_nafn);
+
+  // Stored before the name was asked for: the signer's name with the contact's email
+  const { tengilidur, ...old } = other.value;
+  assert.equal(accountHolderFor(company, old).nafn, 'Júlíus Ingi Jónsson');
+  assert.equal(accountHolderFor(company, old).netfang, 'sigga@lavashow.com');
 });
 
 test('a claim that did not cover every machine is a shortfall', () => {

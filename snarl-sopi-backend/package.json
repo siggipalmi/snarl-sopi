@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.45.0",
-  "description": "Snarl and Sopi operator backend v6.45.0: email receipts for fridge customers. POST /machines/:deviceCode/fridge/receipt sends an operator-branded receipt (name, kennitala, contact, logo, lines, total, VSK per rate) in the customer's language, reply-to the operator. The address is held in memory only until sent. Config gains receipts.enabled (operator has name + kennitala); operator edits now bump their machines' config. Cumulative over v6.44.1.",
+  "version": "6.46.0",
+  "description": "Snarl and Sopi operator backend v6.46.0: leases set themselves up. /api/v1/operators/provision takes contactName (the invite greets the person who runs the machines, not the company) and machineIds: each serial claimed for that kennitala is put under the new operator at once, moved if the machine already exists and created offline if it does not, while a machine run by another customer is left alone and reported. No invite goes to an operator that already exists. Invoices and ledger find the Payday customer by kennitala the first time they are opened. New /api/v1/leases/notify mails AG Vending (LEASE_NOTIFY_TO) about each registration. Cumulative over v6.45.0.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
