@@ -33,8 +33,8 @@
 const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
-  provisionMachine, validateMachineKey, revokeKey,
-  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED,
+  provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
+  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
@@ -43,6 +43,7 @@ const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
         revokeToken } = require('./auth');
 const email = require('./email');
+const { buildCustomerReceipt } = require('./customerReceipt');
 const crypto = require('crypto');
 const { ok, created, notFound, badRequest, serverError, json,
         validateSettings, validateFeatured } = require('./helpers');
@@ -53,8 +54,13 @@ const weimi = require('./weimi');
 const routes = [
   { method:'GET',  pattern:'/health',                                        handler: handleHealth },
   { method:'POST', pattern:'/api/v1/demo-request',                             handler: handleDemoRequest },
+  // Unauthenticated BY DESIGN: the machine has no key yet, which is the point. Rate-limited hard
+  // in the handler, because six digits is only a million values.
+  { method:'POST', pattern:'/api/v1/provisioning/pair',                       handler: handlePairExchange },
   { method:'GET',  pattern:'/downloads',                                     handler: handleDownloadsPage },
   { method:'GET',  pattern:'/api/v1/downloads',                             handler: handleGetDownloads,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/pairing-code',      handler: handleIssuePairingCode, middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/pairing-code',      handler: handleGetPairingCode,   middleware:[requireAuth, requireAgAdmin] },
   { method:'PUT',  pattern:'/api/v1/downloads',                             handler: handleSetDownloads,  middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/whatismyip',                                    handler: handleWhatIsMyIp },
   { method:'GET',  pattern:'/api/v1/proxy/status',                           handler: handleProxyStatus, middleware:[requireAuth] },
@@ -159,11 +165,13 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/product-details',   handler: handleMachineProductDetails, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/sales',             handler: handleSalesIngest, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/settlement', handler: handleFridgeSettlement, middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/receipt',    handler: handleFridgeReceipt,    middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/baskets',     handler: handleGetFridgeBaskets, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/fridge/baskets',     handler: handleSetFridgeBaskets, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/settlements',  handler: handleListFridgeSettlements, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/transactions',       handler: handleMachineTransactions, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetry,      middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/payment-status',    handler: handlePaymentStatus,  middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleGetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleSetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleKioskLogs,      middleware:[requireMachineKey] },
@@ -174,6 +182,8 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/app-release',                            handler: handleGetAppRelease,  middleware:[requireAuth, requireAgAdmin] },
   { method:'PUT',  pattern:'/api/v1/app-release',                            handler: handlePublishAppRelease, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/app-release/cohort',                     handler: handleSetAppCohort,   middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/app-release/latest-build',               handler: handleLatestBuild,    middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/:app/apk',                   handler: handleServeApk },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/complaints',        handler: handleComplaintIngest, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/complaints', handler: handleFridgeComplaint, middleware:[requireMachineKey] },
@@ -201,6 +211,9 @@ const routes = [
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/grid-order',         handler: handleSetGridOrder, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/ads',               handler: handleSetAds,       middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/ads/upload',        handler: handleUploadAd,     middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/ads',              handler: handleGetOperatorAds, middleware:[requireAuth, requireOperatorAccess] },
+  { method:'PUT',  pattern:'/api/v1/operators/:operatorId/ads',              handler: handleSetOperatorAds, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'POST', pattern:'/api/v1/operators/:operatorId/ads/upload',       handler: handleUploadOperatorAd, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/settings',          handler: handleUpdateSettings,middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/stock-source',      handler: handleStockSource, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/key',               handler: handleShowMachineKey, middleware:[requireAuth, requireAgAdmin] },
@@ -416,6 +429,92 @@ function demoRateLimited(ip) {
   return false;
 }
 
+// ─── Pairing codes: getting a machine's identity onto it without adb ──────────
+// The device code and machine key used to go in as intent extras, which only adb can send, so
+// every new machine needed someone on site with a laptop — and the key ended up pasted into shell
+// history and chat more than once. Instead: an operator generates a six-digit code for one machine,
+// someone types it on the kiosk, and the app exchanges it for the identity over TLS. The key is
+// never read by a human.
+const PAIR_CODE_TTL_MS = 24 * 60 * 60 * 1000;
+const PAIR_WINDOW_MS   = 60 * 1000;
+const PAIR_PER_IP      = 5;      // a person typing six digits gets a handful of goes a minute
+const PAIR_TOTAL       = 60;     // and the endpoint as a whole is capped too
+const _pairHits = new Map();     // ip -> [timestamps]
+let _pairAll = [];               // timestamps, all sources
+
+function pairRateLimited(ip) {
+  const now = Date.now(), cutoff = now - PAIR_WINDOW_MS;
+  _pairAll = _pairAll.filter(t => t > cutoff);
+  const mine = (_pairHits.get(ip) || []).filter(t => t > cutoff);
+  if (_pairHits.size > 5000) _pairHits.clear();   // bound the map; a flood shouldn't grow memory
+  if (mine.length >= PAIR_PER_IP || _pairAll.length >= PAIR_TOTAL) return true;
+  mine.push(now); _pairHits.set(ip, mine); _pairAll.push(now);
+  return false;
+}
+
+// Six digits, uniformly drawn, leading zeros allowed. Math.random is not good enough for something
+// that is the sole credential for a minute or two.
+function newPairCode() {
+  for (let i = 0; i < 40; i++) {
+    const n = crypto.randomBytes(4).readUInt32BE(0);
+    if (n >= 4294000000) continue;              // reject the tail so the modulo stays unbiased
+    const code = String(n % 1000000).padStart(6, '0');
+    if (!storage.getPairingCode(code)) return code;   // don't reuse a code still on record
+  }
+  return null;
+}
+
+// POST /machines/:deviceCode/pairing-code  (ag_admin) — issue one.
+function handleIssuePairingCode(req, res) {
+  const { deviceCode } = req.params;
+  const m = machines[deviceCode];
+  if (!m) return notFound(res, `Machine ${deviceCode} not found`);
+  storage.purgePairingCodes();
+  const code = newPairCode();
+  if (!code) return serverError(res, 'Could not allocate a pairing code — try again.');
+  const rec = storage.issuePairingCode(code, deviceCode, PAIR_CODE_TTL_MS, req.user?.id || null);
+  console.log(`[PAIR] code issued for ${deviceCode} by ${req.user?.email || 'unknown'}`);
+  created(res, { code: rec.code, deviceCode, expiresAt: new Date(rec.expiresAt).toISOString() });
+}
+
+// GET /machines/:deviceCode/pairing-code  (ag_admin) — the live one, if any.
+function handleGetPairingCode(req, res) {
+  const { deviceCode } = req.params;
+  if (!machines[deviceCode]) return notFound(res, `Machine ${deviceCode} not found`);
+  const rec = storage.livePairingCode(deviceCode);
+  if (!rec) return ok(res, { code: null });
+  ok(res, { code: rec.code, deviceCode, expiresAt: new Date(rec.expiresAt).toISOString() });
+}
+
+// POST /provisioning/pair  (no auth — the machine has no key yet)
+function handlePairExchange(req, res) {
+  const ip = clientIp(req);
+  if (pairRateLimited(ip)) {
+    return json(res, 429, { ok: false, error: 'Too many attempts. Wait a minute and try again.' });
+  }
+  const code = String((req.body && req.body.code) || '').trim();
+  // Answer the same way for malformed, unknown, expired and already-used: telling an attacker which
+  // of a million codes exist is the one thing this endpoint must not do. The operator generating the
+  // code sees the real state in the dashboard.
+  const deny = () => json(res, 404, { ok: false, error: 'invalid_code',
+    detail: 'That code is not valid. It may have expired, been used already, or been mistyped. Generate a new one from the dashboard.' });
+  if (!/^\d{6}$/.test(code)) return deny();
+  const rec = storage.getPairingCode(code);
+  if (!rec) return deny();
+  if (rec.consumedAt || rec.expiresAt <= Date.now()) return deny();
+  const m = machines[rec.deviceCode];
+  if (!m) return deny();
+  // Consume first: the UPDATE is conditional on still being unconsumed, so if two devices race,
+  // exactly one wins and the loser is told the code is spent rather than both getting the identity.
+  if (!storage.consumePairingCode(code, ip)) return deny();
+  // Rotate the key on every pair. A machine being paired is one that does not have a working key,
+  // and rotating retires anything that leaked into a terminal or a chat message.
+  const machineKey = generateMachineKey();
+  storage.insertMachineKey(rec.deviceCode, machineKey);
+  console.log(`[PAIR] ${rec.deviceCode} paired from ${ip} — key rotated`);
+  ok(res, { deviceCode: rec.deviceCode, machineKey });
+}
+
 function handleDemoRequest(req, res) {
   const b = req.body || {};
   // Honeypot: a real person never fills a field they cannot see. Answer 200 so a bot learns nothing.
@@ -467,6 +566,20 @@ function handleHealth(req, res) {
     status: 'ok', version, contract: 'v0.1', uptime: process.uptime(),
     node: process.version,
     imaging: (() => { try { require('sharp'); return 'ok'; } catch (e) { return 'unavailable'; } })(),
+    // imaging above only says whether sharp (the resizer) loaded. Posters are STORED on R2 and
+    // served from its public host, so "imaging: ok" with R2 unset means uploads fail and no poster
+    // ever reaches a machine. The host is reported because it is the URL the kiosk has to fetch
+    // over TLS, and a custom domain there has broken machines before (see the APK note in the
+    // release handler) — it is not a secret, it is already inside every poster URL.
+    imageHosting: (() => {
+      try {
+        const r2 = require('./r2');
+        if (!r2.isConfigured()) return { configured: false, publicHost: null };
+        let host = null;
+        try { host = new URL(r2.r2Config().publicUrl).host; } catch (e) { host = null; }
+        return { configured: true, publicHost: host };
+      } catch (e) { return { configured: false, publicHost: null }; }
+    })(),
     // Onboarding readiness — booleans only, never the secret values. Lets you confirm the
     // operator-signup path is wired before running a real operator through it.
     onboarding: {
@@ -893,7 +1006,131 @@ function handleFridgeSettlement(req, res) {
     // gets an alert AND an email. Don't re-alert on a replayed settlement: same order, same fact.
     if (!isRepost) notifyMoneyMismatch(m, settlement, lineRows);
   }
+  // A receipt the customer asked for before this settlement reached us (it travels on its own
+  // queue and can arrive first) goes out now.
+  const waiting = pendingReceipts.get(receiptKey(deviceCode, settlement.orderId));
+  if (waiting) {
+    pendingReceipts.delete(receiptKey(deviceCode, settlement.orderId));
+    sendCustomerReceipt(m, settlement.orderId, waiting.email, waiting.language)
+      .catch(e => console.error(`[RECEIPT] ${deviceCode} order ${settlement.orderId}: ${e.message}`));
+  }
   json(res, 200, { ok: true, orderId: b.orderId, recorded: true, wasRepost: isRepost, recomputedIsk, mismatch: !!settlement.mismatch });
+}
+
+// ── Customer receipts by email ───────────────────────────────────────────────
+//
+// The customer types an address on the fridge after paying; the machine posts it here with the
+// order id. The receipt is built from the backend's stored settlement: the lines and total the
+// customer was charged and saw on screen, with product names and VSK rates from the catalogue.
+//
+// The address is used once: it is held in memory only until the email is sent, never written to
+// the database. If the settlement hasn't arrived yet, the request waits here for it (up to a day),
+// and a restart of the backend drops it — the trade for not storing customer addresses.
+const pendingReceipts = new Map();  // `${deviceCode}:${orderId}` -> { email, language, at }
+const RECEIPT_WAIT_MS = 24 * 60 * 60 * 1000;
+const receiptKey = (deviceCode, orderId) => `${deviceCode}:${orderId}`;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// Receipts carry the operator's name and kennitala; without both they are not offered at all.
+const receiptsAvailable = machine => receiptsOffered(operators[machine.operatorId]);
+
+// Same contact rule as the fridge's info screen (buildConfigResponse): a real per-machine support
+// address wins, then the operator's, then the house address.
+function receiptContact(machine) {
+  const HOUSE_EMAIL = 'hallo@snarlogsopi.is';
+  const op = operators[machine.operatorId] || {};
+  const p = machine.profile || {};
+  const machineEmail = (p.supportEmail && p.supportEmail !== HOUSE_EMAIL) ? p.supportEmail : '';
+  return {
+    email: machineEmail || (op.contactEmail || '').trim() || HOUSE_EMAIL,
+    phone: (p.supportPhone || '') || (op.contactPhone || '').trim() || null,
+  };
+}
+
+async function sendCustomerReceipt(machine, orderId, to, language) {
+  const settlement = storage.getFridgeSettlement(machine.deviceCode, orderId);
+  if (!settlement) throw new Error('settlement not found');
+  if (settlement.outcome !== 'charged') throw new Error(`settlement outcome is ${settlement.outcome}, not charged`);
+  const op = operators[machine.operatorId] || {};
+  const contact = receiptContact(machine);
+  // What was CHARGED (the app's quantities and line amounts, which sum to totalIsk), not the scales
+  // recompute: a receipt whose lines don't add up to the amount on the card statement is wrong
+  // whichever figure is right. A recompute disagreement is already its own alert.
+  const lines = (settlement.lines || [])
+    .filter(l => (l.quantity || 0) > 0)
+    .map(l => {
+      const p = l.productId ? storage.getProduct(l.productId) : null;
+      const lineIsk = l.lineIsk != null ? l.lineIsk : (l.priceIsk || 0) * l.quantity;
+      return {
+        name: (p && p.name) || l.productId || '—',
+        quantity: l.quantity,
+        unitIsk: Math.round(lineIsk / l.quantity),
+        lineIsk,
+        vatRate: p ? p.vatRate : null,
+      };
+    });
+  // The customer was charged settlement.totalIsk; that is the figure the receipt states.
+  const receipt = buildCustomerReceipt({
+    operator: { name: op.name, kennitala: op.kennitala, email: contact.email, phone: contact.phone, logoUrl: op.logoUrl },
+    place: (machine.profile && machine.profile.machineLabel) || machine.deviceName || machine.deviceCode,
+    deviceCode: machine.deviceCode, orderId,
+    closedAtMs: Date.parse(settlement.closedAt || '') || settlement.receivedAt || Date.now(),
+    totalIsk: settlement.totalIsk, language, lines,
+  });
+  if (receipt.vat.unknownRateLines) {
+    console.warn(`[RECEIPT] ${machine.deviceCode} order ${orderId}: ${receipt.vat.unknownRateLines} line(s) with no VSK rate on the product — left out of the VSK breakdown`);
+  }
+  if (settlement.mismatch) {
+    console.warn(`[RECEIPT] ${machine.deviceCode} order ${orderId}: settlement has a money mismatch; receipt states the charged ${settlement.totalIsk} kr`);
+  }
+  await email.send({ to, subject: receipt.subject, text: receipt.text, html: receipt.html, fromName: op.name, replyTo: contact.email });
+  // The address is not logged: it is the one thing this feature promises not to keep.
+  console.log(`[RECEIPT] ${machine.deviceCode} order ${orderId}: sent (${receipt.language})`);
+}
+
+// POST /api/v1/machines/:deviceCode/fridge/receipt  body: { orderId, email, language }
+//   200 { status: 'sent' }    — the settlement was here and the email went out
+//   202 { status: 'waiting' } — the settlement hasn't arrived yet; it goes out when it does
+async function handleFridgeReceipt(req, res) {
+  const { deviceCode } = req.params;
+  const m = machines[deviceCode];
+  if (!m) return notFound(res, `Machine ${deviceCode} not found`);
+  const b = req.body || {};
+  const orderId = String(b.orderId || '').trim();
+  const to = String(b.email || '').trim();
+  if (!orderId) return badRequest(res, 'orderId is required');
+  if (!EMAIL_RE.test(to) || to.length > 254) return badRequest(res, 'email is not a valid address');
+  if (!receiptsAvailable(m)) return badRequest(res, 'receipts are not available on this machine (operator has no kennitala on file)');
+  const language = String(b.language || 'is').toLowerCase();
+
+  const settlement = storage.getFridgeSettlement(deviceCode, orderId);
+  if (!settlement) {
+    pendingReceipts.set(receiptKey(deviceCode, orderId), { email: to, language, at: Date.now() });
+    console.log(`[RECEIPT] ${deviceCode} order ${orderId}: waiting for the settlement`);
+    return json(res, 202, { ok: true, status: 'waiting' });
+  }
+  if (settlement.outcome !== 'charged') return badRequest(res, `order ${orderId} was not charged (${settlement.outcome})`);
+  try {
+    await sendCustomerReceipt(m, orderId, to, language);
+    ok(res, { status: 'sent' });
+  } catch (e) {
+    console.error(`[RECEIPT] ${deviceCode} order ${orderId}: ${e.message}`);
+    // A 5xx so the machine keeps the request and retries; SendGrid hiccups are transient.
+    json(res, 502, { ok: false, error: 'receipt email failed: ' + e.message });
+  }
+}
+
+setInterval(() => {
+  const cutoff = Date.now() - RECEIPT_WAIT_MS;
+  for (const [k, v] of pendingReceipts) {
+    if (v.at < cutoff) { pendingReceipts.delete(k); console.warn(`[RECEIPT] ${k}: settlement never arrived — dropped`); }
+  }
+}, 60 * 60 * 1000).unref();
+
+// Operator details printed on receipts changed: every machine of theirs must refetch config, or the
+// fridge keeps offering (or not offering) receipts on stale information. Config is 304-on-version.
+function touchOperatorMachines(operatorId) {
+  for (const mm of Object.values(machines)) if (mm.operatorId === operatorId) touchConfig(mm);
 }
 
 // Settlement mismatch → dashboard alert + operator email, on the same recipient rule as complaints.
@@ -1593,6 +1830,111 @@ function handleSetComplaintStatus(req, res) {
 // confirm scaling before building persistence/alerting.
 const lastTelemetry = {};
 
+// ── Payment link watch ────────────────────────────────────────────────────────
+// A machine whose Nayax link is down cannot take a card, and nothing on the customer screen says so
+// until someone tries. The fridge app reports its link state on every change and every 5 minutes:
+//   POST /machines/:code/payment-status { up, port, lastReadyAt }
+// "Down" is timed on OUR clock from the first report that says so — a machine with a wrong clock
+// is exactly the one whose own timestamps can't be trusted. Down for PAYLINK_DOWN_MIN (default 10)
+// raises one alert and emails the AG admins; the first report of "up" resolves it and says so.
+// Ten minutes rides out what is normal: a restart, an OTA, the port probe's 90s steps, a terminal
+// rebooting after a settings push.
+const PAYLINK_DOWN_MS = (Number(process.env.PAYLINK_DOWN_MIN) || 10) * 60 * 1000;
+
+function handlePaymentStatus(req, res) {
+  const code = req.params.deviceCode;
+  const m = machines[code];
+  if (!m) return notFound(res, `Machine ${code} not found`);
+  const b = req.body || {};
+  if (typeof b.up !== 'boolean') return badRequest(res, 'up (boolean) is required');
+  let prev = null;
+  try { prev = JSON.parse(storage.getMeta('paylink:' + code) || 'null'); } catch (e) { prev = null; }
+  const now = Date.now();
+  const rec = nextPaymentLinkRecord(prev, b, now);
+  storage.setMeta('paylink:' + code, JSON.stringify(rec));
+  // Act on a recovery straight away rather than on the next sweep.
+  try { applyPaymentLinkAlert(code, rec, now); } catch (e) { console.error('[PAYLINK] alert error:', e.message); }
+  ok(res, { recorded: true });
+}
+
+// Pure: fold one report into the stored record. downSince starts at the first "down" report and is
+// kept while the link stays down; any "up" clears it.
+function nextPaymentLinkRecord(prev, report, now) {
+  const up = report.up === true;
+  const downSince = up ? null : ((prev && prev.up === false && prev.downSince) ? prev.downSince : now);
+  return {
+    up, downSince, reportedAt: now,
+    port: typeof report.port === 'string' ? report.port.slice(0, 32) : null,
+    lastReadyAt: typeof report.lastReadyAt === 'string' ? report.lastReadyAt.slice(0, 40) : null,
+  };
+}
+
+// Pure: what to do with the alert, given the record and whether one is open.
+function paymentLinkAction(rec, alertOpen, now, thresholdMs) {
+  if (!rec) return null;
+  if (rec.up) return alertOpen ? 'resolve' : null;
+  if (!alertOpen && rec.downSince != null && now - rec.downSince >= thresholdMs) return 'raise';
+  return null;
+}
+
+function applyPaymentLinkAlert(code, rec, now) {
+  const m = machines[code];
+  if (!m) return;
+  const id = 'alert_paylink_down_' + code;
+  const existing = storage.getAlert(id);
+  const action = paymentLinkAction(rec, !!(existing && !existing.resolved), now, PAYLINK_DOWN_MS);
+  if (!action) return;
+  const name = m.deviceName || code;
+  const mins = rec.downSince != null ? Math.round((now - rec.downSince) / 60000) : 0;
+  if (action === 'raise') {
+    // Same id every time, so a machine has at most one open payment alert; INSERT OR REPLACE
+    // reopens a resolved one rather than stacking a new row per outage.
+    storage.insertAlert({
+      id, type: 'payment_link_down', severity: 'critical',
+      title: `Posi ótengdur — ${name}`,
+      detail: `${code} · the Nayax payment link has been down for ${mins} min` +
+        (rec.port ? ` (port ${rec.port})` : '') +
+        (rec.lastReadyAt ? `; last handshake ${rec.lastReadyAt}` : '; no handshake reported') +
+        '. The machine cannot take cards. Check the relayed MarshallPay log, then the terminal and its cable.',
+      deviceCode: code, resolved: false, createdAt: new Date(now).toISOString(),
+    });
+    console.warn(`[PAYLINK] ${code} down ${mins} min — alert raised`);
+    notifyAgAdmins(m, `Posi ótengdur — ${name}`,
+      `Nayax payment link on ${name} (${code}) has been down for ${mins} minutes. The machine cannot take cards.` +
+      (rec.port ? ` Port: ${rec.port}.` : ''));
+  } else if (action === 'resolve') {
+    storage.resolveAlert(id);
+    console.log(`[PAYLINK] ${code} link up again — alert resolved`);
+    notifyAgAdmins(m, `Posi tengdur aftur — ${name}`,
+      `Nayax payment link on ${name} (${code}) is up again` + (rec.port ? ` on ${rec.port}` : '') + '.');
+  }
+}
+
+// AG admins by role, or OPS_ALERT_EMAIL (comma-separated) when set. Fire-and-forget: a slow or
+// failing mail API must never hold up a machine's request or the sweep.
+function notifyAgAdmins(m, title, detail) {
+  const fromEnv = String(process.env.OPS_ALERT_EMAIL || '').split(',').map(s => s.trim()).filter(Boolean);
+  const to = fromEnv.length ? fromEnv
+    : storage.listUsers().filter(u => u.role === 'ag_admin' && u.email).map(u => u.email);
+  const dashboardUrl = (process.env.APP_URL || 'https://admin.agvending.is') + '/?page=machines&code=' + m.deviceCode;
+  for (const addr of to) {
+    email.sendOperatorAlert({ to: addr, operatorName: 'AG Vending', title, detail, dashboardUrl })
+      .catch(err => console.error('[PAYLINK] email failed:', err && err.message));
+  }
+}
+
+// A link that goes down and stays down sends no further reports to act on, so the threshold is
+// checked here too.
+setInterval(() => {
+  const now = Date.now();
+  for (const code of Object.keys(machines)) {
+    let rec = null;
+    try { rec = JSON.parse(storage.getMeta('paylink:' + code) || 'null'); } catch (e) { rec = null; }
+    if (!rec) continue;
+    try { applyPaymentLinkAlert(code, rec, now); } catch (e) { console.error('[PAYLINK] sweep error:', e.message); }
+  }
+}, 60 * 1000).unref();
+
 function handleTelemetryIngest(req, res) {
   const deviceCode = req.params.deviceCode;
   const b = req.body || {};
@@ -1813,6 +2155,16 @@ function handleSetFeatured(req, res) {
 async function handleUploadAd(req, res) {
   const m = machines[req.params.deviceCode];
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
+  return storePosterUpload(req, res, String(req.params.deviceCode));
+}
+
+async function handleUploadOperatorAd(req, res) {
+  if (!operators[req.params.operatorId]) return notFound(res, `Operator ${req.params.operatorId} not found`);
+  return storePosterUpload(req, res, 'op-' + String(req.params.operatorId));
+}
+
+// Host a poster on R2, checked against the 16:9 target. Shared by the machine and operator uploads.
+async function storePosterUpload(req, res, namePrefix) {
   const r2 = require('./r2');
   if (!r2.isConfigured()) return badRequest(res, 'Image hosting is not configured (R2 env missing)');
   const b = req.body || {};
@@ -1848,7 +2200,7 @@ async function handleUploadAd(req, res) {
   } catch (e) { /* sharp unavailable or unreadable image — store as-is rather than refuse */ }
 
   const ext = /png/.test(outType) ? 'png' : /webp/.test(outType) ? 'webp' : 'jpg';
-  const safe = String(req.params.deviceCode).replace(/[^a-zA-Z0-9_-]/g, '');
+  const safe = String(namePrefix).replace(/[^a-zA-Z0-9_-]/g, '');
   try {
     const url = await r2.putObject(`ads/${safe}-${Date.now()}.${ext}`, out, outType);
     ok(res, { url, width, height, bytes: out.length, note });
@@ -1860,23 +2212,54 @@ async function handleUploadAd(req, res) {
 function handleSetAds(req, res) {
   const m = machines[req.params.deviceCode];
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
-  if (!Array.isArray(req.body)) return badRequest(res, 'Body must be an array');
+  const v = validateAdList(req.body);
+  if (v.error) return badRequest(res, v.error, v.errors);
+  m.ads = v.ads;
+  touchConfig(m);
+  ok(res, { ads: m.ads, configVersion: m.configVersion });
+}
+
+function handleGetOperatorAds(req, res) {
+  const id = req.params.operatorId;
+  if (!operators[id]) return notFound(res, `Operator ${id} not found`);
+  const opMachines = Object.values(machines).filter(m => m.operatorId === id);
+  ok(res, {
+    ads: operatorAds(id),
+    machines: opMachines.length,
+    // Machines with their own posters ignore the operator's — worth saying beside the editor.
+    overriding: opMachines.filter(m => Array.isArray(m.ads) && m.ads.length).map(m => m.deviceCode),
+  });
+}
+
+function handleSetOperatorAds(req, res) {
+  const id = req.params.operatorId;
+  if (!operators[id]) return notFound(res, `Operator ${id} not found`);
+  const v = validateAdList(req.body);
+  if (v.error) return badRequest(res, v.error, v.errors);
+  setOperatorAds(id, v.ads);
+  // Config is served 304-on-configVersion, so every machine that could inherit these must be
+  // bumped or it would never fetch them.
+  const opMachines = Object.values(machines).filter(m => m.operatorId === id);
+  for (const m of opMachines) touchConfig(m);
+  ok(res, { ads: v.ads, machinesUpdated: opMachines.length });
+}
+
+function validateAdList(body) {
+  if (!Array.isArray(body)) return { error: 'Body must be an array' };
   const errors = [];
-  req.body.forEach((ad, i) => {
+  body.forEach((ad, i) => {
     if (!['video','image'].includes(ad.type)) errors.push(`[${i}] type must be "video" or "image"`);
     if (!ad.url?.startsWith('https://'))      errors.push(`[${i}] url must be an HTTPS URL`);
     if (ad.type === 'image' && typeof ad.durationSec !== 'number') errors.push(`[${i}] durationSec required for images`);
     if (ad.overlayText && ad.overlayText.length > 80) errors.push(`[${i}] overlayText must be ≤80 chars`);
   });
-  if (errors.length) return badRequest(res, 'Validation failed', errors);
-  m.ads = req.body.map(ad => ({
+  if (errors.length) return { error: 'Validation failed', errors };
+  return { ads: body.map(ad => ({
     type:        ad.type,
     url:         ad.url,
     durationSec: ad.durationSec ?? null,
     overlayText: ad.overlayText ?? null,
-  }));
-  touchConfig(m);
-  ok(res, { ads: m.ads, configVersion: m.configVersion });
+  })) };
 }
 
 // ── Expiry tracking ───────────────────────────────────────────────────────────
@@ -2094,55 +2477,22 @@ function validateLedPolicy(raw) {
 const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update'];
 const CMD_TTL_MS = 5 * 60 * 1000;
 
-// ── Payment serial port: what "correct" is, and why a wrong one is invisible ───────────────────
-// Three different answers, and none is inferable from the others (full note in db.js):
-//   coil           : Nayax on ttyS3  (ttyS1 is the motor bus)
-//   gravity double : Nayax on ttyS1  (ttyS3 is the weight bus)
-//   gravity single : Nayax on ttyS4  (ttyS3 is the weight bus)
-// The two fridge sizes do NOT match each other, which is the part that keeps being got wrong in
-// both directions: ttyS4 is dead on a double (three days on 8626020716), and ttyS1 is dead on a
-// single. Both confirmed on real hardware. A dead payment port reports nothing — the machine
-// simply stops taking cards — so the check has to happen here, at the point of setting it.
+// ── Payment serial port ───────────────────────────────────────────────────────────────────────
+// This used to refuse any port that did not match a per-machine-type rule (coil ttyS3, double
+// ttyS1, single ttyS4). That rule is WRONG and the refusal has been removed.
 //
-// Size comes from the model, so a machine whose model is not GR-* cannot be placed: isKioskModel
-// can say "not a kiosk" while the model string still says coil (a fridge registered before model
-// support existed). In that state we genuinely do not know which port is right, so we must not
-// refuse a plausible one — say what is unresolved and let it through.
-function machineKindForPort(m) {
-  const spec = require('./db').fridgeSpec((m && m.model) || '');
-  const flagSaysGravity = !!(m && m.isKioskModel === false);
-  return {
-    isFridgeByModel: spec.isFridge,
-    doors: spec.doors || 0,
-    flagSaysGravity,
-    // Size known only when the model actually identifies a fridge.
-    resolved: spec.isFridge || !flagSaysGravity,
-  };
-}
-function expectedPaymentPort(m) {
-  const k = machineKindForPort(m);
-  if (!k.resolved) return null;                          // model not set — size unknown
-  if (!k.isFridgeByModel) return '/dev/ttyS3';           // coil
-  return k.doors === 2 ? '/dev/ttyS1' : '/dev/ttyS4';    // double vs single fridge
-}
-
-// Returns an explanation when this port shouldn't be accepted, or null when it's fine.
-function paymentPortRejection(m, port, accepted) {
-  if (accepted === true) return null;   // explicit override — the caller has said they mean it
-  const want = expectedPaymentPort(m);
-  // Unknown size: refusing here would block the only person who can fix it, so allow and explain.
-  if (!want) return null;
-  if (port === want) return null;
-  const k = machineKindForPort(m);
-  const kindLabel = !k.isFridgeByModel ? 'Coil machines'
-    : (k.doors === 2 ? 'Double-door fridges' : 'Single-door fridges');
-  const busNote = !k.isFridgeByModel ? 'ttyS1 is the motor bus' : 'ttyS3 is the weight bus';
-  return `${port} is not where Nayax is wired on this machine. ${kindLabel} read payment on ${want} `
-    + `(${busNote}). The two fridge sizes differ here and neither follows from the other, so this is `
-    + `worth double-checking against the machine in front of you. A port with nothing on the other `
-    + `end never reports an error — the machine just stops taking cards. `
-    + `If you really do mean ${port}, resend with acceptNonStandardPort: true.`;
-}
+// The evidence that killed it: 8626020716 and 8626020714 are both DOUBLES, and 8626020716
+// handshakes on ttyS1 while 8626020714 handshakes on ttyS4. The port is a property of how the
+// individual machine was wired at the factory, not of its type, so nothing here can derive it and
+// this code has no business overruling someone holding a multimeter. It was rejecting a correct
+// port for three weeks.
+//
+// What is still checked, because it does not depend on knowing the answer:
+//   - the port must look like a real device path
+//   - it must not be the bus this machine already uses (motors on coil, weights on gravity):
+//     opening a second reader on a live bus corrupts both at once
+// A port with nothing on the other end still fails silently - the machine simply stops taking
+// cards - but the fix for that is the app probing the ports, which the kiosk team is adding.
 
 const isoOrNull = (ms) => (ms ? new Date(ms).toISOString() : null);
 
@@ -2242,10 +2592,6 @@ function handleEnqueueCommand(req, res) {
     if (busPort && busPort === port) {
       return badRequest(res, `${port} is already this machine's ${(mp.isKioskModel === false) ? 'weight' : 'motor'} bus. Opening a second reader on it would corrupt weights and payment at once — choose a different port.`);
     }
-    // Collision isn't the only way to be wrong: a port that simply has nothing on it passes every
-    // check above and takes the machine off cards without a word. Name the expected one instead.
-    const portProblem = paymentPortRejection(mp, port, params.acceptNonStandardPort);
-    if (portProblem) return badRequest(res, portProblem);
   } else if (type === 'clear_device_owner') {
     // One-way door on a placed machine: surrendering Device Owner ends silent OTA, so every future
     // build needs someone on site with adb. Deliberately console-only — no dashboard button — and
@@ -3231,6 +3577,76 @@ function handleSetAppRollout(req, res) {
   ok(res, { release: rel });
 }
 
+// POST /api/v1/app-release/cohort (ag-admin)  body { app, cohort: 'all' | [deviceCodes] }
+//
+// Widen (or narrow) who gets the CURRENT release, without re-publishing it. The canary flow is
+// "publish to one machine, check it, then give it to everyone" — and the forward-only guard rightly
+// refuses to publish the same versionCode twice, so without this the only way from canary to fleet
+// was a version bump that changed nothing. Same APK, same sha256; only the cohort moves.
+function handleSetAppCohort(req, res) {
+  const appKey = (req.body && req.body.app === 'fridge') ? 'fridge' : 'coil';
+  const rel = storage.getAppRelease(appKey);
+  if (!rel) return notFound(res, `No active ${appKey} release`);
+  const c = req.body && req.body.cohort;
+  if (c === 'all') rel.cohort = 'all';
+  else if (Array.isArray(c) && c.length) rel.cohort = c.map(String);
+  else return badRequest(res, "cohort must be 'all' or a non-empty array of device codes");
+  storage.setAppRelease(rel, appKey);
+  console.log(`[APP-RELEASE] ${appKey} ${rel.targetVersionCode} cohort -> ${rel.cohort === 'all' ? 'all' : rel.cohort.join(',')} by ${req.user?.email || 'unknown'}`);
+  ok(res, { release: rel });
+}
+
+// GET /api/v1/app-release/latest-build?app=fridge (ag-admin)
+//
+// The newest build CI has published, so the dashboard can fill the publish form instead of someone
+// copying a version code and an asset URL by hand — the step where a stale number or a wrong link
+// gets in. The snarl-fridge release workflow attaches each build to a `fridge-v<name>` release on
+// this repo with `versionCode: N` in its notes. This only READS: publishing, and choosing which
+// machines get it, stays a deliberate step in the form.
+const RELEASES_REPO = process.env.RELEASES_REPO || 'siggipalmi/snarl-sopi';
+async function handleLatestBuild(req, res) {
+  const appKey = (req.query && req.query.app) === 'coil' ? 'coil' : 'fridge';
+  if (appKey !== 'fridge') return badRequest(res, 'Only the fridge line is published by CI so far');
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 15000);
+  let list;
+  try {
+    const headers = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'snarl-sopi-backend' };
+    if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
+    const r = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=50`, { headers, signal: ctrl.signal });
+    if (!r.ok) return json(res, 502, { ok: false, error: `GitHub answered HTTP ${r.status} listing releases` });
+    list = await r.json();
+  } catch (e) {
+    return json(res, 502, { ok: false, error: 'Could not reach GitHub: ' + e.message });
+  } finally { clearTimeout(to); }
+  const build = latestFridgeBuild(list);
+  if (!build) return notFound(res, `No fridge-v* release with an APK and a versionCode on ${RELEASES_REPO}`);
+  const current = storage.getAppRelease(appKey);
+  ok(res, { ...build, currentVersionCode: current ? current.targetVersionCode : null });
+}
+
+// Pure, so the selection is checkable without GitHub: newest published fridge-v* release that has
+// an .apk asset and states its versionCode.
+function latestFridgeBuild(releases) {
+  for (const rel of (Array.isArray(releases) ? releases : [])) {
+    if (!rel || rel.draft || typeof rel.tag_name !== 'string' || !rel.tag_name.startsWith('fridge-v')) continue;
+    const m = /^versionCode:\s*(\d+)\s*$/m.exec(rel.body || '');
+    const asset = (rel.assets || []).find(a => /\.apk$/i.test(a.name || ''));
+    if (!m || !asset) continue;
+    return {
+      app: 'fridge',
+      versionCode: Number(m[1]),
+      versionName: rel.tag_name.slice('fridge-v'.length),
+      apkUrl: asset.browser_download_url,
+      tag: rel.tag_name,
+      releaseUrl: rel.html_url || null,
+      publishedAt: rel.published_at || null,
+      notes: String(rel.body || '').slice(0, 4000),
+    };
+  }
+  return null;
+}
+
 // ── PUT /api/v1/machines/:deviceCode/grid-order ───────────────────────────────
 // Sets the customer-facing product order (list of product codes). The kiosk
 // renders its browse grid in this order; unlisted products fall to the end.
@@ -3274,8 +3690,6 @@ function handleUpdateSettings(req, res) {
     if (busPort && busPort === pp) {
       return badRequest(res, `${pp} is already this machine's ${(m.isKioskModel === false) ? 'weight' : 'motor'} bus — choose a different port.`);
     }
-    const ppProblem = paymentPortRejection(m, pp, req.body.acceptNonStandardPort);
-    if (ppProblem) return badRequest(res, ppProblem);
   }
   // tempReporting drives what the temperature panel says. 'unsupported' means this board exposes no
   // cabinet temperature at all, so the panel states that rather than looking like missing data.
@@ -4790,6 +5204,8 @@ async function handleSetPaydayLink(req, res) {
     }
     storage.setOperatorPaydayLink(id, kennitala, paydayCustomerId);
     if (operators[id]) { operators[id].kennitala = kennitala; operators[id].paydayCustomerId = paydayCustomerId; }
+    // The kennitala decides whether this operator's fridges offer email receipts.
+    touchOperatorMachines(id);
     ok(res, { operatorId: id, kennitala, paydayCustomerId, resolved, matchedName, lookupError });
   } catch (e) {
     json(res, 500, { ok: false, error: String((e && e.message) || e) });
@@ -4958,6 +5374,8 @@ async function handleUpdateOperator(req, res) {
     catch (e) { return json(res, 502, { error: 'logo upload failed: ' + e.message }); }
   }
   storage.upsertOperator(op);
+  // Name, contact and logo all reach the fridges (info screen, receipts).
+  touchOperatorMachines(op.id);
   ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id) });
 }
 

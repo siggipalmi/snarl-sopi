@@ -486,6 +486,10 @@ function fridgeLanguageBlock(cfg) {
   return { default: def, available, labels: LABELS };
 }
 
+function receiptsOffered(op) {
+  return !!(String((op && op.name) || '').trim() && String((op && op.kennitala) || '').replace(/\D/g, '').length === 10);
+}
+
 function buildConfigResponse(machine) {
   const HOUSE_EMAIL = 'hallo@snarlogsopi.is';
   const op = operators[machine.operatorId] || {};
@@ -504,6 +508,9 @@ function buildConfigResponse(machine) {
       supportEmail,
       supportPhone: supportPhone || null,
       machineLabel: p.machineLabel || null,
+      // The operator's uploaded logo (R2), for the fridge's info screen. Null when none — the kiosk
+      // then shows the operator name alone, as it always has.
+      logoUrl: (op.logoUrl || '').trim() || null,
     },
     outOfService: !!cfg.outOfService,
     outOfServiceReason: cfg.outOfServiceReason || null,
@@ -511,6 +518,9 @@ function buildConfigResponse(machine) {
     // "is" falling through to the default res/values). Per-machine default so a workplace can
     // open in Icelandic and a hotel in English. Labels are for a language-name UI if needed.
     language: fridgeLanguageBlock(cfg),
+    // Email receipts after a fridge sale. Offered only when the operator has a name and a kennitala
+    // on file, because both are printed on the receipt.
+    receipts: { enabled: receiptsOffered(op) },
     commands: {
       restartApp: cfg.restartAppAt || null,
       restartMachine: cfg.restartMachineAt || null,
@@ -526,7 +536,20 @@ function buildConfigResponse(machine) {
       return saved.concat(extras);
     })(),
     featured: (machine.featured || []).slice().sort((a,b) => a.order - b.order),
-    ads: machine.ads || [],
+    // The machine's own posters when it has any, otherwise its operator's. adsSource says which, so
+    // the dashboard and the logs can tell an empty machine list from an inherited one.
+    ads: (Array.isArray(machine.ads) && machine.ads.length) ? machine.ads : operatorAds(machine.operatorId),
+    adsSource: (Array.isArray(machine.ads) && machine.ads.length) ? 'machine'
+      : (operatorAds(machine.operatorId).length ? 'operator' : 'none'),
+    // Screen layout flags. These were stored and editable in the dashboard but never sent, so the
+    // poster area toggle was a control with nothing on the other end: the posters themselves
+    // arrived in `ads` while the flag saying the region is switched on did not. Defaults match
+    // DEFAULT_SETTINGS, so a machine that has never been configured behaves as the dashboard shows.
+    showAdRegion:       cfg.showAdRegion   !== false,
+    showLeftHero:       cfg.showLeftHero   !== false,
+    showRightHero:      cfg.showRightHero  !== false,
+    showIdleScreen:     cfg.showIdleScreen === true,
+    idleTimeoutSeconds: Number.isFinite(Number(cfg.idleTimeoutSeconds)) ? Number(cfg.idleTimeoutSeconds) : 60,
     deals: storage.activeDealsForMachine(machine.deviceCode) || [],
     idle: storage.resolveIdleForMachine(machine.deviceCode) || { rotationSeconds: 6, attractTimeoutSeconds: 30, cards: [] },
     offers: storage.offersForMachine(machine.deviceCode) || [],
@@ -576,23 +599,21 @@ function fridgePlanogramBlock(machine) {
       enabled,
     };
   });
-  // ── Serial ports: the assignment differs by machine type AND by fridge size ──
-  //   Coil          : ttyS3 = Nayax payment,  ttyS1 = motors
-  //   Gravity double : ttyS3 = weight bus,    ttyS1 = Nayax payment
-  //   Gravity single : ttyS3 = weight bus,    ttyS4 = Nayax payment
-  // None of these can be inferred from the others, and the two fridge sizes do NOT match each
-  // other — that is the part that is easy to get wrong. Assuming coil and gravity matched cost
-  // three days on 8626020716 (a DOUBLE), where the app talked to ttyS4 and never received a single
-  // byte; ttyS1 handshook in two seconds. The opposite mistake is just as available: ttyS1 is dead
-  // on a SINGLE, where Nayax is on ttyS4. Confirmed on real hardware for both sizes.
-  // Serve the port explicitly so a reinstall, a restart or a cleared app can't silently revert to
-  // a wrong default — a machine that comes back up on the wrong port takes no cards and says
-  // nothing about it.
+  // ── Serial ports: the payment port is PER MACHINE, not per machine type ──
+  // The Nayax port is NOT a function of type or size: 8626020716 and 8626020714 are both doubles,
+  // the first on ttyS1, the second on ttyS4. It depends on how each unit was wired at the factory.
+  //
+  // So nothing is served unless settings.paymentSerialPort says so. From fridge v0.56.0 the app
+  // treats this field as an operator override and otherwise PROBES both ports, saving the one that
+  // handshakes. A guess served here would be indistinguishable from an override and would stop the
+  // probe dead — on a double wired to ttyS4, exactly the failure that took 8626020714 down.
+  //
+  // Older apps treat a missing field by falling back to their own cabinet-count default, which is
+  // the same guess this used to serve, so they behave as before.
   const cfg2 = machine.settings || {};
-  const defaultPaymentPort = (spec.doors === 2) ? '/dev/ttyS1' : '/dev/ttyS4';
   const paymentSerialPort = (typeof cfg2.paymentSerialPort === 'string' && cfg2.paymentSerialPort.trim())
     ? cfg2.paymentSerialPort.trim()
-    : defaultPaymentPort;
+    : null;
   return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, paymentSerialPort, led: ledPolicy(machine), baskets: rows } };
 }
 
@@ -610,6 +631,19 @@ function ledPolicy(machine) {
   };
 }
 
+// Operator-wide screen posters: the default for every machine of the operator. A machine with its
+// own posters shows those instead (override, not merge), so a one-machine operator keeps working
+// exactly as before and a multi-machine operator sets posters once. Stored as meta, like the
+// operator's idle config, and served through buildConfigResponse.
+function operatorAds(operatorId) {
+  if (!operatorId) return [];
+  try { const v = JSON.parse(storage.getMeta('opads:' + operatorId) || '[]'); return Array.isArray(v) ? v : []; }
+  catch (e) { return []; }
+}
+function setOperatorAds(operatorId, ads) {
+  storage.setMeta('opads:' + operatorId, JSON.stringify(Array.isArray(ads) ? ads : []));
+}
+
 function touchConfig(machine) {
   machine.configVersion = new Date().toISOString();
   machine.updatedAt = machine.configVersion;
@@ -620,9 +654,9 @@ module.exports = {
   operators, machines, alerts: alertsProxy, orders: ordersProxy,
   users: usersProxy, authTokens, apiConfig,
   storage,
-  provisionMachine, validateMachineKey, revokeKey,
+  provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
   markKioskSeen, isKioskAlive,
-  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED,
+  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,

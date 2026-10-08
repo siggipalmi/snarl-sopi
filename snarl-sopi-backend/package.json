@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.37.0",
-  "description": "Snarl and Sopi operator backend v6.37.0: accounts from the lease form. /api/v1/operators/provision takes contactName, so the invite email greets the aðalnotandi named on skraning.agvending.is rather than the company, and it never invites anyone to an operator that already exists. An operator created from the form has a kennitala but no Payday customer yet (the Zap creates that afterwards), so its invoices and ledger now resolve the Payday customer by kennitala the first time they are opened and store the link. Cumulative over v6.36.1.",
+  "version": "6.45.0",
+  "description": "Snarl and Sopi operator backend v6.45.0: email receipts for fridge customers. POST /machines/:deviceCode/fridge/receipt sends an operator-branded receipt (name, kennitala, contact, logo, lines, total, VSK per rate) in the customer's language, reply-to the operator. The address is held in memory only until sent. Config gains receipts.enabled (operator has name + kennitala); operator edits now bump their machines' config. Cumulative over v6.44.1.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

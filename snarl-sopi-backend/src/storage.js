@@ -136,6 +136,21 @@ db.exec(`
     revokedAt   TEXT
   );
 
+  -- Pairing codes: a short numeric code an operator generates for one machine and someone types on
+  -- the kiosk to fetch its identity. Single-use and short-lived, because six digits is only a
+  -- million values and this is exchanged over an unauthenticated endpoint by definition -- the
+  -- machine has no key yet, which is the whole point.
+  CREATE TABLE IF NOT EXISTS pairing_codes (
+    code        TEXT PRIMARY KEY,
+    deviceCode  TEXT NOT NULL REFERENCES machines(deviceCode),
+    createdAt   INTEGER NOT NULL,
+    expiresAt   INTEGER NOT NULL,
+    issuedBy    TEXT,
+    consumedAt  INTEGER,
+    consumedIp  TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_pairing_device ON pairing_codes(deviceCode);
+
   CREATE TABLE IF NOT EXISTS lease_units (
     machineId    TEXT PRIMARY KEY,
     nayaxId      TEXT NOT NULL DEFAULT '',
@@ -673,6 +688,20 @@ const stmts = {
   deleteInvitation:  db.prepare('DELETE FROM invitations WHERE token = ?'),
   deleteInvitationsByOperator: db.prepare('DELETE FROM invitations WHERE operatorId = ?'),
   cleanupExpired:    db.prepare('DELETE FROM invitations WHERE expiresAt < ?'),
+
+  // Pairing codes
+  getPairingCode:    db.prepare('SELECT * FROM pairing_codes WHERE code = ?'),
+  insertPairingCode: db.prepare(`INSERT INTO pairing_codes (code, deviceCode, createdAt, expiresAt, issuedBy)
+                                 VALUES (@code, @deviceCode, @createdAt, @expiresAt, @issuedBy)`),
+  consumePairingCode:db.prepare(`UPDATE pairing_codes SET consumedAt = @now, consumedIp = @ip
+                                 WHERE code = @code AND consumedAt IS NULL AND expiresAt > @now`),
+  // One live code per machine: generating a second supersedes the first, so a code read off a
+  // screen an hour ago cannot still be redeemed.
+  dropLivePairingCodes: db.prepare('DELETE FROM pairing_codes WHERE deviceCode = ? AND consumedAt IS NULL'),
+  livePairingCode:   db.prepare(`SELECT * FROM pairing_codes
+                                 WHERE deviceCode = ? AND consumedAt IS NULL AND expiresAt > ?
+                                 ORDER BY createdAt DESC LIMIT 1`),
+  purgePairingCodes: db.prepare('DELETE FROM pairing_codes WHERE expiresAt < ?'),
 
   // Machine keys
   getMachineKey:     db.prepare('SELECT * FROM machine_keys WHERE deviceCode = ?'),
@@ -1258,6 +1287,25 @@ const storage = {
   consumeInvitation(token) { stmts.consumeInvitation.run(Date.now(), token); },
   deleteInvitation(token)  { stmts.deleteInvitation.run(token); },
   cleanupExpiredInvitations() { stmts.cleanupExpired.run(Date.now() - 30*24*3600*1000); },
+
+  // ── Pairing codes ────────────────────────────────────────────────
+  issuePairingCode(code, deviceCode, ttlMs, issuedBy) {
+    const now = Date.now();
+    db.transaction(() => {
+      stmts.dropLivePairingCodes.run(deviceCode);
+      stmts.insertPairingCode.run({ code, deviceCode, createdAt: now, expiresAt: now + ttlMs, issuedBy: issuedBy || null });
+    })();
+    return { code, deviceCode, createdAt: now, expiresAt: now + ttlMs };
+  },
+  getPairingCode(code) { return stmts.getPairingCode.get(code); },
+  livePairingCode(deviceCode) { return stmts.livePairingCode.get(deviceCode, Date.now()); },
+  // Returns true only for the caller that actually consumed it: the UPDATE carries the
+  // not-yet-consumed and not-expired conditions, so two simultaneous redemptions cannot both win.
+  consumePairingCode(code, ip) {
+    const r = stmts.consumePairingCode.run({ code, now: Date.now(), ip: (ip || '').slice(0, 64) });
+    return r.changes === 1;
+  },
+  purgePairingCodes() { stmts.purgePairingCodes.run(Date.now() - 7 * 24 * 3600 * 1000); },
 
   // Machine keys
   getMachineKey(deviceCode) { return stmts.getMachineKey.get(deviceCode); },

@@ -890,6 +890,31 @@ select.fi{cursor:pointer;}
           <div id="md-actions" style="padding:4px 14px 16px"></div>
         </div>
 
+        <div class="panel" style="margin-bottom:16px;display:none" id="md-pair-panel">
+          <div class="ph"><div class="ph-title">pairing code.</div></div>
+          <div style="padding:14px 18px 16px">
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:11px">
+              Install the app on the machine, open the pairing screen behind the admin PIN, and type this code.
+              The app fetches its own identity — no cable, and the machine key is never shown to anyone.
+            </div>
+            <div id="md-pair-code" style="font-family:var(--mono);font-size:30px;letter-spacing:6px;font-weight:500;margin-bottom:4px">—</div>
+            <div id="md-pair-meta" style="font-size:11.5px;color:var(--muted);margin-bottom:11px"></div>
+            <button class="btn btn-ghost btn-sm" onclick="issuePairingCode()" id="md-pair-btn" style="width:100%">generate code &rarr;</button>
+            <div id="md-pair-msg" style="font-size:11.5px;line-height:1.45;margin-top:8px"></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px" id="md-lang-panel">
+          <div class="ph"><div class="ph-title">kiosk language.</div></div>
+          <div style="padding:14px 18px 16px">
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:10px">
+              Which language this machine's screen starts in. Customers can still switch on the kiosk.
+            </div>
+            <div class="tabs" id="md-lang-tabs" style="width:fit-content"></div>
+            <div id="md-lang-msg" style="font-size:11.5px;line-height:1.45;margin-top:9px"></div>
+          </div>
+        </div>
+
         <div class="panel" style="margin-bottom:16px">
           <div class="ph"><div class="ph-title">empty slots.</div></div>
           <div id="md-empty-slots" style="max-height:300px;overflow:auto"></div>
@@ -1203,8 +1228,16 @@ select.fi{cursor:pointer;}
                 <label class="tgl"><input type="checkbox" id="ds-hasLedStrips"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
               </div>
               <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.45">Brightness, schedule and the shopping wake live on each fridge's <strong>Controls</strong> tab — they are per-machine and are sent to the machine, which the old 0–10 field here never was.</div>
-              <div class="field"><div class="fl">motor serial port</div><input class="fi mono" id="ds-motorSerialPort"></div>
+              <div class="field"><div class="fl">motor serial port</div><input class="fi mono" id="ds-motorSerialPort" placeholder="/dev/ttyS3"></div>
+              <div class="field"><div class="fl">payment serial port (Nayax)</div><input class="fi mono" id="ds-paymentSerialPort" placeholder="/dev/ttyS1"></div>
               <div class="field"><div class="fl">control board address</div><input class="fi mono" id="ds-controlBoardAddress" type="number"></div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.45;margin:-2px 0 10px">
+                The Nayax port is <strong>per machine</strong>, not per type — 8626020716 and 8626020714 are both doubles
+                and sit on ttyS1 and ttyS4 respectively. Leave blank to use the type default; set it when this machine
+                disagrees. A wrong port reports nothing, the machine just stops taking cards.
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="saveWiring()" style="width:100%">save wiring &rarr;</button>
+              <div id="ds-wiring-msg" style="font-size:11.5px;line-height:1.45;margin-top:7px"></div>
             </div>
           </div>
           <div class="panel">
@@ -1870,6 +1903,7 @@ const I18N = {
     'lt.unsupported':'This machine\u2019s app cannot control the lights yet.',
     'lt.loading':'Loading\u2026','lt.loadErr':'Could not load lighting.',
     'lt.clockNote':'The night level only applies once the machine has reached the backend since booting \u2014 that is what proves its clock is right.',
+    'lt.onOff':'These fridges switch their lights on or off \u2014 they do not dim. Any brightness above 0 means on; 0 means off.',
     'sc.title':'scale','sc.hint':'these act on the machine straight away — there is nothing to save',
     'sc.read':'read weight','sc.tare':'tare','sc.calibrate':'calibrate',
     'sc.notRead':'not read','sc.working':'working','sc.done':'done','sc.failed':'failed','sc.unsupported':'unsupported',
@@ -1947,6 +1981,7 @@ const I18N = {
     'lt.unsupported':'Forriti\u00f0 \u00ed \u00feessari v\u00e9l r\u00e6\u00f0ur ekki vi\u00f0 l\u00fdsingarst\u00fdringu enn.',
     'lt.loading':'Hle\u00f0\u2026','lt.loadErr':'T\u00f3kst ekki a\u00f0 hla\u00f0a l\u00fdsingu.',
     'lt.clockNote':'N\u00e6turbirtan tekur gildi \u00feegar v\u00e9lin hefur n\u00e1\u00f0 sambandi vi\u00f0 bakendann eftir r\u00e6singu \u2014 \u00fea\u00f0 sta\u00f0festir a\u00f0 klukkan s\u00e9 r\u00e9tt.',
+    'lt.onOff':'L\u00fdsingin \u00ed \u00feessum k\u00e6lum er anna\u00f0hvort kveikt e\u00f0a sl\u00f6kkt \u2014 h\u00fan dimmist ekki. Birta yfir 0 \u00fe\u00fd\u00f0ir kveikt; 0 \u00fe\u00fd\u00f0ir sl\u00f6kkt.',
     'sc.title':'vigt','sc.hint':'\u00feetta virkar strax \u00e1 v\u00e9linni \u2014 ekkert a\u00f0 vista',
     'sc.read':'lesa \u00feyngd','sc.tare':'n\u00fallstilla','sc.calibrate':'kvar\u00f0a',
     'sc.notRead':'ekki lesi\u00f0','sc.working':'vinn','sc.done':'loki\u00f0','sc.failed':'mist\u00f3kst','sc.unsupported':'\u00f3stutt',
@@ -4039,7 +4074,11 @@ async function launchSupport(code) {
 // is empty, not whether to "force".
 async function tareAllBaskets(code) {
   if (!code) return;
-  const empty = confirm('Is this machine completely EMPTY?\n\nOK — yes, it is empty. Every basket will be zeroed.\n\nCancel — no, there is product in it. Only baskets that read as empty will be zeroed; the rest will be reported back untouched.');
+  // Two steps on purpose. This used to be one confirm where Cancel meant "not empty" and still sent
+  // a tare — so anyone who opened the dialog and changed their mind, or pressed Escape, fired a
+  // command at the machine anyway. The first question is the one that can abort.
+  if (!confirm('Tare all baskets on this machine?\n\nNothing is sent to the machine until you answer the next question.')) return;
+  const empty = confirm('Is this machine completely EMPTY?\n\nOK — yes, it is empty. Every basket will be zeroed (force).\n\nCancel — no, there is product in it. Only baskets that already read as empty will be zeroed; the rest are reported back untouched.');
   try {
     const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'tare_all', params: empty ? { force: true } : {} });
     if (r && r.ok) showToast(empty ? 'Taring every basket — result in command history' : 'Taring empty baskets — result in command history');
@@ -4987,9 +5026,24 @@ function copyMachineLogs() {
 // The kiosk ad region is HD landscape (1920x1080, 16:9). Posters are hosted on R2 and referenced by
 // URL in config, so a change lands on the machine at its next config poll — no app update.
 let _mdAds = [];
+// Whose posters the editor is showing: one machine's, or an operator's (the default for all its
+// machines; a machine with its own posters shows those instead).
+let _adScope = { kind: 'machine', id: null };
+function adBase() {
+  return _adScope.kind === 'operator'
+    ? '/api/v1/operators/' + encodeURIComponent(_adScope.id) + '/ads'
+    : '/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/ads';
+}
+function rerenderAds() {
+  if (_adScope.kind === 'operator') { renderOperatorAdsList(); return; }
+  const machine = DB.machines[_mdDeviceCode] || {};
+  machine.ads = _mdAds;
+  renderMachineAds(_mdDeviceCode, machine);
+}
 async function renderMachineAds(code, machine) {
   const el = document.getElementById('md-ads');
   if (!el) return;
+  _adScope = { kind: 'machine', id: code };
   _mdAds = Array.isArray(machine && machine.ads) ? JSON.parse(JSON.stringify(machine.ads)) : [];
   const regionOn = !(machine && machine.settings && machine.settings.showAdRegion === false);
   let h = '<label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:13px">' +
@@ -4999,10 +5053,54 @@ async function renderMachineAds(code, machine) {
     h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">The area is hidden, so posters below won\'t appear until it\'s switched on.</div>';
   }
   if (!_mdAds.length) {
-    h += '<div style="font-size:12.5px;color:var(--muted)">No poster set. Add one — 1920&times;1080 (16:9) is the size the screen expects.</div>';
+    h += '<div id="ads-inherit" style="font-size:12.5px;color:var(--muted)">No poster set for this machine. Add one — 1920&times;1080 (16:9) is the size the screen expects.</div>';
   } else {
     h += _mdAds.map(function (ad, i) { return adRow(ad, i); }).join('');
     h += '<div style="margin-top:12px"><button class="btn btn-sm" onclick="saveAds()">save posters</button></div>';
+  }
+  el.innerHTML = h;
+  // With none of its own, the machine shows its operator's posters — say so, or the panel reads
+  // "nothing set" while the screen is showing posters.
+  if (!_mdAds.length && machine && machine.operatorId) {
+    try {
+      const r = await API.get('/api/v1/operators/' + encodeURIComponent(machine.operatorId) + '/ads');
+      const n = (r && r.ok && r.data && r.data.ads) ? r.data.ads.length : 0;
+      const box = document.getElementById('ads-inherit');
+      if (n && box && _adScope.kind === 'machine' && _adScope.id === code) {
+        const opName = (machine.settings && machine.settings.operatorName) || 'its operator';
+        box.innerHTML = 'Showing <b>' + rsEsc(opName) + '</b>’s ' + n + ' poster' + (n === 1 ? '' : 's') +
+          ' (set on the operator). Add posters here to replace them on this machine only.';
+      }
+    } catch (e) { /* offline: the plain note stands */ }
+  }
+}
+
+// The operator-wide poster editor, inside the edit-operator dialog.
+let _opAdsInfo = null;
+async function renderOperatorAds(operatorId) {
+  _adScope = { kind: 'operator', id: operatorId };
+  _mdAds = [];
+  _opAdsInfo = null;
+  try {
+    const r = await API.get('/api/v1/operators/' + encodeURIComponent(operatorId) + '/ads');
+    if (r && r.ok && r.data) { _mdAds = r.data.ads || []; _opAdsInfo = r.data; }
+  } catch (e) { /* render empty */ }
+  renderOperatorAdsList();
+}
+function renderOperatorAdsList() {
+  const el = document.getElementById('op-ads');
+  if (!el) return;
+  let h = '';
+  if (_opAdsInfo && _opAdsInfo.overriding && _opAdsInfo.overriding.length) {
+    h += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">' + _opAdsInfo.overriding.length +
+      ' machine' + (_opAdsInfo.overriding.length === 1 ? ' has' : 's have') + ' posters of its own and won’t show these: ' +
+      _opAdsInfo.overriding.map(rsEsc).join(', ') + '</div>';
+  }
+  if (!_mdAds.length) {
+    h += '<div style="font-size:12.5px;color:var(--muted)">No operator posters. Posters added here show on every machine of this operator that has none of its own.</div>';
+  } else {
+    h += _mdAds.map(function (ad, i) { return adRow(ad, i); }).join('');
+    h += '<div style="margin-top:10px"><button class="btn btn-sm" onclick="saveAds()">save operator posters</button></div>';
   }
   el.innerHTML = h;
 }
@@ -5039,24 +5137,17 @@ function renderAdsAgain() {
     const i = Number(el.getAttribute('data-i'));
     if (_mdAds[i]) _mdAds[i].type = el.value;
   });
-  const machine = DB.machines[_mdDeviceCode] || {};
-  machine.ads = _mdAds;
-  renderMachineAds(_mdDeviceCode, machine);
+  rerenderAds();
 }
 
 function addAdSlot() {
   _mdAds.push({ type: 'image', url: '', durationSec: 10, overlayText: null });
-  const el = document.getElementById('md-ads');
-  const machine = DB.machines[_mdDeviceCode] || {};
-  machine.ads = _mdAds;
-  renderMachineAds(_mdDeviceCode, machine);
+  rerenderAds();
 }
 
 function removeAd(i) {
   _mdAds.splice(i, 1);
-  const machine = DB.machines[_mdDeviceCode] || {};
-  machine.ads = _mdAds;
-  renderMachineAds(_mdDeviceCode, machine);
+  rerenderAds();
   saveAds();
 }
 
@@ -5073,13 +5164,11 @@ function pickAdImage(i) {
     const reader = new FileReader();
     reader.onload = async function () {
       try {
-        const r = await API.post('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/ads/upload', { data: reader.result });
+        const r = await API.post(adBase() + '/upload', { data: reader.result });
         if (!r || !r.ok) { showToast((r && r.error) || 'upload failed'); return; }
         _mdAds[i].url = r.data.url;
         _mdAds[i].type = 'image';
-        const machine = DB.machines[_mdDeviceCode] || {};
-        machine.ads = _mdAds;
-        renderMachineAds(_mdDeviceCode, machine);
+        rerenderAds();
         await saveAds();
         showToast(r.data.note ? r.data.note : 'Poster uploaded');
       } catch (e) { showToast('error: ' + e.message); }
@@ -5090,7 +5179,7 @@ function pickAdImage(i) {
 }
 
 async function saveAds() {
-  if (!_mdDeviceCode) return;
+  if (_adScope.kind === 'machine' && !_mdDeviceCode) return;
   document.querySelectorAll('.ad-dur').forEach(function (el) {
     const i = Number(el.getAttribute('data-i'));
     if (_mdAds[i]) _mdAds[i].durationSec = Number(el.value) || 10;
@@ -5111,8 +5200,10 @@ async function saveAds() {
   _mdAds.forEach(function (a) { if (a.type === 'video') a.durationSec = a.durationSec || 15; });
   const payload = _mdAds.filter(function (a) { return a.url; });
   try {
-    const r = await API.put('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/ads', payload);
-    if (r && r.ok) showToast('Posters saved — live on the machine within ~2 min');
+    const r = await API.put(adBase(), payload);
+    if (r && r.ok) showToast(_adScope.kind === 'operator'
+      ? 'Operator posters saved — live on ' + ((r.data && r.data.machinesUpdated) || 0) + ' machine(s) within ~2 min'
+      : 'Posters saved — live on the machine within ~2 min');
     else showToast((r && r.detail && r.detail[0]) || (r && r.error) || 'could not save');
   } catch (e) { showToast('error: ' + e.message); }
 }
@@ -5342,6 +5433,98 @@ async function openFridgeDoor(code, cabinet) {
   } catch (e) { showToast('error: ' + e.message); }
 }
 
+// Pairing codes. AG-admin only, so the panel stays hidden for everyone else rather than showing a
+// button that 403s. Generating supersedes any live code for this machine — a code read off a screen
+// an hour ago should not still work.
+function renderMdPairing() {
+  const panel = document.getElementById('md-pair-panel');
+  if (!panel) return;
+  if (currentUser?.role !== 'ag_admin') { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  document.getElementById('md-pair-code').textContent = '—';
+  document.getElementById('md-pair-meta').textContent = '';
+  document.getElementById('md-pair-msg').textContent = '';
+  // Show a code that is still live, so reopening the page during a site visit does not force a new
+  // one and invalidate the digits already written on someone's hand.
+  API.get('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/pairing-code').then(r => {
+    if (r && r.ok && r.data && r.data.code) showPairCode(r.data);
+  }).catch(() => {});
+}
+
+function showPairCode(d) {
+  const el = document.getElementById('md-pair-code');
+  const meta = document.getElementById('md-pair-meta');
+  if (!el || !meta) return;
+  el.textContent = String(d.code).replace(/(\d{3})(\d{3})/, '$1 $2');
+  const exp = new Date(d.expiresAt);
+  const hrs = Math.max(0, Math.round((exp - Date.now()) / 3600000));
+  meta.textContent = 'Single use · expires ' + fmtDateTime(exp.getTime()) + (hrs ? ' (' + hrs + 'h)' : '');
+}
+
+async function issuePairingCode() {
+  const btn = document.getElementById('md-pair-btn');
+  const msg = document.getElementById('md-pair-msg');
+  if (!_mdDeviceCode || !btn || !msg) return;
+  btn.disabled = true;
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Generating…';
+  const r = await API.post('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/pairing-code', {});
+  if (r && r.ok && r.data) {
+    showPairCode(r.data);
+    msg.style.color = 'var(--success)';
+    msg.textContent = 'Type this on the machine. Redeeming it issues a new machine key and retires the old one.';
+  } else {
+    msg.style.color = 'var(--alert)';
+    msg.textContent = (r && (r.error || r.message)) || 'Could not generate a code.';
+  }
+  btn.disabled = false;
+}
+
+// Kiosk language for one machine. Writes defaultLanguageCode (is|en|pl), which is the field the
+// config block is actually built from — NOT settings.defaultLanguage, the 'Icelandic'/'English'
+// string in the Kiosk-setup panel. That string reaches neither the backend nor the machine; it is
+// vestigial, and setting it does nothing on the kiosk.
+const MD_LANGS = [{ code: 'is', label: 'Íslenska' }, { code: 'en', label: 'English' }, { code: 'pl', label: 'Polski' }];
+
+function renderMdLanguage(m) {
+  const wrap = document.getElementById('md-lang-tabs');
+  const msg  = document.getElementById('md-lang-msg');
+  if (!wrap) return;
+  if (msg) msg.textContent = '';
+  const st = (m && m.settings) || {};
+  // Unset means the machine falls back to Icelandic, so show that as the live state rather than
+  // leaving every button unselected.
+  const current = MD_LANGS.some(l => l.code === st.defaultLanguageCode) ? st.defaultLanguageCode : 'is';
+  const available = Array.isArray(st.availableLanguageCodes) && st.availableLanguageCodes.length
+    ? st.availableLanguageCodes : ['is', 'en'];
+  wrap.innerHTML = MD_LANGS.filter(l => available.includes(l.code) || l.code === current)
+    .map(l => '<div class="tab' + (l.code === current ? ' active' : '') + '" data-lang="' + l.code + '"' +
+              ' onclick="setMdLanguage(\'' + l.code + '\')">' + l.label + '</div>').join('');
+}
+
+async function setMdLanguage(code) {
+  const dev = _mdDeviceCode;
+  const msg = document.getElementById('md-lang-msg');
+  if (!dev || !msg) return;
+  const label = (MD_LANGS.find(l => l.code === code) || {}).label || code;
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Saving…';
+  const r = await API.put('/api/v1/machines/' + encodeURIComponent(dev), { defaultLanguageCode: code });
+  if (r && r.ok) {
+    document.querySelectorAll('#md-lang-tabs .tab').forEach(t =>
+      t.classList.toggle('active', t.getAttribute('data-lang') === code));
+    const lm = DB.machines[dev];
+    if (lm) { lm.settings = lm.settings || {}; lm.settings.defaultLanguageCode = code; saveData(); }
+    msg.style.color = 'var(--success)';
+    msg.textContent = label + ' set. The machine switches on its next config poll (about two minutes).';
+  } else {
+    msg.style.color = 'var(--alert)';
+    msg.textContent = (r && (r.error || r.message)) || 'Could not change the language.';
+  }
+}
+
+let _mdModel = '';   // model from the last /detail response — authoritative, unlike DB.machines
+
 async function renderMachineDetail() {
   if (!_mdDeviceCode) return;
   const code = _mdDeviceCode;
@@ -5367,6 +5550,12 @@ async function renderMachineDetail() {
       return;
     }
     const m = dr.data.machine;
+    // Remember the model from the response. showMdTab decides whether to show the fridge-only
+    // panels (scales, lighting) and has no access to this data, so it used to read DB.machines --
+    // the browser's local copy, which can be stale, missing on a machine added since the last
+    // hydrate, or empty on a fresh browser. When it was wrong the scale panel simply never
+    // appeared, on a real fridge, with no hint as to why.
+    _mdModel = String(m.model || '');
     document.getElementById('md-name').textContent = m.deviceName;
     document.getElementById('md-meta').innerHTML =
       m.deviceCode + ' · ' + (m.location || '—') + ' · ' + (dr.data.operatorName || '—') +
@@ -5377,6 +5566,9 @@ async function renderMachineDetail() {
         (m.kioskVersion ? ('v' + m.kioskVersion) : '<span style="color:var(--muted)">unknown</span>') +
         (m.lastAppVersionCode != null ? ' <span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '') +
       '</span>';
+
+    renderMdLanguage(m);
+    renderMdPairing();
 
     // Operator assignment (AG admin only)
     const opEl = document.getElementById('md-operator');
@@ -5620,8 +5812,10 @@ function showMdTab(name, el) {
       var tags = document.getElementById('md-tags-panel');
       if (tags) tags.style.display = '';
       // Scale maintenance is fridge-only; the dispense log is coil-only.
-      var machX = DB.machines[_mdDeviceCode] || {};
-      var isFridgeX = /^GR-/.test(String(machX.model || ''));
+      // Prefer the model from the last detail response; fall back to the local copy only if the
+      // detail fetch has not landed yet.
+      var modelX = _mdModel || String((DB.machines[_mdDeviceCode] || {}).model || '');
+      var isFridgeX = /^GR-/.test(modelX);
       var scale = document.getElementById('md-scale-panel');
       if (scale) scale.style.display = isFridgeX ? '' : 'none';
       var light = document.getElementById('md-light-panel');
@@ -6179,6 +6373,12 @@ function ltSeg(mode) {
 // control below it is then saving settings that do nothing — which is worth knowing BEFORE spending
 // five minutes setting a schedule, not after pressing test.
 function ltCapBanner() {
+  return ltCapBannerOnly() +
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">' + rsEsc(t('lt.onOff')) + '</div>';
+}
+// The board accepts a level but only acts on 0 vs above 0 (measured on 8626020623, 2026-10-02), so
+// the panel says so under the capability line rather than letting a 30% slider promise a dimmer fridge.
+function ltCapBannerOnly() {
   if (!_ltCap) {
     return '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">' + rsEsc(t('lt.capUnknown')) + '</div>';
   }
@@ -7385,7 +7585,7 @@ function renderDisplayPage() {
     'ds-showIdleScreen':s.showIdleScreen, 'ds-idleTimeoutSeconds':s.idleTimeoutSeconds,
     'ds-hasHeatedGlass':s.hasHeatedGlass, 'ds-heatedGlassDefaultOn':s.heatedGlassDefaultOn,
     'ds-hasLedStrips':s.hasLedStrips,
-    'ds-motorSerialPort':s.motorSerialPort, 'ds-controlBoardAddress':s.controlBoardAddress,
+    'ds-motorSerialPort':s.motorSerialPort, 'ds-paymentSerialPort':s.paymentSerialPort, 'ds-controlBoardAddress':s.controlBoardAddress,
   };
   Object.entries(map).forEach(([id,val])=>{
     const el=document.getElementById(id); if(!el) return;
@@ -7424,6 +7624,39 @@ function updateBrandPreview() {
   const name = document.getElementById('ds-operatorName')?.value?.trim()||'';
   const prev = document.getElementById('ds-brand-preview');
   if(prev) prev.textContent = name ? `Snarl & Sopi — ${name}` : 'Snarl & Sopi';
+}
+
+// Wiring goes straight to the backend, unlike the rest of this page: saveDisplaySettings() only
+// writes to localStorage, so anything set there never reaches the config the machine polls and is
+// wiped by the next hydrate. Serial ports have to persist server-side to be worth anything, and
+// the backend gates these three keys to ag_admin.
+async function saveWiring() {
+  const code = document.getElementById('display-machine-select')?.value;
+  const msg  = document.getElementById('ds-wiring-msg');
+  if (!code || !msg) return;
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  const body = {};
+  const pay = val('ds-paymentSerialPort'), mot = val('ds-motorSerialPort');
+  const addr = document.getElementById('ds-controlBoardAddress')?.value;
+  // Only send what was actually filled in: an empty payment port means "use the default", and
+  // sending "" would fail validation rather than clear it.
+  if (pay) body.paymentSerialPort = pay;
+  if (mot) body.motorSerialPort = mot;
+  if (addr !== '' && addr != null && isFinite(parseInt(addr, 10))) body.controlBoardAddress = parseInt(addr, 10);
+  if (!Object.keys(body).length) { msg.style.color = 'var(--muted)'; msg.textContent = 'Nothing to save.'; return; }
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Saving…';
+  const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/settings', body);
+  if (r && r.ok) {
+    const st = DB.machines[code] && DB.machines[code].settings;
+    if (st) Object.assign(st, body);
+    saveData();
+    msg.style.color = 'var(--success)';
+    msg.textContent = 'Saved. The machine picks this up on its next config poll (about two minutes).';
+  } else {
+    msg.style.color = 'var(--alert)';
+    msg.textContent = (r && (r.error || r.message)) || 'Could not save — check you are signed in as AG admin.';
+  }
 }
 
 function saveDisplaySettings() {
@@ -9063,6 +9296,14 @@ function operatorFormHtml(mode, op) {
       <div class="field"><div class="fl">card rotation <span style="color:var(--muted);font-weight:400">· seconds each deal card shows · 3–30</span></div><input class="fi" id="op-idle-rotation" type="number" min="3" max="30" step="1" value="${(op.idleConfig && op.idleConfig.rotationSeconds) || 6}"></div>
       <div class="field"><div class="fl">attract timeout <span style="color:var(--muted);font-weight:400">· seconds of inactivity before the attract loop · 10–120</span></div><input class="fi" id="op-idle-attract" type="number" min="10" max="120" step="1" value="${(op.idleConfig && op.idleConfig.attractTimeoutSeconds) || 30}"></div>
     </div>` : ''}
+    ${mode === 'edit' ? `
+    <div style="border-top:.5px solid var(--line);margin:14px 0 10px;padding-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Screen posters <span style="text-transform:none;letter-spacing:0">· all this operator’s machines · 1920×1080</span></div>
+        <span class="pill pill-out" style="cursor:pointer" onclick="addAdSlot()">+ add poster</span>
+      </div>
+      <div id="op-ads"><span style="font-size:12px;color:var(--muted)">Loading…</span></div>
+    </div>` : ''}
     <div class="field"><div class="fl">logo <span style="color:var(--muted);font-weight:400">· optional</span></div>
       <input type="file" id="op-logo" accept="image/*" onchange="onOpLogo(this)" style="font-size:12px;color:var(--muted)">
       <div id="op-logo-preview" style="margin-top:8px">${logoPreview}</div>
@@ -9090,6 +9331,7 @@ async function openEditOperator(id) {
   const modal = document.getElementById('modal-dyn');
   modal.innerHTML = operatorFormHtml('edit', op);
   modal.classList.add('show');
+  renderOperatorAds(id);
 }
 
 function onOpLogo(input) {
@@ -9594,32 +9836,35 @@ async function renderAppUpdates() {
   if (!el) return;
   if (!backendOnline || !API_TOKEN) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Backend offline.</div>'; return; }
   el.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
-  let rel = null, list = [];
+  let rel = null, relFridge = null, list = [];
   try {
     const r = await API.get('/api/v1/app-release');
-    if (r && r.ok && r.data) { rel = r.data.release; list = r.data.machines || []; }
+    if (r && r.ok && r.data) { rel = r.data.release; relFridge = r.data.releaseFridge || null; list = r.data.machines || []; }
   } catch (e) { el.innerHTML = '<div style="color:var(--alert);font-size:12px">Error: ' + rsEsc(e.message) + '</div>'; return; }
 
-  // current release summary
-  let cur;
-  if (rel) {
+  // Current release per app line. The fridge line used to have no card here at all, so what the
+  // fridges were being offered — and the halt button for it — were invisible from the dashboard.
+  const releaseCard = (rel, app, label) => {
+    if (!rel) return `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${label}: no active release.</div>`;
     const cohortTxt = rel.cohort === 'all' ? 'all machines' : (Array.isArray(rel.cohort) ? rel.cohort.length + ' machine' + (rel.cohort.length === 1 ? '' : 's') + ' (canary)' : '—');
     const on = !!rel.rolloutEnabled;
-    cur = `<div style="padding:13px 15px;background:var(--cream-deep);border-radius:var(--rsm);margin-bottom:16px">
+    return `<div style="padding:13px 15px;background:var(--cream-deep);border-radius:var(--rsm);margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-size:12px;color:var(--muted)">${label}</span>
         <span style="font-size:15px;font-weight:600;font-family:var(--mono)">v${rsEsc(rel.versionName || '?')} · code ${rel.targetVersionCode}</span>
         ${on ? '<span class="pill pill-up">rolling out</span>' : '<span class="pill pill-dn">halted</span>'}
         <span class="pill pill-out">${cohortTxt}</span>
       </div>
       <div style="font-size:11px;color:var(--muted);font-family:var(--mono);word-break:break-all">${rsEsc(rel.apkUrl || '')}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${rel.sha256 ? 'sha256 ✓' : 'no sha256'} · published ${rel.publishedAt ? fmtDateTime(rel.publishedAt) : '—'}${rel.publishedBy ? ' by ' + rsEsc(rel.publishedBy) : ''}</div>
-      <div style="margin-top:10px">${on
-        ? '<button class="btn btn-sm" style="background:var(--alert);color:#fff" onclick="haltAppRollout(false)">⏸ halt rollout</button>'
-        : '<button class="btn btn-sm btn-ghost" onclick="haltAppRollout(true)">▶ resume rollout</button>'}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${on
+        ? `<button class="btn btn-sm" style="background:var(--alert);color:#fff" onclick="haltAppRollout(false,'${app}')">⏸ halt rollout</button>`
+        : `<button class="btn btn-sm btn-ghost" onclick="haltAppRollout(true,'${app}')">▶ resume rollout</button>`}${rel.cohort !== 'all'
+        ? `<button class="btn btn-sm btn-ghost" onclick="widenAppRelease('${app}')">→ roll out to all machines</button>` : ''}</div>
     </div>`;
-  } else {
-    cur = '<div style="font-size:12px;color:var(--muted);margin-bottom:16px">No active release. Publish one below to roll it out.</div>';
-  }
+  };
+  const relCoil = rel;
+  const cur = releaseCard(rel, 'coil', 'Coil kiosk') + releaseCard(relFridge, 'fridge', 'Fridge');
 
   // publish form
   const machineCheckboxes = list.map(m =>
@@ -9627,7 +9872,11 @@ async function renderAppUpdates() {
       <input type="checkbox" class="ota-cm" value="${rsEsc(m.deviceCode)}">
       <span>${rsEsc(m.deviceName || m.deviceCode)} <span style="color:var(--muted);font-family:var(--mono)">${rsEsc(m.deviceCode)}</span></span>
     </label>`).join('');
-  const form = `<div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Publish update</div>
+  const form = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 10px">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Publish update</div>
+      <button class="btn btn-sm btn-ghost" id="ota-load-latest" onclick="loadLatestFridgeBuild()">↓ load latest fridge build</button>
+    </div>
+    <div id="ota-latest"></div>
     <div class="field"><div class="fl">app <span style="color:var(--muted);font-weight:400">· which build line</span></div>
       <div style="display:flex;gap:16px">
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="coil" checked>coil kiosk</label>
@@ -9650,9 +9899,12 @@ async function renderAppUpdates() {
     <button class="btn btn-full" onclick="publishAppUpdate()"><span>publish</span><span>→</span></button>`;
 
   // per-machine version table
-  const target = rel ? rel.targetVersionCode : null;                                // for the rejected-badge history
-  const healthyTarget = (rel && rel.rolloutEnabled) ? rel.targetVersionCode : null; // "behind" only counts a healthy, rolling build
   const rows = list.slice().sort((a, b) => (a.deviceName || '').localeCompare(b.deviceName || '')).map(m => {
+    // Each machine against its OWN line's release — a fridge measured against the coil build reads
+    // as "behind" or "up to date" for reasons that have nothing to do with it.
+    const rel = m.app === 'fridge' ? relFridge : relCoil;
+    const target = rel ? rel.targetVersionCode : null;                                // for the rejected-badge history
+    const healthyTarget = (rel && rel.rolloutEnabled) ? rel.targetVersionCode : null; // "behind" only counts a healthy, rolling build
     let st;
     const rejectedHealthy = m.rejectedVersionCode != null && healthyTarget != null && m.rejectedVersionCode === healthyTarget;
     if (m.versionCode == null) st = '<span class="pill pill-out">unknown</span>';
@@ -9704,10 +9956,48 @@ async function publishAppUpdate() {
   } catch (e) { if (msg) msg.innerHTML = '<div class="rs-msg err">error: ' + rsEsc(e.message) + '</div>'; }
 }
 
-async function haltAppRollout(on) {
+// Fill the publish form from the newest build CI attached to a fridge-v* release. Fills only —
+// publishing and the choice of machines stay with whoever presses publish.
+async function loadLatestFridgeBuild() {
+  const btn = document.getElementById('ota-load-latest');
+  const box = document.getElementById('ota-latest');
+  if (btn) { btn.disabled = true; btn.textContent = 'loading…'; }
+  try {
+    const r = await API.get('/api/v1/app-release/latest-build?app=fridge');
+    if (!r || !r.ok || !r.data) throw new Error((r && r.error) || 'no build found');
+    const b = r.data;
+    const radio = document.querySelector('input[name="ota-app"][value="fridge"]');
+    if (radio) radio.checked = true;
+    document.getElementById('ota-vc').value = b.versionCode;
+    document.getElementById('ota-vname').value = b.versionName || '';
+    document.getElementById('ota-apk').value = b.apkUrl;
+    const stale = b.currentVersionCode != null && b.versionCode <= b.currentVersionCode;
+    if (box) box.innerHTML = `<div class="rs-msg ${stale ? 'err' : ''}" style="margin-bottom:10px">
+        <div><b>fridge v${rsEsc(b.versionName)}</b> · code ${b.versionCode}${b.publishedAt ? ' · built ' + fmtDateTime(b.publishedAt) : ''}${b.releaseUrl ? ` · <a href="${rsEsc(b.releaseUrl)}" target="_blank" rel="noopener">release</a>` : ''}</div>
+        ${stale ? `<div style="margin-top:4px">Not newer than the current fridge release (code ${b.currentVersionCode}) — publishing would be refused. Bump the version in the app and merge again.</div>` : ''}
+        <pre style="margin:6px 0 0;white-space:pre-wrap;font-size:11px;max-height:140px;overflow-y:auto">${rsEsc(b.notes || '')}</pre>
+      </div>`;
+  } catch (e) {
+    if (box) box.innerHTML = '<div class="rs-msg err" style="margin-bottom:10px">' + rsEsc(e.message) + '</div>';
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '↓ load latest fridge build'; }
+}
+
+// Move the current release from its canary list to every machine. Same build — nothing is
+// re-downloaded or re-published, so this works where the forward-only publish guard rightly refuses.
+async function widenAppRelease(app) {
+  if (!confirm('Roll the current ' + app + ' release out to ALL machines?\n\nMachines on a lower version will silently update on their next check (≤30 min).')) return;
+  try {
+    const r = await API.post('/api/v1/app-release/cohort', { app: app === 'fridge' ? 'fridge' : 'coil', cohort: 'all' });
+    if (r && r.ok) { showToast('Rolling out to all machines'); renderAppUpdates(); }
+    else showToast('failed: ' + ((r && r.error) || 'unknown'));
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+async function haltAppRollout(on, app) {
   if (!on && !confirm('Halt the rollout?\n\nMachines that haven’t updated yet will stop pulling this build. Machines already updated stay as they are (Android can’t downgrade).')) return;
   try {
-    const r = await API.post('/api/v1/app-release/rollout', { on: !!on });
+    const r = await API.post('/api/v1/app-release/rollout', { on: !!on, app: app === 'fridge' ? 'fridge' : 'coil' });
     if (r && r.ok) { showToast(on ? 'Rollout resumed' : 'Rollout halted'); renderAppUpdates(); }
     else showToast('failed: ' + ((r && r.error) || 'unknown'));
   } catch (e) { showToast('error: ' + e.message); }
