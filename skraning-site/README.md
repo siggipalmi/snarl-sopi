@@ -40,12 +40,18 @@ browser ──▶ skraning Worker ──▶ D1 (every registration, with its ste
   customer does not choose it.
 - **The signer is collected for e-signing.** Name and kennitala of the framkvæmdastjóri come from
   fyrirtækjaskrá (typed in when the registry has none); the form asks for their email and mobile.
-- **The aðalnotandi gets a login.** The form names who runs the machines day to day: the signer by
-  default, or someone else. Just before the Zap is called, the backend creates the operator for the
-  company and emails that person an `operator_admin` invite to admin.agvending.is. If the company
-  already has an operator (same kennitala), nothing new is created and no invite is sent: anyone can
-  type a kennitala into a public form, so extra users for an existing customer are added from the
-  dashboard. A failed login step is recorded on the registration and never holds up the contract.
+- **The customer gets a login, with their machines in it.** "Tengiliður vegna reksturs" is the
+  person who runs the machines day to day (name, email, phone; the signer unless ticked otherwise).
+  Just before the Zap is called, the backend creates the operator for the company, emails that person
+  an `operator_admin` invite to admin.agvending.is, and puts the claimed machines under the operator.
+  A serial is the machine's device code: an existing machine is moved, a missing one is created
+  offline until its kiosk connects. A machine already run by another customer's operator is left
+  alone and reported. If the company already has an operator (same kennitala), its machines are
+  linked but no invite is sent: anyone can type a kennitala into a public form, so extra users for an
+  existing customer are added from the dashboard. A failed login step is recorded on the
+  registration and never holds up the contract.
+- **AG Vending hears about every registration.** The backend emails `LEASE_NOTIFY_TO` (default
+  siggip@agvending.is) when a registration arrives, and again if one stops after its retries.
 - **Duplicate submissions are collapsed.** Same kennitala, address, machines and start date within
   24 h returns the existing registration.
 - **The Zap only copies fields.** Every template placeholder arrives already computed, with a key of
@@ -106,8 +112,8 @@ In the lease-agreement Zap:
    | `Netfang_Undirritanda` | julius@lavashow.com |
    | `Simi_Undirritanda` | 8237777 (digits, `+` kept for foreign numbers) |
 
-   The aðalnotandi (already given a login by the Worker, so the Zap does not need to call
-   `/operators/provision`): `Nafn_Adalnotanda`, `Netfang_Adalnotanda`, `Simi_Adalnotanda` (may be empty).
+   The operations contact (already given a login by the Worker, so the Zap does not need to call
+   `/operators/provision`): `Nafn_Tengilids`, with `Netfang_Samskipti` and `Simi`.
 
 Deploy the Worker (step 3), submit one test registration, then use it in the Zap editor as the
 trigger's sample data so every field appears when you map.
@@ -170,7 +176,8 @@ A `failed` row has stopped after 8 attempts. `last_error` names the step and the
 cause, then call `retry`: it resumes from that step and does not claim a second machine.
 `lease claim 409 … insufficient_stock` means not enough machines were available: add or free units
 in the admin dashboard and the registration goes through on its next attempt. The detail view has a `provision` field with the login step's result: `created: true` (invite
-sent), `created: false` (the company already had an operator), `ok: false` with the backend's answer
+sent), `created: false` (the company already had an operator), `machines` (each serial and whether
+it was linked, and why not), `ok: false` with the backend's answer
 (for example a wrong `PROVISION_KEY`), or `null` when `PROVISION_KEY` was not set. `retry`
 on a `sent` row sends the same payload to Zapier again, which is how you re-create a document.
 

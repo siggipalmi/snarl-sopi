@@ -159,28 +159,19 @@ export function validateForm(body, now) {
   const netfangReikninga = String(b.netfang_reikninga || '').trim();
   if (netfangReikninga && !isValidEmail(netfangReikninga)) errors.netfang_reikninga = 'Netfang er ekki gilt.';
 
-  // Aðalnotandi: the person who gets the operator login to admin.agvending.is.
-  // Either the signer (default) or someone named here.
-  const saSami = !(b.adalnotandi_sami === false || b.adalnotandi_sami === 'false' || b.adalnotandi_sami === '0');
-  const adalnotandi = saSami
-    ? { sami: true, nafn: '', netfang: '', simi: '' }
-    : {
-      sami: false,
-      nafn: String(b.adalnotandi_nafn || '').trim().slice(0, 120),
-      netfang: String(b.adalnotandi_netfang || '').trim(),
-      simi: String(b.adalnotandi_simi || '').trim(),
-    };
-  if (!adalnotandi.sami) {
-    if (!adalnotandi.nafn) errors.adalnotandi_nafn = 'Skráðu nafn aðalnotanda.';
-    if (!isValidEmail(adalnotandi.netfang)) errors.adalnotandi_netfang = 'Netfang er ekki gilt.';
-    if (adalnotandi.simi && !isValidPhone(adalnotandi.simi)) errors.adalnotandi_simi = 'Símanúmer er ekki gilt.';
-  }
+  // Tengiliður vegna reksturs: runs the machines day to day and gets the operator login
+  // on admin.agvending.is. The same person as the signer unless the form says otherwise.
+  const tengilidur = {
+    sami: !(b.tengilidur_sami === false || b.tengilidur_sami === 'false' || b.tengilidur_sami === '0'),
+    nafn: String(b.tengilidur_nafn || '').trim().slice(0, 120),
+  };
+  if (!tengilidur.sami && !tengilidur.nafn) errors.tengilidur_nafn = 'Skráðu nafn tengiliðar.';
 
   const athugasemdir = String(b.athugasemdir || '').trim().slice(0, 2000);
 
   return {
     errors,
-    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, adalnotandi, netfangReikninga, athugasemdir },
+    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, tengilidur, netfangReikninga, athugasemdir },
   };
 }
 
@@ -193,12 +184,13 @@ export function signerFor(company, form) {
   return { nafn: form.undirritandi.nafn, kennitala: form.undirritandi.kennitala };
 }
 
-// Who gets the operator login. Registrations stored before this field existed
-// have no adalnotandi and fall back to the signer.
+// The operations contact: gets the operator login. Their email and phone are the
+// contact fields; the name is the signer's when the form says it is the same person
+// (and for registrations stored before the name was asked for).
 export function accountHolderFor(company, form) {
-  const a = form.adalnotandi;
-  if (a && !a.sami) return { nafn: a.nafn, netfang: a.netfang, simi: a.simi || '' };
-  return { nafn: signerFor(company, form).nafn, netfang: form.undirritandi.netfang, simi: form.undirritandi.simi };
+  const t = form.tengilidur;
+  const nafn = t && !t.sami && t.nafn ? t.nafn : signerFor(company, form).nafn;
+  return { nafn, netfang: form.netfang, simi: form.simi };
 }
 
 // The claim must cover every machine requested. A short claim means the contract
@@ -325,10 +317,9 @@ export function buildContractPayload({ id, form, company, claim, cpi, now }) {
     Netfang_Undirritanda: form.undirritandi.netfang,
     Simi_Undirritanda: normalizePhone(form.undirritandi.simi),
 
-    // Aðalnotandi: gets the operator login to admin.agvending.is
-    Nafn_Adalnotanda: holder.nafn,
-    Netfang_Adalnotanda: holder.netfang,
-    Simi_Adalnotanda: holder.simi ? normalizePhone(holder.simi) : '',
+    // Tengiliður vegna reksturs (gets the operator login); email and phone are
+    // Netfang_Samskipti and Simi
+    Nafn_Tengilids: holder.nafn,
 
     kennitala: form.kennitala,
     netfang: form.netfang,

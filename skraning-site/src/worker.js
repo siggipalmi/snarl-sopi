@@ -14,7 +14,7 @@
 // only has to copy fields into "Create Document From Template".
 
 import {
-  MACHINES, MAX_ATTEMPTS, accountHolderFor, addressLookupQuery, backoffMinutes, buildContractPayload, buildCpiQuery,
+  MACHINES, MAX_ATTEMPTS, accountHolderFor, addressLookupQuery, describeMachines, signerFor, backoffMinutes, buildContractPayload, buildCpiQuery,
   claimShortfall, dedupeKey, firstOfNextMonth, formatKennitala, formatLongDate, isValidKennitala, isoDate,
   normalizeKennitala, parseCpiOverride, pickLatestCpi, registeredAddress, validateForm,
 } from './lib.js';
@@ -179,6 +179,7 @@ async function handleSubmit(request, env, ctx) {
   // Run the pipeline now, but the customer's answer does not wait on Zapier:
   // the registration is safely stored, and anything that fails is retried by the cron.
   ctx.waitUntil(processSubmission(env, id).catch(e => console.error('[pipeline]', id, e.message)));
+  ctx.waitUntil(notifyNew(env, id, form, company));
   return json({ ok: true, id });
 }
 
@@ -210,7 +211,7 @@ async function processSubmission(env, id) {
       row = await loadRow(env, id);
     }
     if (row.status === 'ready') {
-      await provisionAccount(env, id, form, company);
+      await provisionAccount(env, id, form, company, JSON.parse(row.claim_json || '{}'));
       await sendToZapier(env, JSON.parse(row.payload_json));
       const t = new Date().toISOString();
       await env.DB.prepare(`UPDATE submissions SET status='sent', sent_at=?, updated_at=?, last_error=NULL WHERE id=?`)
@@ -226,6 +227,14 @@ async function processSubmission(env, id) {
         status = CASE WHEN ? THEN 'failed' ELSE status END WHERE id=?`)
       .bind(attempts, `[${row.status}] ${e.message}`.slice(0, 1000), next, new Date().toISOString(), giveUp ? 1 : 0, id)
       .run();
+    if (giveUp) {
+      await notify(env, `Skráning stöðvuð: ${company.companyName}`, [
+        `Skráning ${id} (${company.companyName}, kt. ${formatKennitala(form.kennitala)}) stöðvaðist og enginn samningur var búinn til.`,
+        '', `Skref: ${row.status}`, `Villa: ${e.message}`, '',
+        'Lagaðu orsökina og keyrðu skráninguna aftur (sjá README, "Operating it"):',
+        `POST https://skraning.agvending.is/api/admin/submissions/${id}/retry`,
+      ].join('\n'));
+    }
   }
   return loadRow(env, id);
 }
@@ -269,7 +278,7 @@ async function claimSerials(env, id, form, company) {
 // returns the same operator on a repeat call). Any other failure, such as a wrong key
 // (401) or provisioning switched off on the backend (503), is recorded here and does
 // not hold up the contract.
-async function provisionAccount(env, id, form, company) {
+async function provisionAccount(env, id, form, company, claim) {
   const k = 'provision:' + id;
   const done = await env.DB.prepare('SELECT value FROM kv WHERE k = ?').bind(k).first();
   if (done) return JSON.parse(done.value);
@@ -293,6 +302,10 @@ async function provisionAccount(env, id, form, company) {
       email: holder.netfang,
       contactName: holder.nafn,
       contactPhone: holder.simi,
+      // The claimed serials, which are the machines' device codes: the backend puts them
+      // under the new operator (only units it claimed for this kennitala).
+      machineIds: ((claim && claim.units) || []).map(u => u.machineId),
+      location: form.heimilisfang,
     }),
   });
   const text = await res.text();
@@ -307,6 +320,40 @@ async function provisionAccount(env, id, form, company) {
   delete result.inviteUrl;
   console.log('[provision]', id, JSON.stringify(result));
   return save(result);
+}
+
+// Emails AG Vending through the backend (/api/v1/leases/notify, recipient set there).
+// Best effort: a failed notification is logged and never affects the registration.
+async function notify(env, subject, text) {
+  try {
+    if (!env.LEASE_CLAIM_SECRET) return;
+    const res = await fetch(env.BACKEND_URL.replace(/\/$/, '') + '/api/v1/leases/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Lease-Key': env.LEASE_CLAIM_SECRET },
+      body: JSON.stringify({ subject, text }),
+    });
+    if (!res.ok) console.warn('[notify]', res.status, (await res.text()).slice(0, 200));
+  } catch (e) {
+    console.warn('[notify]', e.message);
+  }
+}
+
+function notifyNew(env, id, form, company) {
+  const signer = signerFor(company, form);
+  const holder = accountHolderFor(company, form);
+  const lines = [
+    `Ný skráning á skraning.agvending.is`, '',
+    `Leigutaki: ${company.companyName}, kt. ${formatKennitala(form.kennitala)}`,
+    `Tæki: ${describeMachines(form.counts)}`,
+    `Staðsetning: ${form.heimilisfang}`,
+    `Upphaf leigutíma: ${form.upphaf}`, '',
+    `Undirritandi: ${signer.nafn}, ${form.undirritandi.netfang}, ${form.undirritandi.simi}`,
+    `Tengiliður vegna reksturs: ${holder.nafn}, ${form.netfang}, ${form.simi}`,
+  ];
+  if (form.netfangReikninga) lines.push(`Reikningar á: ${form.netfangReikninga}`);
+  if (form.athugasemdir) lines.push('', 'Athugasemdir:', form.athugasemdir);
+  lines.push('', `Tilvísun: ${id}`);
+  return notify(env, `Ný skráning: ${company.companyName}`, lines.join('\n'));
 }
 
 async function sendToZapier(env, payload) {

@@ -270,6 +270,7 @@ const routes = [
 
   // Lease-unit assignment (Zapier lease flow — secret-header auth)
   { method:'POST', pattern:'/api/v1/leases/claim', handler: handleLeaseClaim,     middleware:[requireLeaseKey] },
+  { method:'POST', pattern:'/api/v1/leases/notify', handler: handleLeaseNotify,   middleware:[requireLeaseKey] },
   { method:'POST', pattern:'/api/v1/leases/free',  handler: handleLeaseFree,      middleware:[requireLeaseKey] },
   // Dashboard read (operator auth)
   { method:'GET',  pattern:'/api/v1/leases/units', handler: handleListLeaseUnits, middleware:[requireAuth, requireAgAdmin] },
@@ -660,6 +661,25 @@ function handleLeaseClaim(req, res) {
   };
   if (metaKey) storage.setMeta(metaKey, JSON.stringify(result));
   ok(res, result);
+}
+
+/**
+ * POST /api/v1/leases/notify — skraning.agvending.is tells AG Vending about a registration.
+ * Body: { subject, text }. The recipient is fixed here (LEASE_NOTIFY_TO), never taken from
+ * the request, so the lease key cannot be used to send mail to anyone else.
+ */
+async function handleLeaseNotify(req, res) {
+  const b = req.body || {};
+  const subject = String(b.subject || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+  const text = String(b.text || '').slice(0, 20000);
+  if (!subject || !text) return badRequest(res, 'subject and text are required');
+  const to = (process.env.LEASE_NOTIFY_TO || 'siggip@agvending.is').split(',').map(x => x.trim()).filter(Boolean);
+  try {
+    await email.send({ to, subject, text, fromName: 'AG Vending skráning' });
+    ok(res, { sent: true, to: to.length });
+  } catch (e) {
+    json(res, 502, { ok: false, error: 'email failed: ' + e.message });
+  }
 }
 
 /** GET /api/v1/leases/units — dashboard view (operator auth) */
@@ -2046,7 +2066,18 @@ function handleAddMachine(req, res) {
   // fridge as a coil machine and it would never receive its baskets.
   const chosenModel = (model && String(model).trim()) || 'VM-WM55DL';
   const spec = fridgeSpec(chosenModel);
-  machines[deviceCode] = {
+  machines[deviceCode] = newMachineRecord({ deviceCode, deviceName, location, operatorName, model: chosenModel });
+  // Persist. Without this the machine lives only in memory and disappears on the next restart,
+  // taking its provisioned machine key's target with it.
+  storage.upsertMachine(machines[deviceCode]);
+  console.log(`[MACHINE] added ${deviceCode} (${chosenModel}${spec.isFridge ? `, fridge: ${spec.basketCount} baskets ${spec.cabinets.join('+')}` : ''})`);
+  created(res, machineSummary(machines[deviceCode]));
+}
+
+function newMachineRecord({ deviceCode, deviceName, location, operatorName, model }) {
+  const chosenModel = model;
+  const spec = fridgeSpec(chosenModel);
+  return {
     deviceCode, deviceName, location: location || '', isOnline: false, isRunning: false,
     model: chosenModel, isKioskModel: !spec.isFridge,
     // Coil machines default to kiosk-owned stock (backend is source of truth); fridges keep 'weimi'
@@ -2060,11 +2091,6 @@ function handleAddMachine(req, res) {
     products: [], productOverrides: {},
     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   };
-  // Persist. Without this the machine lives only in memory and disappears on the next restart,
-  // taking its provisioned machine key's target with it.
-  storage.upsertMachine(machines[deviceCode]);
-  console.log(`[MACHINE] added ${deviceCode} (${chosenModel}${spec.isFridge ? `, fridge: ${spec.basketCount} baskets ${spec.cabinets.join('+')}` : ''})`);
-  created(res, machineSummary(machines[deviceCode]));
 }
 
 // ── PUT /machines/:deviceCode/profile ─────────────────────────────────────────
@@ -5315,7 +5341,10 @@ async function handleProvisionOperator(req, res) {
     (paydayCustomerId && o.paydayCustomerId === paydayCustomerId));
   // No invite for an existing operator: anyone can type a kennitala into the public
   // form, so a returning customer's extra users are added from the admin dashboard.
-  if (existing) return ok(res, { operatorId: existing.id, created: false, invited: false, note: 'Operator already exists' });
+  if (existing) {
+    const machinesLinked = linkLeasedMachines(existing, kennitala, b.machineIds, b.location);
+    return ok(res, { operatorId: existing.id, created: false, invited: false, note: 'Operator already exists', machines: machinesLinked });
+  }
 
   const slug = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -5351,8 +5380,52 @@ async function handleProvisionOperator(req, res) {
     .then(() => console.log(`[PROVISION] invite emailed → ${emailAddr}`))
     .catch(e => console.warn(`[PROVISION] invite email FAILED → ${emailAddr}: ${e.message} (operator ${id} still created; invite link: ${inviteUrl})`));
 
+  const machinesLinked = linkLeasedMachines(operators[id], kennitala, b.machineIds, b.location);
   console.log(`[PROVISION] operator ${name} (${id}) created; invite queued → ${emailAddr}`);
-  ok(res, { operatorId: id, created: true, inviteQueued: true, linked: Boolean(kennitala || paydayCustomerId), inviteUrl });
+  ok(res, { operatorId: id, created: true, inviteQueued: true, linked: Boolean(kennitala || paydayCustomerId), inviteUrl, machines: machinesLinked });
+}
+
+// The lease inventory's serial is the machine's deviceCode, so a leased unit can be put
+// under its new operator at once: an existing machine is moved, a missing one is created
+// (offline until its kiosk connects). Only units claimed for this kennitala qualify, and a
+// machine already run by another customer's operator is left alone and reported.
+const LEASE_MODEL = { 'Einfaldur': 'GR-WM22Z680', 'Tvöfaldur': 'GR-WM22Z1260', '55"': 'VM-WM55DL' };
+function linkLeasedMachines(op, kennitala, machineIds, location) {
+  const out = [];
+  const ids = Array.isArray(machineIds) ? machineIds : [];
+  ids.map(x => String(x || '').trim()).filter(Boolean).slice(0, 50).forEach((code, i) => {
+    try {
+      const unit = storage.getLeaseUnit(code);
+      const unitKt = unit ? String(unit.kennitala || '').replace(/\D/g, '') : '';
+      if (!unit || unit.status !== 'used' || !kennitala || unitKt !== kennitala) {
+        out.push({ machineId: code, linked: false, reason: 'not leased to this kennitala' });
+        return;
+      }
+      let m = machines[code];
+      if (m && m.operatorId && m.operatorId !== op.id) {
+        const cur = operators[m.operatorId];
+        if (cur && !cur.isAGVending) {
+          out.push({ machineId: code, linked: false, reason: `already run by ${cur.name}` });
+          return;
+        }
+      }
+      const isNew = !m;
+      if (isNew) {
+        const label = ids.length > 1 ? `${op.name} ${i + 1}` : op.name;
+        m = newMachineRecord({ deviceCode: code, deviceName: label, location: String(location || ''),
+          operatorName: op.name, model: LEASE_MODEL[unit.type] || 'VM-WM55DL' });
+        m.operatorId = op.id;           // set before the store write: operatorId is NOT NULL
+        machines[code] = m;
+      }
+      setMachineOperator(m, op);
+      storage.upsertMachine(machines[code]);
+      out.push({ machineId: code, linked: true, created: isNew });
+    } catch (e) {
+      console.error(`[PROVISION] linking ${code} to ${op.id} failed: ${e.message}`);
+      out.push({ machineId: code, linked: false, reason: e.message });
+    }
+  });
+  return out;
 }
 
 async function handleUpdateOperator(req, res) {
@@ -7432,6 +7505,12 @@ function handleAssignOperator(req, res) {
   if (!operatorId) return badRequest(res, 'operatorId is required');
   const op = operators[operatorId];
   if (!op) return badRequest(res, `Operator ${operatorId} not found`);
+  setMachineOperator(m, op);
+  ok(res, machineSummary(machines[code]));
+}
+
+function setMachineOperator(m, op) {
+  const code = m.deviceCode, operatorId = op.id;
   m.operatorId = operatorId;
   m.profile  = m.profile  || {}; m.profile.operatorName  = op.name;
   // Drop any per-machine support contact so the kiosk re-derives it from the
@@ -7442,7 +7521,6 @@ function handleAssignOperator(req, res) {
   m.updatedAt = new Date().toISOString();
   machines[code] = m; // persists via storage.upsertMachine
   console.log(`[OPERATOR] ${code} → ${op.name} (${operatorId})`);
-  ok(res, machineSummary(machines[code]));
 }
 
 function machineSummary(m) {
