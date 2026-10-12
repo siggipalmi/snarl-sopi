@@ -581,38 +581,42 @@ class FridgeViewModel(
             var sawAnyChange = false
             var previous: Map<Int, Int> = origWeights
 
-            // Only STOCKED baskets can be taken from, so only they need polling.
-            // A full 16-tray read costs the board's full ~2.4s cadence; reading
-            // just the stocked span returns much faster, so the tentative cart
-            // keeps up with the customer instead of lagging ~5s behind. Empty
-            // fridges fall back to a full read. Fewer trays = LESS bus load, so
-            // this never violates the pacing rule. Span is contiguous (the SDK
-            // reads firstTray..firstTray+count), which is fine — a few extra
-            // empty trays inside the span cost little and still beat all 16.
-            val stockedBaskets = planogram.baskets
+            // *** ONE SPAN PER CABINET, READ IN TURN, NO EXTRA PAUSE.
+            //
+            // Only STOCKED baskets can be taken from, so each cabinet's span is
+            // its stocked baskets (first..last). The board's read time grows
+            // with the span (~0.15s per tray: ~2.4s for a full cabinet), and
+            // that read IS the pacing, so between reads we leave only the small
+            // head-room the narrowed path has always used.
+            //
+            // Measured on 8626020714 (2026-10-12), before this: a full read of
+            // 2.4s, then a fixed 2.5s pause — the cart moved every ~4.9s. And
+            // once the double's full read waited for both cabinets (v0.61.1),
+            // ~7s. Reading the cabinets in turn and redrawing after each puts
+            // a fresh number on screen every ~2.6s on a full fridge, and much
+            // sooner on a partly stocked one.
+            val stockedByCabinet = planogram.baskets
                 .filter { it.enabled && it.productId != null }
                 .map { it.trayIndex }
-            val firstTray: Int
-            val trayCount: Int
-            if (stockedBaskets.isEmpty()) {
-                firstTray = 0
-                trayCount = 0 // sentinel: use the full read
+                .groupBy { it / Planogram.ADDRESS_BLOCK_PER_CABINET }
+            val spans: List<Pair<Int, Int>> = if (stockedByCabinet.isNotEmpty()) {
+                stockedByCabinet.toSortedMap().values.map { t -> t.min() to (t.max() - t.min() + 1) }
             } else {
-                firstTray = stockedBaskets.min()
-                trayCount = stockedBaskets.max() - stockedBaskets.min() + 1
-            }
-
-            val narrowed = trayCount in 1 until FULL_TRAY_COUNT
-            // Full reads keep the board's safe ~2.4s cadence; a narrowed read is
-            // cheaper and can cycle at the faster floor without starving the bus.
-            val pollDelayMs = if (narrowed) SHOPPING_POLL_MS else FULL_READ_POLL_MS
-
-            suspend fun readActive(): Map<Int, Int>? =
-                if (narrowed) {
-                    hardware.readTraysFresh(firstTray, trayCount)
-                } else {
-                    hardware.readWeightsFresh()
+                // Nothing stocked: watch every physical basket of each cabinet.
+                planogram.spec.cabinets.map {
+                    it.ordinal * Planogram.ADDRESS_BLOCK_PER_CABINET to Planogram.BASKETS_PER_CABINET
                 }
+            }
+            var spanIndex = 0
+            suspend fun readActive(): Map<Int, Int>? {
+                val (first, count) = spans[spanIndex % spans.size]
+                spanIndex++
+                return hardware.readTraysFresh(first, count)
+            }
+            fun currentSpanLabel(): String {
+                val (first, count) = spans[(spanIndex - 1).coerceAtLeast(0) % spans.size]
+                return "$count trays from $first"
+            }
 
             var lastReadFinishedAt = 0L
             while (_ui.value.phase == FridgePhase.SHOPPING ||
@@ -627,7 +631,7 @@ class FridgeViewModel(
                 val now = System.currentTimeMillis()
                 android.util.Log.i(
                     "FridgePoll",
-                    "read ${now - readStart}ms for ${if (narrowed) trayCount else FULL_TRAY_COUNT} trays" +
+                    "read ${now - readStart}ms for ${currentSpanLabel()}" +
                         (if (lastReadFinishedAt > 0L) ", gap ${readStart - lastReadFinishedAt}ms" else "") +
                         ", cycle ${if (lastReadFinishedAt > 0L) now - lastReadFinishedAt else 0}ms",
                 )
@@ -683,7 +687,7 @@ class FridgeViewModel(
                     return@launch
                 }
 
-                delay(pollDelayMs)
+                delay(SHOPPING_POLL_MS)
             }
         }
     }
@@ -1154,23 +1158,12 @@ interface PaymentGateway {
  * frame, which is what triggers settlement, so this is the first thing to walk
  * back if a door-close ever feels hesitant.
  *
- * NOTE HOW THIS SCALES, because it gets worse as the fridge fills: the span is
- * contiguous (firstTray..firstTray+count), so stocking baskets further apart
- * widens it even if few are stocked, and a full 16 falls back to the ~2.4s full
- * read. Responsiveness therefore degrades as stock is added — worth re-measuring
- * once more baskets are loaded rather than assuming this number still holds.
+ * NOTE HOW THIS SCALES: each cabinet's span is contiguous (first..last stocked
+ * basket), so a full cabinet is a ~2.4s read. Since v0.61.2 that is ALSO the
+ * full-fridge case — there is no longer a separate 2.5s pause for full reads,
+ * which doubled the wait (measured cycle 4.9s on 8626020714, 2026-10-12).
  */
 private const val SHOPPING_POLL_MS = 200L
-
-/**
- * Delay between polls when we've fallen back to a FULL 16-tray read (a fully
- * stocked fridge). The board only answers a full read every ~2.4s, so this
- * stays at the proven-safe cadence rather than the faster narrowed-read floor.
- */
-private const val FULL_READ_POLL_MS = 2500L
-
-/** Full complement of trays on a single cabinet — the narrowed-read fallback. */
-private const val FULL_TRAY_COUNT = 16
 
 /**
  * A tray has to move by more than this for us to count it as the customer
