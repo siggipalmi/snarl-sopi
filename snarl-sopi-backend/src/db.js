@@ -576,8 +576,21 @@ function fridgePlanogramBlock(machine) {
   if (!spec.isFridge) return {};
   const DEFAULT_TOLERANCE_G = 15;
   const baskets = storage.listFridgeBaskets(machine.deviceCode) || [];
+  // Baskets saved before the picker was limited to our catalog can point at a coil machine's Weimi
+  // layout id. Show that product's layout name and image rather than a blank line, and say so.
+  let layouts = null;
+  const layoutInfo = gid => {
+    if (!layouts) layouts = (storage.listMachines() || []).map(mm => storage.layoutProductsForDevice(mm.deviceCode) || {});
+    for (const lm of layouts) if (lm[gid]) return lm[gid];
+    return null;
+  };
   const rows = baskets.map(b => {
-    const p = b.productId ? storage.getProduct(b.productId) : null;
+    let p = b.productId ? storage.getProduct(b.productId) : null;
+    if (b.productId && !p) {
+      const l = layoutInfo(String(b.productId));
+      console.warn(`[FRIDGE] ${machine.deviceCode} ${b.cabinet}${b.basket}: product ${b.productId} is not in the catalog${l ? ' — using its layout name/image' : ''}; reassign it from the catalog`);
+      if (l) p = { name: l.name || null, imgUrl: l.image || null };
+    }
     const enabled = b.enabled !== 0 && !!b.productId;
     const unitWeightG = b.unitWeightG != null ? b.unitWeightG : (p && p.weightGrams != null ? p.weightGrams : null);
     const priceIsk = b.priceIsk != null ? b.priceIsk : (p && p.salePriceIsk != null ? p.salePriceIsk : null);

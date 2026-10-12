@@ -1217,6 +1217,14 @@ function handleSetFridgeBaskets(req, res) {
     // cannot price what leaves it — and since the door exposes every basket at once, the app
     // can't safely open at all. Catch it here rather than let a bad row reach the machine.
     const enabled = b.enabled !== false;
+    // A basket must point at a product in OUR catalog: that is where the fridge gets its name,
+    // image and VSK rate. A Weimi layout id passed the weight check below whenever the basket had
+    // its own unit weight, and the fridge then sold a nameless, imageless line.
+    if (b.productId && !storage.getProduct(b.productId)) {
+      rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'unknown_product',
+        detail: `Product ${b.productId} is not in the product catalog — pick it from the catalog (add it there first if it is missing).` });
+      continue;
+    }
     if (enabled && b.productId) {
       const p = storage.getProduct(b.productId);
       const w = b.unitWeightG != null ? Number(b.unitWeightG) : (p && p.weightGrams != null ? Number(p.weightGrams) : null);
@@ -5073,6 +5081,16 @@ const _isGuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 function handleProductSearch(req, res) {
   const q = String(req.query.q || '').trim();
   if (q.length < 3) return ok(res, []);
+  // scope=catalog: our own products only. The fridge basket picker needs this — the merged search
+  // below prefers a coil machine's in-stock Weimi layout id over our catalog record (right for a
+  // deal), and a basket linked to such an id has no name, image or VSK on the fridge.
+  if (String(req.query.scope || '') === 'catalog') {
+    return ok(res, storage.searchProducts(q, 10).map(p => ({
+      goodsId: String(p.goodsId), name: p.name, barcode: p.barcode || null, imgUrl: p.imgUrl || null,
+      salePriceIsk: p.salePriceIsk != null ? p.salePriceIsk : null,
+      weightGrams: p.weightGrams != null ? p.weightGrams : null,
+    })));
+  }
   const machines = String(req.query.machines || '').split(',').map(s => s.trim()).filter(Boolean);
   // Pre-build layout maps for the relevant machines once (image/price/stock truth).
   const codes = machines.length ? machines : storage.listMachines().map(m => m.deviceCode);

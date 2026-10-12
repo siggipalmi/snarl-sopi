@@ -6688,9 +6688,11 @@ async function fbDoSearch() {
   const box = document.getElementById('fb-results');
   if (q.length < 3) { box.innerHTML = ''; return; }
   try {
-    const r = await API.get('/api/v1/products/search?q=' + encodeURIComponent(q));
+    // Catalog only: a fridge basket must link to our product record (name, image, VSK), not to a
+    // coil machine's Weimi layout id.
+    const r = await API.get('/api/v1/products/search?scope=catalog&q=' + encodeURIComponent(q));
     const list = (r && r.data) || [];
-    if (!list.length) { box.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:6px">No matches</div>'; return; }
+    if (!list.length) { box.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:6px">No matches in the product catalog — add the product there first.</div>'; return; }
     box.innerHTML = list.slice(0, 10).map(p => {
       const payload = JSON.stringify({ goodsId: p.goodsId, name: p.name, weightGrams: p.weightGrams, salePriceIsk: p.salePriceIsk }).replace(/'/g, "&#39;");
       const img = p.imgUrl
