@@ -49,5 +49,6 @@ TURNSTILE_SITE_KEY = ""
 #   ZAPIER_HOOK_URL     the Catch Hook URL from the Zap's new trigger
 #   LEASE_CLAIM_SECRET  same value as LEASE_CLAIM_SECRET on the backend
 #   ADMIN_TOKEN         any long random string, for /api/admin/*
+#   PROVISION_KEY       same value as PROVISION_KEY on the backend; creates the aðalnotandi's login
 #   TURNSTILE_SECRET    optional, pairs with TURNSTILE_SITE_KEY
 #   CPI_OVERRIDE        optional, e.g. "694.6@2026M08", only if Hagstofa is unreachable

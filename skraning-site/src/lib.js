@@ -159,11 +159,19 @@ export function validateForm(body, now) {
   const netfangReikninga = String(b.netfang_reikninga || '').trim();
   if (netfangReikninga && !isValidEmail(netfangReikninga)) errors.netfang_reikninga = 'Netfang er ekki gilt.';
 
+  // Tengiliður vegna reksturs: runs the machines day to day and gets the operator login
+  // on admin.agvending.is. The same person as the signer unless the form says otherwise.
+  const tengilidur = {
+    sami: !(b.tengilidur_sami === false || b.tengilidur_sami === 'false' || b.tengilidur_sami === '0'),
+    nafn: String(b.tengilidur_nafn || '').trim().slice(0, 120),
+  };
+  if (!tengilidur.sami && !tengilidur.nafn) errors.tengilidur_nafn = 'Skráðu nafn tengiliðar.';
+
   const athugasemdir = String(b.athugasemdir || '').trim().slice(0, 2000);
 
   return {
     errors,
-    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, netfangReikninga, athugasemdir },
+    value: { kennitala, netfang, simi, counts, heimilisfang, upphaf, undirritandi, tengilidur, netfangReikninga, athugasemdir },
   };
 }
 
@@ -174,6 +182,15 @@ export function signerFor(company, form) {
     return { nafn: company.managerName, kennitala: normalizeKennitala(company.managerNationalId) };
   }
   return { nafn: form.undirritandi.nafn, kennitala: form.undirritandi.kennitala };
+}
+
+// The operations contact: gets the operator login. Their email and phone are the
+// contact fields; the name is the signer's when the form says it is the same person
+// (and for registrations stored before the name was asked for).
+export function accountHolderFor(company, form) {
+  const t = form.tengilidur;
+  const nafn = t && !t.sami && t.nafn ? t.nafn : signerFor(company, form).nafn;
+  return { nafn, netfang: form.netfang, simi: form.simi };
 }
 
 // The claim must cover every machine requested. A short claim means the contract
@@ -269,6 +286,7 @@ export function parseCpiOverride(value) {
 export function buildContractPayload({ id, form, company, claim, cpi, now }) {
   const counts = form.counts;
   const signer = signerFor(company, form);
+  const holder = accountHolderFor(company, form);
   const total = monthlyTotal(counts);
   return {
     // Template placeholders
@@ -298,6 +316,10 @@ export function buildContractPayload({ id, form, company, claim, cpi, now }) {
     Kennitala_Undirritanda: signer.kennitala,        // 10 digits, no dash
     Netfang_Undirritanda: form.undirritandi.netfang,
     Simi_Undirritanda: normalizePhone(form.undirritandi.simi),
+
+    // Tengiliður vegna reksturs (gets the operator login); email and phone are
+    // Netfang_Samskipti and Simi
+    Nafn_Tengilids: holder.nafn,
 
     kennitala: form.kennitala,
     netfang: form.netfang,

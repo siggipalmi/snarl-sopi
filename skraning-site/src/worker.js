@@ -7,11 +7,14 @@
 //
 //   received ──claim serials──▶ claimed ──build fields──▶ ready ──POST to Zap──▶ sent
 //
+// Just before the Zap POST, the aðalnotandi gets an operator login on
+// admin.agvending.is (/api/v1/operators/provision, idempotent by kennitala).
+//
 // Zapier gets ONE webhook with every template field already computed; the Zap
 // only has to copy fields into "Create Document From Template".
 
 import {
-  MACHINES, MAX_ATTEMPTS, addressLookupQuery, backoffMinutes, buildContractPayload, buildCpiQuery,
+  MACHINES, MAX_ATTEMPTS, accountHolderFor, addressLookupQuery, describeMachines, signerFor, backoffMinutes, buildContractPayload, buildCpiQuery,
   claimShortfall, dedupeKey, firstOfNextMonth, formatKennitala, formatLongDate, isValidKennitala, isoDate,
   normalizeKennitala, parseCpiOverride, pickLatestCpi, registeredAddress, validateForm,
 } from './lib.js';
@@ -176,6 +179,7 @@ async function handleSubmit(request, env, ctx) {
   // Run the pipeline now, but the customer's answer does not wait on Zapier:
   // the registration is safely stored, and anything that fails is retried by the cron.
   ctx.waitUntil(processSubmission(env, id).catch(e => console.error('[pipeline]', id, e.message)));
+  ctx.waitUntil(notifyNew(env, id, form, company));
   return json({ ok: true, id });
 }
 
@@ -207,6 +211,7 @@ async function processSubmission(env, id) {
       row = await loadRow(env, id);
     }
     if (row.status === 'ready') {
+      await provisionAccount(env, id, form, company, JSON.parse(row.claim_json || '{}'));
       await sendToZapier(env, JSON.parse(row.payload_json));
       const t = new Date().toISOString();
       await env.DB.prepare(`UPDATE submissions SET status='sent', sent_at=?, updated_at=?, last_error=NULL WHERE id=?`)
@@ -222,6 +227,14 @@ async function processSubmission(env, id) {
         status = CASE WHEN ? THEN 'failed' ELSE status END WHERE id=?`)
       .bind(attempts, `[${row.status}] ${e.message}`.slice(0, 1000), next, new Date().toISOString(), giveUp ? 1 : 0, id)
       .run();
+    if (giveUp) {
+      await notify(env, `Skráning stöðvuð: ${company.companyName}`, [
+        `Skráning ${id} (${company.companyName}, kt. ${formatKennitala(form.kennitala)}) stöðvaðist og enginn samningur var búinn til.`,
+        '', `Skref: ${row.status}`, `Villa: ${e.message}`, '',
+        'Lagaðu orsökina og keyrðu skráninguna aftur (sjá README, "Operating it"):',
+        `POST https://skraning.agvending.is/api/admin/submissions/${id}/retry`,
+      ].join('\n'));
+    }
   }
   return loadRow(env, id);
 }
@@ -257,6 +270,90 @@ async function claimSerials(env, id, form, company) {
     throw e;
   }
   return data;
+}
+
+// Create the operator on admin.agvending.is and email the aðalnotandi an
+// operator_admin invite. The result is kept in kv as provision:<id>.
+// A network error, 500, 502 or 504 retries with the rest of the step (the backend
+// returns the same operator on a repeat call). Any other failure, such as a wrong key
+// (401) or provisioning switched off on the backend (503), is recorded here and does
+// not hold up the contract.
+async function provisionAccount(env, id, form, company, claim) {
+  const k = 'provision:' + id;
+  const done = await env.DB.prepare('SELECT value FROM kv WHERE k = ?').bind(k).first();
+  if (done) return JSON.parse(done.value);
+  const save = async result => {
+    await env.DB.prepare('INSERT OR REPLACE INTO kv (k, value, fetched_at) VALUES (?, ?, ?)')
+      .bind(k, JSON.stringify(result), new Date().toISOString()).run();
+    return result;
+  };
+  if (!env.PROVISION_KEY) {
+    // Not stored, so the account is created on a later retry once the secret is set.
+    console.warn('[provision] PROVISION_KEY is not set; no account created for', id);
+    return { skipped: 'PROVISION_KEY is not set' };
+  }
+  const holder = accountHolderFor(company, form);
+  const res = await fetch(env.BACKEND_URL.replace(/\/$/, '') + '/api/v1/operators/provision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Provision-Key': env.PROVISION_KEY },
+    body: JSON.stringify({
+      name: company.companyName,
+      kennitala: form.kennitala,
+      email: holder.netfang,
+      contactName: holder.nafn,
+      contactPhone: holder.simi,
+      // The claimed serials, which are the machines' device codes: the backend puts them
+      // under the new operator (only units it claimed for this kennitala).
+      machineIds: ((claim && claim.units) || []).map(u => u.machineId),
+      location: form.heimilisfang,
+    }),
+  });
+  const text = await res.text();
+  if ([500, 502, 504].includes(res.status)) throw new Error(`provision ${res.status}: ${text.slice(0, 300)}`);
+  let out = null;
+  try { out = JSON.parse(text); } catch (e) { /* recorded as text below */ }
+  const data = out && out.data !== undefined ? out.data : out;
+  const result = res.ok
+    ? { ok: true, email: holder.netfang, ...data }
+    : { ok: false, status: res.status, error: (out && out.error) || text.slice(0, 300) };
+  // Never keep the invite link: it logs straight in as the operator's admin.
+  delete result.inviteUrl;
+  console.log('[provision]', id, JSON.stringify(result));
+  return save(result);
+}
+
+// Emails AG Vending through the backend (/api/v1/leases/notify, recipient set there).
+// Best effort: a failed notification is logged and never affects the registration.
+async function notify(env, subject, text) {
+  try {
+    if (!env.LEASE_CLAIM_SECRET) return;
+    const res = await fetch(env.BACKEND_URL.replace(/\/$/, '') + '/api/v1/leases/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Lease-Key': env.LEASE_CLAIM_SECRET },
+      body: JSON.stringify({ subject, text }),
+    });
+    if (!res.ok) console.warn('[notify]', res.status, (await res.text()).slice(0, 200));
+  } catch (e) {
+    console.warn('[notify]', e.message);
+  }
+}
+
+function notifyNew(env, id, form, company) {
+  const signer = signerFor(company, form);
+  const holder = accountHolderFor(company, form);
+  const lines = [
+    `Ný skráning á skraning.agvending.is`, '',
+    `Leigutaki: ${company.companyName}, kt. ${formatKennitala(form.kennitala)}`,
+    `Tæki: ${describeMachines(form.counts)}`,
+    `Staðsetning: ${form.heimilisfang}`,
+    `Upphaf leigutíma: ${form.upphaf}`, '',
+    `Undirritandi: ${signer.nafn}, ${form.undirritandi.netfang}, ${form.undirritandi.simi}`,
+    `Tengiliður vegna reksturs: ${holder.nafn}, ${form.netfang}, ${form.simi}`,
+  ];
+  if (form.netfangReikninga) lines.push(`Reikningar á: ${form.netfangReikninga}`);
+  if (form.athugasemdir) lines.push('', 'Athugasemdir:', form.athugasemdir);
+  lines.push('', `Tilvísun: ${id}`);
+  return notify(env, `Ný skráning: ${company.companyName}`, lines.join('\n'));
 }
 
 async function sendToZapier(env, payload) {
@@ -327,7 +424,9 @@ async function handleAdmin(request, url, env, ctx) {
   const one = url.pathname.match(/^\/api\/admin\/submissions\/([\w-]+)$/);
   if (one && request.method === 'GET') {
     const row = await loadRow(env, one[1]);
-    return row ? json(row) : json({ error: 'not_found' }, 404);
+    if (!row) return json({ error: 'not_found' }, 404);
+    const prov = await env.DB.prepare('SELECT value FROM kv WHERE k = ?').bind('provision:' + row.id).first();
+    return json({ ...row, provision: prov ? JSON.parse(prov.value) : null });
   }
 
   // POST /api/admin/submissions/:id/retry — re-run from the step it stopped at.
