@@ -1,7 +1,7 @@
 {
   "name": "snarl-sopi-backend",
   "version": "6.46.1",
-  "description": "Snarl and Sopi operator backend v6.46.1: loading the latest fridge build when it is already the current release now says so, instead of an error telling you to bump the version. Cumulative over v6.46.0.",
+  "description": "Snarl and Sopi operator backend v6.46.1: the release card lists the canary machines and can add one more to the current release without re-publishing; loading the latest build when it is already the current release now says so instead of an error. Cumulative over v6.46.0.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

@@ -9844,6 +9844,24 @@ async function renderAppUpdates() {
 
   // Current release per app line. The fridge line used to have no card here at all, so what the
   // fridges were being offered — and the halt button for it — were invisible from the dashboard.
+  // Canary machines, and adding one more without re-publishing. One machine at a time is the
+  // rollout policy, and publishing the same versionCode again is rightly refused — so before this
+  // the only ways forward were "all machines" or a console call.
+  window._appCohort = window._appCohort || {};
+  const canaryRow = (rel, app) => {
+    if (!Array.isArray(rel.cohort)) return '';
+    window._appCohort[app] = rel.cohort.slice();
+    const name = code => { const m = list.find(x => x.deviceCode === code); return m ? (m.deviceName || code) : code; };
+    const inList = rel.cohort.map(c => `<span class="pill pill-out" title="${rsEsc(c)}">${rsEsc(name(c))}</span>`).join(' ');
+    const others = list.filter(m => !rel.cohort.includes(m.deviceCode));
+    const opts = others.map(m => `<option value="${rsEsc(m.deviceCode)}">${rsEsc(m.deviceName || m.deviceCode)} · ${rsEsc(m.deviceCode)}</option>`).join('');
+    return `<div style="margin-top:8px;font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="color:var(--muted)">canary:</span> ${inList}
+      </div>` + (others.length ? `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select class="fi" id="cohort-add-${app}" style="max-width:280px;font-size:12px">${opts}</select>
+        <button class="btn btn-sm btn-ghost" onclick="addToAppCohort('${app}')">+ add to canary</button>
+      </div>` : '');
+  };
   const releaseCard = (rel, app, label) => {
     if (!rel) return `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${label}: no active release.</div>`;
     const cohortTxt = rel.cohort === 'all' ? 'all machines' : (Array.isArray(rel.cohort) ? rel.cohort.length + ' machine' + (rel.cohort.length === 1 ? '' : 's') + ' (canary)' : '—');
@@ -9857,6 +9875,7 @@ async function renderAppUpdates() {
       </div>
       <div style="font-size:11px;color:var(--muted);font-family:var(--mono);word-break:break-all">${rsEsc(rel.apkUrl || '')}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${rel.sha256 ? 'sha256 ✓' : 'no sha256'} · published ${rel.publishedAt ? fmtDateTime(rel.publishedAt) : '—'}${rel.publishedBy ? ' by ' + rsEsc(rel.publishedBy) : ''}</div>
+      ${canaryRow(rel, app)}
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${on
         ? `<button class="btn btn-sm" style="background:var(--alert);color:#fff" onclick="haltAppRollout(false,'${app}')">⏸ halt rollout</button>`
         : `<button class="btn btn-sm btn-ghost" onclick="haltAppRollout(true,'${app}')">▶ resume rollout</button>`}${rel.cohort !== 'all'
@@ -9995,6 +10014,19 @@ async function widenAppRelease(app) {
   try {
     const r = await API.post('/api/v1/app-release/cohort', { app: app === 'fridge' ? 'fridge' : 'coil', cohort: 'all' });
     if (r && r.ok) { showToast('Rolling out to all machines'); renderAppUpdates(); }
+    else showToast('failed: ' + ((r && r.error) || 'unknown'));
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+async function addToAppCohort(app) {
+  const sel = document.getElementById('cohort-add-' + app);
+  const code = sel && sel.value;
+  if (!code) return;
+  const current = (window._appCohort && window._appCohort[app]) || [];
+  if (!confirm('Add ' + code + ' to the current ' + app + ' release?\n\nIt will silently update on its next check (≤30 min, or send check_update).')) return;
+  try {
+    const r = await API.post('/api/v1/app-release/cohort', { app: app === 'fridge' ? 'fridge' : 'coil', cohort: current.concat([code]) });
+    if (r && r.ok) { showToast(code + ' added to the canary'); renderAppUpdates(); }
     else showToast('failed: ' + ((r && r.error) || 'unknown'));
   } catch (e) { showToast('error: ' + e.message); }
 }
