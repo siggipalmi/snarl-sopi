@@ -4,7 +4,7 @@ Everything here was established by testing on real hardware, usually after a
 plausible assumption turned out to be wrong. None of it can be inferred from
 documentation or from the other machine types.
 
-App is at **v0.61.0 / versionCode 148**.
+App is at **v0.61.1 / versionCode 149**.
 
 ---
 
@@ -157,6 +157,13 @@ Setting Device Owner fails if **any** account has been added to the device.
   compressor — and cycled both.
 - **Basket numbers in commands are 1-based; tray indices in logs are 0-based.**
   Cabinet A basket 15 is tray 14. Cabinet B baskets 13–16 are trays 32–35.
+- **B13–B16 (trays 32–35) answer weight reads.** Until v0.61.1 the reply parser
+  kept only trays 0..31 and threw their readings away, so on every double
+  those four baskets looked dead and sold for free, while their price tags
+  (same module) worked. Seen on 8626020714 and 8626020716, 2026-10-12.
+- **Never plug a module in or out with power on.** Replugging B13 on
+  8626020714 silenced all of cabinet B until a power cycle at the wall; an app
+  restart did not bring it back.
 - **`getTemplate` is silent** on this board at every address tried.
   `getAllDeviceStatus` returns static presence flags, byte-identical 13 minutes
   apart. `getEleInfo` (0x47) is electrical metering: energy `[18:26]`, voltage

@@ -596,11 +596,21 @@ class MotorFridgeHardware(
         }
         // Two blocks, skipping the 16..19 address hole — see issueWeightRead.
         issueWeightRead()
+        // *** WAIT FOR EVERY BLOCK'S REPLY. A double sends two requests and gets
+        // two replies; returning on the first handed back cabinet B's values
+        // from the PREVIOUS read, so a settle could weigh B against itself.
+        val replies = if (trayCount > isl.snudursopi.fridge.domain.Planogram.ADDRESS_BLOCK_PER_CABINET) 2 else 1
         var waited = 0L
         while (waited < timeoutMs) {
-            if (weightSeq.value != before) return HashMap(latest)
+            if (weightSeq.value - before >= replies) return HashMap(latest)
             delay(50)
             waited += 50
+        }
+        // One cabinet answered and the other did not: return what we have
+        // rather than nothing — the caller sees the absent trays as absent.
+        if (weightSeq.value != before) {
+            emit("readWeightsFresh: only ${weightSeq.value - before} of $replies cabinet replies", null)
+            return HashMap(latest)
         }
         emit("readWeightsFresh TIMED OUT after ${timeoutMs}ms", null)
         return null
@@ -628,8 +638,15 @@ class MotorFridgeHardware(
                             (d[off + 4].toInt() and 0xFF)
                         // Sanity filter: reject readings that can't be real (bus
                         // noise / interleaved frames produce wild tray#/weights).
-                        // Real: tray 0..31, weight -500..50000 g.
-                        if (tray in 0..31 && grams in -500..50000) {
+                        //
+                        // *** TRAYS GO TO 35, NOT 31. Cabinet B is addressed
+                        // 20..35, so B13..B16 are 32..35. This filter said 0..31
+                        // — written before we knew cabinet B starts at 20 — and
+                        // silently threw their replies away. On both doubles
+                        // those four baskets looked dead ("no reply"), while
+                        // their price tags on the same modules worked, and
+                        // anything taken from them was never charged.
+                        if (tray in 0 until MAX_TRAY_ADDRESS && grams in -500..50000) {
                             latest[tray] = grams
                             sb.append(" #$tray=${grams}g")
                         }
@@ -799,3 +816,6 @@ class MotorFridgeHardware(
         private const val BLANK_DIGIT: Byte = 0x11
     }
 }
+
+/** Highest tray address + 1: cabinet B's block starts at 20 and holds 16. */
+private const val MAX_TRAY_ADDRESS = 36

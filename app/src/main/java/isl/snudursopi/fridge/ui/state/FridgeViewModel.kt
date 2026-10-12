@@ -103,6 +103,10 @@ class FridgeViewModel(
 
     private var idleWeights: Map<Int, Int> = emptyMap()
 
+    /** When [idleWeights] was measured, and when the last customer session ended. */
+    private var idleWeightsAtMs = 0L
+    private var lastSessionEndedAtMs = 0L
+
     /** Last reading seen during shopping — the settled value for any basket
      *  that didn't move, so we don't pay 2.4s to re-read it. */
     private var lastPolled: Map<Int, Int> = emptyMap()
@@ -162,7 +166,10 @@ class FridgeViewModel(
             while (true) {
                 // Skip the read entirely while a backend command owns the bus.
                 if (_ui.value.phase == FridgePhase.IDLE && !busQuiet) {
-                    hardware.readWeightsFresh()?.let { idleWeights = it }
+                    hardware.readWeightsFresh()?.let {
+                        idleWeights = it
+                        idleWeightsAtMs = System.currentTimeMillis()
+                    }
                 }
                 delay(IDLE_POLL_MS)
             }
@@ -213,7 +220,21 @@ class FridgeViewModel(
             }
             // Snapshot resting weights and check for a faulty cell BEFORE opening.
             viewModelScope.launch {
-                val snapshot = idleWeights.ifEmpty {
+                // *** NEVER START FROM WEIGHTS OLDER THAN THE LAST SALE.
+                //
+                // The idle snapshot only refreshes while the idle screen shows,
+                // every ~5s. A card tapped soon after the previous customer's
+                // receipt got a snapshot from BEFORE that sale, so this
+                // customer was charged for what the last one took (seen on
+                // 8626020714, 2026-10-12: a B3-only purchase charged A7 too).
+                // Settlement now hands its measured weights forward; anything
+                // older than the last session is re-read, at the cost of one
+                // ~2.4s read before the door opens.
+                val fresh = idleWeights.isNotEmpty() && idleWeightsAtMs >= lastSessionEndedAtMs
+                val snapshot = if (fresh) {
+                    idleWeights
+                } else {
+                    android.util.Log.w("FridgeFlow", "baseline older than the last session — re-reading before unlock")
                     hardware.readWeightsFresh() ?: emptyMap()
                 }
                 origWeights = snapshot
@@ -429,6 +450,7 @@ class FridgeViewModel(
         val fresh = hardware.readWeightsFresh()
         if (fresh != null) {
             idleWeights = fresh
+            idleWeightsAtMs = System.currentTimeMillis()
             android.util.Log.i(
                 "FridgeFlow",
                 "restock done on cabinet $cabinet — baseline re-read (${fresh.size} trays)",
@@ -717,14 +739,19 @@ class FridgeViewModel(
             // Two more samples for the median, narrowed to what actually moved
             // (a 1-tray read is far quicker than all 16). Unchanged baskets
             // keep the value we just measured.
-            val extraReads = if (movedTrays.isEmpty()) {
-                emptyList()
-            } else {
-                val firstTray = movedTrays.min()
-                val count = movedTrays.max() - movedTrays.min() + 1
-                List(2) {
-                    hardware.readTraysFresh(firstTray, count) ?: emptyMap()
+            // One span PER CABINET: a single span from A7 (6) to B3 (22) also
+            // asks for 16..19, which exist on no machine, and the board retries
+            // each six times — the settle after such a purchase took 11s.
+            val spans = movedTrays
+                .groupBy { it / Planogram.ADDRESS_BLOCK_PER_CABINET }
+                .values
+                .map { trays -> trays.min() to (trays.max() - trays.min() + 1) }
+            val extraReads = List(if (spans.isEmpty()) 0 else 2) {
+                val merged = HashMap<Int, Int>()
+                for ((firstTray, count) in spans) {
+                    hardware.readTraysFresh(firstTray, count)?.let { merged.putAll(it) }
                 }
+                merged
             }
             val reads = listOf(settleFirst) + extraReads
 
@@ -739,6 +766,26 @@ class FridgeViewModel(
             }
             val result = Settlement.settle(planogram, origWeights, finalWeights)
             settlementSink(result)
+
+            // What moved, basket by basket, so a wrong charge can be explained
+            // from the log alone: before -> after, and the unit weight it was
+            // divided by.
+            val moved = planogram.baskets.mapNotNull { b ->
+                val before = origWeights[b.trayIndex] ?: return@mapNotNull null
+                val after = finalWeights[b.trayIndex] ?: return@mapNotNull null
+                if (kotlin.math.abs(after - before) <= STABILITY_THRESHOLD_G) return@mapNotNull null
+                "${b.cabinet}${b.basket} ${before}g→${after}g (unit ${b.unitWeightG}g)"
+            }
+            android.util.Log.i(
+                "FridgeFlow",
+                "settle detail: ${if (moved.isEmpty()) "no basket moved" else moved.joinToString("; ")}",
+            )
+
+            // The weights just measured are the next customer's starting point.
+            // The doors are shut and locked from here until the next tap.
+            lastSessionEndedAtMs = System.currentTimeMillis()
+            idleWeights = HashMap(settleFirst).apply { putAll(finalWeights) }
+            idleWeightsAtMs = lastSessionEndedAtMs
 
             if (result.nothingTaken) {
                 android.util.Log.i(
