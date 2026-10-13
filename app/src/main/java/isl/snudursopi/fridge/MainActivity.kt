@@ -330,6 +330,12 @@ class MainActivity : ComponentActivity() {
                     cabinets = p.spec.cabinets.size.coerceAtLeast(1),
                     perCabinet = p.spec.basketsPerCabinet,
                 )
+                // Weight bus port BEFORE the payment port: the probe must know
+                // which port carries the scales so it never opens it. ttyS3
+                // everywhere but 8625060404 (scales ttyS1, Nayax ttyS3).
+                val nayaxLink = isl.snudursopi.fridge.hardware.nayax.NayaxLink
+                p.weightSerialPort?.let { realHardware.setWeightPort(it) }
+                nayaxLink.setWeightPort(realHardware.weightPortPath)
                 // An explicit payment port in config wins over probing and
                 // survives reinstalls. With none, the link finds its own
                 // port (NayaxLink) — cabinet count says nothing about it:

@@ -43,10 +43,37 @@ class MotorFridgeHardware(
      * the planogram lands.
      */
     private var trayCount: Int,
-    private val weightPortPath: String = "/dev/ttyS3",
+    weightPortDefault: String = "/dev/ttyS3",
     private val baud: Int = 9600,
     private val onLog: (String) -> Unit = {},
 ) : FridgeHardwareController {
+
+    /**
+     * The weight bus port: config's weightSerialPort, remembered so the next
+     * boot opens the right port before config arrives. ttyS3 everywhere except
+     * 8625060404 (ttyS1), where opening ttyS3 talked to the Nayax reader.
+     */
+    private val portPrefs = appContext.getSharedPreferences("weight_bus", android.content.Context.MODE_PRIVATE)
+
+    @Volatile
+    var weightPortPath: String = portPrefs.getString("port", null)
+        ?.takeIf { Regex("^/dev/ttyS[0-9]$").matches(it) } ?: weightPortDefault
+        private set
+
+    /**
+     * Move the weight bus to [path]. Restarts the serial kit on the new port if
+     * it is running. Returns true if the port changed.
+     */
+    fun setWeightPort(path: String): Boolean {
+        if (!Regex("^/dev/ttyS[0-9]$").matches(path) || path == weightPortPath) return false
+        Log.w(TAG, "weight bus port $weightPortPath -> $path")
+        emit("weight bus port now $path", null)
+        weightPortPath = path
+        portPrefs.edit().putString("port", path).apply()
+        _status.value = _status.value.copy(weightPort = path)
+        if (_status.value.started) start { ok -> emit("weight bus restarted on $path ok=$ok", null) }
+        return true
+    }
 
     /** Trays per cabinet (16, or 10 on 8625060404). Set by [setTrayLayout] from config. */
     @Volatile

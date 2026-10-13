@@ -57,13 +57,25 @@ object NayaxLink {
     fun init(context: Context) {
         val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs = p
-        probe.confirmed = p.getString(KEY_CONFIRMED, null)?.takeIf { PaymentPortProbe.isValid(it) }
+        // The weight bus port MotorFridgeHardware remembered from config, so a
+        // boot that probes before config arrives still keeps off the scales.
+        context.applicationContext.getSharedPreferences("weight_bus", Context.MODE_PRIVATE)
+            .getString("port", null)?.let { probe.weightPort = it }
+        probe.confirmed = p.getString(KEY_CONFIRMED, null)
+            ?.takeIf { Regex("^/dev/ttyS[0-9]$").matches(it) && it != probe.weightPort }
         Log.i(
             TAG,
             "payment port: " + (probe.confirmed?.let { "$it (confirmed earlier)" }
-                ?: "none confirmed yet — probing ${PaymentPortProbe.CANDIDATES}"),
+                ?: "none confirmed yet — probing ${probe.candidates()}"),
         )
         setPortPath(probe.initial())
+    }
+
+    /** The port the scales are on, so probing never opens it. */
+    fun setWeightPort(path: String) {
+        if (probe.weightPort == path) return
+        probe.weightPort = path
+        Log.i(TAG, "payment probe skips the weight bus on $path — candidates ${probe.candidates()}")
     }
 
     /** Set deliberately, so probing stops. Returns true if a reconnect is needed. */
@@ -80,7 +92,7 @@ object NayaxLink {
         probe.explicit = null
         probe.confirmed = null
         prefs?.edit()?.remove(KEY_CONFIRMED)?.apply()
-        Log.w(TAG, "payment port: automatic — probing ${PaymentPortProbe.CANDIDATES}")
+        Log.w(TAG, "payment port: automatic — probing ${probe.candidates()}")
         return setPortPath(probe.initial())
     }
 

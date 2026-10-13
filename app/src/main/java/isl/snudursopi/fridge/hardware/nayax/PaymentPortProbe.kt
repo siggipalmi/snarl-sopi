@@ -30,7 +30,16 @@ package isl.snudursopi.fridge.hardware.nayax
 class PaymentPortProbe(
     var explicit: String? = null,
     var confirmed: String? = null,
+    /**
+     * The weight bus, never probed or confirmed. ttyS3 on every machine except
+     * 8625060404, where the scales are on ttyS1 and Nayax on ttyS3.
+     */
+    var weightPort: String = "/dev/ttyS3",
 ) {
+    /** Candidates in order, without the weight bus; ttyS3 joins when it is free. */
+    fun candidates(): List<String> =
+        (CANDIDATES + "/dev/ttyS3").distinct().filter { it != weightPort }
+
     companion object {
         /**
          * ttyS4 first: every single seen so far, and one of the two doubles.
@@ -50,19 +59,20 @@ class PaymentPortProbe(
         get() = explicit == null && confirmed == null
 
     /** The port to open first. */
-    fun initial(): String = explicit ?: confirmed ?: CANDIDATES.first()
+    fun initial(): String = explicit ?: confirmed ?: candidates().first()
 
     /** The port to try after [failed] produced no onReady within the watchdog. */
     fun nextAfterTimeout(failed: String): String {
         explicit?.let { return it }
         confirmed?.let { return it }
-        val i = CANDIDATES.indexOf(failed)
-        return CANDIDATES[(i + 1) % CANDIDATES.size]
+        val c = candidates()
+        val i = c.indexOf(failed)
+        return c[(i + 1) % c.size]
     }
 
     /** onReady arrived on [port]. Returns true if that is new and worth saving. */
     fun confirm(port: String): Boolean {
-        if (!isValid(port) || port == confirmed) return false
+        if (!VALID.matches(port) || port == weightPort || port == confirmed) return false
         confirmed = port
         return true
     }

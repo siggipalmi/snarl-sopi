@@ -84,6 +84,8 @@ object FridgeConfigParser {
         // new machine BEFORE it ever fails.
         val paymentPort = fridge.get("paymentSerialPort")?.takeIf { !it.isNull }?.asText()
             ?.takeIf { Regex("^/dev/ttyS[0-9]$").matches(it) }
+        val weightPort = fridge.get("weightSerialPort")?.takeIf { !it.isNull }?.asText()
+            ?.takeIf { Regex("^/dev/ttyS[0-9]$").matches(it) }
 
         val email = profile?.get("supportEmail")?.takeIf { !it.isNull }?.asText().orEmpty()
         val logo = profile?.field("logoUrl")?.asText()?.takeIf { it.startsWith("https://") }
@@ -110,6 +112,7 @@ object FridgeConfigParser {
             operatorName = operator,
             supportEmail = email,
             paymentSerialPort = paymentPort,
+            weightSerialPort = weightPort,
             defaultLanguage = defaultLang,
             availableLanguages = available,
             logoUrl = logo,

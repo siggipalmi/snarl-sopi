@@ -74,6 +74,12 @@ data class Planogram(
     val supportEmail: String = "",
     /** Serial port for the Nayax terminal, when the backend overrides the default. */
     val paymentSerialPort: String? = null,
+    /**
+     * Serial port for the gravity weight bus. /dev/ttyS3 on every fridge until
+     * 8625060404, whose cables are the other way round: Nayax on ttyS3 (Weimi's
+     * own config: "cardSerial":"/dev/ttyS3") and the scales on ttyS1.
+     */
+    val weightSerialPort: String? = null,
     /** Which languages the pill cycles through. One entry hides the pill. */
     val availableLanguages: List<Language> = listOf(
         Language.Icelandic,

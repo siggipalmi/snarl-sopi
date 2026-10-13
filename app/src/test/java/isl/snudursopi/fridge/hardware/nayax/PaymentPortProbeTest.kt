@@ -52,4 +52,20 @@ class PaymentPortProbeTest {
         assertFalse(PaymentPortProbe.isValid("/dev/ttyUSB0"))
         assertTrue(PaymentPortProbe.isValid("/dev/ttyS1"))
     }
+
+    @Test
+    fun `with the scales on ttyS1 the probe uses ttyS4 and ttyS3 and never ttyS1`() {
+        // 8625060404: Nayax on ttyS3, scales on ttyS1.
+        val p = PaymentPortProbe(weightPort = "/dev/ttyS1")
+        assertEquals(listOf("/dev/ttyS4", "/dev/ttyS3"), p.candidates())
+        assertEquals("/dev/ttyS3", p.nextAfterTimeout("/dev/ttyS4"))
+        assertEquals("/dev/ttyS4", p.nextAfterTimeout("/dev/ttyS3"))
+        assertFalse(p.confirm("/dev/ttyS1"))
+        assertTrue(p.confirm("/dev/ttyS3"))
+    }
+
+    @Test
+    fun `default machines keep the old rotation`() {
+        assertEquals(listOf("/dev/ttyS4", "/dev/ttyS1"), PaymentPortProbe().candidates())
+    }
 }
