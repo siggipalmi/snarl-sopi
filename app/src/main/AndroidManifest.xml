@@ -70,7 +70,9 @@
         </activity>
 
         <!-- Device-admin receiver for Device Owner / Lock Task Mode.
-             adb shell dpm set-device-owner isl.snudursopi.fridge/.KioskAdminReceiver -->
+             The fleet runs the .debug package (CI ships assembleDebug, fleet-signed), so:
+             adb shell dpm set-device-owner isl.snudursopi.fridge.debug/isl.snudursopi.fridge.KioskAdminReceiver
+             Not `isl.snudursopi.fridge/.KioskAdminReceiver` — that package is not installed ("Unknown admin"). -->
         <receiver
             android:name=".KioskAdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"

@@ -17,7 +17,9 @@ import android.provider.Settings
  * back-out gesture) — but ONLY when this app is **Device Owner**, set once per
  * machine over ADB:
  *
- *   adb shell dpm set-device-owner isl.snudursopi.fridge/.KioskAdminReceiver
+ *   adb shell dpm set-device-owner isl.snudursopi.fridge.debug/isl.snudursopi.fridge.KioskAdminReceiver
+ *
+ * (The fleet build is the .debug package — see KioskAdminReceiver.)
  *
  * Every method no-ops gracefully when not Device Owner, so the same build runs
  * on a dev tablet and an un-provisioned machine exactly as before — immersive

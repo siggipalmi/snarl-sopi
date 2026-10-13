@@ -52,8 +52,17 @@ Every step below is currently manual and needs adb.
    fails every TLS handshake and the machine reaches nothing while looking
    perfectly healthy on screen. This cost most of a day on 2026-08-28.
 6. **Test the admin escape hatch** — long-press the clock top-left, PIN `123456`.
-7. **Only then set Device Owner** via `dpm set-device-owner` against
-   `.KioskAdminReceiver`.
+7. **Only then set Device Owner.** The fleet build is the `.debug` package
+   (CI ships `assembleDebug`, signed with the fleet key), and the receiver class
+   keeps the original package, so the full form is required:
+   ```
+   adb shell dpm set-device-owner isl.snudursopi.fridge.debug/isl.snudursopi.fridge.KioskAdminReceiver
+   ```
+   `isl.snudursopi.fridge/.KioskAdminReceiver` fails with "Unknown admin" — that
+   package is not installed. Check with `adb shell pm list packages | grep snudursopi`.
+   Expect `Success: Device owner set to package …`. The app then hides
+   `com.weimi.monitor` and `com.weimi.gs_vendor` itself (verify:
+   `adb shell dumpsys package com.weimi.monitor | grep hidden` → `hidden=true`).
 8. **Tare every basket** with the machine empty (`tare_all`, force).
 9. **Calibrate** against a known weight per basket.
 10. **Install Tailscale**, enable Always-on VPN, note the IP.

@@ -9,10 +9,13 @@ import android.app.admin.DeviceAdminReceiver
  * Debug builds carry applicationIdSuffix ".debug", but the class stays in
  * isl.snudursopi.fridge, and `pkg/.Class` expands to `pkg.Class`. So:
  *
- *   debug:    adb shell dpm set-device-owner \
+ *   fleet:    adb shell dpm set-device-owner \
  *               isl.snudursopi.fridge.debug/isl.snudursopi.fridge.KioskAdminReceiver
- *   release:  adb shell dpm set-device-owner \
- *               isl.snudursopi.fridge/isl.snudursopi.fridge.KioskAdminReceiver
+ *
+ * EVERY MACHINE RUNS THE .debug PACKAGE: CI builds assembleDebug and signs it
+ * with the fleet key, and that is what OTA and the download site ship. The
+ * package-without-.debug form fails with "Unknown admin" (8626020713, 2026-10-13).
+ * Check first with `adb shell pm list packages | grep snudursopi`.
  *
  * Device Owner is what enables escape-proof Lock Task Mode AND silent OTA
  * installs. Same mechanism as the coil app, separate package so the two fleets
