@@ -34,7 +34,7 @@ const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
-  buildConfigResponse, touchConfig, fridgeSpec, machineFridgeSpec, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
+  buildConfigResponse, touchConfig, fridgeSpec, machineFridgeSpec, weightLineIsk, isSoldByWeight, BY_WEIGHT_MIN_G, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
@@ -967,6 +967,7 @@ function handleFridgeSettlement(req, res) {
     plan[bk.cabinet + ':' + bk.basket] = {
       unitWeightG: bk.unitWeightG != null ? bk.unitWeightG : (p && p.weightGrams != null ? p.weightGrams : null),
       priceIsk: bk.priceIsk != null ? bk.priceIsk : (p && p.salePriceIsk != null ? p.salePriceIsk : null),
+      soldByWeight: isSoldByWeight(p),
     };
   }
 
@@ -977,9 +978,15 @@ function handleFridgeSettlement(req, res) {
     const pl = plan[key] || {};
     const unitW = pl.unitWeightG != null ? pl.unitWeightG : (l.unitWeightG != null ? l.unitWeightG : null);
     const delta = (l.startWeightG != null && l.endWeightG != null) ? (l.startWeightG - l.endWeightG) : (l.deltaG != null ? -l.deltaG : null);
-    const recomputedQty = (unitW && delta != null) ? Math.max(0, Math.round(delta / unitW)) : null;
     const price = pl.priceIsk != null ? pl.priceIsk : (l.priceIsk != null ? l.priceIsk : null);
-    const recomputedLineIsk = (recomputedQty != null && price != null) ? recomputedQty * price : null;
+    // Per kg: one line of `delta` grams at the kilo price, rounded up; under the noise floor is nothing.
+    const byWeight = pl.soldByWeight === true || l.soldByWeight === true;
+    const recomputedQty = byWeight
+      ? (delta != null ? (delta >= BY_WEIGHT_MIN_G ? 1 : 0) : null)
+      : ((unitW && delta != null) ? Math.max(0, Math.round(delta / unitW)) : null);
+    const recomputedLineIsk = byWeight
+      ? ((delta != null && price != null) ? (delta >= BY_WEIGHT_MIN_G ? weightLineIsk(delta, price) : 0) : null)
+      : ((recomputedQty != null && price != null) ? recomputedQty * price : null);
     if (recomputedLineIsk != null) recomputedIsk += recomputedLineIsk;
     const lineMismatch = (l.quantity != null && recomputedQty != null && l.quantity !== recomputedQty) ||
                          (l.lineIsk != null && recomputedLineIsk != null && l.lineIsk !== recomputedLineIsk) ? 1 : 0;
@@ -995,6 +1002,7 @@ function handleFridgeSettlement(req, res) {
       priceIsk: price != null ? Math.round(price) : null,
       lineIsk: l.lineIsk != null ? Math.round(l.lineIsk) : null,
       lineMismatch,
+      soldByWeight: byWeight ? 1 : 0,
     };
   });
 
@@ -1083,6 +1091,11 @@ async function sendCustomerReceipt(machine, orderId, to, language) {
     .map(l => {
       const p = l.productId ? storage.getProduct(l.productId) : null;
       const lineIsk = l.lineIsk != null ? l.lineIsk : (l.priceIsk || 0) * l.quantity;
+      if (l.soldByWeight) {
+        const grams = l.startWeightG != null && l.endWeightG != null ? (l.startWeightG - l.endWeightG) : Math.abs(l.deltaG || 0);
+        return { name: (p && p.name) || l.productId || '—', quantity: 1, weightG: grams, pricePerKgIsk: l.priceIsk,
+                 unitIsk: lineIsk, lineIsk, vatRate: p ? p.vatRate : null };
+      }
       return {
         name: (p && p.name) || l.productId || '—',
         quantity: l.quantity,
@@ -1190,7 +1203,8 @@ function handleGetFridgeBaskets(req, res) {
     const p = b.productId ? storage.getProduct(b.productId) : null;
     return { ...b, productName: p ? p.name : null, productImg: p ? p.imgUrl : null,
              effectiveWeightG: b.unitWeightG != null ? b.unitWeightG : (p ? p.weightGrams : null),
-             effectivePriceIsk: b.priceIsk != null ? b.priceIsk : (p ? p.salePriceIsk : null) };
+             effectivePriceIsk: b.priceIsk != null ? b.priceIsk : (p ? p.salePriceIsk : null),
+             soldByWeight: isSoldByWeight(p) };
   });
   const spec = machineFridgeSpec(m);
   ok(res, { deviceCode, model: m.model, cabinets: spec.cabinets, basketsPerCabinet: spec.basketsPerCabinet, baskets });
@@ -1234,9 +1248,15 @@ function handleSetFridgeBaskets(req, res) {
       // Sold by the kilo (catalog measurement 1, e.g. Hreppa's Angus cuts): the fridge app charges
       // per piece today, so it would charge the kilo price for each piece. Refused until the app
       // charges grams × kg price.
-      if (p && Number(p.measurement) === 1) {
-        rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'sold_by_weight',
-          detail: `${p.name || b.productId} is priced per kg; selling by weight is not supported on the fridge yet.` });
+      // Sold by the kilo: charged on grams taken, so it needs a kilo price, not a unit weight.
+      if (isSoldByWeight(p)) {
+        const kgPrice = b.priceIsk != null ? Number(b.priceIsk) : (p.salePriceIsk != null ? Number(p.salePriceIsk) : null);
+        if (!(kgPrice > 0)) {
+          rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'no_kg_price', detail: `${p.name || b.productId} is sold per kg and has no kilo price.` });
+          continue;
+        }
+        storage.upsertFridgeBasket({ ...b, deviceCode });
+        n++;
         continue;
       }
       const w = b.unitWeightG != null ? Number(b.unitWeightG) : (p && p.weightGrams != null ? Number(p.weightGrams) : null);
@@ -1254,7 +1274,7 @@ function handleSetFridgeBaskets(req, res) {
   // return 304 and the machine would never see it — a silent failure.
   if (n) touchConfig(m);
   if (rejected.length) {
-    return json(res, 400, { ok: false, error: 'Some baskets were rejected — see rejected[] (a unit weight is needed; per-kg products are not sellable yet).',
+    return json(res, 400, { ok: false, error: 'Some baskets were rejected — see rejected[] (per-piece products need a unit weight, per-kg products a kilo price).',
       updated: n, rejected, configVersion: m.configVersion });
   }
   ok(res, { deviceCode, updated: n, configVersion: m.configVersion });
@@ -3276,7 +3296,10 @@ function handleKioskLogs(req, res) {
   // Keep the reported app version fresh from this too — it's a free signal about what's running.
   if (version && m.kioskVersion !== version) {
     m.kioskVersion = version;
-    try { storage.upsertMachine(m); } catch (e) { /* non-fatal */ }
+    // A fridge's config depends on its app version (per-kg baskets are only served enabled to
+    // 0.63.0+), and config is 304-on-configVersion: bump it so an updated app re-fetches.
+    if (fridgeSpec(m.model).isFridge) { try { touchConfig(m); } catch (e) { /* non-fatal */ } }
+    else { try { storage.upsertMachine(m); } catch (e) { /* non-fatal */ } }
   }
   ok(res, { stored, retainedDays: 7, maxLines: storage.KIOSK_LOG_MAX_LINES });
 }
@@ -5204,6 +5227,7 @@ function handleProductSearch(req, res) {
       goodsId: String(p.goodsId), name: p.name, barcode: p.barcode || null, imgUrl: p.imgUrl || null,
       salePriceIsk: p.salePriceIsk != null ? p.salePriceIsk : null,
       weightGrams: p.weightGrams != null ? p.weightGrams : null,
+      soldByWeight: isSoldByWeight(p),
     })));
   }
   const machines = String(req.query.machines || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -5221,6 +5245,7 @@ function handleProductSearch(req, res) {
       imgUrl: p.imgUrl || layoutImg(gid) || null,
       salePriceIsk: p.salePriceIsk != null ? p.salePriceIsk : layoutPrice(gid),
       weightGrams: p.weightGrams != null ? p.weightGrams : null,
+      soldByWeight: isSoldByWeight(p),
       stock: storage.stockForProduct(gid, machines),
     });
   }

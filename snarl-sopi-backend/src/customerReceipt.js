@@ -56,6 +56,13 @@ function kr(n, L) {
   return new Intl.NumberFormat(L.locale, { maximumFractionDigits: 0 }).format(Math.round(n)) + ' kr';
 }
 
+// Per-kg lines (weightG set): quantity is shown as grams and the unit price as kr/kg.
+function grams(n, L) {
+  return new Intl.NumberFormat(L.locale, { maximumFractionDigits: 0 }).format(Math.round(n)) + ' g';
+}
+function qtyText(l, L) { return l.weightG != null ? grams(l.weightG, L) : String(l.quantity); }
+function unitText(l, L) { return l.weightG != null ? kr(l.pricePerKgIsk, L) + '/kg' : kr(l.unitIsk, L); }
+
 function formatKennitala(kt) {
   const d = String(kt || '').replace(/\D/g, '');
   return d.length === 10 ? `${d.slice(0, 6)}-${d.slice(6)}` : String(kt || '');
@@ -100,7 +107,8 @@ function esc(s) {
  *   operator: { name, kennitala, email, phone, logoUrl }
  *   place:    machine label shown to the customer (e.g. "Nordic Hostel")
  *   deviceCode, orderId, closedAtMs, totalIsk, language ('is' | 'en' | 'pl')
- *   lines:    [{ name, quantity, unitIsk, lineIsk, vatRate }]
+ *   lines:    [{ name, quantity, unitIsk, lineIsk, vatRate, weightG?, pricePerKgIsk? }]
+ *             weightG set = sold per kg: shown as "412 g" at "8.569 kr/kg".
  */
 function buildCustomerReceipt(r) {
   const lang = langOf(r.language);
@@ -124,7 +132,9 @@ function buildCustomerReceipt(r) {
     `${L.place} ${placeLine}`,
     `${L.paid} ${L.byCard}`,
     '',
-    ...(r.lines || []).map(l => `${l.quantity} × ${l.name} @ ${kr(l.unitIsk, L)} = ${kr(l.lineIsk, L)}`),
+    ...(r.lines || []).map(l => l.weightG != null
+      ? `${l.name}: ${grams(l.weightG, L)} × ${unitText(l, L)} = ${kr(l.lineIsk, L)}`
+      : `${l.quantity} × ${l.name} @ ${kr(l.unitIsk, L)} = ${kr(l.lineIsk, L)}`),
     '',
     `${L.total}: ${kr(r.totalIsk, L)}`,
     ...vat.rates.map(v => `${L.vatLine(v.rate, kr(v.grossIsk, L))}: ${kr(v.vatIsk, L)}`),
@@ -146,8 +156,8 @@ function buildCustomerReceipt(r) {
   const rows = (r.lines || []).map(l => `
       <tr>
         <td style="${cell}">${esc(l.name)}</td>
-        <td style="${cell}${num}">${esc(l.quantity)}</td>
-        <td style="${cell}${num}">${esc(kr(l.unitIsk, L))}</td>
+        <td style="${cell}${num}">${esc(qtyText(l, L))}</td>
+        <td style="${cell}${num}">${esc(unitText(l, L))}</td>
         <td style="${cell}${num}">${esc(kr(l.lineIsk, L))}</td>
       </tr>`).join('');
   const vatRows = vat.rates.map(v => `

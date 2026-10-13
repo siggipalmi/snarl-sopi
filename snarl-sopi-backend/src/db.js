@@ -478,6 +478,22 @@ function fridgeSpec(model, basketsPerCabinet) {
   const cabinets = m.includes('1260') ? ['A', 'B'] : ['A'];
   return { isFridge: true, cabinets, basketsPerCabinet: per, basketCount: cabinets.length * per, doors: cabinets.length };
 }
+// ── Selling by weight ──
+// A catalog product with measurement 1 is priced per kg (Hreppa's Angus cuts, hakk, hamborgarar).
+// The fridge charges grams taken × kr/kg ÷ 1000, rounded UP to the next króna; a net change under
+// BY_WEIGHT_MIN_G is scale noise. The app does the same sum (Settlement.weightLineIsk).
+const BY_WEIGHT_MIN_G = 20;
+const BY_WEIGHT_MIN_APP = '0.63.0';
+function weightLineIsk(grams, pricePerKg) {
+  return Math.ceil((Math.round(grams) * Math.round(pricePerKg)) / 1000);
+}
+function isSoldByWeight(product) { return !!product && Number(product.measurement) === 1; }
+function versionAtLeast(v, min) {
+  const a = String(v || '').split('.').map(n => parseInt(n, 10) || 0);
+  const b = String(min).split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0); }
+  return true;
+}
 function machineFridgeSpec(machine) {
   return fridgeSpec(machine && machine.model, machine && machine.settings && machine.settings.basketsPerCabinet);
 }
@@ -599,7 +615,15 @@ function fridgePlanogramBlock(machine) {
       console.warn(`[FRIDGE] ${machine.deviceCode} ${b.cabinet}${b.basket}: product ${b.productId} is not in the catalog${l ? ' — using its layout name/image' : ''}; reassign it from the catalog`);
       if (l) p = { name: l.name || null, imgUrl: l.image || null };
     }
-    const enabled = b.enabled !== 0 && !!b.productId;
+    const soldByWeight = isSoldByWeight(p);
+    // *** AN OLDER APP MUST NOT GET AN ENABLED PER-KG BASKET. Before 0.63.0 the app has no
+    // weight pricing: a basket with no unit weight is not sellable to it, so whatever is taken
+    // from it goes uncharged. Served disabled until the machine runs an app that can price it.
+    const appCanWeigh = versionAtLeast(machine.kioskVersion, BY_WEIGHT_MIN_APP);
+    if (soldByWeight && b.enabled !== 0 && b.productId && !appCanWeigh) {
+      console.warn(`[FRIDGE] ${machine.deviceCode} ${b.cabinet}${b.basket}: per-kg product served disabled — app ${machine.kioskVersion || '?'} < ${BY_WEIGHT_MIN_APP}`);
+    }
+    const enabled = b.enabled !== 0 && !!b.productId && (!soldByWeight || appCanWeigh);
     const unitWeightG = b.unitWeightG != null ? b.unitWeightG : (p && p.weightGrams != null ? p.weightGrams : null);
     const priceIsk = b.priceIsk != null ? b.priceIsk : (p && p.salePriceIsk != null ? p.salePriceIsk : null);
     return {
@@ -612,6 +636,8 @@ function fridgePlanogramBlock(machine) {
       unitWeightG: unitWeightG != null ? unitWeightG : null,
       toleranceG: b.toleranceG != null ? b.toleranceG : DEFAULT_TOLERANCE_G,
       measurementFlag: b.measurementFlag != null ? b.measurementFlag : 1,
+      // Per kg: priceIsk is the kilo price and unitWeightG is not used (fridge app 0.63.0+).
+      soldByWeight,
       // capacity/expectedCount are for low-stock alerts, restock guidance and shrinkage
       // comparison ONLY. Charging is derived from weight and unitWeightG — the settlement
       // recompute must never read expectedCount. Do not wire these into pricing.
@@ -682,7 +708,7 @@ module.exports = {
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
   markKioskSeen, isKioskAlive,
-  buildConfigResponse, touchConfig, fridgeSpec, machineFridgeSpec, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
+  buildConfigResponse, touchConfig, fridgeSpec, machineFridgeSpec, weightLineIsk, isSoldByWeight, BY_WEIGHT_MIN_G, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
