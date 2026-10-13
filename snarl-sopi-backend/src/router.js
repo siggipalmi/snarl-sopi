@@ -2133,11 +2133,26 @@ function handleAddMachine(req, res) {
   // fridge as a coil machine and it would never receive its baskets.
   const chosenModel = (model && String(model).trim()) || 'VM-WM55DL';
   const spec = fridgeSpec(chosenModel);
-  machines[deviceCode] = newMachineRecord({ deviceCode, deviceName, location, operatorName, model: chosenModel });
-  // Persist. Without this the machine lives only in memory and disappears on the next restart,
-  // taking its provisioned machine key's target with it.
-  storage.upsertMachine(machines[deviceCode]);
-  console.log(`[MACHINE] added ${deviceCode} (${chosenModel}${spec.isFridge ? `, fridge: ${spec.basketCount} baskets ${spec.cabinets.join('+')}` : ''})`);
+  const rec = newMachineRecord({ deviceCode, deviceName, location, operatorName, model: chosenModel });
+  // *** operatorId IS NOT NULL (and a foreign key). This handler never set one, so every add from
+  // the dashboard failed at the INSERT with a 500 — found adding 8625060404 on 2026-10-13. Use the
+  // operator whose name was typed if there is exactly one, otherwise park it under "Unassigned"
+  // the way Weimi sync does, for the AG admin to assign.
+  const typed = String(operatorName || '').trim().toLowerCase();
+  const byName = typed ? Object.values(operators).filter(o => String(o.name || '').trim().toLowerCase() === typed) : [];
+  if (byName.length === 1) {
+    rec.operatorId = byName[0].id;
+  } else {
+    const UNASSIGNED = 'op_unassigned';
+    if (!storage.getOperator(UNASSIGNED)) storage.upsertOperator({ id: UNASSIGNED, name: 'Unassigned', isAGVending: false });
+    if (!operators[UNASSIGNED]) operators[UNASSIGNED] = storage.getOperator(UNASSIGNED);
+    rec.operatorId = UNASSIGNED;
+  }
+  // Persist BEFORE it goes into memory: a failed write used to leave the machine in memory only,
+  // so a retry said "Device code already exists" for a machine that would vanish on restart.
+  storage.upsertMachine(rec);
+  machines[deviceCode] = rec;
+  console.log(`[MACHINE] added ${deviceCode} (${chosenModel}${spec.isFridge ? `, fridge: ${spec.basketCount} baskets ${spec.cabinets.join('+')}` : ''}) → operator ${rec.operatorId}`);
   created(res, machineSummary(machines[deviceCode]));
 }
 
