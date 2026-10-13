@@ -1231,6 +1231,14 @@ function handleSetFridgeBaskets(req, res) {
     }
     if (enabled && b.productId) {
       const p = storage.getProduct(b.productId);
+      // Sold by the kilo (catalog measurement 1, e.g. Hreppa's Angus cuts): the fridge app charges
+      // per piece today, so it would charge the kilo price for each piece. Refused until the app
+      // charges grams × kg price.
+      if (p && Number(p.measurement) === 1) {
+        rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'sold_by_weight',
+          detail: `${p.name || b.productId} is priced per kg; selling by weight is not supported on the fridge yet.` });
+        continue;
+      }
       const w = b.unitWeightG != null ? Number(b.unitWeightG) : (p && p.weightGrams != null ? Number(p.weightGrams) : null);
       if (!w || !(w > 0)) {
         rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'no_unit_weight',
@@ -1246,7 +1254,7 @@ function handleSetFridgeBaskets(req, res) {
   // return 304 and the machine would never see it — a silent failure.
   if (n) touchConfig(m);
   if (rejected.length) {
-    return json(res, 400, { ok: false, error: 'Some baskets were rejected: every enabled basket needs a unit weight.',
+    return json(res, 400, { ok: false, error: 'Some baskets were rejected — see rejected[] (a unit weight is needed; per-kg products are not sellable yet).',
       updated: n, rejected, configVersion: m.configVersion });
   }
   ok(res, { deviceCode, updated: n, configVersion: m.configVersion });
@@ -6857,6 +6865,12 @@ async function handleImportProducts(req, res) {
       } catch { /* try next */ }
     }
 
+    // useRowValues: the list's own price, name and measurement win over Weimi's. For operators
+    // whose Weimi prices carry a decimal-point error (Hreppa, 2026-10-14: 3.49 meant 349 kr, and
+    // retailPrice/100 would have stored 3 kr) and for per-kg products Weimi lists as "Piece".
+    const rowWins = row.useRowValues === true;
+    const rowPrice = (row.priceIsk != null && row.priceIsk !== '' && Number.isFinite(Number(row.priceIsk))) ? Math.round(Number(row.priceIsk)) : null;
+    if (rowWins && rowPrice == null) return { code, status: 'error', error: 'useRowValues needs priceIsk' };
     if (found) {
       try {
         storage.upsertProduct({
@@ -6864,11 +6878,13 @@ async function handleImportProducts(req, res) {
           weimiId: found.goodsId,                          // Weimi internal record id
           goodsCode: found.goodsCode || code,
           customCode: found.goodsCustomCode || row.customCode || null,
-          name: weimi.fixMojibake(found.goodsName) || row.name || null,
-          salePriceIsk: found.retailPrice != null ? Math.round(found.retailPrice / 100)
+          name: (rowWins && row.name) ? String(row.name) : (weimi.fixMojibake(found.goodsName) || row.name || null),
+          salePriceIsk: rowWins ? rowPrice
+                        : found.retailPrice != null ? Math.round(found.retailPrice / 100)
                         : (row.priceIsk != null ? Math.round(row.priceIsk) : null),
           vatRate, costPriceIsk: cost, weightGrams: weight,
-          measurement: found.measurement != null ? found.measurement : (row.measurement || 0),
+          measurement: rowWins ? (Number(row.measurement) === 1 ? 1 : 0)
+                        : found.measurement != null ? found.measurement : (row.measurement || 0),
           barcode: found.barcode || null,
           imgUrl: found.imgUrl || null,
         });
@@ -6883,7 +6899,7 @@ async function handleImportProducts(req, res) {
         customCode: row.customCode || null, name: row.name || null,
         salePriceIsk: row.priceIsk != null ? Math.round(row.priceIsk) : null,
         vatRate, costPriceIsk: cost, weightGrams: weight,
-        measurement: row.measurement || 0, barcode: null, imgUrl: null,
+        measurement: Number(row.measurement) === 1 ? 1 : 0, barcode: null, imgUrl: null,
       });
     } catch (e) { return { code, status: 'error', error: e.message }; }
     return { code, status: 'notfound', name: row.name || '' };
