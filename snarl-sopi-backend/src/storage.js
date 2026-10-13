@@ -535,6 +535,9 @@ function ensureColumn(table, column, type) {
   }
 }
 ensureColumn('machines', 'nayaxMachineId',  'TEXT');
+// Per-kg fridge lines (catalog measurement 1): quantity is 1, deltaG is the grams charged, priceIsk
+// is the kilo price and lineIsk = ceil(grams × kr/kg ÷ 1000).
+ensureColumn('fridge_settlement_lines', 'soldByWeight', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('machines', 'nayaxLastSyncAt', 'TEXT');
 ensureColumn('machines', 'nayaxDataJson',   'TEXT');
 ensureColumn('machines', 'stockSource',     "TEXT NOT NULL DEFAULT 'weimi'");
@@ -827,8 +830,8 @@ const stmts = {
         mismatch=excluded.mismatch, nayaxRef=excluded.nayaxRef, anomalies=excluded.anomalies, updatedAt=excluded.updatedAt`),
   deleteFridgeLines: db.prepare('DELETE FROM fridge_settlement_lines WHERE deviceCode = ? AND orderId = ?'),
   insertFridgeLine: db.prepare(`INSERT INTO fridge_settlement_lines
-      (deviceCode, orderId, cabinet, basket, productId, startWeightG, endWeightG, deltaG, unitWeightG, quantity, recomputedQty, priceIsk, lineIsk, lineMismatch)
-      VALUES (@deviceCode, @orderId, @cabinet, @basket, @productId, @startWeightG, @endWeightG, @deltaG, @unitWeightG, @quantity, @recomputedQty, @priceIsk, @lineIsk, @lineMismatch)`),
+      (deviceCode, orderId, cabinet, basket, productId, startWeightG, endWeightG, deltaG, unitWeightG, quantity, recomputedQty, priceIsk, lineIsk, lineMismatch, soldByWeight)
+      VALUES (@deviceCode, @orderId, @cabinet, @basket, @productId, @startWeightG, @endWeightG, @deltaG, @unitWeightG, @quantity, @recomputedQty, @priceIsk, @lineIsk, @lineMismatch, @soldByWeight)`),
   listFridgeSettlements: db.prepare('SELECT * FROM fridge_settlements WHERE deviceCode = ? ORDER BY receivedAt DESC LIMIT @lim'),
   // Reconciliation: settlements in a window, matched on when the SESSION happened (closedAt, an ISO
   // string) or on when we RECEIVED it (receivedAt, epoch ms). Those differ for anything the machine

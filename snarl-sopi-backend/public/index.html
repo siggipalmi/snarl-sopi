@@ -1790,6 +1790,7 @@ select.fi{cursor:pointer;}
       <div class="field" style="flex:1"><div class="fl">VSK</div><select class="fi" id="ep2-vat"><option value="11">11%</option><option value="24">24%</option></select></div>
       <div class="field" style="flex:1"><div class="fl">unit weight (g)</div><input class="fi mono" id="ep2-weight" type="number" inputmode="numeric" placeholder="e.g. 385"></div>
     </div>
+    <div class="field"><div class="fl">sold</div><select class="fi" id="ep2-measurement"><option value="0">per piece</option><option value="1">per kg — price is the kilo price, charged on grams taken</option></select></div>
     <div style="display:flex;gap:8px">
       <div class="field" style="flex:1"><div class="fl">cost price (gross, kr)</div><input class="fi mono" id="ep2-cost" type="number" inputmode="numeric" placeholder="optional"></div>
       <div class="field" style="flex:1"><div class="fl">barcode</div><input class="fi mono" id="ep2-barcode" maxlength="32" placeholder="optional"></div>
@@ -4532,6 +4533,7 @@ function openEditCatalogProduct(goodsId) {
   document.getElementById('ep2-name').value = p.name || '';
   document.getElementById('ep2-vat').value = String(p.vatRate || 11);
   document.getElementById('ep2-weight').value = (p.weightGrams != null ? p.weightGrams : '');
+  document.getElementById('ep2-measurement').value = String(p.measurement === 1 ? 1 : 0);
   document.getElementById('ep2-cost').value = (p.costPriceIsk != null ? p.costPriceIsk : '');
   document.getElementById('ep2-barcode').value = p.barcode || '';
   document.getElementById('ep2-current').innerHTML = p.image
@@ -4604,7 +4606,8 @@ async function saveEditProduct() {
       btn.disabled = false; btn.innerHTML = '<span>save changes</span><span>&rarr;</span>';
       return;
     }
-    const body = { goodsName: name, vatRate, costPriceIsk, weightGrams };
+    const body = { goodsName: name, vatRate, costPriceIsk, weightGrams,
+                   measurement: parseInt(document.getElementById('ep2-measurement').value, 10) === 1 ? 1 : 0 };
     if (barcode) body.barcode = barcode;   // omit when empty → backend keeps current
     if (_epImageDataUrl) {
       body.imageBase64 = _epImageDataUrl;
@@ -6111,8 +6114,8 @@ function fridgeBasketCard(cab, n) {
   const inner = has ? `
       ${img}
       <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(name||'—').slice(0,18)}</div>
-      <div style="font-family:var(--mono);color:var(--bronze);font-size:9px">${price != null ? price + ' kr' : '—'}${isOverride ? ' <span style=\"color:var(--muted)\">·ovr</span>' : ''}</div>
-      <div style="font-family:var(--mono);color:var(--muted);font-size:9px">${weight != null ? weight + ' g' : 'no weight'}</div>`
+      <div style="font-family:var(--mono);color:var(--bronze);font-size:9px">${price != null ? price + (b.soldByWeight ? ' kr/kg' : ' kr') : '—'}${isOverride ? ' <span style=\"color:var(--muted)\">·ovr</span>' : ''}</div>
+      <div style="font-family:var(--mono);color:var(--muted);font-size:9px">${b.soldByWeight ? 'by weight' : (weight != null ? weight + ' g' : 'no weight')}</div>`
     : `<div style="color:var(--muted);font-size:16px;text-align:center;padding:6px 0">＋</div>
        <div style="font-family:var(--mono);color:var(--muted);font-size:9px;text-align:center">assign</div>`;
   return `<div title="cabinet ${cab} · basket ${n}${!enabled && has ? ' · disabled' : ''}"
@@ -6158,9 +6161,10 @@ function openFridgeBasketEditor(cab, n) {
   document.getElementById('fb-price').value = (b.priceIsk != null ? b.priceIsk : '');
   document.getElementById('fb-price').placeholder = (b.effectivePriceIsk != null ? 'inherits ' + b.effectivePriceIsk : 'catalog price');
   document.getElementById('fb-weight').value = (b.unitWeightG != null ? b.unitWeightG : (b.effectiveWeightG != null ? b.effectiveWeightG : ''));
+  { const w = document.getElementById('fb-weight'); w.disabled = !!b.soldByWeight; w.placeholder = b.soldByWeight ? 'by weight — not needed' : ''; if (b.soldByWeight) w.value = ''; }
   document.getElementById('fb-enabled').checked = (b.enabled !== 0);
   document.getElementById('fb-msg').innerHTML = '';
-  _fpPickedProduct = b.productId ? { goodsId: b.productId, name: b.productName, weightGrams: b.effectiveWeightG } : null;
+  _fpPickedProduct = b.productId ? { goodsId: b.productId, name: b.productName, weightGrams: b.effectiveWeightG, soldByWeight: !!b.soldByWeight } : null;
   scaleReset(cab, n);
   modal.classList.add('show');
 }
@@ -6713,11 +6717,13 @@ async function fbDoSearch() {
     const list = (r && r.data) || [];
     if (!list.length) { box.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:6px">No matches in the product catalog — add the product there first.</div>'; return; }
     box.innerHTML = list.slice(0, 10).map(p => {
-      const payload = JSON.stringify({ goodsId: p.goodsId, name: p.name, weightGrams: p.weightGrams, salePriceIsk: p.salePriceIsk }).replace(/'/g, "&#39;");
+      const payload = JSON.stringify({ goodsId: p.goodsId, name: p.name, weightGrams: p.weightGrams, salePriceIsk: p.salePriceIsk, soldByWeight: !!p.soldByWeight }).replace(/'/g, "&#39;");
       const img = p.imgUrl
         ? '<img src="' + p.imgUrl + '" alt="" style="width:34px;height:34px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">'
         : '<div style="width:34px;height:34px;flex-shrink:0"></div>';
-      const meta = [p.salePriceIsk != null ? p.salePriceIsk + ' kr' : null, p.weightGrams != null ? p.weightGrams + ' g' : null].filter(Boolean).join(' · ');
+      const meta = p.soldByWeight
+        ? [p.salePriceIsk != null ? p.salePriceIsk + ' kr/kg' : null, 'by weight'].filter(Boolean).join(' · ')
+        : [p.salePriceIsk != null ? p.salePriceIsk + ' kr' : null, p.weightGrams != null ? p.weightGrams + ' g' : null].filter(Boolean).join(' · ');
       return `<div onclick='fbPick(${payload})' style="display:flex;align-items:center;gap:10px;padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--line)">
         ${img}
         <div style="flex:1;min-width:0">
@@ -6736,7 +6742,9 @@ function fbPick(p) {
   // Autofill from the catalog when the field is empty — the operator can still override either
   // (measured weight, or a fridge-specific price). We don't clobber a value already typed.
   const w = document.getElementById('fb-weight');
-  if (!w.value && p.weightGrams != null) w.value = p.weightGrams;
+  // Per kg: charged on grams taken, so there is no unit weight to give.
+  if (p.soldByWeight) { w.value = ''; w.disabled = true; w.placeholder = 'by weight — not needed'; }
+  else { w.disabled = false; w.placeholder = ''; if (!w.value && p.weightGrams != null) w.value = p.weightGrams; }
   const price = document.getElementById('fb-price');
   if (!price.value && p.salePriceIsk != null) price.value = p.salePriceIsk;
 }
@@ -6748,7 +6756,7 @@ async function saveFridgeBasket() {
   const priceRaw = document.getElementById('fb-price').value.trim();
   const weightRaw = document.getElementById('fb-weight').value.trim();
   const weight = weightRaw === '' ? null : parseInt(weightRaw, 10);
-  if (enabled && (!weight || weight <= 0)) { msg.innerHTML = '<div class="rs-msg err">An enabled basket needs a measured unit weight (g).</div>'; return; }
+  if (enabled && !_fpPickedProduct.soldByWeight && (!weight || weight <= 0)) { msg.innerHTML = '<div class="rs-msg err">An enabled basket needs a measured unit weight (g).</div>'; return; }
   const body = {
     baskets: [{
       cabinet: _fpEditCab, basket: _fpEditBasket, productId: _fpPickedProduct.goodsId,
@@ -6977,6 +6985,7 @@ async function renderCatalog() {
       } else if (!e.image) e.image = p.imgUrl || '';
       if (!e.priceIsk) e.priceIsk = p.salePriceIsk || 0;
       e.vatRate = p.vatRate; e.costPriceIsk = p.costPriceIsk; e.weightGrams = p.weightGrams; e.barcode = p.barcode;
+      e.measurement = Number(p.measurement) === 1 ? 1 : 0;
       e.hasAttrs = true;
     });
     _catalogMerged = Object.values(byId).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
