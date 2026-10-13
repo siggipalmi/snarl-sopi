@@ -34,7 +34,7 @@ const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
-  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
+  buildConfigResponse, touchConfig, fridgeSpec, machineFridgeSpec, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
@@ -1192,7 +1192,8 @@ function handleGetFridgeBaskets(req, res) {
              effectiveWeightG: b.unitWeightG != null ? b.unitWeightG : (p ? p.weightGrams : null),
              effectivePriceIsk: b.priceIsk != null ? b.priceIsk : (p ? p.salePriceIsk : null) };
   });
-  ok(res, { deviceCode, model: m.model, baskets });
+  const spec = machineFridgeSpec(m);
+  ok(res, { deviceCode, model: m.model, cabinets: spec.cabinets, basketsPerCabinet: spec.basketsPerCabinet, baskets });
 }
 
 // PUT /api/v1/machines/:deviceCode/fridge/baskets — set the planogram. Body: { baskets: [ {cabinet,
@@ -1205,15 +1206,16 @@ function handleSetFridgeBaskets(req, res) {
   if (!list.length) return badRequest(res, 'baskets array required');
   let n = 0;
   const rejected = [];
-  const spec = require('./db').fridgeSpec(m.model);
+  const spec = machineFridgeSpec(m);
+  const per = spec.basketsPerCabinet;
   for (const b of list) {
     if (b.cabinet == null || b.basket == null) continue;
-    // Numbering contract: basket is 1-16 WITHIN each cabinet; cabinet (A/B) disambiguates. So a
-    // basket number outside 1-16, or a cabinet this model doesn't have, is a config error.
+    // Numbering contract: basket is 1..basketsPerCabinet (16, or 10 on 8625060404) WITHIN each
+    // cabinet; cabinet (A/B) disambiguates. Outside that, or a cabinet this model lacks, is an error.
     const cab = String(b.cabinet).toUpperCase();
     const bn = Math.round(Number(b.basket));
     if (!spec.cabinets.includes(cab)) { rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'bad_cabinet', detail: `This machine has no cabinet ${cab} (has ${spec.cabinets.join('+') || 'none'}).` }); continue; }
-    if (!(bn >= 1 && bn <= 16)) { rejected.push({ cabinet: cab, basket: b.basket, reason: 'bad_basket', detail: 'basket must be 1-16 within a cabinet.' }); continue; }
+    if (!(bn >= 1 && bn <= per)) { rejected.push({ cabinet: cab, basket: b.basket, reason: 'bad_basket', detail: `basket must be 1-${per} within a cabinet on this machine.` }); continue; }
     b.cabinet = cab; b.basket = bn;
     // A basket that is enabled and stocked MUST have a resolvable unit weight, or the machine
     // cannot price what leaves it — and since the door exposes every basket at once, the app
@@ -2756,9 +2758,10 @@ function handleEnqueueCommand(req, res) {
     const cab = String(params.cabinet || '').toUpperCase();
     if (cab !== 'A' && cab !== 'B') return badRequest(res, `${type} requires params.cabinet ("A" or "B")`);
     if (params.basket == null || !Number.isFinite(Number(params.basket))) return badRequest(res, `${type} requires params.basket (number)`);
-    const spec = fridgeSpec(machines[deviceCode].model);
+    const spec = machineFridgeSpec(machines[deviceCode]);
     if (!spec.cabinets.includes(cab)) return badRequest(res, `This machine has no cabinet ${cab}.`);
     params.cabinet = cab; params.basket = Math.round(Number(params.basket));
+    if (!(params.basket >= 1 && params.basket <= spec.basketsPerCabinet)) return badRequest(res, `${type}: basket must be 1-${spec.basketsPerCabinet} on this machine.`);
     if (type === 'scale_calibrate') {
       const rw = Number(params.referenceWeightG);
       if (!Number.isFinite(rw) || rw <= 0) return badRequest(res, 'scale_calibrate requires params.referenceWeightG (positive number)');
@@ -3762,13 +3765,13 @@ function handleUpdateSettings(req, res) {
   const { valid, errors } = validateSettings(req.body);
   if (!valid) return badRequest(res, 'Validation failed', errors);
   const allowed = ['showAdRegion','showLeftHero','showRightHero','showIdleScreen','idleTimeoutSeconds','defaultLanguage','availableLanguages','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','motorSerialPort','controlBoardAddress',
-                   'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort','led'];
+                   'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort','led','basketsPerCabinet'];
   // Refuse a payment port that collides with this machine's bus — same reasoning as the
   // set_payment_port command guard: a second reader on the bus corrupts both at once.
   // Hardware wiring is AG-only, on the same reasoning as the set_payment_port command: these three
   // decide which physical bus the app opens, and naming a wrong one strands a placed machine
   // silently. Everything else in `allowed` is display or behaviour and stays open to operators.
-  const WIRING_KEYS = ['paymentSerialPort', 'motorSerialPort', 'controlBoardAddress'];
+  const WIRING_KEYS = ['paymentSerialPort', 'motorSerialPort', 'controlBoardAddress', 'basketsPerCabinet'];
   const touchedWiring = WIRING_KEYS.filter(k => req.body[k] !== undefined);
   if (touchedWiring.length && req.user?.role !== 'ag_admin') {
     return json(res, 403, { ok: false,
@@ -3794,9 +3797,23 @@ function handleUpdateSettings(req, res) {
     if (error) return badRequest(res, error);
     req.body.led = value;
   }
+  // Trays per cabinet: hardware, like the wiring keys. It changes which baskets exist, so the
+  // machine must get a new config (configVersion) or it keeps polling the old range.
+  let layoutChanged = false;
+  if (req.body.basketsPerCabinet !== undefined) {
+    const n = Number(req.body.basketsPerCabinet);
+    if (!BASKETS_PER_CABINET_OPTIONS.includes(n)) return badRequest(res, `basketsPerCabinet must be one of ${BASKETS_PER_CABINET_OPTIONS.join(', ')}`);
+    req.body.basketsPerCabinet = n;
+    layoutChanged = Number((m.settings || {}).basketsPerCabinet || 16) !== n;
+  }
   allowed.forEach(k => { if (req.body[k] !== undefined) m.settings[k] = req.body[k]; });
-  m.updatedAt = new Date().toISOString();
-  storage.upsertMachine(m);
+  if (layoutChanged) {
+    touchConfig(m);
+    console.log(`[MACHINE] ${m.deviceCode} trays per cabinet → ${req.body.basketsPerCabinet}`);
+  } else {
+    m.updatedAt = new Date().toISOString();
+    storage.upsertMachine(m);
+  }
   ok(res, { settings: m.settings });
 }
 

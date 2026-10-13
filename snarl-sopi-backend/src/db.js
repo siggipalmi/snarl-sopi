@@ -465,13 +465,21 @@ function userCanReassignWithin(user, operatorId) {
 // GR-WM22Z680 = single door (680mm wide, 16 baskets, cabinet A only), GR-WM22Z1260 = double
 // door (1260mm, 32 baskets across cabinets A+B that open together on one tap). Coil machines
 // are VM-*. Centralised here so nothing else string-matches models.
-function fridgeSpec(model) {
+//
+// Baskets per cabinet is NOT in the model string: 8625060404 is a GR-WM22Z1260 double with 10 trays
+// per cabinet (2 per shelf, 5 shelves) where the others have 16. So it is a per-machine setting,
+// settings.basketsPerCabinet (16 or 10, default 16), passed in by machineFridgeSpec(). Bus addresses
+// stay in blocks of 20 per cabinet either way (Weimi: A 0-19, B 20-39).
+const BASKETS_PER_CABINET_OPTIONS = [16, 10];
+function fridgeSpec(model, basketsPerCabinet) {
   const m = String(model || '');
-  if (!m.startsWith('GR-')) return { isFridge: false, cabinets: [], basketCount: 0, doors: 0 };
-  const isDouble = m.includes('1260');
-  return isDouble
-    ? { isFridge: true, cabinets: ['A', 'B'], basketCount: 32, doors: 2 }
-    : { isFridge: true, cabinets: ['A'], basketCount: 16, doors: 1 };
+  if (!m.startsWith('GR-')) return { isFridge: false, cabinets: [], basketCount: 0, basketsPerCabinet: 0, doors: 0 };
+  const per = BASKETS_PER_CABINET_OPTIONS.includes(Number(basketsPerCabinet)) ? Number(basketsPerCabinet) : 16;
+  const cabinets = m.includes('1260') ? ['A', 'B'] : ['A'];
+  return { isFridge: true, cabinets, basketsPerCabinet: per, basketCount: cabinets.length * per, doors: cabinets.length };
+}
+function machineFridgeSpec(machine) {
+  return fridgeSpec(machine && machine.model, machine && machine.settings && machine.settings.basketsPerCabinet);
 }
 
 function fridgeLanguageBlock(cfg) {
@@ -572,7 +580,7 @@ function buildConfigResponse(machine) {
 // own name/image/price/weight are the defaults, so changing a product image once updates every
 // basket. Non-fridge machines get nothing (block absent), leaving coil config unchanged.
 function fridgePlanogramBlock(machine) {
-  const spec = fridgeSpec(machine.model);
+  const spec = machineFridgeSpec(machine);
   if (!spec.isFridge) return {};
   const DEFAULT_TOLERANCE_G = 15;
   const baskets = storage.listFridgeBaskets(machine.deviceCode) || [];
@@ -627,7 +635,7 @@ function fridgePlanogramBlock(machine) {
   const paymentSerialPort = (typeof cfg2.paymentSerialPort === 'string' && cfg2.paymentSerialPort.trim())
     ? cfg2.paymentSerialPort.trim()
     : null;
-  return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, paymentSerialPort, led: ledPolicy(machine), baskets: rows } };
+  return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, basketsPerCabinet: spec.basketsPerCabinet, paymentSerialPort, led: ledPolicy(machine), baskets: rows } };
 }
 
 // Merge a machine's stored lighting settings over the defaults, so a machine that has never been
@@ -669,7 +677,7 @@ module.exports = {
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
   markKioskSeen, isKioskAlive,
-  buildConfigResponse, touchConfig, fridgeSpec, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
+  buildConfigResponse, touchConfig, fridgeSpec, machineFridgeSpec, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
