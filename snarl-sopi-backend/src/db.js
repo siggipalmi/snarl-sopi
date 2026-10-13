@@ -635,7 +635,12 @@ function fridgePlanogramBlock(machine) {
   const paymentSerialPort = (typeof cfg2.paymentSerialPort === 'string' && cfg2.paymentSerialPort.trim())
     ? cfg2.paymentSerialPort.trim()
     : null;
-  return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, basketsPerCabinet: spec.basketsPerCabinet, paymentSerialPort, led: ledPolicy(machine), baskets: rows } };
+  // Weight bus port: settings.motorSerialPort (the dashboard's "motor serial port"). ttyS3 on every
+  // fridge until 8625060404, whose scales are on ttyS1 with Nayax on ttyS3. Fridge app 0.62.1+.
+  const weightSerialPort = (typeof cfg2.motorSerialPort === 'string' && /^\/dev\/ttyS\d$/.test(cfg2.motorSerialPort.trim()))
+    ? cfg2.motorSerialPort.trim()
+    : null;
+  return { fridge: { model: machine.model, cabinets: spec.cabinets, basketCount: spec.basketCount, basketsPerCabinet: spec.basketsPerCabinet, paymentSerialPort, weightSerialPort, led: ledPolicy(machine), baskets: rows } };
 }
 
 // Merge a machine's stored lighting settings over the defaults, so a machine that has never been
