@@ -1231,6 +1231,8 @@ select.fi{cursor:pointer;}
               <div class="field"><div class="fl">motor serial port</div><input class="fi mono" id="ds-motorSerialPort" placeholder="/dev/ttyS3"></div>
               <div class="field"><div class="fl">payment serial port (Nayax)</div><input class="fi mono" id="ds-paymentSerialPort" placeholder="/dev/ttyS1"></div>
               <div class="field"><div class="fl">control board address</div><input class="fi mono" id="ds-controlBoardAddress" type="number"></div>
+              <div class="field"><div class="fl">fridge trays per cabinet</div>
+                <select class="fi" id="ds-basketsPerCabinet"><option value="16">16 (4·4·3·3·2 shelves)</option><option value="10">10 (2 per shelf, 5 shelves)</option></select></div>
               <div style="font-size:11px;color:var(--muted);line-height:1.45;margin:-2px 0 10px">
                 The Nayax port is <strong>per machine</strong>, not per type — 8626020716 and 8626020714 are both doubles
                 and sit on ttyS1 and ttyS4 respectively. Leave blank to use the type default; set it when this machine
@@ -6040,6 +6042,10 @@ async function renderMachineLayout(code) {
 // ─── Fridge planogram (gravity/weight fridges) ─────────────────────────────────
 // Shelf-accurate basket grid. Physical shelves per cabinet: 1-4, 5-8, 9-11, 12-14, 15-16.
 const FRIDGE_SHELVES = [[1,2,3,4],[5,6,7,8],[9,10,11],[12,13,14],[15,16]];
+// 10 trays per cabinet (8625060404): two per shelf, five shelves, top shelf first.
+const FRIDGE_SHELVES_10 = [[1,2],[3,4],[5,6],[7,8],[9,10]];
+let _fpPerCabinet = 16;     // from GET fridge/baskets: the machine's trays-per-cabinet setting
+function fridgeShelves() { return _fpPerCabinet === 10 ? FRIDGE_SHELVES_10 : FRIDGE_SHELVES; }
 let _fpDeviceCode = null;
 let _fpBaskets = {};        // "A:1" -> basket object
 let _fpModel = '';
@@ -6058,17 +6064,18 @@ async function renderFridgePlanogram(code, model) {
     if (!r || !r.ok) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">' + (r?.error || 'Could not load planogram') + '</div>'; return; }
     _fpBaskets = {};
     (r.data.baskets || []).forEach(b => { _fpBaskets[b.cabinet + ':' + b.basket] = b; });
-    const cabinets = fridgeCabinets(_fpModel);
+    _fpPerCabinet = r.data.basketsPerCabinet === 10 ? 10 : 16;
+    const cabinets = Array.isArray(r.data.cabinets) && r.data.cabinets.length ? r.data.cabinets : fridgeCabinets(_fpModel);
 
     const cabHtml = cabinets.map(cab => {
-      const shelves = FRIDGE_SHELVES.map((row, ri) => {
+      const shelves = fridgeShelves().map((row, ri) => {
         const cards = row.map(n => fridgeBasketCard(cab, n)).join('');
         return `<div style="display:flex;gap:6px;margin-bottom:6px">${cards}</div>`;
       }).join('');
       return `<div style="margin-bottom:18px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="font-family:var(--serif);font-style:italic;font-size:16px">cabinet ${cab}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">16 baskets · top shelf first</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">${_fpPerCabinet} baskets · top shelf first</div>
         </div>
         ${shelves}
       </div>`;
@@ -6770,7 +6777,7 @@ async function saveFridgeBasket() {
 function openFridgeBulkFill() {
   const cabinets = fridgeCabinets(_fpModel);
   const rows = [];
-  cabinets.forEach(cab => FRIDGE_SHELVES.flat().forEach(n => {
+  cabinets.forEach(cab => fridgeShelves().flat().forEach(n => {
     const b = _fpBaskets[cab + ':' + n] || {};
     rows.push(`<tr data-cab="${cab}" data-basket="${n}">
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 6px">${cab}${n}</td>
@@ -7600,6 +7607,7 @@ function renderDisplayPage() {
     'ds-hasHeatedGlass':s.hasHeatedGlass, 'ds-heatedGlassDefaultOn':s.heatedGlassDefaultOn,
     'ds-hasLedStrips':s.hasLedStrips,
     'ds-motorSerialPort':s.motorSerialPort, 'ds-paymentSerialPort':s.paymentSerialPort, 'ds-controlBoardAddress':s.controlBoardAddress,
+    'ds-basketsPerCabinet': String(s.basketsPerCabinet || 16),
   };
   Object.entries(map).forEach(([id,val])=>{
     const el=document.getElementById(id); if(!el) return;
@@ -7657,6 +7665,10 @@ async function saveWiring() {
   if (pay) body.paymentSerialPort = pay;
   if (mot) body.motorSerialPort = mot;
   if (addr !== '' && addr != null && isFinite(parseInt(addr, 10))) body.controlBoardAddress = parseInt(addr, 10);
+  // Trays per cabinet: only sent when it differs, so saving a port never touches the layout.
+  const per = parseInt(val('ds-basketsPerCabinet'), 10);
+  const curPer = Number((DB.machines[code] && DB.machines[code].settings && DB.machines[code].settings.basketsPerCabinet) || 16);
+  if ((per === 10 || per === 16) && per !== curPer) body.basketsPerCabinet = per;
   if (!Object.keys(body).length) { msg.style.color = 'var(--muted)'; msg.textContent = 'Nothing to save.'; return; }
   msg.style.color = 'var(--muted)';
   msg.textContent = 'Saving…';
