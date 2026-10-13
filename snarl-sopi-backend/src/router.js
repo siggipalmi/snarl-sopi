@@ -98,6 +98,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/products/duplicates',                      handler: handleProductDuplicates, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/products/dedupe',                          handler: handleDedupeProducts, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/products/images/migrate',                 handler: handleMigrateImages, middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/products/images/from-weimi-device',      handler: handleImagesFromWeimiDevice, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/products/images/clean-backgrounds',       handler: handleCleanBackgrounds, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/products/:goodsId/image',                 handler: handleProductImage,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/products/enrich',                         handler: handleProductEnrich, middleware:[requireAuth, requireAgAdmin] },
@@ -4820,6 +4821,71 @@ async function handleProductImage(req, res) {
 // POST /api/v1/products/images/migrate — one-time job: pull each product's existing
 // (Weimi) image, normalize it, rehost on R2, and point imgUrl at ours. Idempotent:
 // already-normalized products are skipped unless ?force=1. Body: { limit?, force? }
+// POST /api/v1/products/images/from-weimi-device  { deviceCode, dryRun? }
+// Give catalog products that have NO image the picture Weimi shows for them in one machine's live
+// layout. Added for Hreppa (8625060404, 2026-10-14): their products came in from a spreadsheet with
+// codes Weimi's catalog API doesn't know, so the import brought no images — but the machine's
+// layout has them. Matched on any id we hold (goodsId, goodsCode, customCode, weimiId), else on
+// the exact product name when exactly one layout product has it. Never creates catalog rows and
+// never replaces an existing image. Each image is rehosted and normalised like "migrate images".
+async function handleImagesFromWeimiDevice(req, res) {
+  const b = req.body || {};
+  const code = String(b.deviceCode || '').trim();
+  if (!code) return badRequest(res, 'deviceCode required');
+  const dryRun = b.dryRun === true;
+  if (!dryRun) {
+    const r2 = require('./r2');
+    if (!r2.isConfigured()) return json(res, 400, { ok: false, error: 'R2 not configured — set the R2_* env vars first.' });
+    try { require('./images'); require('sharp'); }
+    catch (e) { return json(res, 500, { ok: false, error: 'Image processing unavailable: ' + e.message.split('\n')[0] }); }
+  }
+  let info;
+  try { info = await weimi.deviceInfo({ endpoint: 'prod' }, code); }
+  catch (e) { return json(res, 502, { ok: false, error: 'weimi_unreachable', message: e.message }); }
+
+  // Every product in the layout with a picture, keyed by id and by name.
+  const norm = t => String(t || '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
+  const byId = {}, byName = {};
+  (info.cabinets || []).forEach(cab => (cab.layers || []).forEach(l => (l.aisles || []).forEach(a => {
+    const image = a.thumbnailUrl || a.imgUrl || a.imageUrl || '';
+    if (!/^https?:\/\//.test(image)) return;
+    const name = weimi.fixMojibake(a.goodsName) || '';
+    const entry = { image, name };
+    for (const id of [a.goodsId, a.id, a.goodsCode, a.goodsCustomCode]) if (id) byId[String(id)] = entry;
+    if (name) (byName[norm(name)] = byName[norm(name)] || new Map()).set(image, entry);
+  })));
+
+  const report = { deviceCode: code, dryRun, layoutProducts: Object.keys(byName).length, matched: 0, hosted: 0, failed: 0, lines: [] };
+  for (const p of storage.listProducts()) {
+    if (p.imgUrl || p.imageNormalizedAt) continue;          // never replace an image
+    let hit = null, how = null;
+    for (const id of [p.goodsId, p.goodsCode, p.customCode, p.weimiId]) if (id && byId[String(id)]) { hit = byId[String(id)]; how = 'id'; break; }
+    if (!hit && p.name && byName[norm(p.name)] && byName[norm(p.name)].size === 1) {
+      hit = [...byName[norm(p.name)].values()][0]; how = 'name';
+    }
+    if (!hit) continue;
+    report.matched++;
+    const line = { goodsId: p.goodsId, name: p.name, matchedBy: how, src: hit.image };
+    if (!dryRun) {
+      try {
+        const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 30000);
+        let buf;
+        try {
+          const resp = await fetch(hit.image, { redirect: 'follow', signal: ctrl.signal });
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          buf = Buffer.from(await resp.arrayBuffer());
+        } finally { clearTimeout(to); }
+        const r = await normalizeAndHost(buf, p.goodsId, {});
+        storage.setProductImage(p.goodsId, { imgUrl: r.url, hasBackground: r.hasBackground, weimiImgUrl: hit.image, srcW: r.srcW, srcH: r.srcH });
+        report.hosted++; line.url = r.url;
+      } catch (e) { report.failed++; line.error = e.message; }
+    }
+    report.lines.push(line);
+  }
+  console.log(`[IMG] from ${code} layout: ${report.matched} matched, ${report.hosted} hosted, ${report.failed} failed${dryRun ? ' (dry run)' : ''}`);
+  ok(res, report);
+}
+
 async function handleMigrateImages(req, res) {
   const r2 = require('./r2');
   if (!r2.isConfigured()) return json(res, 400, { ok: false, error: 'R2 not configured — set the R2_* env vars first.' });
