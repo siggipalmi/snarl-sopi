@@ -3792,10 +3792,23 @@ function handleUpdateSettings(req, res) {
     return json(res, 403, { ok: false,
       error: `Forbidden \u2014 ${touchedWiring.join(', ')} ${touchedWiring.length > 1 ? 'are' : 'is'} hardware wiring and requires AG Vending admin access.` });
   }
+  if (req.body.motorSerialPort !== undefined) {
+    const mp = String(req.body.motorSerialPort).trim();
+    if (!/^\/dev\/ttyS\d+$/.test(mp)) return badRequest(res, `motorSerialPort must look like /dev/ttyS3 — got "${mp}"`);
+    req.body.motorSerialPort = mp;
+    // Moving the bus onto the current payment port (without moving payment in the same save) collides.
+    const curPay = (m.settings && m.settings.paymentSerialPort) ? String(m.settings.paymentSerialPort).trim() : null;
+    if (req.body.paymentSerialPort === undefined && curPay && curPay === mp) {
+      return badRequest(res, `${mp} is this machine's payment port — change the payment port in the same save.`);
+    }
+  }
   if (req.body.paymentSerialPort !== undefined) {
     const pp = String(req.body.paymentSerialPort).trim();
     if (!/^\/dev\/ttyS\d+$/.test(pp)) return badRequest(res, `paymentSerialPort must look like /dev/ttyS1 — got "${pp}"`);
-    const busPort = (m.settings && m.settings.motorSerialPort) ? String(m.settings.motorSerialPort).trim() : null;
+    // Compare with the bus port as it will be AFTER this save: swapping both at once (8625060404:
+    // scales ttyS3 → ttyS1, Nayax → ttyS3) must be allowed.
+    const busPort = req.body.motorSerialPort !== undefined ? String(req.body.motorSerialPort).trim()
+      : ((m.settings && m.settings.motorSerialPort) ? String(m.settings.motorSerialPort).trim() : null);
     if (busPort && busPort === pp) {
       return badRequest(res, `${pp} is already this machine's ${(m.isKioskModel === false) ? 'weight' : 'motor'} bus — choose a different port.`);
     }
@@ -3821,10 +3834,15 @@ function handleUpdateSettings(req, res) {
     req.body.basketsPerCabinet = n;
     layoutChanged = Number((m.settings || {}).basketsPerCabinet || 16) !== n;
   }
+  // The ports are served in the fridge config, which is 304-on-configVersion: a port change that
+  // doesn't bump it never reaches the machine.
+  for (const k of ['paymentSerialPort', 'motorSerialPort']) {
+    if (req.body[k] !== undefined && String(req.body[k]) !== String((m.settings || {})[k] || '')) layoutChanged = true;
+  }
   allowed.forEach(k => { if (req.body[k] !== undefined) m.settings[k] = req.body[k]; });
   if (layoutChanged) {
     touchConfig(m);
-    console.log(`[MACHINE] ${m.deviceCode} trays per cabinet → ${req.body.basketsPerCabinet}`);
+    console.log(`[MACHINE] ${m.deviceCode} wiring/layout changed: ${['basketsPerCabinet','motorSerialPort','paymentSerialPort'].filter(k => req.body[k] !== undefined).map(k => k + '=' + req.body[k]).join(', ')}`);
   } else {
     m.updatedAt = new Date().toISOString();
     storage.upsertMachine(m);
