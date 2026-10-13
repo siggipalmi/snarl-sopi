@@ -184,6 +184,8 @@ const routes = [
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/cohort',                     handler: handleSetAppCohort,   middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/latest-build',               handler: handleLatestBuild,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/admin/storage',                          handler: handleStorageReport,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/admin/storage/compact',                  handler: handleStorageCompact, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/:app/apk',                   handler: handleServeApk },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/complaints',        handler: handleComplaintIngest, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/complaints', handler: handleFridgeComplaint, middleware:[requireMachineKey] },
@@ -1950,6 +1952,61 @@ function notifyAgAdmins(m, title, detail) {
       .catch(err => console.error('[PAYLINK] email failed:', err && err.message));
   }
 }
+
+// ── Storage guard ───────────────────────────────────────────────────
+// On 2026-10-13 the 500 MB volume filled and every write failed with SQLITE_FULL — sales, pairing
+// codes, everything — with no warning beforehand. So: a report on the settings page, a compact
+// button, the WAL folded back every 6 hours, and an email to AG admins once the volume passes 80%.
+const STORAGE_WARN_PCT = Number(process.env.STORAGE_WARN_PCT) || 80;
+let storageWarnedAt = 0;   // in memory on purpose: when the disk is full, writing the mark fails too
+
+function handleStorageReport(req, res) {
+  try { ok(res, { ...storage.storageReport(), warnPct: STORAGE_WARN_PCT }); }
+  catch (e) { serverError(res, e); }
+}
+
+function handleStorageCompact(req, res) {
+  try {
+    const before = storage.storageReport();
+    storage.checkpointWal();
+    // VACUUM writes a full copy of the database before dropping the old one: only when it fits.
+    const free = before.volume && before.volume.freeBytes;
+    const vacuumed = Number.isFinite(free) && free > before.dbBytes * 1.2 + 20 * 1024 * 1024;
+    if (vacuumed) storage.vacuum();
+    const after = storage.storageReport();
+    console.log(`[STORAGE] compact: db ${before.dbBytes} → ${after.dbBytes}, wal ${before.walBytes} → ${after.walBytes}${vacuumed ? '' : ' (no VACUUM: not enough free space)'}`);
+    ok(res, { vacuumed, before, after, warnPct: STORAGE_WARN_PCT });
+  } catch (e) { serverError(res, e); }
+}
+
+function storageGuardTick() {
+  try { storage.checkpointWal(); } catch (e) { console.error('[STORAGE] checkpoint failed:', e.message); }
+  let r;
+  try { r = storage.storageReport(); } catch (e) { console.error('[STORAGE] report failed:', e.message); return; }
+  const v = r.volume || {};
+  if (!Number.isFinite(v.usedPct)) return;
+  if (v.usedPct < STORAGE_WARN_PCT) return;
+  if (Date.now() - storageWarnedAt < 24 * 3600 * 1000) return;   // once a day while it stays high
+  storageWarnedAt = Date.now();
+  const mb = b => (b / 1048576).toFixed(0) + ' MB';
+  const top = (r.tables || []).filter(t => t.bytes).slice(0, 5).map(t => `${t.name} ${mb(t.bytes)}`).join(', ');
+  const detail = `The data volume is ${v.usedPct}% full (${mb(v.usedBytes)} of ${mb(v.totalBytes)}, ${mb(v.freeBytes)} free). `
+    + `Database ${mb(r.dbBytes)}, WAL ${mb(r.walBytes)}, reusable free pages ${mb(r.freeBytes)}.`
+    + (top ? ` Largest tables: ${top}.` : '')
+    + ` When it is full every write fails, sales included. Open Settings → storage to compact, or grow the volume on Railway.`;
+  console.warn('[STORAGE] ' + detail);
+  const fromEnv = String(process.env.OPS_ALERT_EMAIL || '').split(',').map(s => s.trim()).filter(Boolean);
+  const to = fromEnv.length ? fromEnv
+    : storage.listUsers().filter(u => u.role === 'ag_admin' && u.email).map(u => u.email);
+  const dashboardUrl = process.env.APP_URL || 'https://admin.agvending.is';
+  for (const addr of to) {
+    email.sendOperatorAlert({ to: addr, operatorName: 'AG Vending', title: `Gagnageymsla ${v.usedPct}% full`, detail, dashboardUrl })
+      .catch(err => console.error('[STORAGE] email failed:', err && err.message));
+  }
+}
+// Usage checked hourly (and two minutes after boot); the checkpoint rides along — it is cheap.
+setTimeout(storageGuardTick, 2 * 60 * 1000).unref();
+setInterval(storageGuardTick, 60 * 60 * 1000).unref();
 
 // A link that goes down and stays down sends no further reports to act on, so the threshold is
 // checked here too.

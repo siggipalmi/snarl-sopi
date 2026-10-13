@@ -2158,6 +2158,70 @@ const storage = {
 
   // Meta
   getMeta(key)         { return stmts.getMeta.get(key)?.value; },
+
+  // ── Storage health ─────────────────────────────────────────────
+  // What the volume holds and what fills it. Added after the 500 MB volume filled up on
+  // 2026-10-13 (SQLITE_FULL): every write failed, sales included, and nothing had warned.
+  storageReport() {
+    const fs = require('fs');
+    const path = require('path');
+    const size = f => { try { return fs.statSync(f).size; } catch (e) { return 0; } };
+    const dir = path.dirname(DB_PATH);
+    let volume = null;
+    try {
+      const st = fs.statfsSync(dir);
+      const total = st.blocks * st.bsize, free = st.bavail * st.bsize;
+      volume = { totalBytes: total, freeBytes: free, usedBytes: total - free, usedPct: total ? Math.round(100 * (total - free) / total) : null };
+    } catch (e) { volume = { error: e.message }; }
+    const pageSize = db.pragma('page_size', { simple: true });
+    const pageCount = db.pragma('page_count', { simple: true });
+    const freePages = db.pragma('freelist_count', { simple: true });
+    // Bytes per table, its indexes included, where SQLite can tell us (dbstat); row counts always.
+    let bytesByName = {};
+    try {
+      for (const r of db.prepare(`SELECT m.tbl_name AS name, SUM(s.pgsize) AS bytes
+                                    FROM dbstat s JOIN sqlite_master m ON m.name = s.name
+                                   GROUP BY m.tbl_name`).all()) bytesByName[r.name] = r.bytes;
+    } catch (e) { bytesByName = null; }
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all().map(t => {
+      let rows = null;
+      try { rows = db.prepare(`SELECT COUNT(*) AS n FROM "${t.name.replace(/"/g, '""')}"`).get().n; } catch (e) {}
+      return { name: t.name, rows, bytes: bytesByName ? (bytesByName[t.name] || 0) : null };
+    }).sort((a, b) => (b.bytes || 0) - (a.bytes || 0) || (b.rows || 0) - (a.rows || 0));
+    // schema_meta holds many keyed blobs (paylink:, opads:, layout:, …): which prefixes are big.
+    let metaPrefixes = [];
+    try {
+      metaPrefixes = db.prepare(`SELECT CASE WHEN instr(key, ':') > 0 THEN substr(key, 1, instr(key, ':')) ELSE key END AS prefix,
+                                        COUNT(*) AS n, SUM(length(value)) AS bytes
+                                   FROM schema_meta GROUP BY prefix ORDER BY bytes DESC LIMIT 12`).all();
+    } catch (e) {}
+    // Anything else on the volume (uploads, backups) — top level only.
+    let otherFiles = [];
+    try {
+      otherFiles = fs.readdirSync(dir).map(n => {
+        const f = path.join(dir, n);
+        let st; try { st = fs.statSync(f); } catch (e) { return null; }
+        let bytes = st.size;
+        if (st.isDirectory()) {
+          bytes = 0;
+          const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const q = path.join(d, e.name); if (e.isDirectory()) walk(q); else bytes += size(q); } };
+          try { walk(f); } catch (e) {}
+        }
+        return { name: n + (st.isDirectory() ? '/' : ''), bytes };
+      }).filter(Boolean).sort((a, b) => b.bytes - a.bytes).slice(0, 15);
+    } catch (e) {}
+    return {
+      dbPath: DB_PATH, volume,
+      dbBytes: size(DB_PATH), walBytes: size(DB_PATH + '-wal'),
+      pageSize, pageCount, freeBytes: freePages * pageSize,
+      tables, metaPrefixes, otherFiles,
+    };
+  },
+  // Fold the WAL back into the database and truncate it. Cheap; safe while serving.
+  checkpointWal() { return db.pragma('wal_checkpoint(TRUNCATE)'); },
+  // Rebuild the file without its free pages. Needs about the database's size in free space
+  // while it runs, so the caller checks that first.
+  vacuum() { db.exec('VACUUM'); },
   setMeta(key, value)  { stmts.setMeta.run(key, String(value)); },
 
   // Expiry batches (dated stock per slot for short-life products)
