@@ -33,6 +33,8 @@
     <string name="receipt_sub">your card has been charged</string>
     <string name="total_label">total</string>
     <string name="amount_isk">%1$d kr</string>
+    <string name="per_kg_badge">per kg</string>
+    <string name="weight_at_kg_price">%1$d g · %2$d kr/kg</string>
     <string name="quantity_badge">×%1$d</string>
     <string name="close_door_firmly">close the door firmly</string>
 

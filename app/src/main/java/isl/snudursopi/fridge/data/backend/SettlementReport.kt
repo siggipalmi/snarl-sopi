@@ -41,6 +41,8 @@ object SettlementReport {
                     .put("quantity", l.quantity)
                     .put("priceIsk", l.basket.priceIsk)
                     .put("lineIsk", l.lineIsk)
+                    // Per kg: priceIsk is the kilo price and deltaG the grams charged.
+                    .put("soldByWeight", l.basket.soldByWeight)
             )
         }
 

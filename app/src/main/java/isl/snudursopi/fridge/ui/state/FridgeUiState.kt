@@ -61,6 +61,8 @@ data class RestockCell(
     val units: Int?,
     val grams: Int?,
     val state: RestockCellState,
+    /** Per-kg basket: show the weight in it, not a unit count. */
+    val byWeight: Boolean = false,
 )
 
 /** The states an operator must be able to spot at a glance. */
@@ -95,9 +97,16 @@ data class ComplaintDraft(
 data class CartTile(
     val name: String,
     val imageUrl: String?,
+    /** Unit price, or the KILO price when [weightG] is set. */
     val priceIsk: Int,
     val quantity: Int,
-)
+    /** Sold per kg: the grams taken. Null for a counted item. */
+    val weightG: Int? = null,
+) {
+    /** What this line costs: unit × count, or grams × kr/kg rounded up. */
+    val amountIsk: Int
+        get() = weightG?.let { Settlement.weightLineIsk(it, priceIsk) } ?: (priceIsk * quantity)
+}
 
 data class FridgeUiState(
     val phase: FridgePhase = FridgePhase.IDLE,
@@ -170,6 +179,7 @@ data class FridgeUiState(
                     imageUrl = it.basket.imageUrl,
                     priceIsk = it.basket.priceIsk,
                     quantity = it.quantity,
+                    weightG = it.weightG,
                 )
             }
 
@@ -186,6 +196,10 @@ data class FridgeUiState(
                 val o = orig[b.trayIndex] ?: continue
                 val l = live[b.trayIndex] ?: continue
                 val delta = o - l
+                if (b.soldByWeight) {
+                    if (delta >= Settlement.BY_WEIGHT_MIN_G) tiles += CartTile(b.name, b.imageUrl, b.priceIsk, 1, weightG = delta)
+                    continue
+                }
                 val tol = if (b.toleranceG > 0) b.toleranceG else Settlement.DEFAULT_TOLERANCE_G
                 if (delta <= tol) continue
                 val qty = Math.round(delta.toDouble() / b.unitWeightG).toInt()

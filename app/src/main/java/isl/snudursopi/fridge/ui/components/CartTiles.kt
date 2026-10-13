@@ -168,6 +168,28 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
                 }
             }
 
+            // Sold per kg: a bronze "per kg" badge so the tile reads differently
+            // from a counted item at a glance (mockup approved 2026-10-14).
+            if (tile.weightG != null) {
+                Box(
+                    Modifier
+                        .padding(10.dp)
+                        .align(Alignment.TopStart)
+                        .clip(RoundedCornerShape(999.dp))
+                        .border(1.5.dp, AppColors.Bronze, RoundedCornerShape(999.dp))
+                        .background(AppColors.White)
+                        .padding(horizontal = 12.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        localized(language, R.string.per_kg_badge),
+                        fontFamily = AppFonts.Geist,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = (width.value * 0.06f).sp,
+                        color = AppColors.Bronze,
+                    )
+                }
+            }
+
             // Quantity as a MULTIPLIER, not duplicate tiles — two of the same
             // drink is one product bought twice, and the cart should read that way.
             if (tile.quantity > 1) {
@@ -201,8 +223,16 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
                 overflow = TextOverflow.Ellipsis,
                 color = AppColors.Ink,
             )
+            if (tile.weightG != null) {
+                Text(
+                    localized(language, R.string.weight_at_kg_price, tile.weightG, tile.priceIsk),
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontSize = (width.value * 0.055f).sp,
+                    color = AppColors.Muted,
+                )
+            }
             Text(
-                localized(language, R.string.amount_isk, tile.priceIsk * tile.quantity),
+                localized(language, R.string.amount_isk, tile.amountIsk),
                 fontFamily = AppFonts.Geist,
                 fontSize = (width.value * 0.068f).sp,
                 color = AppColors.MutedSoft,
@@ -275,7 +305,15 @@ private fun ListRow(tile: CartTile, language: Language) {
             color = AppColors.Ink,
             modifier = Modifier.weight(1f).padding(horizontal = 14.dp),
         )
-        if (tile.quantity > 1) {
+        if (tile.weightG != null) {
+            Text(
+                localized(language, R.string.weight_at_kg_price, tile.weightG, tile.priceIsk),
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontSize = 16.sp,
+                color = AppColors.Bronze,
+                modifier = Modifier.padding(end = 14.dp),
+            )
+        } else if (tile.quantity > 1) {
             Text(
                 localized(language, R.string.quantity_badge, tile.quantity),
                 fontFamily = AppFonts.Geist,
@@ -286,7 +324,7 @@ private fun ListRow(tile: CartTile, language: Language) {
             )
         }
         Text(
-            localized(language, R.string.amount_isk, tile.priceIsk * tile.quantity),
+            localized(language, R.string.amount_isk, tile.amountIsk),
             fontFamily = AppFonts.Geist,
             fontSize = 19.sp,
             color = AppColors.MutedSoft,

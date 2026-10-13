@@ -29,6 +29,20 @@ object Settlement {
      *  tolerance overrides this when the planogram provides one. */
     const val DEFAULT_TOLERANCE_G = 15
 
+    /**
+     * Sold per kg: a net change below this is scale noise or a nudged pack, not
+     * a purchase. Siggi, 2026-10-14: "ignore under 20g".
+     */
+    const val BY_WEIGHT_MIN_G = 20
+
+    /**
+     * Per-kg price of [grams]: grams × kr/kg ÷ 1000, rounded UP to the next
+     * króna (Siggi, 2026-10-14). 412 g at 8.569 kr/kg = 3.530,4 → 3.531 kr. The
+     * backend recomputes with the same sum (db.js weightLineIsk).
+     */
+    fun weightLineIsk(grams: Int, pricePerKgIsk: Int): Int =
+        ((grams.toLong() * pricePerKgIsk + 999) / 1000).toInt()
+
     /** A read that isn't within tolerance of a whole multiple of the unit
      *  weight is "ambiguous" — we still charge the rounded quantity but flag
      *  it so field data can tell us whether the tolerance needs tuning. */
@@ -40,6 +54,8 @@ object Settlement {
         val quantity: Int,
         val lineIsk: Int,
         val ambiguous: Boolean,
+        /** Grams charged on a per-kg line (quantity is then 1); null for a counted line. */
+        val weightG: Int? = null,
     )
 
     data class Anomaly(
@@ -92,6 +108,37 @@ object Settlement {
             val orig = origWeights[basket.trayIndex] ?: continue
             val final = finalWeights[basket.trayIndex] ?: continue
             val delta = orig - final   // positive = lighter now = items removed
+
+            // Per kg: the grams that left are the purchase. Same misread guard;
+            // net weight, so a pack lifted and put back costs nothing, and weight
+            // added is never a credit.
+            if (basket.soldByWeight) {
+                if (basket.priceIsk <= 0) {
+                    if (delta != 0) anomalies += Anomaly(basket.basket, basket.cabinet, delta, "no_kg_price")
+                    continue
+                }
+                if (delta < 0 && abs(delta) > (orig * 0.6).toInt() && orig >= 10) {
+                    anomalies += Anomaly(basket.basket, basket.cabinet, delta, "misread_guard")
+                    continue
+                }
+                if (delta < BY_WEIGHT_MIN_G) {
+                    if (delta != 0) anomalies += Anomaly(basket.basket, basket.cabinet, delta, "below_tolerance")
+                    continue
+                }
+                val lineIsk = weightLineIsk(delta, basket.priceIsk)
+                total += lineIsk
+                lines += Line(
+                    basket = basket,
+                    startWeightG = orig,
+                    endWeightG = final,
+                    deltaG = delta,
+                    quantity = 1,
+                    lineIsk = lineIsk,
+                    ambiguous = false,
+                    weightG = delta,
+                )
+                continue
+            }
 
             // No usable unit weight -> can't convert; flag, never charge.
             if (basket.unitWeightG <= 0) {

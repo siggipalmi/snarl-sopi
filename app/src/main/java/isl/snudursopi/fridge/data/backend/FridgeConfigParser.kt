@@ -205,6 +205,7 @@ object FridgeConfigParser {
             toleranceG = n.field("toleranceG")?.asInt() ?: Settlement.DEFAULT_TOLERANCE_G,
             measurementFlag = n.field("measurementFlag")?.asInt() ?: 1,
             enabled = n.field("enabled")?.asBoolean() ?: true,
+            soldByWeight = n.field("soldByWeight")?.asBoolean() ?: false,
         )
     }
 }

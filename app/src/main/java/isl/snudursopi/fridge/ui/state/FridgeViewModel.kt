@@ -425,7 +425,10 @@ class FridgeViewModel(
             // Units come from the basket's OWN measured unit weight, never a
             // shared assumption — that per-basket figure is the whole basis of
             // charging, so the operator should be shown the same arithmetic.
-            val units = if (basket != null && basket.unitWeightG > 0 && grams != null) {
+            val byWeight = basket?.soldByWeight == true
+            val units = if (byWeight) {
+                null
+            } else if (basket != null && basket.unitWeightG > 0 && grams != null) {
                 ((grams.toFloat() / basket.unitWeightG) + 0.5f).toInt().coerceAtLeast(0)
             } else {
                 null
@@ -434,6 +437,8 @@ class FridgeViewModel(
                 faulted -> RestockCellState.FAULT
                 basket == null || !basket.enabled || basket.productId == null ->
                     RestockCellState.DISABLED
+                byWeight && (grams ?: 0) >= Settlement.BY_WEIGHT_MIN_G -> RestockCellState.STOCKED
+                byWeight -> RestockCellState.EMPTY
                 units == null || units <= 0 -> RestockCellState.EMPTY
                 else -> RestockCellState.STOCKED
             }
@@ -445,6 +450,7 @@ class FridgeViewModel(
                 units = units,
                 grams = grams,
                 state = state,
+                byWeight = byWeight,
             )
         }
     }
@@ -655,7 +661,7 @@ class FridgeViewModel(
                     val tiles = FridgeUiState.tentativeTiles(planogram.baskets, origWeights, live)
                     _ui.value = _ui.value.copy(
                         cart = tiles,
-                        totalIsk = tiles.sumOf { it.priceIsk * it.quantity },
+                        totalIsk = tiles.sumOf { it.amountIsk },
                         totalIsFinal = false,
                     )
                 }
@@ -781,7 +787,8 @@ class FridgeViewModel(
                 val before = origWeights[b.trayIndex] ?: return@mapNotNull null
                 val after = finalWeights[b.trayIndex] ?: return@mapNotNull null
                 if (kotlin.math.abs(after - before) <= STABILITY_THRESHOLD_G) return@mapNotNull null
-                "${b.cabinet}${b.basket} ${before}g→${after}g (unit ${b.unitWeightG}g)"
+                "${b.cabinet}${b.basket} ${before}g→${after}g " +
+                    if (b.soldByWeight) "(${b.priceIsk} kr/kg)" else "(unit ${b.unitWeightG}g)"
             }
             android.util.Log.i(
                 "FridgeFlow",

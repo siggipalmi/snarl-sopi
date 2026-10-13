@@ -32,6 +32,8 @@
     <string name="receipt_sub">karta została obciążona</string>
     <string name="total_label">razem</string>
     <string name="amount_isk">%1$d kr</string>
+    <string name="per_kg_badge">za kg</string>
+    <string name="weight_at_kg_price">%1$d g · %2$d kr/kg</string>
     <string name="quantity_badge">×%1$d</string>
     <string name="close_door_firmly">domknij drzwi</string>
 

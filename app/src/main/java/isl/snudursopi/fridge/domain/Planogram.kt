@@ -28,6 +28,12 @@ data class Basket(
     val toleranceG: Int,
     val measurementFlag: Int,
     val enabled: Boolean,
+    /**
+     * Priced per kg (Hreppa's Angus cuts, hakk, hamborgarar): [priceIsk] is the
+     * KILO price and [unitWeightG] is not used. Charged on the grams taken — see
+     * [Settlement.weightLineIsk]. Backend 6.50.0 sends `soldByWeight`.
+     */
+    val soldByWeight: Boolean = false,
 ) {
     /**
      * Protocol tray for this basket — THE ONE PLACE the mapping lives.
@@ -54,9 +60,11 @@ data class Basket(
     val trayIndex: Int get() =
         cabinet.ordinal * Planogram.ADDRESS_BLOCK_PER_CABINET + (basket - 1)
 
-    /** A basket we can actually sell from: enabled, has a product, sane weight. */
+    /** A basket we can actually sell from: enabled, has a product, and a unit
+     *  weight — or, sold per kg, a kilo price. */
     val sellable: Boolean
-        get() = enabled && productId != null && unitWeightG > 0
+        get() = enabled && productId != null &&
+            (if (soldByWeight) priceIsk > 0 else unitWeightG > 0)
 }
 
 data class Planogram(
@@ -123,7 +131,10 @@ data class Planogram(
     /** True if any sellable basket is missing a usable unit weight — a config
      *  gap the operator must fix before the machine can charge correctly. */
     val hasWeightGaps: Boolean
-        get() = baskets.any { it.enabled && it.productId != null && it.unitWeightG <= 0 }
+        get() = baskets.any {
+            it.enabled && it.productId != null &&
+                (if (it.soldByWeight) it.priceIsk <= 0 else it.unitWeightG <= 0)
+        }
 
     companion object {
         /**

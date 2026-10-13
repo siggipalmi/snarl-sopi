@@ -203,8 +203,13 @@ private fun Cell(
                     color = AppColors.Alert,
                 )
                 RestockCellState.DISABLED -> Unit
+                // Per kg: the weight in the basket, e.g. "4,2 kg" (staff screen).
                 else -> Text(
-                    "${cell.units ?: 0}",
+                    if (cell.byWeight) {
+                        "%.1f kg".format(java.util.Locale.forLanguageTag("is"), (cell.grams ?: 0).coerceAtLeast(0) / 1000.0)
+                    } else {
+                        "${cell.units ?: 0}"
+                    },
                     fontFamily = AppFonts.Geist,
                     fontWeight = FontWeight.Medium,
                     fontSize = 26.sp,
