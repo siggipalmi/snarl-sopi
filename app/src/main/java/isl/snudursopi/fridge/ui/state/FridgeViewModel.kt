@@ -414,8 +414,11 @@ class FridgeViewModel(
         faults: Map<Int, Int>,
     ): List<RestockCell> {
         val letter = if (cabinet == 2) "B" else "A"
-        return (1..Planogram.BASKETS_PER_CABINET).map { n ->
-            val tray = (cabinet - 1) * Planogram.BASKETS_PER_CABINET + (n - 1)
+        // *** ADDRESS BLOCK (20), NOT THE BASKET COUNT. This used 16 as the
+        // cabinet offset, so cabinet B's restock grid showed trays 16..31 —
+        // the same mistake trayOf() once had. Cabinet B starts at 20.
+        return (1..planogram.spec.basketsPerCabinet).map { n ->
+            val tray = (cabinet - 1) * Planogram.ADDRESS_BLOCK_PER_CABINET + (n - 1)
             val basket = planogram.basketAt(tray)
             val grams = weights?.get(tray)
             val faulted = faults.containsKey(tray)
@@ -604,7 +607,7 @@ class FridgeViewModel(
             } else {
                 // Nothing stocked: watch every physical basket of each cabinet.
                 planogram.spec.cabinets.map {
-                    it.ordinal * Planogram.ADDRESS_BLOCK_PER_CABINET to Planogram.BASKETS_PER_CABINET
+                    it.ordinal * Planogram.ADDRESS_BLOCK_PER_CABINET to planogram.spec.basketsPerCabinet
                 }
             }
             var spanIndex = 0

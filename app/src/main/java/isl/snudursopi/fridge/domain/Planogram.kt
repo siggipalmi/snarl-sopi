@@ -120,7 +120,11 @@ data class Planogram(
         get() = baskets.any { it.enabled && it.productId != null && it.unitWeightG <= 0 }
 
     companion object {
-        /** Baskets per cabinet. A double is two of these, not one 32-basket space. */
+        /**
+         * DEFAULT baskets per cabinet. A double is two of these, not one
+         * 32-basket space. A machine's own count is [FridgeSpec.basketsPerCabinet]
+         * (10 on 8625060404) — use that wherever a machine is at hand.
+         */
         const val BASKETS_PER_CABINET = 16
 
         /**

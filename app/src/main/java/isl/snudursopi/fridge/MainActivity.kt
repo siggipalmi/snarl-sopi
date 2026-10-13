@@ -326,10 +326,9 @@ class MainActivity : ComponentActivity() {
                 // BASKET COUNT. Cabinet B is addressed from 20, so a double
                 // reaches to tray 35 — asking for 32 would stop four short
                 // and miss cabinet B's last four baskets entirely.
-                val cabinets = p.spec.cabinets.size.coerceAtLeast(1)
-                realHardware.setTrayCount(
-                    (cabinets - 1) * Planogram.ADDRESS_BLOCK_PER_CABINET +
-                        Planogram.BASKETS_PER_CABINET,
+                realHardware.setTrayLayout(
+                    cabinets = p.spec.cabinets.size.coerceAtLeast(1),
+                    perCabinet = p.spec.basketsPerCabinet,
                 )
                 // An explicit payment port in config wins over probing and
                 // survives reinstalls. With none, the link finds its own

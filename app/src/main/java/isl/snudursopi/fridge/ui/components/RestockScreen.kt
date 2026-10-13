@@ -141,10 +141,14 @@ private fun PulsingDot() {
 private fun Grid(language: Language, cells: List<RestockCell>) {
     if (cells.isEmpty()) return
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val cellW = (maxWidth - GAP * 3) / 4
-        val cellH = (maxHeight - GAP * 3) / 4
+        // 16 trays: 4×4. 10 trays (8625060404): 2 per shelf, 5 shelves — the
+        // grid follows the cabinet so a cell is where the basket is.
+        val columns = if (cells.size <= 10) 2 else 4
+        val rows = (cells.size + columns - 1) / columns
+        val cellW = (maxWidth - GAP * (columns - 1)) / columns
+        val cellH = (maxHeight - GAP * (rows - 1)) / rows
         Column(verticalArrangement = Arrangement.spacedBy(GAP)) {
-            cells.chunked(4).forEach { row ->
+            cells.chunked(columns).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(GAP)) {
                     row.forEach { cell -> Cell(language, cell, cellW, cellH) }
                 }

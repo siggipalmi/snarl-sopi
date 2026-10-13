@@ -20,6 +20,14 @@ data class FridgeSpec(
     val model: String,
     val cabinets: List<Cabinet>,
     val basketCount: Int,
+    /**
+     * Trays per cabinet: 16 on most machines, 10 on 8625060404 (2 per shelf,
+     * 5 shelves). NOT readable from the model — that machine is a
+     * GR-WM22Z1260 like the 16-tray doubles — so the backend serves it per
+     * machine as `fridge.basketsPerCabinet`. Addresses stay in blocks of 20
+     * per cabinet either way (A 0.., B 20..).
+     */
+    val basketsPerCabinet: Int = Planogram.BASKETS_PER_CABINET,
 ) {
     val isDouble: Boolean get() = cabinets.size > 1
 
@@ -60,7 +68,7 @@ data class FridgeSpec(
      */
     val physicalBaskets: List<Triple<Cabinet, Int, Int>>
         get() = cabinets.flatMap { c ->
-            (1..Planogram.BASKETS_PER_CABINET).map { b ->
+            (1..basketsPerCabinet).map { b ->
                 Triple(c, b, c.ordinal * Planogram.ADDRESS_BLOCK_PER_CABINET + (b - 1))
             }
         }
@@ -74,21 +82,21 @@ data class FridgeSpec(
          * so a new single-size SKU doesn't break — a double is the exception
          * that must be named explicitly.
          */
-        fun fromModel(model: String?): FridgeSpec? {
+        fun fromModel(model: String?, basketsPerCabinet: Int? = null): FridgeSpec? {
             val m = model?.trim().orEmpty()
             if (!m.startsWith("GR-", ignoreCase = true)) return null
-            return when {
-                m.contains("1260") -> FridgeSpec(
-                    model = m,
-                    cabinets = listOf(Cabinet.A, Cabinet.B),
-                    basketCount = 32,
-                )
-                else -> FridgeSpec(
-                    model = m,
-                    cabinets = listOf(Cabinet.A),
-                    basketCount = 16,
-                )
-            }
+            // Only the layouts we have hardware for; anything else is the 16-tray default.
+            val per = basketsPerCabinet?.takeIf { it in SUPPORTED_BASKETS_PER_CABINET }
+                ?: Planogram.BASKETS_PER_CABINET
+            val cabinets = if (m.contains("1260")) listOf(Cabinet.A, Cabinet.B) else listOf(Cabinet.A)
+            return FridgeSpec(
+                model = m,
+                cabinets = cabinets,
+                basketCount = cabinets.size * per,
+                basketsPerCabinet = per,
+            )
         }
+
+        val SUPPORTED_BASKETS_PER_CABINET = setOf(16, 10)
     }
 }

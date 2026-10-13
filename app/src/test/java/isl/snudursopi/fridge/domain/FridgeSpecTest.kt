@@ -20,4 +20,19 @@ class FridgeSpecTest {
         assertEquals((0..15) + (20..35), slots.map { it.third })
         assertEquals(Triple(Cabinet.B, 1, 20), slots[16])
     }
+
+    @Test
+    fun tenPerCabinetDoubleIsZeroToNineAndTwentyToTwentyNine() {
+        val spec = FridgeSpec.fromModel("GR-WM22Z1260", basketsPerCabinet = 10)!!
+        assertEquals(20, spec.basketCount)
+        assertEquals(10, spec.basketsPerCabinet)
+        assertEquals((0..9) + (20..29), spec.physicalBaskets.map { it.third })
+        assertEquals(Triple(Cabinet.B, 10, 29), spec.physicalBaskets.last())
+    }
+
+    @Test
+    fun missingOrUnknownPerCabinetFallsBackToSixteen() {
+        assertEquals(32, FridgeSpec.fromModel("GR-WM22Z1260")!!.basketCount)
+        assertEquals(16, FridgeSpec.fromModel("GR-WM22Z680", basketsPerCabinet = 12)!!.basketsPerCabinet)
+    }
 }

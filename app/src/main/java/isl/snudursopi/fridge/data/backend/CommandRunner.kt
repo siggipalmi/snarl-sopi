@@ -263,7 +263,7 @@ class CommandRunner(
         val plan = planogram() ?: return CommandOutcome.Failed("no planogram loaded yet")
         // Cabinet B is addressed from 20, so a double spans 0..15 and 20..35 —
         // 16 modules per cabinet, but NOT a contiguous range.
-        val expected = plan.spec.cabinets.size * Planogram.BASKETS_PER_CABINET
+        val expected = plan.spec.basketCount
         var weights: Map<Int, Int>? = null
         withBusQuiet { weights = hardware.readWeightsFresh() }
         val w = weights
@@ -536,7 +536,8 @@ class CommandRunner(
      */
     private fun trayOf(cmd: MachineCommand): Int? {
         val basket = cmd.int("basket") ?: return null
-        if (basket < 1 || basket > Planogram.BASKETS_PER_CABINET) return null
+        val perCabinet = planogram()?.spec?.basketsPerCabinet ?: Planogram.BASKETS_PER_CABINET
+        if (basket < 1 || basket > perCabinet) return null
         val cabinet = when (cmd.str("cabinet")?.uppercase()) {
             "A", null -> Cabinet.A   // absent cabinet means a single
             "B" -> Cabinet.B

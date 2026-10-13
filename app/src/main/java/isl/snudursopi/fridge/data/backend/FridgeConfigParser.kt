@@ -21,6 +21,7 @@ import isl.snudursopi.fridge.domain.Settlement
  *   "model": "GR-WM22Z1260",
  *   "cabinets": ["A","B"],
  *   "basketCount": 32,
+ *   "basketsPerCabinet": 16,          // 10 on 8625060404; absent = 16
  *   "baskets": [ { cabinet, basket, serialLockNum, productId, name,
  *                  imageUrl, priceIsk, unitWeightG, toleranceG,
  *                  measurementFlag, enabled }, ... ]
@@ -34,7 +35,8 @@ object FridgeConfigParser {
         val fridge = data.get("fridge")?.takeIf { it.isObject } ?: return null
 
         val model = fridge.get("model")?.takeIf { !it.isNull }?.asText().orEmpty()
-        val spec = FridgeSpec.fromModel(model) ?: return null
+        val perCabinet = fridge.get("basketsPerCabinet")?.takeIf { it.isNumber }?.asInt()
+        val spec = FridgeSpec.fromModel(model, perCabinet) ?: return null
 
         val baskets = fridge.get("baskets")?.takeIf { it.isArray }
             ?.mapNotNull { parseBasket(it) }

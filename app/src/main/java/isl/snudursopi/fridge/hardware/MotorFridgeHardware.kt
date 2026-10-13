@@ -48,6 +48,10 @@ class MotorFridgeHardware(
     private val onLog: (String) -> Unit = {},
 ) : FridgeHardwareController {
 
+    /** Trays per cabinet (16, or 10 on 8625060404). Set by [setTrayLayout] from config. */
+    @Volatile
+    private var perCabinet: Int = isl.snudursopi.fridge.domain.Planogram.BASKETS_PER_CABINET
+
     private val kit = MotorSerialPortKit
 
     private val _status = MutableStateFlow(
@@ -163,11 +167,10 @@ class MotorFridgeHardware(
      */
     private fun issueWeightRead() {
         val wi = kit.getWeightInstruct() ?: return
-        val perCabinet = isl.snudursopi.fridge.domain.Planogram.BASKETS_PER_CABINET
         val block = isl.snudursopi.fridge.domain.Planogram.ADDRESS_BLOCK_PER_CABINET
         wi.multiReadModuleWeight(minOf(trayCount, perCabinet), 0)
         if (trayCount > block) {
-            // Cabinet B: 16 modules from address 20.
+            // Cabinet B: perCabinet modules (16, or 10) from address 20.
             wi.multiReadModuleWeight(trayCount - block, block)
         }
     }
@@ -327,7 +330,7 @@ class MotorFridgeHardware(
      */
     private fun noteAbsentModule(tray: Int) {
         absentTrays += tray
-        if (trayCount <= isl.snudursopi.fridge.domain.Planogram.BASKETS_PER_CABINET) return
+        if (trayCount <= perCabinet) return
         // Cabinet B occupies 20..trayCount-1; 16..19 are unused padding in the
         // vendor's address scheme and never answer on any machine.
         val upper = (isl.snudursopi.fridge.domain.Planogram.ADDRESS_BLOCK_PER_CABINET until trayCount).toSet()
@@ -337,11 +340,11 @@ class MotorFridgeHardware(
         Log.w(
             TAG,
             "ALL trays ${upper.min()}..${upper.max()} report no gravity board — " +
-                "narrowing the weight poll to ${isl.snudursopi.fridge.domain.Planogram.BASKETS_PER_CABINET} trays. " +
+                "narrowing the weight poll to $perCabinet trays. " +
                 "Cabinet B cannot sell until its modules are on the bus.",
         )
-        emit("cabinet B modules absent — polling 16 trays only", null)
-        trayCount = isl.snudursopi.fridge.domain.Planogram.BASKETS_PER_CABINET
+        emit("cabinet B modules absent — polling $perCabinet trays only", null)
+        trayCount = perCabinet
     }
 
     private val probeAnswers = mutableSetOf<Int>()
@@ -425,10 +428,24 @@ class MotorFridgeHardware(
         emit("address probe started (~18s, read-only)", null)
     }
 
-    fun setTrayCount(count: Int) {
+    /**
+     * Trays per cabinet as the backend says (16, or 10 on 8625060404). The
+     * read range spans the ADDRESS BLOCKS: a double reaches 20 + perCabinet.
+     */
+    fun setTrayLayout(cabinets: Int, perCabinet: Int) {
+        val per = perCabinet.coerceIn(1, isl.snudursopi.fridge.domain.Planogram.ADDRESS_BLOCK_PER_CABINET)
+        val perChanged = per != this.perCabinet
+        if (perChanged) {
+            Log.i(TAG, "trays per cabinet ${this.perCabinet} -> $per")
+            this.perCabinet = per
+        }
+        setTrayCount((cabinets.coerceAtLeast(1) - 1) * isl.snudursopi.fridge.domain.Planogram.ADDRESS_BLOCK_PER_CABINET + per, force = perChanged)
+    }
+
+    fun setTrayCount(count: Int, force: Boolean = false) {
         // 36 = cabinet B's block start (20) + 16 baskets.
         val next = count.coerceIn(1, 36)
-        if (next == trayCount) return
+        if (next == trayCount && !force) return
         // A deliberate re-widen clears the narrowing, so a fixed machine
         // recovers on the next planogram without a reinstall.
         absentTrays.clear()
