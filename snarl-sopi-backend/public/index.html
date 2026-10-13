@@ -1553,6 +1553,18 @@ select.fi{cursor:pointer;}
       <div style="margin-top:20px">
         <div class="panel">
           <div class="ph">
+            <div class="ph-title">storage.</div>
+            <div class="ph-action" onclick="renderStorage()">refresh →</div>
+          </div>
+          <div style="padding:16px 18px" id="storage-body">
+            <div style="color:var(--muted);font-size:12px">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="panel">
+          <div class="ph">
             <div class="ph-title">product images.</div>
           </div>
           <div style="padding:16px 18px">
@@ -10049,7 +10061,75 @@ function renderSettings() {
   refreshProxyStatus();
   refreshNayaxStatus();
   renderAppUpdates();
+  renderStorage();
   renderImageReview();
+}
+
+// The data volume: how full it is and what fills it. When it filled up (SQLITE_FULL, 2026-10-13)
+// every write failed, sales included; the backend now emails AG admins past the warning level.
+async function renderStorage(compactResult) {
+  const el = document.getElementById('storage-body');
+  if (!el) return;
+  if (!backendOnline || !API_TOKEN) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Backend offline.</div>'; return; }
+  let r = compactResult && compactResult.after;
+  if (!r) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
+    try {
+      const res = await API.get('/api/v1/admin/storage');
+      r = res && res.data;
+      if (!r) throw new Error((res && res.error) || 'no data');
+    } catch (e) { el.innerHTML = '<div style="color:var(--alert);font-size:12px">Error: ' + rsEsc(e.message) + '</div>'; return; }
+  }
+  const warnPct = (compactResult && compactResult.warnPct) || r.warnPct || 80;
+  const mb = b => b == null ? '—' : (b / 1048576 >= 10 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + ' MB';
+  const v = r.volume || {};
+  const pct = Number.isFinite(v.usedPct) ? v.usedPct : null;
+  const barColor = pct == null ? 'var(--muted)' : pct >= 90 ? 'var(--alert)' : pct >= warnPct ? 'var(--bronze)' : 'var(--success, #4A6B2E)';
+  const row = (a, b, c) => `<tr><td style="padding:4px 12px 4px 0">${a}</td><td style="padding:4px 12px 4px 0;text-align:right;font-family:var(--mono, monospace)">${b}</td><td style="padding:4px 0;text-align:right;color:var(--muted);font-family:var(--mono, monospace)">${c == null ? '' : c}</td></tr>`;
+  const tables = (r.tables || []).slice(0, 12).map(t => row(rsEsc(t.name), mb(t.bytes), t.rows == null ? '' : t.rows.toLocaleString('is-IS') + ' rows')).join('');
+  const meta = (r.metaPrefixes || []).slice(0, 8).map(m => row(rsEsc(m.prefix), mb(m.bytes), m.n.toLocaleString('is-IS') + ' keys')).join('');
+  const files = (r.otherFiles || []).slice(0, 8).map(f => row(rsEsc(f.name), mb(f.bytes), '')).join('');
+  let note = '';
+  if (compactResult) {
+    const b = compactResult.before;
+    note = `<div style="font-size:12px;margin:10px 0;color:var(--ink)">Compacted: database ${mb(b.dbBytes)} → ${mb(r.dbBytes)}, WAL ${mb(b.walBytes)} → ${mb(r.walBytes)}.`
+      + (compactResult.vacuumed ? '' : ' <span style="color:var(--alert)">Full rebuild skipped — not enough free space for the copy; only the WAL was folded back.</span>') + '</div>';
+  }
+  el.innerHTML = `
+    <div style="display:flex;align-items:baseline;gap:10px;font-size:13px;margin-bottom:6px">
+      <b>${pct == null ? 'volume size unknown' : pct + '% full'}</b>
+      <span style="color:var(--muted);font-size:12px">${mb(v.usedBytes)} of ${mb(v.totalBytes)} · ${mb(v.freeBytes)} free · warning email at ${warnPct}%</span>
+    </div>
+    <div style="height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:12px">
+      <div style="height:100%;width:${pct || 0}%;background:${barColor}"></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      Database ${mb(r.dbBytes)} · WAL ${mb(r.walBytes)} · reusable free pages ${mb(r.freeBytes)}
+    </div>
+    ${note}
+    <div style="display:flex;gap:28px;flex-wrap:wrap;font-size:12px">
+      <div><div style="color:var(--muted);margin-bottom:4px">largest tables (with indexes)</div><table>${tables}</table></div>
+      ${meta ? `<div><div style="color:var(--muted);margin-bottom:4px">schema_meta by key prefix</div><table>${meta}</table></div>` : ''}
+      ${files ? `<div><div style="color:var(--muted);margin-bottom:4px">files on the volume</div><table>${files}</table></div>` : ''}
+    </div>
+    <div style="margin-top:14px;display:flex;align-items:center;gap:10px">
+      <button class="btn btn-sm" id="storage-compact-btn" onclick="compactStorage()">compact database</button>
+      <span style="font-size:11px;color:var(--muted)">Folds the WAL back and rebuilds the file without its free pages. Takes a few seconds; requests wait meanwhile.</span>
+    </div>`;
+}
+
+async function compactStorage() {
+  if (!confirm('Compact the database now? Requests pause for the few seconds it takes.')) return;
+  const btn = document.getElementById('storage-compact-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'compacting…'; }
+  try {
+    const res = await API.post('/api/v1/admin/storage/compact', {});
+    if (!res || !res.data) throw new Error((res && res.error) || 'failed');
+    renderStorage(res.data);
+  } catch (e) {
+    alert('Compact failed: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'compact database'; }
+  }
 }
 
 async function refreshNayaxStatus() {
