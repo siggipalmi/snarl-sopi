@@ -1613,7 +1613,7 @@ select.fi{cursor:pointer;}
   <div class="modal-card">
     <div class="modal-title" id="modal-machine-title">add machine.</div>
     <div class="field"><div class="fl">device code (8 digits)</div><input class="fi mono" id="m-deviceCode" placeholder="62160000"></div>
-    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" placeholder="Gamli Gerpla"></div>
+    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" placeholder="e.g. Anddyri"></div>
     <div class="field"><div class="fl">location</div><input class="fi" id="m-location" placeholder="City Plaza B1"></div>
     <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" placeholder="AG Vending"></div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -2353,317 +2353,12 @@ async function fetchLiveOrders(deviceCode) {
 
 const DEFAULT_DATA = {
   session: null,
-  users: [
-    { id:'u1', name:'Sky K.',  email:'sky@agvending.is',  password:'demo', role:'super_admin', machineAccess:'all',     lastActiveAt: new Date().toISOString() },
-    { id:'u2', name:'Jane L.', email:'jane@agvending.is', password:'demo', role:'operator',    machineAccess:'group_a', lastActiveAt: new Date(Date.now()-2*3600000).toISOString() },
-    { id:'u3', name:'Mike R.', email:'mike@agvending.is', password:'demo', role:'technician',  machineAccess:'all',     lastActiveAt: new Date(Date.now()-86400000).toISOString() },
-  ],
-  machines: {
-    '82160788':{
-      deviceCode:'82160788',deviceName:"Hlaðdeild 1",location:"Fálkavellir 2",
-      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '82160787':{
-      deviceCode:'82160787',deviceName:"Crew 2",location:"Fálkavellir 2",
-      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '82160786':{
-      deviceCode:'82160786',deviceName:"Crew 1",location:"Fálkavellir 2",
-      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '82160785':{
-      deviceCode:'82160785',deviceName:"Crew 3",location:"Fálkavellir 2",
-      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '82160784':{
-      deviceCode:'82160784',deviceName:"Hlaðdeild 2",location:"Fálkavellir 2",
-      operatorName:"ICE",model:"GR-WM22Z680",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '82160677':{
-      deviceCode:'82160677',deviceName:"Airport Associates",location:"",
-      operatorName:"IS10001",model:"GR-WM22Z1260",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '82160676':{
-      deviceCode:'82160676',deviceName:"Hólaskóli",location:"",
-      operatorName:"Holaskoli",model:"GR-WM22Z1260",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"Holaskoli",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '82160675':{
-      deviceCode:'82160675',deviceName:"Newrest",location:"Fálkavellir 2",
-      operatorName:"ICE",model:"GR-WM22Z1260",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"ICE",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '82160674':{
-      deviceCode:'82160674',deviceName:"Reykjalundur",location:"Reykjalundur, 270 Mosfellsbær",
-      operatorName:"Reykjalundur",model:"GR-WM22Z1260",isKioskModel:false,
-      isOnline:true,isRunning:true,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"Reykjalundur",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160493':{
-      deviceCode:'62160493',deviceName:"Skjól 1",location:"",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160492':{
-      deviceCode:'62160492',deviceName:"Valhúsaskóli",location:"",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160491':{
-      deviceCode:'62160491',deviceName:"Faxatorg",location:"Faxatorg",
-      operatorName:"AL",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"AL",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160490':{
-      deviceCode:'62160490',deviceName:"Keflavík",location:"Flugvellir 6",
-      operatorName:"KEF",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"KEF",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160489':{
-      deviceCode:'62160489',deviceName:"Valur II",location:"Hlíðarenda, 102 Reykjavík",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160488':{
-      deviceCode:'62160488',deviceName:"Evanger",location:"Gránugata 24, 580 Siglufjörður",
-      operatorName:"Evanger",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"Evanger",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160487':{
-      deviceCode:'62160487',deviceName:"Íþróttafélag Reykjavíkur",location:"ir@ir.is",
-      operatorName:"ÍR",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"ÍR",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160486':{
-      deviceCode:'62160486',deviceName:"Golfhermir",location:"Borgartún 24b",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160485':{
-      deviceCode:'62160485',deviceName:"Leiknir",location:"",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:false,isRunning:false,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160484':{
-      deviceCode:'62160484',deviceName:"Grótta hægri",location:"Suðurströnd 8, 170 Seltjarnarnes",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160483':{
-      deviceCode:'62160483',deviceName:"KR",location:"Frostaskjól",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160482':{
-      deviceCode:'62160482',deviceName:"Hótel Búrfell",location:"Holtagörðum, 104 Reykjavík",
-      operatorName:"Burfell",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"Burfell",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160481':{
-      deviceCode:'62160481',deviceName:"Klettatröð - IWO",location:"Klettatröð 10, 262 Reykjanesbær",
-      operatorName:"IWO",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IWO",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160480':{
-      deviceCode:'62160480',deviceName:"Stjarnan",location:"Smáratorg 3, 201 Kópavogur",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:false,isRunning:false,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160479':{
-      deviceCode:'62160479',deviceName:"Grótta vinstri",location:"Suðurströnd 8, 170 Seltjarnarnes",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160478':{
-      deviceCode:'62160478',deviceName:"Laugardagshöll",location:"",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160477':{
-      deviceCode:'62160477',deviceName:"Orkan Miklabraut N",location:"Miklabraut",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160476':{
-      deviceCode:'62160476',deviceName:"Mjódd",location:"Þönglabakki 4,109 Reykjavík",
-      operatorName:"Bus",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"Bus",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160475':{
-      deviceCode:'62160475',deviceName:"Dyrhólaey",location:"",
-      operatorName:"Dyrholar",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"Dyrholar",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160474':{
-      deviceCode:'62160474',deviceName:"12 Sporahúsið",location:"Vallarkór 12-14, 203 Kópavogur",
-      operatorName:"Alanó",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"Alanó",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160473':{
-      deviceCode:'62160473',deviceName:"F. Skautafélag Akureyrar",location:"",
-      operatorName:"FSA",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"FSA",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160472':{
-      deviceCode:'62160472',deviceName:"Fylkir 2",location:"Fylkisvegi",
-      operatorName:"Fylkir",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"Fylkir",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160043':{
-      deviceCode:'62160043',deviceName:"Valur I",location:"Hlíðarenda, 102 Reykjavík",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:true,isRunning:true,kioskVersion:'0.21',
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-    '62160042':{
-      deviceCode:'62160042',deviceName:"Gamli Gerpla",location:"",
-      operatorName:"IS10001",model:"VM-WM55DL",isKioskModel:true,
-      isOnline:false,isRunning:false,kioskVersion:null,
-      totalCurrStock:0,maxStock:0,
-      settings:{operatorName:"IS10001",showAdRegion:true,showLeftHero:true,showRightHero:true,showIdleScreen:false,idleTimeoutSeconds:60,defaultLanguage:'Icelandic',availableLanguages:['Icelandic','English'],supportEmail:'hallo@snarlogsopi.is',supportCustomMessage:'',hasHeatedGlass:false,heatedGlassDefaultOn:false,hasLedStrips:false,ledBrightness:8,motorSerialPort:'/dev/ttyS3',controlBoardAddress:0},
-      featured:[],ads:[],products:[],productOverrides:{},
-      createdAt:'2026-05-22T08:00:00Z',updatedAt:'2026-05-22T08:00:00Z',
-    },
-  },
-  alerts: [
-    {id:'a1',type:'offline',severity:'critical',title:'Machine offline — Gamli Gerpla',detail:'62160042 · offline since 2026-05-19',deviceCode:'62160042',resolved:false,createdAt:new Date(Date.now()-4*86400000).toISOString()},
-    {id:'a2',type:'offline',severity:'critical',title:'Machine offline — Leiknir',detail:'62160485 · offline since 2026-02-20',deviceCode:'62160485',resolved:false,createdAt:new Date(Date.now()-90*86400000).toISOString()},
-    {id:'a3',type:'offline',severity:'warning',title:'Machine offline — Stjarnan',detail:'62160480 · offline since 2025-07-10',deviceCode:'62160480',resolved:false,createdAt:new Date(Date.now()-316*86400000).toISOString()},
-    {id:'a4',type:'kiosk',severity:'info',title:'Kiosk app v0.22 ready to deploy',detail:'VM-WM55DL machines on v0.21',deviceCode:null,resolved:false,createdAt:new Date(Date.now()-3*3600000).toISOString()},
-    {id:'a5',type:'config',severity:'warning',title:'Sub-operator name hardcoded in kiosk',detail:'VendingViewModel — needs backend integration',deviceCode:null,resolved:false,createdAt:new Date(Date.now()-6*3600000).toISOString()},
-  ],
+  users: [],
+  // The fleet comes ONLY from the backend, scoped to the signed-in user. This used to carry every
+  // machine (names, places, device codes) to every browser, and an operator saw the whole fleet
+  // whenever the backend didn't answer (Blue Hotel, 2026-10-13).
+  machines: {},
+  alerts: [],
   orders: [], // Populated by kiosk app via POST /api/v1/machines/:deviceCode/sales
   apiConfig:{ appId:'8c98f0207729893439e089e3703b6b37', secretKey:'', endpoint:'test' },
   revenue: [12400,15800,10900,18200,14100,20400,18420],
@@ -2703,24 +2398,11 @@ function loadData() {
       // Machines always start from DEFAULT_DATA (real Weimi data)
       // Then overlay only operator-controlled fields saved previously:
       // profile, featured, ads, settings, resolved alerts
-      const machines = JSON.parse(JSON.stringify(DEFAULT_DATA.machines));
-      const saved = d.machines || {};
-      Object.keys(machines).forEach(code => {
-        if (saved[code]) {
-          // Only restore fields the operator can edit — never stock/status
-          if (saved[code].profile)          machines[code].profile          = saved[code].profile;
-          if (saved[code].featured)         machines[code].featured         = saved[code].featured;
-          if (saved[code].ads)              machines[code].ads              = saved[code].ads;
-          if (saved[code].settings)         machines[code].settings         = saved[code].settings;
-          if (saved[code].productOverrides) machines[code].productOverrides = saved[code].productOverrides;
-        }
-      });
-      // Restore user-added machines (not in DEFAULT_DATA)
-      Object.keys(saved).forEach(code => {
-        if (!machines[code]) machines[code] = saved[code];
-      });
-      const alerts = d.alerts || DEFAULT_DATA.alerts;
-      return { ...DEFAULT_DATA, ...d, machines, alerts };
+      // Machines, alerts and orders are NOT restored from the browser: they come from the backend,
+      // scoped to whoever signs in. A cached copy is how one user's fleet showed up for another.
+      // Stored passwords (older builds kept them here in plain text) are dropped.
+      const users = (Array.isArray(d.users) ? d.users : []).map(u => { const c = { ...u }; delete c.password; return c; });
+      return { ...DEFAULT_DATA, ...d, users, machines: {}, alerts: [], orders: [] };
     }
   } catch(e) { console.warn('loadData error:', e); }
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -2750,7 +2432,7 @@ async function doLogin() {
         // Use the backend user directly — has operator info attached
         let user = DB.users.find(u => u.email === email);
         if (!user) {
-          user = { id: backendUser.id, name: backendUser.name, email, password: pw, role: backendUser.role, operatorId: backendUser.operatorId, operatorName: backendUser.operatorName, isAGVending: backendUser.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() };
+          user = { id: backendUser.id, name: backendUser.name, email, role: backendUser.role, operatorId: backendUser.operatorId, operatorName: backendUser.operatorName, isAGVending: backendUser.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() };
           DB.users.push(user);
         } else {
           // Refresh operator info from backend
@@ -2761,20 +2443,22 @@ async function doLogin() {
         }
         user.lastActiveAt = new Date().toISOString();
         DB.session = user.id;
+        // Nothing from a previous sign-in on this browser may carry over to this user.
+        DB.machines = {}; DB.alerts = []; DB.orders = [];
         saveData();
         bootApp(user);
         return;
       }
-    } catch(e) { /* fall through to local auth */ }
+    } catch(e) { /* reported below */ }
   }
 
-  // Fallback: local auth
-  const user = DB.users.find(u => u.email===email && u.password===pw);
-  if(!user) { document.getElementById('login-err').style.display='block'; return; }
-  user.lastActiveAt = new Date().toISOString();
-  DB.session = user.id;
-  saveData();
-  bootApp(user);
+  // No offline sign-in: the data lives on the backend, and the old local fallback (demo accounts,
+  // stored passwords) could only show a stale or baked-in fleet.
+  const err = document.getElementById('login-err');
+  if (err) {
+    err.textContent = online ? 'Rangt netfang eða lykilorð.' : 'Kerfið svarar ekki í augnablikinu — reyndu aftur eftir smástund.';
+    err.style.display = 'block';
+  }
 }
 document.getElementById('login-pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 
@@ -2786,6 +2470,7 @@ async function doLogout() {
   DB.session = null;
   API_TOKEN = null;
   DB.authToken = null;
+  DB.machines = {}; DB.alerts = []; DB.orders = [];
   saveData();
   currentUser = null;
   document.getElementById('app-shell').classList.remove('show');
@@ -2923,10 +2608,11 @@ async function acceptInvite() {
     const u = result.data.user;
     let user = DB.users.find(x => x.email === u.email);
     if (!user) {
-      user = { id: u.id, name: u.name, email: u.email, password: pw1, role: u.role, operatorId: u.operatorId, operatorName: u.operatorName, isAGVending: u.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() };
+      user = { id: u.id, name: u.name, email: u.email, role: u.role, operatorId: u.operatorId, operatorName: u.operatorName, isAGVending: u.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() };
       DB.users.push(user);
     }
     DB.session = user.id;
+    DB.machines = {}; DB.alerts = []; DB.orders = [];
     saveData();
 
     // Clear the invite token from URL
@@ -3562,7 +3248,11 @@ async function hydrateMachinesFromBackend() {
   if (!backendOnline || !API_TOKEN) return;
   try {
     const result = await API.get('/api/v1/machines');
-    if (!result || !result.ok || !Array.isArray(result.data)) return;
+    if (!result || !result.ok || !Array.isArray(result.data)) {
+      // Unconfirmed: show nothing rather than a list nobody has scoped to this user.
+      if (currentUser?.role !== 'ag_admin') DB.machines = {};
+      return;
+    }
     const allowed = new Set(result.data.map(m => m.deviceCode));
     // Enforce scope: the backend already filters to the machines this user may
     // see, so drop anything in the baked-in seed that wasn't returned. AG admins
@@ -10291,7 +9981,7 @@ function openAddMachine() {
   document.getElementById('modal-machine').innerHTML = `<div class="modal-card">
     <div class="modal-title">add machine.</div>
     <div class="field"><div class="fl">device code (8 digits)</div><input class="fi mono" id="m-deviceCode" placeholder="62160000"></div>
-    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" placeholder="Gamli Gerpla"></div>
+    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" placeholder="e.g. Anddyri"></div>
     <div class="field"><div class="fl">location</div><input class="fi" id="m-location" placeholder="City Plaza B1"></div>
     <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" value="AG Vending"></div>
     ${machineModelField('VM-WM55DL')}

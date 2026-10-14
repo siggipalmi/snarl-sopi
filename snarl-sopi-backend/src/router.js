@@ -3995,7 +3995,32 @@ function handleListOrders(req, res) {
   const d = new Date();
   const todayUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 
-  ok(res, slice.map(o => ({ ...o, machineName: machines[o.deviceCode]?.deviceName || o.deviceCode })),
+  // A fridge sale is ONE order row whose products live in its settlement lines; coil orders come
+  // from Weimi as one row per line ("tradeNo#n"). Expand a fridge sale into its lines in that same
+  // shape, so the dashboard's grouping shows every product and the right item count — it listed
+  // "1 item" with the label "4 items" before (Blue Hotel, 2026-10-13).
+  const rows = [];
+  for (const o of slice) {
+    const machineName = machines[o.deviceCode]?.deviceName || o.deviceCode;
+    const st = (o.goodsId == null && String(o.tradeNo).indexOf('#') < 0) ? storage.getFridgeSettlement(o.deviceCode, o.tradeNo) : null;
+    const lines = st ? (st.lines || []).filter(l => (l.quantity || 0) > 0 && (l.lineIsk || 0) > 0) : [];
+    if (!lines.length) { rows.push({ ...o, machineName }); continue; }
+    lines.forEach((l, i) => {
+      const p = l.productId ? storage.getProduct(l.productId) : null;
+      const name = (p && p.name) || l.productId || '—';
+      const grams = l.soldByWeight ? Math.abs(l.deltaG || 0) : null;
+      rows.push({
+        ...o, machineName,
+        tradeNo: `${o.tradeNo}#${i}`,
+        goodsId: l.productId || null,
+        productName: grams != null ? `${name} · ${grams} g` : (l.quantity > 1 ? `${name} ×${l.quantity}` : name),
+        quantity: l.quantity,
+        amountKr: Math.round(l.lineIsk),
+        totalAmount: Math.round(l.lineIsk) * 100,
+      });
+    });
+  }
+  ok(res, rows,
     { total, page: pageNum, size: pageSize, pages: Math.ceil(total / pageSize), todayUTC });
 }
 
