@@ -2331,21 +2331,25 @@ async function syncMachineProducts(deviceCode) {
 
 async function fetchLiveOrders(deviceCode) {
   if (!backendOnline) { showToast('Backend offline'); return; }
-  showToast('Fetching live orders from Weimi…');
+  // Ask the backend for THIS machine's orders (the filter), several pages deep. It used to fetch
+  // the newest 50 order rows fleet-wide and filter in the browser, so a machine with fewer recent
+  // sales than the rest of the fleet showed only a handful (Blue Hotel: 3). The browser no longer
+  // keeps an old copy that hid this.
+  const code = deviceCode !== undefined ? deviceCode : orderMachineFilter;
+  const MAX_PAGES = 5, SIZE = 100;   // the backend caps a page at 100 rows
   try {
-    const result = await API.fetchOrders(deviceCode ? { deviceCode } : {});
-    if (result.ok && result.data && result.data.length > 0) {
-      const existing = new Set(DB.orders.map(o => o.tradeNo));
-      const newOrders = result.data.filter(o => !existing.has(o.tradeNo));
-      DB.orders = [...newOrders, ...DB.orders];
-      saveData();
-      showToast('✓ ' + newOrders.length + ' new orders loaded from Weimi');
-      renderOrders();
-    } else if (result.ok) {
-      showToast('No new orders found');
-    } else {
-      showToast('Orders failed: ' + (result.error || result.detail || 'Weimi error'));
+    let rows = [];
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const params = { page, size: SIZE };
+      if (code) params.deviceCode = code;
+      const result = await API.fetchOrders(params);
+      if (!result || !result.ok) { const e = result && result.error; showToast('Orders failed: ' + ((e && (e.messageEn || e.message)) || e || 'error')); break; }
+      rows = rows.concat(result.data || []);
+      const pages = result.pages;   // ok() puts paging next to data
+      if (!result.data || result.data.length === 0 || (pages && page >= pages)) break;
     }
+    DB.orders = rows;
+    renderOrders();
   } catch (e) { showToast('Error: ' + e.message); }
 }
 
@@ -7412,7 +7416,7 @@ let orderFilter = 'all';
 function filterOrders(f,el) { orderFilter=f; document.querySelectorAll('#page-orders .tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderOrders(); }
 
 let orderMachineFilter = '';
-function filterOrdersMachine(code) { orderMachineFilter = code || ''; renderOrders(); }
+function filterOrdersMachine(code) { orderMachineFilter = code || ''; fetchLiveOrders(orderMachineFilter); }
 function toggleOrderDetail(id) { const el = document.getElementById('od-' + id); if (el) el.style.display = el.style.display === 'none' ? '' : 'none'; }
 
 // An "order" = the group of order rows that share a saleId. The kiosk sends a
