@@ -532,6 +532,49 @@ select.fi{cursor:pointer;}
 .rcpt-v.confident{background:var(--success-bg);color:var(--success)}
 .rcpt-v.suggest{background:var(--bronze-bg);color:var(--bronze)}
 .rcpt-v.mismatch{background:var(--alert-bg);color:var(--alert)}
+
+/* ── Shared building blocks (2026-10-15) ─────────────────────────────────────
+   Every new screen is built from these six: card, row, chip, tag, machine card,
+   bottom sheet. Colour rule: red (--alert) only for "act now"; green only for the
+   small OK dot; everything else ink and grey. Tap targets at least 44 px. */
+.ui-card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden}
+.ui-card-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:12px 14px 8px}
+.ui-card-h b{font-family:var(--serif);font-style:italic;font-weight:500;font-size:18px}
+.ui-card-h span{font-size:11.5px;color:var(--muted)}
+.ui-card-h a{font-size:12px;color:var(--bronze);cursor:pointer;text-decoration:none}
+.ui-row{display:flex;align-items:center;gap:11px;padding:8px 14px;min-height:52px;border-top:1px solid var(--line)}
+.ui-row.tap{cursor:pointer}.ui-row.tap:hover{background:var(--cream)}
+.ui-row-t{flex:1;min-width:0}
+.ui-row-t b{display:block;font-weight:500;font-size:13.5px;line-height:1.3}
+.ui-row-t small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px;line-height:1.35}
+.ui-row-chev{color:var(--clay);font-size:17px;flex:none}
+.ui-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--clay)}
+.ui-dot.act{background:var(--alert)}.ui-dot.ok{background:var(--success)}
+.ui-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--clay);background:#fff;color:var(--ink-soft);font:500 13px var(--sans);cursor:pointer;white-space:nowrap;flex:none}
+.ui-btn:hover{border-color:var(--ink-soft)}
+.ui-btn.dark{background:var(--ink);border-color:var(--ink);color:var(--cream)}
+.ui-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.ui-chip{position:relative;display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:99px;border:1px solid var(--clay);background:transparent;color:var(--ink-soft);font:12.5px var(--sans);cursor:pointer;user-select:none}
+.ui-chip::after{content:'';position:absolute;inset:-5px 0}
+.ui-chip.on{background:var(--ink);border-color:var(--ink);color:var(--cream)}
+.ui-tag{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;padding:1px 6px;border-radius:5px;margin-left:5px;background:var(--cream-deep);color:var(--muted);white-space:nowrap;vertical-align:1px}
+.ui-tag.act{background:var(--alert-bg);color:var(--alert)}
+.ui-mcard{background:var(--ink);color:var(--cream);border-radius:16px;padding:14px;margin-bottom:12px}
+.ui-mcard-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ui-mcard-name{font-family:var(--serif);font-style:italic;font-size:23px;line-height:1.1}
+.ui-mcard-ok{font-size:11.5px;color:#B9D59B;white-space:nowrap}.ui-mcard-ok.act{color:#F0A487}
+.ui-mcard-meta{font-size:11.5px;color:#CFC7BA;margin:3px 0 12px}
+.ui-door{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:52px;border:0;border-radius:12px;background:var(--bronze);color:#fff;font:600 16px var(--sans);box-shadow:0 3px 0 #6E5330;cursor:pointer}
+.ui-door.sending{background:#A88B5E}.ui-door.open{background:var(--success);box-shadow:0 3px 0 #33491f}.ui-door.fail{background:var(--alert);box-shadow:0 3px 0 #7a2e13}
+.ui-spin{width:14px;height:14px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:ui-spin .8s linear infinite}
+@keyframes ui-spin{to{transform:rotate(360deg)}}
+.ui-mcard-link{display:flex;justify-content:space-between;align-items:center;min-height:44px;margin-top:10px;padding:0 12px;border-radius:11px;background:#2a2a2a;font-size:13px;cursor:pointer}
+.ui-mcard-link span{color:#CFC7BA;font-size:12px}
+.ui-sheet-bg{position:fixed;inset:0;background:#0006;z-index:2500;opacity:0;transition:opacity .2s}
+.ui-sheet{position:fixed;left:0;right:0;bottom:0;max-height:88vh;overflow:auto;z-index:2501;background:var(--cream);border-radius:20px 20px 0 0;padding:10px 16px calc(18px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .22s ease-out}
+.ui-sheet.in{transform:none}.ui-sheet-bg.in{opacity:1}
+.ui-sheet-grab{width:40px;height:5px;border-radius:3px;background:var(--clay);margin:0 auto 12px}
+@media(min-width:700px){.ui-sheet{left:50%;right:auto;width:440px;margin-left:-220px}}
 </style>
 
 </head>
@@ -1476,8 +1519,8 @@ select.fi{cursor:pointer;}
       <div class="fleet-sec" data-fsec="health">
         <div class="panel">
           <div class="ph"><div class="ph-title">needs you.</div><div class="ph-action" onclick="renderFleetHealth()">refresh →</div></div>
-          <div style="padding:12px 14px 16px">
-            <div id="fleet-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+          <div style="padding:12px 0 6px">
+            <div id="fleet-chips" class="ui-chips" style="padding:0 14px"></div>
             <div id="fleet-health-body"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
           </div>
         </div>
@@ -3621,6 +3664,32 @@ let _mdDays = 30;
 // RESTOCK (mobile-first slot stock editor → writes to Weimi)
 // ═══════════════════════════════════════════════════════════════
 
+// ── Shared building blocks: HTML builders for the .ui-* classes (see the CSS). All text is escaped.
+const ui = {
+  card(title, aside, body) {
+    return `<div class="ui-card"><div class="ui-card-h"><b>${rsEsc(title)}</b>${aside || ''}</div>${body || ''}</div>`;
+  },
+  // dot: 'act' (red: needs doing now) | 'ok' | '' (neutral). action: HTML (e.g. ui.btn) or '' for a chevron when onclick is set.
+  row({ dot, title, sub, tags, action, onclick }) {
+    const tap = onclick ? ` tap" onclick="${onclick}` : '';
+    return `<div class="ui-row${tap}">${dot !== undefined ? `<span class="ui-dot ${dot || ''}"></span>` : ''}`
+      + `<div class="ui-row-t"><b>${rsEsc(title)}${tags || ''}</b>${sub ? `<small>${rsEsc(sub)}</small>` : ''}</div>`
+      + (action || (onclick ? '<span class="ui-row-chev">›</span>' : '')) + `</div>`;
+  },
+  btn(label, onclick, dark) { return `<button class="ui-btn${dark ? ' dark' : ''}" onclick="event.stopPropagation();${onclick}">${rsEsc(label)}</button>`; },
+  chip(label, on, onclick) { return `<span class="ui-chip${on ? ' on' : ''}" onclick="${onclick}">${rsEsc(label)}</span>`; },
+  tag(label, act) { return `<span class="ui-tag${act ? ' act' : ''}">${rsEsc(label)}</span>`; },
+  sheet(html) {
+    ui.closeSheet();
+    const bg = document.createElement('div'); bg.className = 'ui-sheet-bg'; bg.id = 'ui-sheet-bg'; bg.onclick = ui.closeSheet;
+    const sh = document.createElement('div'); sh.className = 'ui-sheet'; sh.id = 'ui-sheet';
+    sh.innerHTML = '<div class="ui-sheet-grab"></div>' + html;
+    document.body.append(bg, sh);
+    requestAnimationFrame(() => { bg.classList.add('in'); sh.classList.add('in'); });
+    return sh;
+  },
+  closeSheet() { ['ui-sheet', 'ui-sheet-bg'].forEach(id => { const e = document.getElementById(id); if (e) e.remove(); }); },
+};
 function rsEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // Map a Weimi aisle code ("0-A00") to the machine's PHYSICAL slot number.
@@ -9915,24 +9984,20 @@ function drawFleetHealth() {
     behind:  ['Old app',   m => m.behind],
     all:     ['All',       () => true],
   };
-  document.getElementById('fleet-chips').innerHTML = Object.entries(filters).map(([k, [label, fn]]) => {
-    const on = k === _fleetFilter;
-    return `<span onclick="setFleetFilter('${k}')" style="cursor:pointer;font-size:12px;padding:6px 11px;border-radius:99px;border:1px solid ${on ? 'var(--ink)' : 'var(--clay)'};background:${on ? 'var(--ink)' : 'transparent'};color:${on ? 'var(--cream)' : 'var(--ink-soft)'}">${label} ${all.filter(fn).length}</span>`;
-  }).join('');
+  document.getElementById('fleet-chips').innerHTML = Object.entries(filters).map(([k, [label, fn]]) =>
+    ui.chip(label + ' ' + all.filter(fn).length, k === _fleetFilter, `setFleetFilter('${k}')`)).join('');
   const list = all.filter(filters[_fleetFilter][1]);
   const el = document.getElementById('fleet-health-body');
-  if (!list.length) { el.innerHTML = '<div style="font-size:13px;color:var(--success, #4A6B2E);padding:8px 2px">' + (_fleetFilter === 'needs' ? 'Nothing needs you. All machines are fine.' : 'None.') + '</div>'; return; }
+  if (!list.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 2px">' + (_fleetFilter === 'needs' ? 'Nothing needs you. All machines are fine.' : 'None.') + '</div>'; return; }
   const ago = m => m.online ? 'online' : (m.offlineMin == null ? 'never seen' : m.offlineMin < 60 ? 'seen ' + m.offlineMin + ' min ago' : m.offlineMin < 2880 ? 'seen ' + Math.round(m.offlineMin / 60) + ' h ago' : 'seen ' + Math.round(m.offlineMin / 1440) + ' d ago');
-  const tag = (txt, lvl) => `<span style="font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:5px;margin-left:5px;white-space:nowrap;background:${lvl === 1 ? 'var(--alert-bg)' : lvl === 2 ? 'var(--warn-bg)' : 'var(--cream-deep)'};color:${lvl === 1 ? 'var(--alert)' : lvl === 2 ? 'var(--warn-ink, #8a6408)' : 'var(--muted)'}">${rsEsc(txt)}</span>`;
-  el.innerHTML = list.map(m => {
-    const dot = m.worst === 1 ? 'var(--alert)' : m.worst === 2 ? '#B8860B' : 'var(--success, #4A6B2E)';
-    const tags = m.issues.map(i => tag(i.label, i.level)).join('') + (m.behind ? tag('old app', 3) : '');
-    return `<div onclick="openMachineDetail('${rsEsc(m.deviceCode)}')" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:11px 4px;border-top:1px solid var(--line)">
-      <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${dot}"></span>
-      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:500">${rsEsc(m.name)}${tags}</div>
-        <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${rsEsc(m.operatorName || '—')} · ${m.appVersion ? 'v' + rsEsc(m.appVersion) : 'no app'} · ${ago(m)}</div></div>
-      <span style="color:var(--clay);font-size:16px">›</span></div>`;
-  }).join('');
+  // Red only for "act now" (level 1: offline, update refused); alerts and complaints are tagged neutral.
+  el.innerHTML = list.map(m => ui.row({
+    dot: m.worst === 1 ? 'act' : m.worst === 9 ? 'ok' : '',
+    title: m.name,
+    tags: m.issues.map(i => ui.tag(i.label, i.level === 1)).join('') + (m.behind ? ui.tag('old app') : ''),
+    sub: (m.operatorName || '—') + ' · ' + (m.appVersion ? 'v' + m.appVersion : 'no app') + ' · ' + ago(m),
+    onclick: `openMachineDetail('${rsEsc(m.deviceCode)}')`,
+  })).join('');
 }
 
 async function renderUiUsage() {
