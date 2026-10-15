@@ -191,6 +191,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleGetFridgeStock, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/admin/ui-usage',                         handler: handleUiUsageReport,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/admin/fridges/suspect-weights',          handler: handleSuspectWeights, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/fridges/sync-price-tags',         handler: handleFleetSyncPriceTags, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/storage',                          handler: handleStorageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/storage/compact',                  handler: handleStorageCompact, middleware:[requireAuth, requireAgAdmin] },
@@ -2064,6 +2065,37 @@ function handleBasketCalibration(req, res) {
 function handleListCalibrations(req, res) {
   if (!machines[req.params.deviceCode]) return notFound(res, 'not found');
   ok(res, { calibrations: storage.listCalibrations(req.params.deviceCode, 50) });
+}
+
+// GET /api/v1/admin/fridges/suspect-weights — fridge baskets whose unit weight looks like a label
+// volume (500 g for a 500 ml bottle) rather than a weighed item. The real weight is higher (bottle,
+// cap, can), and the error grows with a full basket (Nordic Hostel A1: 500 g set, ~547 g real).
+// Per-kg baskets have no unit weight and are skipped. Where the machine reported stock, the grams in
+// the basket are shown so a count on site can be turned into a correction.
+const VOLUME_LIKE_G = [100, 150, 200, 250, 300, 330, 350, 400, 450, 500, 750, 1000, 1500, 2000];
+function handleSuspectWeights(req, res) {
+  const rows = [];
+  for (const m of Object.values(machines)) {
+    if (!fridgeSpec(m.model).isFridge) continue;
+    const stock = {};
+    for (const s of (storage.basketStock(m.deviceCode) || [])) stock[s.cabinet + s.basket] = s;
+    for (const b of (storage.listFridgeBaskets(m.deviceCode) || [])) {
+      if (!b.productId || b.enabled === 0) continue;
+      const p = storage.getProduct(b.productId);
+      if (isSoldByWeight(p)) continue;
+      const w = b.unitWeightG != null ? Number(b.unitWeightG) : (p && p.weightGrams != null ? Number(p.weightGrams) : null);
+      if (!VOLUME_LIKE_G.includes(w)) continue;
+      const st = stock[b.cabinet + b.basket];
+      rows.push({
+        deviceCode: m.deviceCode, machine: m.deviceName || m.deviceCode, basket: b.cabinet + b.basket,
+        product: (p && p.name) || b.productId, unitWeightG: w,
+        source: b.unitWeightG != null ? 'basket' : 'product',
+        basketGrams: st ? st.grams : null, machineCount: st ? st.units : null,
+      });
+    }
+  }
+  rows.sort((a, b) => String(a.machine).localeCompare(String(b.machine)) || a.basket.localeCompare(b.basket, undefined, { numeric: true }));
+  ok(res, { count: rows.length, rows });
 }
 
 // ── Fridge basket stock (reported by the machine) ──
