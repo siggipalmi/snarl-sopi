@@ -995,6 +995,18 @@ const stmts = {
   insertCalibration: db.prepare(`INSERT INTO basket_calibrations (deviceCode, cabinet, basket, productId, count, machineCount, grams, oldUnitWeightG, newUnitWeightG, commandId, issuedBy, at)
       VALUES (@deviceCode, @cabinet, @basket, @productId, @count, @machineCount, @grams, @oldUnitWeightG, @newUnitWeightG, @commandId, @issuedBy, @at)`),
   listCalibrations: db.prepare('SELECT * FROM basket_calibrations WHERE deviceCode = ? ORDER BY at DESC LIMIT ?'),
+  // Operator home (step 3): what sold per product since a moment, and open complaints.
+  fridgeSoldSince: db.prepare(`SELECT l.productId AS productId,
+        SUM(CASE WHEN l.soldByWeight = 1 THEN 1 ELSE COALESCE(l.quantity, 0) END) AS units,
+        SUM(COALESCE(l.lineIsk, 0)) AS revenueIsk
+      FROM fridge_settlement_lines l JOIN fridge_settlements s ON s.deviceCode = l.deviceCode AND s.orderId = l.orderId
+      WHERE l.deviceCode = ? AND s.outcome = 'charged' AND s.receivedAt >= ? AND l.productId IS NOT NULL
+      GROUP BY l.productId`),
+  coilSoldSince: db.prepare(`SELECT goodsId AS productId, COUNT(*) AS units, SUM(payAmount) / 100 AS revenueIsk
+      FROM order_items WHERE deviceCode = ? AND createTime >= ? AND goodsId IS NOT NULL GROUP BY goodsId`),
+  openFridgeComplaints: db.prepare("SELECT COUNT(*) AS n, MAX(createdAt) AS latest FROM fridge_complaints WHERE deviceCode = ? AND status = 'open'"),
+  openCoilComplaints: db.prepare("SELECT COUNT(*) AS n, MAX(createdAt) AS latest FROM complaints WHERE deviceCode = ? AND status = 'open'"),
+  revenueBetween: db.prepare('SELECT COUNT(*) AS orders, COALESCE(SUM(amountKr), 0) AS revenueKr FROM orders WHERE deviceCode = ? AND createTime >= ? AND createTime < ? AND status = 1'),
   insertRestock: db.prepare('INSERT INTO fridge_restocks (deviceCode, cabinet, at) VALUES (?, ?, ?)'),
   lastFridgeRestock: db.prepare('SELECT MAX(at) AS at FROM fridge_restocks WHERE deviceCode = ?'),
   pruneRestocks: db.prepare('DELETE FROM fridge_restocks WHERE at < ?'),
@@ -2435,6 +2447,14 @@ const storage = {
     })();
   },
   basketStock(deviceCode) { return stmts.listBasketStock.all(deviceCode); },
+  soldSince(deviceCode, sinceMs, isFridge) {
+    return (isFridge ? stmts.fridgeSoldSince : stmts.coilSoldSince).all(deviceCode, sinceMs);
+  },
+  openComplaints(deviceCode) {
+    const a = stmts.openFridgeComplaints.get(deviceCode) || {}, b = stmts.openCoilComplaints.get(deviceCode) || {};
+    return { n: (a.n || 0) + (b.n || 0), latest: [a.latest, b.latest].filter(Boolean).sort().pop() || null };
+  },
+  revenueBetween(deviceCode, fromMs, toMs) { return stmts.revenueBetween.get(deviceCode, fromMs, toMs); },
   recordCalibration(c) { stmts.insertCalibration.run({ ...c, at: Date.now() }); },
   listCalibrations(deviceCode, limit = 50) { return stmts.listCalibrations.all(deviceCode, limit); },
   setBasketStockCount(deviceCode, cabinet, basket, grams, units) {
