@@ -88,6 +88,7 @@ class CommandRunner(
     private suspend fun execute(cmd: MachineCommand): CommandOutcome = when (cmd.type) {
         "fridge_open_door" -> openDoor(cmd)
         "scale_read" -> scaleRead(cmd)
+        "set_basket_count" -> setBasketCount(cmd)
         "scale_calibrate" -> scaleCalibrate(cmd)
         "scale_tare" -> scaleTare(cmd)
         "tare_all" -> tareAll(cmd)
@@ -450,6 +451,55 @@ class CommandRunner(
         return if (done.isEmpty()) CommandOutcome.Failed(summary) else CommandOutcome.Ok(summary)
     }
 
+    /**
+     * The operator counted what is really in a basket. Weigh it now and derive the
+     * unit weight from that count: grams ÷ count. This is what fixes miscounts on
+     * full baskets — a few grams of error in the unit weight grow with every item.
+     *
+     * *** CHARGING CHANGES WITH IT, so it is guarded (approved 2026-10-15): the new
+     * unit weight may differ at most ±10% from the current one, otherwise it is
+     * refused as a miscount. Per-kg baskets have no unit weight and are refused.
+     * The backend stores and logs it and re-serves config; until that config
+     * arrives (~1 min) the old unit weight stays in use.
+     */
+    private suspend fun setBasketCount(cmd: MachineCommand): CommandOutcome {
+        val tray = trayOf(cmd) ?: return CommandOutcome.Failed("missing or unknown basket")
+        val count = cmd.int("count") ?: return CommandOutcome.Failed("count missing")
+        if (count < 1) return CommandOutcome.Failed("count must be at least 1 — an empty basket has nothing to measure")
+        val basket = planogram()?.basketAt(tray) ?: return CommandOutcome.Failed("no product in that basket")
+        if (basket.soldByWeight) return CommandOutcome.Failed("${basket.name} is sold per kg — no unit weight to correct")
+        if (isSessionActive()) return CommandOutcome.Failed("a customer is using the machine — try again in a minute")
+        var grams: Int? = null
+        withBusQuiet { grams = hardware.readTraysFresh(tray, 1)?.get(tray) }
+        val g = grams ?: return CommandOutcome.Failed("the scale did not answer")
+        if (g <= 0) return CommandOutcome.Failed("the scale reads ${g} g — tare it before correcting the count")
+        val newUnit = ((g.toDouble() / count) + 0.5).toInt()
+        val old = basket.unitWeightG
+        if (old > 0 && kotlin.math.abs(newUnit - old) > old * MAX_UNIT_CHANGE) {
+            return CommandOutcome.Failed(
+                "$count items would make the unit weight $newUnit g instead of $old g " +
+                    "(more than ${(MAX_UNIT_CHANGE * 100).toInt()}% change) — recount, or check the basket's product",
+            )
+        }
+        val wasCount = if (old > 0) ((g.toDouble() / old) + 0.5).toInt() else null
+        return try {
+            client.postCalibration(
+                mapOf(
+                    "cabinet" to basket.cabinet.name, "basket" to basket.basket, "count" to count,
+                    "grams" to g, "oldUnitWeightG" to old, "newUnitWeightG" to newUnit,
+                    "machineCount" to wasCount, "commandId" to cmd.id,
+                ),
+            )
+            Log.i(TAG, "basket ${basket.cabinet}${basket.basket}: count $wasCount→$count, unit ${old}g→${newUnit}g (${g}g)")
+            CommandOutcome.Ok(
+                "${basket.cabinet}${basket.basket} ${basket.name}: $count items, unit weight ${old} g → $newUnit g " +
+                    "(machine counted ${wasCount ?: "?"})",
+            )
+        } catch (e: Exception) {
+            CommandOutcome.Failed("measured $newUnit g per item but could not save it: ${e.message}")
+        }
+    }
+
     private suspend fun scaleRead(cmd: MachineCommand): CommandOutcome {
         val tray = trayOf(cmd) ?: return CommandOutcome.Failed("missing or unknown basket")
         var grams: Int? = null
@@ -567,6 +617,9 @@ class CommandRunner(
 
     private companion object {
         const val TAG = "CommandRunner"
+
+        /** set_basket_count may move a unit weight at most this much (±10%, approved 2026-10-15). */
+        const val MAX_UNIT_CHANGE = 0.10
 
         /**
          * Poll cadence. 5s because the operator case decides it: the machine is

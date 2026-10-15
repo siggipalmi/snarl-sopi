@@ -84,6 +84,14 @@ class CommandClient(
     }
 
     /**
+     * A basket's unit weight re-measured from an operator's count (set_basket_count).
+     * The backend stores it as the basket's unit weight, logs it, and re-serves config.
+     */
+    suspend fun postCalibration(body: Map<String, Any?>) {
+        http.postJson("/api/v1/machines/$deviceCode/fridge/basket-calibration", body)
+    }
+
+    /**
      * Report the outcome. The backend is idempotent here and takes the first
      * result, so a retry after a flaky network is safe.
      */
