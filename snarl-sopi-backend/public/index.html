@@ -612,6 +612,7 @@ select.fi{cursor:pointer;}
     </div>
     <div class="nav-group-items">
       <div class="nav-item active" onclick="go('dashboard',this)"><span class="nav-icon">◈</span> <span data-i18n="nav.dashboard">Dashboard</span></div>
+      <div class="nav-item ag-only" onclick="go('settings',this)" style="display:none"><span class="nav-icon">⊞</span> <span data-i18n="nav.settings">Fleet</span></div>
       <div class="nav-item" onclick="go('machines',this)"><span class="nav-icon">⬡</span> <span data-i18n="nav.machines">Machines</span> <span class="nav-badge" id="nb-machines">4</span></div>
       <div class="nav-item" onclick="go('alerts',this)"><span class="nav-icon">◉</span> <span data-i18n="nav.alerts">Alerts</span> <span class="nav-badge" id="nb-alerts">3</span></div>
       <div class="nav-item" onclick="go('complaints',this)"><span class="nav-icon">⚠</span> <span data-i18n="nav.complaints">Complaints</span> <span class="nav-badge" id="nb-complaints" style="display:none">0</span></div>
@@ -630,7 +631,7 @@ select.fi{cursor:pointer;}
       <div class="nav-item" onclick="go('hero',this)"><span class="nav-icon">✦</span> <span data-i18n="nav.hero">Hero &amp; Featured</span></div>
       <div class="nav-item" onclick="go('display',this)"><span class="nav-icon">▭</span> <span data-i18n="nav.display">Display Settings</span></div>
       <div class="nav-item" onclick="go('expiry',this)"><span class="nav-icon">◷</span> <span data-i18n="nav.expiry">Expiry</span></div>
-      <div class="nav-item ag-only" onclick="go('deals',this)" style="display:none"><span class="nav-icon">%</span> <span data-i18n="nav.deals">Deals</span></div>
+      <div class="nav-item" onclick="go('deals',this)" style="display:none"><span class="nav-icon">%</span> <span data-i18n="nav.deals">Deals</span></div>
     </div>
   </div>
 
@@ -644,7 +645,7 @@ select.fi{cursor:pointer;}
       <div class="nav-item" onclick="go('reports',this)"><span class="nav-icon">◫</span> <span data-i18n="nav.reports">Reports</span></div>
       <div class="nav-item" onclick="go('receipts',this)"><span class="nav-icon">⛃</span> <span data-i18n="nav.receipts">Receipts</span></div>
       <div class="nav-item" onclick="go('billing',this)"><span class="nav-icon">▤</span> <span data-i18n="nav.billing">Billing</span></div>
-      <div class="nav-item ag-only" onclick="go('leases',this)" style="display:none"><span class="nav-icon">▣</span> <span data-i18n="nav.leases">Lease inventory</span></div>
+      <div class="nav-item" onclick="go('leases',this)" style="display:none"><span class="nav-icon">▣</span> <span data-i18n="nav.leases">Lease inventory</span></div>
     </div>
   </div>
 
@@ -655,9 +656,8 @@ select.fi{cursor:pointer;}
       <span class="nav-chev">▸</span>
     </div>
     <div class="nav-group-items">
-      <div class="nav-item ag-only" onclick="go('operators',this)" style="display:none"><span class="nav-icon">⌬</span> <span data-i18n="nav.operators">Operators</span></div>
+      <div class="nav-item" onclick="go('operators',this)" style="display:none"><span class="nav-icon">⌬</span> <span data-i18n="nav.operators">Operators</span></div>
       <div class="nav-item" onclick="go('users',this)"><span class="nav-icon">◎</span> <span data-i18n="nav.users">Users</span></div>
-      <div class="nav-item ag-only" onclick="go('settings',this)" style="display:none"><span class="nav-icon">⊞</span> <span data-i18n="nav.settings">Settings</span></div>
       <div class="nav-item" onclick="go('help',this)"><span class="nav-icon">?</span> <span data-i18n="nav.help">Help</span></div>
     </div>
   </div>
@@ -1467,40 +1467,73 @@ select.fi{cursor:pointer;}
 
     <!-- ═══ SETTINGS ═══ -->
     <div class="page" id="page-settings">
-      <div class="g2">
+      <div class="tabs" id="fleet-tabs" style="margin:0 0 16px">
+        <div class="tab active" data-fsec="health" onclick="showFleetSec('health')">Health</div>
+        <div class="tab" data-fsec="releases" onclick="showFleetSec('releases')">Releases</div>
+        <div class="tab" data-fsec="actions" onclick="showFleetSec('actions')">Actions</div>
+        <div class="tab" data-fsec="system" onclick="showFleetSec('system')">System</div>
+      </div>
+      <div class="fleet-sec" data-fsec="health">
         <div class="panel">
-          <div class="ph"><div class="ph-title">weimi api.</div></div>
-          <div style="padding:16px 18px">
-            <div class="field"><div class="fl">app ID</div><input class="fi mono" id="cfg-appId"></div>
-            <div class="field"><div class="fl">secret key</div><input class="fi mono" id="cfg-secretKey" type="password"></div>
-            <div class="field"><div class="fl">endpoint</div>
-              <select class="fi mono" id="cfg-endpoint">
-                <option value="test">TEST — http://api.weimi24.com/v2022/third-center-web</option>
-                <option value="prod">PRODUCTION — https://micron.weimi24.com/v8/third-center-web</option>
-              </select>
-            </div>
-            <button class="btn btn-full" onclick="saveApiSettings()"><span>save API settings</span><span>→</span></button>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="ph"><div class="ph-title">open issues.</div></div>
-          <div style="padding:14px 18px;display:flex;flex-direction:column;gap:12px">
-            <div style="padding:11px 13px;background:var(--alert-bg);border-radius:var(--rsm);border-left:3px solid var(--alert)">
-              <div style="font-size:12.5px;font-weight:600;color:var(--alert);margin-bottom:3px">online-status problem</div>
-              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Machines running the kiosk app show as "offline" in Weimi portal. Contact Weimi support before deployment.</div>
-            </div>
-            <div style="padding:11px 13px;background:var(--warn-bg);border-radius:var(--rsm);border-left:3px solid #B8860B">
-              <div style="font-size:12.5px;font-weight:600;color:var(--warn-ink);margin-bottom:3px">hardcoded operator name</div>
-              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Kiosk app still hardcodes "AG Vending" in VendingViewModel. Needs backend integration to resolve dynamically.</div>
-            </div>
-            <div style="padding:11px 13px;background:var(--cream-deep);border-radius:var(--rsm);border-left:3px solid var(--clay)">
-              <div style="font-size:12.5px;font-weight:600;margin-bottom:3px">62160042 &amp; 62160043 unsupported</div>
-              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Non-standard cabinet layout. Kiosk app blocks these. Investigate before removing block.</div>
-            </div>
+          <div class="ph"><div class="ph-title">needs you.</div><div class="ph-action" onclick="renderFleetHealth()">refresh →</div></div>
+          <div style="padding:12px 14px 16px">
+            <div id="fleet-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+            <div id="fleet-health-body"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
           </div>
         </div>
       </div>
-
+      <div class="fleet-sec" data-fsec="releases" style="display:none">
+      <div>
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title">app updates.</div>
+            <div class="ph-action" onclick="renderAppUpdates()">refresh →</div>
+          </div>
+          <div style="padding:16px 18px" id="ota-body">
+            <div style="color:var(--muted);font-size:12px">Loading…</div>
+          </div>
+        </div>
+      </div>
+      </div>
+      <div class="fleet-sec" data-fsec="actions" style="display:none">
+      <div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title">fleet actions.</div></div>
+          <div style="padding:16px 18px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <button class="btn btn-sm" id="fleet-tags-btn" onclick="fleetSyncPriceTags()">force-sync price tags on all fridges</button>
+              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">Rewrites every shelf tag with the price each fridge already has. No price or charging change; waits if a customer is mid-purchase. Offline fridges do it when they come back.</span>
+            </div>
+            <div id="fleet-tags-msg" style="font-size:12px;margin-top:10px"></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+              <button class="btn btn-sm" onclick="fleetSuspectWeights()">check unit weights</button>
+              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">Lists fridge baskets whose unit weight looks like a label volume (500 g for a 500 ml bottle) instead of a weighed item. Fix with a count on site (set_basket_count) or by weighing one item.</span>
+            </div>
+            <div id="fleet-weights-msg" style="font-size:12px;margin-top:10px;overflow-x:auto"></div>
+            <div style="margin-top:12px"><button class="btn btn-sm" onclick="fleetDrinkWeights()">fix drink weights…</button>
+              <span style="font-size:11.5px;color:var(--muted);margin-left:8px">500 g → 540 g, 330 g → 345 g, reviewed before applying</span></div>
+            <div id="fleet-fix-msg" style="font-size:12px;margin-top:10px;overflow-x:auto"></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+              <button class="btn btn-sm" onclick="fleetCloseOldComplaints()">close complaints older than 30 days…</button>
+              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">For complaints handled outside the system. Shows how many first; nothing changes until you confirm.</span>
+            </div>
+            <div id="fleet-complaints-msg" style="font-size:12px;margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
+      </div>
+      <div class="fleet-sec" data-fsec="system" style="display:none">
+      <div>
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title">storage.</div>
+            <div class="ph-action" onclick="renderStorage()">refresh →</div>
+          </div>
+          <div style="padding:16px 18px" id="storage-body">
+            <div style="color:var(--muted);font-size:12px">Loading…</div>
+          </div>
+        </div>
+      </div>
       <div style="margin-top:20px">
         <div class="panel">
           <div class="ph">
@@ -1527,7 +1560,6 @@ select.fi{cursor:pointer;}
           </div>
         </div>
       </div>
-
       <div style="margin-top:20px">
         <div class="panel">
           <div class="ph">
@@ -1539,57 +1571,48 @@ select.fi{cursor:pointer;}
           </div>
         </div>
       </div>
-
       <div style="margin-top:20px">
         <div class="panel">
-          <div class="ph">
-            <div class="ph-title">app updates.</div>
-            <div class="ph-action" onclick="renderAppUpdates()">refresh →</div>
-          </div>
-          <div style="padding:16px 18px" id="ota-body">
-            <div style="color:var(--muted);font-size:12px">Loading…</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:20px">
-        <div class="panel">
-          <div class="ph"><div class="ph-title">fleet actions.</div></div>
+          <div class="ph"><div class="ph-title">weimi api.</div></div>
           <div style="padding:16px 18px">
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-              <button class="btn btn-sm" id="fleet-tags-btn" onclick="fleetSyncPriceTags()">force-sync price tags on all fridges</button>
-              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">Rewrites every shelf tag with the price each fridge already has. No price or charging change; waits if a customer is mid-purchase. Offline fridges do it when they come back.</span>
+            <div class="field"><div class="fl">app ID</div><input class="fi mono" id="cfg-appId"></div>
+            <div class="field"><div class="fl">secret key</div><input class="fi mono" id="cfg-secretKey" type="password"></div>
+            <div class="field"><div class="fl">endpoint</div>
+              <select class="fi mono" id="cfg-endpoint">
+                <option value="test">TEST — http://api.weimi24.com/v2022/third-center-web</option>
+                <option value="prod">PRODUCTION — https://micron.weimi24.com/v8/third-center-web</option>
+              </select>
             </div>
-            <div id="fleet-tags-msg" style="font-size:12px;margin-top:10px"></div>
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
-              <button class="btn btn-sm" onclick="fleetSuspectWeights()">check unit weights</button>
-              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">Lists fridge baskets whose unit weight looks like a label volume (500 g for a 500 ml bottle) instead of a weighed item. Fix with a count on site (set_basket_count) or by weighing one item.</span>
-            </div>
-            <div id="fleet-weights-msg" style="font-size:12px;margin-top:10px;overflow-x:auto"></div>
-            <div style="margin-top:12px"><button class="btn btn-sm" onclick="fleetDrinkWeights()">fix drink weights…</button>
-              <span style="font-size:11.5px;color:var(--muted);margin-left:8px">500 g → 540 g, 330 g → 345 g, reviewed before applying</span></div>
-            <div id="fleet-fix-msg" style="font-size:12px;margin-top:10px;overflow-x:auto"></div>
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
-              <button class="btn btn-sm" onclick="fleetCloseOldComplaints()">close complaints older than 30 days…</button>
-              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">For complaints handled outside the system. Shows how many first; nothing changes until you confirm.</span>
-            </div>
-            <div id="fleet-complaints-msg" style="font-size:12px;margin-top:10px"></div>
+            <button class="btn btn-full" onclick="saveApiSettings()"><span>save API settings</span><span>→</span></button>
           </div>
         </div>
       </div>
-
       <div style="margin-top:20px">
         <div class="panel">
-          <div class="ph">
-            <div class="ph-title">storage.</div>
-            <div class="ph-action" onclick="renderStorage()">refresh →</div>
-          </div>
-          <div style="padding:16px 18px" id="storage-body">
-            <div style="color:var(--muted);font-size:12px">Loading…</div>
+          <div class="ph"><div class="ph-title">operators &amp; users.</div></div>
+          <div style="padding:14px 18px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-ghost" onclick="go('operators')">operators</button>
+              <button class="btn btn-sm btn-ghost" onclick="go('users')">users</button>
+              <button class="btn btn-sm btn-ghost" onclick="go('leases')">lease inventory</button>
+              <button class="btn btn-sm btn-ghost" onclick="go('deals')">deals</button>
+            </div>
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+              <div style="font-size:12.5px;margin-bottom:8px"><b style="font-weight:500">View as operator</b> <span style="color:var(--muted)">— the dashboard exactly as that operator's admin sees it, read-only. Ends when you close the tab or tap Exit.</span></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <select class="fi" id="viewas-op" style="max-width:280px;font-size:13px"><option value="">Loading…</option></select>
+                <button class="btn btn-sm" onclick="startViewAs()">view as</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
+      <div style="margin-top:20px">
+        <div class="panel">
+          <div class="ph"><div class="ph-title">page use.</div><div class="ph-action" onclick="renderUiUsage()">refresh →</div></div>
+          <div style="padding:12px 18px 16px" id="uiuse-body"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+        </div>
+      </div>
       <div style="margin-top:20px">
         <div class="panel">
           <div class="ph">
@@ -1627,6 +1650,26 @@ select.fi{cursor:pointer;}
             </div>
           </div>
         </div>
+      </div>
+      <div style="margin-top:20px">
+        <div class="panel">
+          <div class="ph"><div class="ph-title">old notes.</div></div>
+          <div style="padding:14px 18px;display:flex;flex-direction:column;gap:12px">
+            <div style="padding:11px 13px;background:var(--alert-bg);border-radius:var(--rsm);border-left:3px solid var(--alert)">
+              <div style="font-size:12.5px;font-weight:600;color:var(--alert);margin-bottom:3px">online-status problem</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Machines running the kiosk app show as "offline" in Weimi portal. Contact Weimi support before deployment.</div>
+            </div>
+            <div style="padding:11px 13px;background:var(--warn-bg);border-radius:var(--rsm);border-left:3px solid #B8860B">
+              <div style="font-size:12.5px;font-weight:600;color:var(--warn-ink);margin-bottom:3px">hardcoded operator name</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Kiosk app still hardcodes "AG Vending" in VendingViewModel. Needs backend integration to resolve dynamically.</div>
+            </div>
+            <div style="padding:11px 13px;background:var(--cream-deep);border-radius:var(--rsm);border-left:3px solid var(--clay)">
+              <div style="font-size:12.5px;font-weight:600;margin-bottom:3px">62160042 &amp; 62160043 unsupported</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.5">Non-standard cabinet layout. Kiosk app blocks these. Investigate before removing block.</div>
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
 
@@ -1886,7 +1929,7 @@ const I18N = {
     'group.overview':'overview','group.daily':'Daily','group.kioskControl':'Kiosk setup','group.commerce':'Business','group.system':'Admin',
     'nav.dashboard':'Dashboard','nav.machines':'Machines','nav.alerts':'Alerts','nav.operators':'Operators',
     'nav.catalog':'Catalog & Slots','nav.hero':'Hero & Featured','nav.display':'Display Settings',
-    'nav.orders':'Orders','nav.complaints':'Complaints','nav.reports':'Reports','nav.receipts':'Receipts','nav.users':'Users','nav.settings':'Settings','nav.help':'Help',
+    'nav.orders':'Orders','nav.complaints':'Complaints','nav.reports':'Reports','nav.receipts':'Receipts','nav.users':'Users','nav.settings':'Fleet','nav.help':'Help',
     'nav.deals':'Deals','title.deals':'Discounts & deals','nav.billing':'Billing','title.billing':'Billing','nav.leases':'Lease inventory','title.leases':'Lease inventory','billing.sub':'your lease invoices & account statement','billing.operator':'Operator',
     'billing.invoices':'invoices','billing.ledger':'ledger','billing.outstanding':'Outstanding balance','billing.settled':'All settled',
     'billing.invUnpaid':'{n} unpaid','billing.invOverdue':'· {n} overdue','billing.noUnpaid':'nothing outstanding','billing.machines':'machines',
@@ -1901,7 +1944,7 @@ const I18N = {
     'shell.operatorPortal':'Operator portal','shell.signOut':'sign out',
     'title.dashboard':'dashboard.','title.machines':'machines.','title.alerts':'alerts.','title.catalog':'catalog & slots.',
     'title.hero':'hero & featured.','title.display':'display settings.','title.orders':'orders.','title.reports':'reports.',
-    'title.users':'users.','title.settings':'settings.','title.operators':'operators.','title.complaints':'complaints.',
+    'title.users':'users.','title.settings':'fleet.','title.operators':'operators.','title.complaints':'complaints.',
     'title.machinedetail':'machine detail.','title.help':'help & documentation.',
     'common.viewAll':'view all →','common.status':'status','common.kiosk':'kiosk','common.nayax':'nayax',
     'common.todaySales':'today sales','common.stock':'stock','common.actions':'actions','common.restock':'restock',
@@ -1964,7 +2007,7 @@ const I18N = {
     'group.overview':'yfirlit','group.daily':'Daglegt','group.kioskControl':'Skjár og vörur','group.commerce':'Rekstur','group.system':'Stjórnun',
     'nav.dashboard':'Mælaborð','nav.machines':'Vélar','nav.alerts':'Viðvaranir','nav.operators':'Rekstraraðilar',
     'nav.catalog':'Vörur & hólf','nav.hero':'Áberandi vörur','nav.display':'Skjástillingar',
-    'nav.orders':'Pantanir','nav.complaints':'Kvartanir','nav.reports':'Skýrslur','nav.receipts':'Kvittanir','nav.users':'Notendur','nav.settings':'Stillingar','nav.help':'Hjálp',
+    'nav.orders':'Pantanir','nav.complaints':'Kvartanir','nav.reports':'Skýrslur','nav.receipts':'Kvittanir','nav.users':'Notendur','nav.settings':'Fleet','nav.help':'Hjálp',
     'nav.deals':'Tilboð','title.deals':'Afslættir og tilboð','nav.billing':'Reikningar','title.billing':'Reikningar','nav.leases':'Leigutæki','title.leases':'Leigutæki','billing.sub':'leigureikningar og hreyfingayfirlit','billing.operator':'Rekstraraðili',
     'billing.invoices':'reikningar','billing.ledger':'hreyfingar','billing.outstanding':'Staða í dag','billing.settled':'Engin skuld',
     'billing.invUnpaid':'{n} ógreiddir','billing.invOverdue':'· {n} í vanskilum','billing.noUnpaid':'ekkert ógreitt','billing.machines':'vélar',
@@ -1979,7 +2022,7 @@ const I18N = {
     'shell.operatorPortal':'Rekstrargátt','shell.signOut':'útskrá',
     'title.dashboard':'mælaborð.','title.machines':'vélar.','title.alerts':'viðvaranir.','title.catalog':'vörur & hólf.',
     'title.hero':'áberandi vörur.','title.display':'skjástillingar.','title.orders':'pantanir.','title.reports':'skýrslur.',
-    'title.users':'notendur.','title.settings':'stillingar.','title.operators':'rekstraraðilar.','title.complaints':'kvartanir.',
+    'title.users':'notendur.','title.settings':'fleet.','title.operators':'rekstraraðilar.','title.complaints':'kvartanir.',
     'title.machinedetail':'vélaryfirlit.','title.help':'hjálp & leiðbeiningar.',
     'common.viewAll':'sjá allt →','common.status':'staða','common.kiosk':'skjár','common.nayax':'nayax',
     'common.todaySales':'sala í dag','common.stock':'birgðir','common.actions':'aðgerðir','common.restock':'fylla á',
@@ -2180,6 +2223,12 @@ const API_BASE = (window.location.protocol === 'file:' || window.location.hostna
   ? 'http://localhost:3000'
   : window.location.origin;
 let API_TOKEN = null;
+// "View as operator" (AG only, read-only): kept per browser tab. Every authed request carries it,
+// and the backend answers as that operator's admin and refuses anything but reads. Any new raw
+// fetch() with a token must spread viewAsHdr() too.
+let VIEW_AS = null;
+try { VIEW_AS = sessionStorage.getItem('viewAsOperator') || null; } catch (e) {}
+function viewAsHdr() { return VIEW_AS ? { 'X-View-As-Operator': VIEW_AS } : {}; }
 
 const API = {
   async login(email, password) {
@@ -2190,7 +2239,7 @@ const API = {
     return r.json();
   },
   async req(method, path, body) {
-    const opts = { method, headers: { 'Content-Type': 'application/json', ...(API_TOKEN ? { 'Authorization': `Bearer ${API_TOKEN}` } : {}) } };
+    const opts = { method, headers: { 'Content-Type': 'application/json', ...(API_TOKEN ? { 'Authorization': `Bearer ${API_TOKEN}` } : {}), ...viewAsHdr() } };
     if (body) opts.body = JSON.stringify(body);
     const r = await fetch(`${API_BASE}${path}`, opts);
     // If our token is bad/expired, clear it and bounce to login.
@@ -2510,6 +2559,15 @@ async function doLogout() {
 let currentUser = null;
 
 async function bootApp(user) {
+  if (VIEW_AS && user.role === 'ag_admin') {
+    let opName = VIEW_AS;
+    try { opName = sessionStorage.getItem('viewAsOperatorName') || VIEW_AS; } catch (e) {}
+    // A copy, so the stored sign-in stays AG's own.
+    user = { ...user, role: 'operator_admin', operatorId: VIEW_AS, operatorName: opName, viewingAs: true };
+    showViewAsBanner(opName);
+  } else if (VIEW_AS) {
+    VIEW_AS = null; try { sessionStorage.removeItem('viewAsOperator'); } catch (e) {}
+  }
   currentUser = user;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-shell').classList.add('show');
@@ -2677,7 +2735,7 @@ window.addEventListener('load', () => {
 const PAGE_TITLES = {
   dashboard:'dashboard.', machines:'machines.', alerts:'alerts.',
   catalog:'catalog & slots.', hero:'hero & featured.', display:'display settings.',
-  orders:'orders.', reports:'reports.', receipts:'receipts → costs.', users:'users.', settings:'settings.',
+  orders:'orders.', reports:'reports.', receipts:'receipts → costs.', users:'users.', settings:'fleet.',
   operators:'operators.', complaints:'kvartanir.',
   machinedetail: 'machine detail.'
 };
@@ -2737,6 +2795,7 @@ function refreshNavGroupBadges() {
 // Page-use counter (which pages each role really opens; see /api/v1/admin/ui-usage).
 // Fire-and-forget: a failed counter never gets in the way.
 function trackUi(page) {
+  if (VIEW_AS) return;   // reads only while viewing as an operator, and it isn't their use anyway
   try { if (backendOnline && API_TOKEN && page) API.post('/api/v1/ui-usage', { page: String(page).toLowerCase() }).catch(() => {}); } catch (e) {}
 }
 
@@ -8486,7 +8545,7 @@ function blDate(s) { const d = new Date(s); if (isNaN(d)) return rsEsc(String(s)
 function blMonth(s) { const d = new Date(s); if (isNaN(d)) return ''; return d.toLocaleDateString(LANG === 'is' ? 'is-IS' : 'en-GB', { month: 'long', year: 'numeric' }); }
 async function blDownloadPdf(opId, invoiceId) {
   try {
-    const r = await fetch(API_BASE + '/api/v1/operators/' + encodeURIComponent(opId) + '/invoices/' + encodeURIComponent(invoiceId) + '/pdf', { headers: API_TOKEN ? { Authorization: 'Bearer ' + API_TOKEN } : {} });
+    const r = await fetch(API_BASE + '/api/v1/operators/' + encodeURIComponent(opId) + '/invoices/' + encodeURIComponent(invoiceId) + '/pdf', { headers: { ...(API_TOKEN ? { Authorization: 'Bearer ' + API_TOKEN } : {}), ...viewAsHdr() } });
     if (!r.ok) { showToast(t('billing.pdfErr')); return; }
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
@@ -9315,7 +9374,7 @@ async function revokeInvite(token) {
   try {
     const r = await fetch(API_BASE + '/api/v1/invitations/' + encodeURIComponent(token), {
       method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + API_TOKEN }
+      headers: { 'Authorization': 'Bearer ' + API_TOKEN, ...viewAsHdr() }
     });
     const result = await r.json();
     if (result.ok) {
@@ -9471,7 +9530,7 @@ async function backfillImageDims() {
 async function exportImageResolution() {
   try {
     const r = await fetch(`${API_BASE}/api/v1/products/images/resolution?format=csv`, {
-      headers: { ...(API_TOKEN ? { 'Authorization': `Bearer ${API_TOKEN}` } : {}) },
+      headers: { ...(API_TOKEN ? { 'Authorization': `Bearer ${API_TOKEN}` } : {}), ...viewAsHdr() },
     });
     if (!r.ok) { showToast('export failed (' + r.status + ')'); return; }
     const blob = await r.blob();
@@ -9525,7 +9584,7 @@ async function renderImageReview() {
 async function exportImageReview() {
   try {
     const r = await fetch(`${API_BASE}/api/v1/products/images/review?format=csv`, {
-      headers: { ...(API_TOKEN ? { 'Authorization': `Bearer ${API_TOKEN}` } : {}) },
+      headers: { ...(API_TOKEN ? { 'Authorization': `Bearer ${API_TOKEN}` } : {}), ...viewAsHdr() },
     });
     if (!r.ok) { showToast('export failed (' + r.status + ')'); return; }
     const blob = await r.blob();
@@ -9810,15 +9869,126 @@ async function haltAppRollout(on, app) {
   } catch (e) { showToast('error: ' + e.message); }
 }
 
+// Fleet (AG only; the page is still id "settings" so old links keep working). Four sections:
+// Health (what needs AG), Releases, Actions, System. Each section loads when first shown.
+let _fleetSec = 'health', _fleetLoaded = {};
 function renderSettings() {
-  document.getElementById('cfg-appId').value    = DB.apiConfig.appId||'';
-  document.getElementById('cfg-secretKey').value= DB.apiConfig.secretKey||'';
-  document.getElementById('cfg-endpoint').value = DB.apiConfig.endpoint||'test';
-  refreshProxyStatus();
-  refreshNayaxStatus();
-  renderAppUpdates();
-  renderStorage();
-  renderImageReview();
+  _fleetLoaded = {};
+  showFleetSec(_fleetSec);
+}
+function showFleetSec(k) {
+  _fleetSec = k;
+  document.querySelectorAll('#fleet-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.fsec === k));
+  document.querySelectorAll('#page-settings .fleet-sec').forEach(p => { p.style.display = p.dataset.fsec === k ? '' : 'none'; });
+  trackUi('settings:' + k);
+  if (_fleetLoaded[k]) return;
+  _fleetLoaded[k] = true;
+  if (k === 'health') renderFleetHealth();
+  if (k === 'releases') renderAppUpdates();
+  if (k === 'system') {
+    document.getElementById('cfg-appId').value    = DB.apiConfig.appId||'';
+    document.getElementById('cfg-secretKey').value= DB.apiConfig.secretKey||'';
+    document.getElementById('cfg-endpoint').value = DB.apiConfig.endpoint||'test';
+    renderStorage(); refreshProxyStatus(); refreshNayaxStatus(); renderUiUsage(); loadViewAsOperators(); renderImageReview();
+  }
+}
+
+let _fleetFilter = 'needs';
+async function renderFleetHealth() {
+  const el = document.getElementById('fleet-health-body');
+  if (!el) return;
+  if (!backendOnline || !API_TOKEN) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Backend offline.</div>'; return; }
+  try {
+    const r = await API.get('/api/v1/admin/fleet/health');
+    if (!r || !r.ok) throw new Error((r && r.error && (r.error.messageEn || r.error.message || r.error)) || 'failed');
+    window._fleetHealth = r.data;
+  } catch (e) { el.innerHTML = '<div style="color:var(--alert);font-size:12px">Error: ' + rsEsc(e.message) + '</div>'; return; }
+  drawFleetHealth();
+}
+function setFleetFilter(f) { _fleetFilter = f; drawFleetHealth(); }
+function drawFleetHealth() {
+  const d = window._fleetHealth; if (!d) return;
+  const all = d.machines || [];
+  const filters = {
+    needs:   ['Needs you', m => m.worst < 9],
+    offline: ['Offline',   m => m.issues.some(i => i.kind === 'offline')],
+    behind:  ['Old app',   m => m.behind],
+    all:     ['All',       () => true],
+  };
+  document.getElementById('fleet-chips').innerHTML = Object.entries(filters).map(([k, [label, fn]]) => {
+    const on = k === _fleetFilter;
+    return `<span onclick="setFleetFilter('${k}')" style="cursor:pointer;font-size:12px;padding:6px 11px;border-radius:99px;border:1px solid ${on ? 'var(--ink)' : 'var(--clay)'};background:${on ? 'var(--ink)' : 'transparent'};color:${on ? 'var(--cream)' : 'var(--ink-soft)'}">${label} ${all.filter(fn).length}</span>`;
+  }).join('');
+  const list = all.filter(filters[_fleetFilter][1]);
+  const el = document.getElementById('fleet-health-body');
+  if (!list.length) { el.innerHTML = '<div style="font-size:13px;color:var(--success, #4A6B2E);padding:8px 2px">' + (_fleetFilter === 'needs' ? 'Nothing needs you. All machines are fine.' : 'None.') + '</div>'; return; }
+  const ago = m => m.online ? 'online' : (m.offlineMin == null ? 'never seen' : m.offlineMin < 60 ? 'seen ' + m.offlineMin + ' min ago' : m.offlineMin < 2880 ? 'seen ' + Math.round(m.offlineMin / 60) + ' h ago' : 'seen ' + Math.round(m.offlineMin / 1440) + ' d ago');
+  const tag = (txt, lvl) => `<span style="font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:5px;margin-left:5px;white-space:nowrap;background:${lvl === 1 ? 'var(--alert-bg)' : lvl === 2 ? 'var(--warn-bg)' : 'var(--cream-deep)'};color:${lvl === 1 ? 'var(--alert)' : lvl === 2 ? 'var(--warn-ink, #8a6408)' : 'var(--muted)'}">${rsEsc(txt)}</span>`;
+  el.innerHTML = list.map(m => {
+    const dot = m.worst === 1 ? 'var(--alert)' : m.worst === 2 ? '#B8860B' : 'var(--success, #4A6B2E)';
+    const tags = m.issues.map(i => tag(i.label, i.level)).join('') + (m.behind ? tag('old app', 3) : '');
+    return `<div onclick="openMachineDetail('${rsEsc(m.deviceCode)}')" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:11px 4px;border-top:1px solid var(--line)">
+      <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${dot}"></span>
+      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:500">${rsEsc(m.name)}${tags}</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${rsEsc(m.operatorName || '—')} · ${m.appVersion ? 'v' + rsEsc(m.appVersion) : 'no app'} · ${ago(m)}</div></div>
+      <span style="color:var(--clay);font-size:16px">›</span></div>`;
+  }).join('');
+}
+
+async function renderUiUsage() {
+  const el = document.getElementById('uiuse-body');
+  if (!el) return;
+  try {
+    const r = await API.get('/api/v1/admin/ui-usage?days=7');
+    if (!r || !r.ok) throw new Error('failed');
+    const pages = {};
+    for (const p of (r.data.pages || [])) {
+      if (p.role === 'ag_admin') continue;          // what operators use, not us
+      pages[p.page] = (pages[p.page] || 0) + (p.views || 0);
+    }
+    const rows = Object.entries(pages).sort((a, b) => b[1] - a[1]);
+    const opUsers = (r.data.users || []).filter(u => u.role !== 'ag_admin').reduce((n, u) => n + (u.users || 0), 0);
+    el.innerHTML = `<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Operator users, last 7 days: ${opUsers}. AG's own use is left out.</div>`
+      + (rows.length ? rows.slice(0, 15).map(([pg, n]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line);font-size:12.5px"><span>${rsEsc(pg)}</span><span style="font-family:var(--mono)">${n}</span></div>`).join('')
+        : '<div style="font-size:12px;color:var(--muted)">No operator page views yet.</div>');
+  } catch (e) { el.innerHTML = '<div style="color:var(--alert);font-size:12px">Error: ' + rsEsc(e.message) + '</div>'; }
+}
+
+async function loadViewAsOperators() {
+  const sel = document.getElementById('viewas-op');
+  if (!sel) return;
+  try {
+    const r = await API.get('/api/v1/operators');
+    const list = ((r && r.data) || []).filter(o => o.machineCount > 0).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'is'));
+    sel.innerHTML = list.map(o => `<option value="${rsEsc(o.id)}">${rsEsc(o.name)} · ${o.machineCount} machine${o.machineCount === 1 ? '' : 's'}</option>`).join('');
+  } catch (e) { sel.innerHTML = '<option value="">Could not load operators</option>'; }
+}
+function startViewAs() {
+  const sel = document.getElementById('viewas-op');
+  if (!sel || !sel.value) return;
+  const name = sel.options[sel.selectedIndex].text.split(' · ')[0];
+  try { sessionStorage.setItem('viewAsOperator', sel.value); sessionStorage.setItem('viewAsOperatorName', name); }
+  catch (e) { showToast('This browser blocks session storage'); return; }
+  DB.machines = {}; DB.alerts = []; DB.orders = [];
+  try { saveData(); } catch (e) {}
+  location.hash = '#dashboard';
+  location.reload();
+}
+function exitViewAs() {
+  try { sessionStorage.removeItem('viewAsOperator'); sessionStorage.removeItem('viewAsOperatorName'); } catch (e) {}
+  DB.machines = {}; DB.alerts = []; DB.orders = [];
+  try { saveData(); } catch (e) {}
+  location.hash = '#settings';
+  location.reload();
+}
+function showViewAsBanner(name) {
+  if (document.getElementById('viewas-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'viewas-banner';
+  b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:3000;display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap;background:var(--bronze, #8B6B3E);color:#fff;font-size:13px;padding:8px 16px calc(8px + env(safe-area-inset-bottom))';
+  b.innerHTML = '<span>Viewing as <b>' + rsEsc(name) + '</b> · read-only</span><button class="btn btn-sm" style="background:#fff;color:var(--ink)" onclick="exitViewAs()">Exit</button>';
+  document.body.appendChild(b);
+  document.body.style.paddingBottom = '52px';
 }
 
 // The data volume: how full it is and what fills it. When it filled up (SQLITE_FULL, 2026-10-13)
