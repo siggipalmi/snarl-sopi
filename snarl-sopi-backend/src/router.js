@@ -6627,6 +6627,11 @@ async function handleUpdateProduct(req, res) {
   const weimi = require('./weimi');
   const goodsId = req.params.goodsId;
   const b = req.body || {};
+  // Per kg is ours alone (never sent to Weimi): set it here and carry on with the rest.
+  if (b.soldByWeight !== undefined) {
+    try { storage.setProductSoldByWeight(req.params.goodsId, b.soldByWeight === true || Number(b.soldByWeight) === 1); }
+    catch (e) { return serverError(res, e); }
+  }
   if (!goodsId) return json(res, 400, { ok: false, error: 'goodsId required' });
 
   const warnings = [];
@@ -7132,6 +7137,7 @@ async function handleImportProducts(req, res) {
           barcode: found.barcode || null,
           imgUrl: found.imgUrl || null,
         });
+        if (rowWins) { try { storage.setProductSoldByWeight(code, Number(row.measurement) === 1); } catch (e) {} }
         return { code, status: 'ok', name: weimi.fixMojibake(found.goodsName) || row.name || '' };
       } catch (e) { return { code, status: 'error', error: e.message }; }
     }
@@ -7146,6 +7152,7 @@ async function handleImportProducts(req, res) {
         measurement: Number(row.measurement) === 1 ? 1 : 0, barcode: null, imgUrl: null,
       });
     } catch (e) { return { code, status: 'error', error: e.message }; }
+    if (rowWins) { try { storage.setProductSoldByWeight(code, Number(row.measurement) === 1); } catch (e) {} }
     return { code, status: 'notfound', name: row.name || '' };
   }
 

@@ -4234,7 +4234,7 @@ function openEditCatalogProduct(goodsId) {
   document.getElementById('ep2-name').value = p.name || '';
   document.getElementById('ep2-vat').value = String(p.vatRate || 11);
   document.getElementById('ep2-weight').value = (p.weightGrams != null ? p.weightGrams : '');
-  document.getElementById('ep2-measurement').value = String(p.measurement === 1 ? 1 : 0);
+  document.getElementById('ep2-measurement').value = p.soldByWeight ? '1' : '0';
   document.getElementById('ep2-cost').value = (p.costPriceIsk != null ? p.costPriceIsk : '');
   document.getElementById('ep2-barcode').value = p.barcode || '';
   document.getElementById('ep2-current').innerHTML = p.image
@@ -4308,7 +4308,7 @@ async function saveEditProduct() {
       return;
     }
     const body = { goodsName: name, vatRate, costPriceIsk, weightGrams,
-                   measurement: parseInt(document.getElementById('ep2-measurement').value, 10) === 1 ? 1 : 0 };
+                   soldByWeight: parseInt(document.getElementById('ep2-measurement').value, 10) === 1 };
     if (barcode) body.barcode = barcode;   // omit when empty → backend keeps current
     if (_epImageDataUrl) {
       body.imageBase64 = _epImageDataUrl;
@@ -6688,7 +6688,7 @@ async function renderCatalog() {
       } else if (!e.image) e.image = p.imgUrl || '';
       if (!e.priceIsk) e.priceIsk = p.salePriceIsk || 0;
       e.vatRate = p.vatRate; e.costPriceIsk = p.costPriceIsk; e.weightGrams = p.weightGrams; e.barcode = p.barcode;
-      e.measurement = Number(p.measurement) === 1 ? 1 : 0;
+      e.soldByWeight = Number(p.soldByWeight) === 1;
       e.hasAttrs = true;
     });
     _catalogMerged = Object.values(byId).sort((a, b) => (a.name || '').localeCompare(b.name || ''));

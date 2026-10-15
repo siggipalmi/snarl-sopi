@@ -479,7 +479,8 @@ function fridgeSpec(model, basketsPerCabinet) {
   return { isFridge: true, cabinets, basketsPerCabinet: per, basketCount: cabinets.length * per, doors: cabinets.length };
 }
 // ── Selling by weight ──
-// A catalog product with measurement 1 is priced per kg (Hreppa's Angus cuts, hakk, hamborgarar).
+// A catalog product with soldByWeight = 1 is priced per kg (Hreppa's Angus cuts, hakk, bolabiti).
+// NOT `measurement`: Weimi sets that on ordinary products (see storage.js migrateSoldByWeight).
 // The fridge charges grams taken × kr/kg ÷ 1000, rounded UP to the next króna; a net change under
 // BY_WEIGHT_MIN_G is scale noise. The app does the same sum (Settlement.weightLineIsk).
 const BY_WEIGHT_MIN_G = 20;
@@ -487,7 +488,7 @@ const BY_WEIGHT_MIN_APP = '0.63.0';
 function weightLineIsk(grams, pricePerKg) {
   return Math.ceil((Math.round(grams) * Math.round(pricePerKg)) / 1000);
 }
-function isSoldByWeight(product) { return !!product && Number(product.measurement) === 1; }
+function isSoldByWeight(product) { return !!product && Number(product.soldByWeight) === 1; }
 function versionAtLeast(v, min) {
   const a = String(v || '').split('.').map(n => parseInt(n, 10) || 0);
   const b = String(min).split('.').map(n => parseInt(n, 10) || 0);
@@ -701,6 +702,18 @@ function touchConfig(machine) {
   machine.updatedAt = machine.configVersion;
   storage.upsertMachine(machine);
 }
+
+// One-time: re-serve every fridge's config after the soldByWeight fix. Config is 304-on-version,
+// so without a bump a machine would keep the 6.50.0 config with ordinary baskets disabled.
+(function bumpFridgeConfigsOnce() {
+  try {
+    if (storage.getMeta('migration:soldByWeightConfigBump')) return;
+    let n = 0;
+    for (const m of Object.values(machines)) { if (fridgeSpec(m.model).isFridge) { touchConfig(m); n++; } }
+    storage.setMeta('migration:soldByWeightConfigBump', String(Date.now()));
+    console.log(`[MIGRATE] fridge configs re-served after soldByWeight fix: ${n}`);
+  } catch (e) { console.error('[MIGRATE] fridge config bump failed:', e.message); }
+})();
 
 module.exports = {
   operators, machines, alerts: alertsProxy, orders: ordersProxy,
