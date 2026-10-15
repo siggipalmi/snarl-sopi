@@ -135,6 +135,7 @@ class MainActivity : ComponentActivity() {
             realPayment,
             complaintClient = { backend.complaints.value },
             receiptClient = { backend.receipts.value },
+            stockClient = { backend.stock.value },
         )
     }
 

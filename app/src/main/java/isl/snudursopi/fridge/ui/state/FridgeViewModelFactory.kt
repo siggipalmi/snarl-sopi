@@ -13,9 +13,10 @@ class FridgeViewModelFactory(
     /** Resolved lazily: the backend is not provisioned when this is built. */
     private val complaintClient: () -> ComplaintClient? = { null },
     private val receiptClient: () -> ReceiptClient? = { null },
+    private val stockClient: () -> isl.snudursopi.fridge.data.backend.StockClient? = { null },
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return FridgeViewModel(hardware, payment, complaintClient = complaintClient, receiptClient = receiptClient) as T
+        return FridgeViewModel(hardware, payment, complaintClient = complaintClient, receiptClient = receiptClient, stockClient = stockClient) as T
     }
 }

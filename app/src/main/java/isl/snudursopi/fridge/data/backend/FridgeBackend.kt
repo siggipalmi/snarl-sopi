@@ -85,6 +85,9 @@ class FridgeBackend(
 
     private val _receipts = MutableStateFlow<ReceiptClient?>(null)
     val receipts: StateFlow<ReceiptClient?> = _receipts.asStateFlow()
+
+    private val _stock = MutableStateFlow<StockClient?>(null)
+    val stock: StateFlow<StockClient?> = _stock.asStateFlow()
     private var configClient: FridgeConfigClient? = null
     private var commandClient: CommandClient? = null
 
@@ -107,6 +110,7 @@ class FridgeBackend(
             runCatching { settlements?.flushQueue() }
             runCatching { _complaints.value?.flush() }
             runCatching { _receipts.value?.flush() }
+            runCatching { _stock.value?.flush() }
 
             while (isActive) {
                 pollOnce()
@@ -132,6 +136,8 @@ class FridgeBackend(
                 runCatching { settlements?.flushQueue() }
                 runCatching { _complaints.value?.flush() }
                 runCatching { _receipts.value?.flush() }
+                runCatching { _stock.value?.flush() }
+            runCatching { _stock.value?.flush() }
                 delay(FridgeBackendConfig.CONFIG_POLL_INTERVAL_MS)
             }
         }
@@ -265,6 +271,7 @@ class FridgeBackend(
         commandClient = CommandClient(http, deviceCode)
         _complaints.value = ComplaintClient(http, deviceCode, complaintQueue)
         _receipts.value = ReceiptClient(http, deviceCode)
+        _stock.value = StockClient(http, deviceCode)
         logRelay = LogRelay(http, deviceCode)
         telemetryClient = TelemetryClient(http, deviceCode)
         paymentReporter = PaymentStatusReporter(http, deviceCode)

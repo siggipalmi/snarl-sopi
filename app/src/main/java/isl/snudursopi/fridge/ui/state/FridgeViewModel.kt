@@ -55,6 +55,8 @@ class FridgeViewModel(
     private val complaintClient: () -> ComplaintClient? = { null },
     /** Same reasoning as [complaintClient]: read when sending, not at construction. */
     private val receiptClient: () -> isl.snudursopi.fridge.data.backend.ReceiptClient? = { null },
+    /** Same again: the stock reporter exists only once the machine is provisioned. */
+    private val stockClient: () -> isl.snudursopi.fridge.data.backend.StockClient? = { null },
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(FridgeUiState())
@@ -161,6 +163,30 @@ class FridgeViewModel(
         }
     }
 
+    private var bootStockReported = false
+
+    /**
+     * What is in each assigned basket, by the scales, for the operator dashboard.
+     * Units use the basket's own unit weight, the same arithmetic as charging;
+     * a per-kg basket reports grams only. Fire-and-forget on the VM scope.
+     */
+    private fun reportStock(reason: String, cabinet: Int?, weights: Map<Int, Int>) {
+        val client = stockClient() ?: return
+        val baskets = planogram.baskets
+            .filter { it.productId != null && (cabinet == null || it.cabinet.ordinal + 1 == cabinet) }
+            .mapNotNull { b ->
+                val grams = weights[b.trayIndex] ?: return@mapNotNull null
+                val units = when {
+                    b.soldByWeight -> null
+                    b.unitWeightG > 0 -> ((grams.coerceAtLeast(0).toDouble() / b.unitWeightG) + 0.5).toInt()
+                    else -> null
+                }
+                isl.snudursopi.fridge.data.backend.BasketStock(b.cabinet.name, b.basket, grams, units)
+            }
+        if (baskets.isEmpty()) return
+        viewModelScope.launch { runCatching { client.report(reason, cabinet, baskets) } }
+    }
+
     fun startIdleWatch() {
         viewModelScope.launch {
             while (true) {
@@ -169,6 +195,12 @@ class FridgeViewModel(
                     hardware.readWeightsFresh()?.let {
                         idleWeights = it
                         idleWeightsAtMs = System.currentTimeMillis()
+                        // Once per app start (and again if it couldn't be sent yet),
+                        // so the dashboard has stock before the first sale.
+                        if (!bootStockReported && stockClient() != null && planogram.baskets.isNotEmpty()) {
+                            bootStockReported = true
+                            reportStock("boot", null, it)
+                        }
                     }
                 }
                 delay(IDLE_POLL_MS)
@@ -460,6 +492,7 @@ class FridgeViewModel(
         if (fresh != null) {
             idleWeights = fresh
             idleWeightsAtMs = System.currentTimeMillis()
+            reportStock("restock", cabinet, fresh)
             android.util.Log.i(
                 "FridgeFlow",
                 "restock done on cabinet $cabinet — baseline re-read (${fresh.size} trays)",
@@ -800,6 +833,7 @@ class FridgeViewModel(
             lastSessionEndedAtMs = System.currentTimeMillis()
             idleWeights = HashMap(settleFirst).apply { putAll(finalWeights) }
             idleWeightsAtMs = lastSessionEndedAtMs
+            if (!result.nothingTaken) reportStock("sale", null, idleWeights)
 
             if (result.nothingTaken) {
                 android.util.Log.i(
