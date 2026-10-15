@@ -185,6 +185,8 @@ const routes = [
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/cohort',                     handler: handleSetAppCohort,   middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/latest-build',               handler: handleLatestBuild,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/basket-calibration', handler: handleBasketCalibration, middleware:[requireMachineKey] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/basket-calibration', handler: handleListCalibrations, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleFridgeStockReport, middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleGetFridgeStock, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
@@ -2020,6 +2022,50 @@ function handleFleetSyncPriceTags(req, res) {
   ok(res, { queued: queued.length, machines: queued });
 }
 
+// ── Count correction (set_basket_count result) ──
+// The machine weighed a basket after an operator's count and derived a new unit weight. Store it as
+// the basket's own unitWeightG (an override; the product's weight is untouched), log it, record the
+// count as current stock, and re-serve config. Re-checks the ±10% guard: this changes charging.
+const MAX_UNIT_CHANGE = 0.10;
+function handleBasketCalibration(req, res) {
+  const { deviceCode } = req.params;
+  const m = machines[deviceCode];
+  if (!m) return notFound(res, `Device ${deviceCode} not found`);
+  const b = req.body || {};
+  const cab = String(b.cabinet || '').toUpperCase();
+  const bn = Math.round(Number(b.basket));
+  const row = (storage.listFridgeBaskets(deviceCode) || []).find(x => x.cabinet === cab && Number(x.basket) === bn);
+  if (!row || !row.productId) return badRequest(res, 'no product in that basket');
+  const p = storage.getProduct(row.productId);
+  if (isSoldByWeight(p)) return badRequest(res, 'per-kg basket: no unit weight');
+  const oldW = row.unitWeightG != null ? Number(row.unitWeightG) : (p && p.weightGrams != null ? Number(p.weightGrams) : null);
+  const newW = Math.round(Number(b.newUnitWeightG));
+  const count = Math.round(Number(b.count)), grams = Math.round(Number(b.grams));
+  if (!(newW > 0) || !(count >= 1) || !(grams > 0)) return badRequest(res, 'count, grams and newUnitWeightG must be positive');
+  if (Math.abs(grams / count - newW) > 1) return badRequest(res, 'newUnitWeightG does not match grams ÷ count');
+  if (oldW > 0 && Math.abs(newW - oldW) > oldW * MAX_UNIT_CHANGE) {
+    return badRequest(res, `unit weight ${oldW} g → ${newW} g is more than ${MAX_UNIT_CHANGE * 100}% — refused`);
+  }
+  const cmd = b.commandId ? storage.getCommand(String(b.commandId)) : null;
+  try {
+    storage.upsertFridgeBasket({ ...row, deviceCode, unitWeightG: newW, enabled: row.enabled !== 0 });
+    storage.recordCalibration({
+      deviceCode, cabinet: cab, basket: bn, productId: row.productId, count,
+      machineCount: b.machineCount != null ? Math.round(Number(b.machineCount)) : null,
+      grams, oldUnitWeightG: oldW, newUnitWeightG: newW,
+      commandId: b.commandId ? String(b.commandId) : null, issuedBy: (cmd && cmd.issuedBy) || null,
+    });
+    storage.setBasketStockCount(deviceCode, cab, bn, grams, count);
+    touchConfig(m);
+  } catch (e) { return serverError(res, e); }
+  console.log(`[FRIDGE] ${deviceCode} ${cab}${bn}: unit weight ${oldW} g → ${newW} g from a count of ${count} (${grams} g)`);
+  ok(res, { cabinet: cab, basket: bn, oldUnitWeightG: oldW, newUnitWeightG: newW, count });
+}
+function handleListCalibrations(req, res) {
+  if (!machines[req.params.deviceCode]) return notFound(res, 'not found');
+  ok(res, { calibrations: storage.listCalibrations(req.params.deviceCode, 50) });
+}
+
 // ── Fridge basket stock (reported by the machine) ──
 // POST { reason: boot|sale|restock, cabinet?: A|B, baskets: [{ cabinet, basket, grams, units|null }] }
 // Latest state per basket; a restock report also dates the restock (for "since last restock").
@@ -2761,7 +2807,7 @@ function validateLedPolicy(raw) {
   return { value: out };
 }
 
-const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update'];
+const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update', 'set_basket_count'];
 const CMD_TTL_MS = 5 * 60 * 1000;
 
 // ── Payment serial port ───────────────────────────────────────────────────────────────────────
@@ -2948,6 +2994,16 @@ function handleEnqueueCommand(req, res) {
     const lvl = ledLevel(params.brightness);
     if (lvl === null) return badRequest(res, 'set_led requires params.brightness (whole number 0-100, where 0 is off)');
     params.brightness = lvl;
+  } else if (type === 'set_basket_count') {
+    // The operator's real count for one basket; the machine re-measures that basket's unit weight
+    // from it (±10% guard on the machine and again when it reports back).
+    const cab = String(params.cabinet || '').toUpperCase();
+    const spec = machineFridgeSpec(machines[deviceCode]);
+    if (!spec.cabinets.includes(cab)) return badRequest(res, `set_basket_count: this machine has no cabinet ${cab || '?'}`);
+    const bn = Math.round(Number(params.basket)), cnt = Math.round(Number(params.count));
+    if (!(bn >= 1 && bn <= spec.basketsPerCabinet)) return badRequest(res, `set_basket_count: basket must be 1-${spec.basketsPerCabinet}`);
+    if (!(cnt >= 1 && cnt <= 500)) return badRequest(res, 'set_basket_count: count must be 1-500');
+    params.cabinet = cab; params.basket = bn; params.count = cnt;
   } else if (type === 'scale_read' || type === 'scale_calibrate' || type === 'scale_tare') {
     const cab = String(params.cabinet || '').toUpperCase();
     if (cab !== 'A' && cab !== 'B') return badRequest(res, `${type} requires params.cabinet ("A" or "B")`);
