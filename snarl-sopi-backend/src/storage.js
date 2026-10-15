@@ -582,6 +582,22 @@ ensureColumn('products', 'imageHasBackground', 'INTEGER');  // 1 = baked-in bg (
 ensureColumn('products', 'weimiImgUrl',        'TEXT');     // original Weimi url, kept as transition fallback
 ensureColumn('products', 'imageNormalizedAt',  'INTEGER');  // set once we host it; also guards against sync clobber
 ensureColumn('products', 'imageClearedPct',    'REAL');     // % removed by knockout — high values may mean a white product got eaten
+// Sold per kg on a fridge. Its OWN column: 6.50.0 read `measurement`, which Weimi sets on many
+// ordinary products, so everyday items turned "per kg" — served disabled to older apps (free goods)
+// and blank on the price tags (Nordic Hostel, 2026-10-15). Only our dashboard and import set this.
+ensureColumn('products', 'soldByWeight', 'INTEGER NOT NULL DEFAULT 0');
+(function migrateSoldByWeight() {
+  try {
+    const done = db.prepare("SELECT value FROM schema_meta WHERE key = 'migration:soldByWeight'").get();
+    if (done) return;
+    // Hreppa's per-kg list (imported 2026-10-14 with useRowValues): the only products sold by weight.
+    const codes = ["a6245ad910634f54900d05e439947bc6", "4c358ff6bbeb456393fb21df7d0bc525", "4b690ddc885a43d5a9ba60dfaec0d97a", "d92a6f6cba29493b9619e864946f21b0", "fb289c448d594d3e9f4285ae84aa32ff", "cb75f2ef140d4ebdbf5d9f3acc8d3da2", "99514be9fe8f4840958f65ce522289c5", "8e62725971aa4d58aca0e5432bc9368e", "c4d446ac26fb409999b2e480e005c396", "0f2603f71bd54959b0442a33f7e64834", "9322d309b25041ff872ab397d2dbce32", "61f11b23afce4405b1c9d7940ff05bec", "a48f19cd984248f88c7feea567328020", "aa5c15f0496c484789a538fcb3f01225", "1a064d5d4ce7470d952d0455af741fb3", "3d156df7a5bf4c279148a3be63b82094", "6b1d9d477cf3481c9d543bf0defc18e3", "05b953d25fb747fc837b77fe5e516e7e", "6f72e2331def41379d9388611f0fdbe5"];
+    const upd = db.prepare('UPDATE products SET soldByWeight = 1 WHERE goodsId = ?');
+    let n = 0; for (const c of codes) n += upd.run(c).changes;
+    db.prepare("INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('migration:soldByWeight', ?)").run(String(Date.now()));
+    console.log(`[MIGRATE] products.soldByWeight set on ${n} Hreppa per-kg product(s)`);
+  } catch (e) { console.error('[MIGRATE] soldByWeight failed:', e.message); }
+})();
 ensureColumn('products', 'imageSrcW',          'INTEGER');  // source width before we padded to 800 — small = grainy on the machine
 ensureColumn('products', 'imageSrcH',          'INTEGER');  // source height
 // Consumer-facing product detail (shown on the kiosk product screen). Filled via
@@ -2973,6 +2989,7 @@ const storage = {
     tx(batches);
     return stmts.listBatchesForSlot.all(deviceCode, goodsId);
   },
+  setProductSoldByWeight(goodsId, on) { db.prepare('UPDATE products SET soldByWeight = ?, updatedAt = ? WHERE goodsId = ?').run(on ? 1 : 0, Date.now(), goodsId); },
   setProductPerishable(goodsId, val) { stmts.setPerishable.run(val ? 1 : 0, Date.now(), goodsId); },
 
   // ─── Remote command queue (contract v0.5) ─────────────────────────────────
