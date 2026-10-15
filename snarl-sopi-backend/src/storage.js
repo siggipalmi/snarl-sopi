@@ -2454,6 +2454,17 @@ const storage = {
     const a = stmts.openFridgeComplaints.get(deviceCode) || {}, b = stmts.openCoilComplaints.get(deviceCode) || {};
     return { n: (a.n || 0) + (b.n || 0), latest: [a.latest, b.latest].filter(Boolean).sort().pop() || null };
   },
+  // Close open complaints created before an ISO time (both tables). Counts only when dryRun.
+  closeOldComplaints(beforeIso, dryRun) {
+    const tables = ['complaints', 'fridge_complaints'];
+    const out = {};
+    for (const t of tables) {
+      out[t] = dryRun
+        ? db.prepare(`SELECT COUNT(*) AS n FROM ${t} WHERE status = 'open' AND createdAt < ?`).get(beforeIso).n
+        : db.prepare(`UPDATE ${t} SET status = 'resolved' WHERE status = 'open' AND createdAt < ?`).run(beforeIso).changes;
+    }
+    return out;
+  },
   revenueBetween(deviceCode, fromMs, toMs) { return stmts.revenueBetween.get(deviceCode, fromMs, toMs); },
   recordCalibration(c) { stmts.insertCalibration.run({ ...c, at: Date.now() }); },
   listCalibrations(deviceCode, limit = 50) { return stmts.listCalibrations.all(deviceCode, limit); },

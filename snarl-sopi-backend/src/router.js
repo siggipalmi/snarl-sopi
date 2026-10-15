@@ -192,6 +192,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/operator/home',                         handler: handleOperatorHome,   middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/admin/ui-usage',                         handler: handleUiUsageReport,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/admin/complaints/close-old',            handler: handleCloseOldComplaints, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/fridges/fix-weights',              handler: handleFixWeights,     middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/fridges/suspect-weights',          handler: handleSuspectWeights, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/fridges/sync-price-tags',         handler: handleFleetSyncPriceTags, middleware:[requireAuth, requireAgAdmin] },
@@ -2144,6 +2145,21 @@ function handleFixWeights(req, res) {
   console.log(`[WEIGHTS] ${(req.user && req.user.email) || '?'} fixed ${results.filter(x => x.status === 'ok').length}/${fixes.length}: ` +
     results.map(x => `${x.deviceCode}/${x.basket} ${x.fromG}→${x.toG} ${x.status}`).join('; '));
   ok(res, { results, machinesUpdated: [...touchedMachines] });
+}
+
+// POST /api/v1/admin/complaints/close-old { olderThanDays = 30, dryRun = true } — mark open
+// complaints older than N days 'resolved'. Siggi, 2026-10-15: the 11 open since August were handled
+// outside the system; they would otherwise head every operator's to-do list.
+function handleCloseOldComplaints(req, res) {
+  const days = Math.max(1, Math.min(365, parseInt(req.body && req.body.olderThanDays, 10) || 30));
+  const dryRun = !(req.body && req.body.dryRun === false);
+  const before = new Date(Date.now() - days * 86400000).toISOString();
+  try {
+    const r = storage.closeOldComplaints(before, dryRun);
+    const n = (r.complaints || 0) + (r.fridge_complaints || 0);
+    if (!dryRun) console.log(`[COMPLAINTS] ${(req.user && req.user.email) || '?'} closed ${n} open complaint(s) older than ${days} days`);
+    ok(res, { dryRun, olderThanDays: days, before, count: n, byTable: r });
+  } catch (e) { serverError(res, e); }
 }
 
 // ── Fridge basket stock (reported by the machine) ──
