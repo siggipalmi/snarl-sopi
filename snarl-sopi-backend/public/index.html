@@ -1561,6 +1561,11 @@ select.fi{cursor:pointer;}
               <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">Rewrites every shelf tag with the price each fridge already has. No price or charging change; waits if a customer is mid-purchase. Offline fridges do it when they come back.</span>
             </div>
             <div id="fleet-tags-msg" style="font-size:12px;margin-top:10px"></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+              <button class="btn btn-sm" onclick="fleetSuspectWeights()">check unit weights</button>
+              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">Lists fridge baskets whose unit weight looks like a label volume (500 g for a 500 ml bottle) instead of a weighed item. Fix with a count on site (set_basket_count) or by weighing one item.</span>
+            </div>
+            <div id="fleet-weights-msg" style="font-size:12px;margin-top:10px;overflow-x:auto"></div>
           </div>
         </div>
       </div>
@@ -9867,6 +9872,25 @@ async function compactStorage() {
     alert('Compact failed: ' + e.message);
     if (btn) { btn.disabled = false; btn.textContent = 'compact database'; }
   }
+}
+
+async function fleetSuspectWeights() {
+  const el = document.getElementById('fleet-weights-msg');
+  el.style.color = 'var(--muted)'; el.textContent = 'Checking…';
+  try {
+    const r = await API.get('/api/v1/admin/fridges/suspect-weights');
+    if (!r || !r.ok) throw new Error((r && r.error && (r.error.messageEn || r.error.message || r.error)) || 'failed');
+    const rows = r.data.rows || [];
+    if (!rows.length) { el.style.color = 'var(--success)'; el.textContent = 'No basket has a volume-like unit weight.'; return; }
+    el.style.color = 'var(--ink)';
+    el.innerHTML = '<b>' + rows.length + ' basket(s) to check</b><table style="margin-top:6px;border-collapse:collapse;font-size:12px">' +
+      '<tr style="color:var(--muted)"><td style="padding:3px 10px 3px 0">machine</td><td style="padding:3px 10px 3px 0">basket</td><td style="padding:3px 10px 3px 0">product</td><td style="padding:3px 10px 3px 0;text-align:right">unit</td><td style="padding:3px 10px 3px 0;text-align:right">in basket</td><td style="padding:3px 0;text-align:right">counts as</td></tr>' +
+      rows.map(x => '<tr><td style="padding:3px 10px 3px 0">' + rsEsc(x.machine) + '</td><td style="padding:3px 10px 3px 0;font-family:var(--mono)">' + rsEsc(x.basket) +
+        '</td><td style="padding:3px 10px 3px 0">' + rsEsc(x.product) + '</td><td style="padding:3px 10px 3px 0;text-align:right;font-family:var(--mono)">' + x.unitWeightG + ' g' + (x.source === 'basket' ? '' : '*') +
+        '</td><td style="padding:3px 10px 3px 0;text-align:right;font-family:var(--mono)">' + (x.basketGrams != null ? x.basketGrams + ' g' : '—') +
+        '</td><td style="padding:3px 0;text-align:right;font-family:var(--mono)">' + (x.machineCount != null ? x.machineCount : '—') + '</td></tr>').join('') +
+      '</table><div style="color:var(--muted);margin-top:6px">* from the product\u2019s catalog weight (fixing it there fixes every machine). "in basket" and "counts as" come from fridges on app 0.64.0+.</div>';
+  } catch (e) { el.style.color = 'var(--alert)'; el.textContent = 'Failed: ' + e.message; }
 }
 
 async function fleetSyncPriceTags() {
