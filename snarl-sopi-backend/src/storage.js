@@ -2021,10 +2021,18 @@ const storage = {
   // Stock & sold-out tracking
   recordStockSnapshot({ deviceCode, goodsId, productName, stock, source = 'unknown' }) {
     const now = Date.now();
-    stmts.insertStockHistory.run({
-      deviceCode, goodsId, productName: productName || null,
-      stock, recordedAt: now, source,
-    });
+    // *** HISTORY ONLY ON CHANGE. Every 30-min Weimi sync used to append a row per product per
+    // machine whether or not anything moved: ~49k rows a day, 2.17M rows / 351 MB of a 381 MB
+    // database by 2026-10-15 (it is what filled the volume on 10-13). A repeat of the current
+    // value says nothing — sold-out detection reads slot_stock and lastRestockAt only looks at
+    // increases — so it is not written. slot_stock still records when we last saw it.
+    const current = stmts.getSlotStock.get(deviceCode, goodsId);
+    if (!current || Number(current.stock) !== Number(stock)) {
+      stmts.insertStockHistory.run({
+        deviceCode, goodsId, productName: productName || null,
+        stock, recordedAt: now, source,
+      });
+    }
     stmts.upsertSlotStock.run({
       deviceCode, goodsId, productName: productName || null,
       stock, updatedAt: now,
@@ -2219,6 +2227,28 @@ const storage = {
       pageSize, pageCount, freeBytes: freePages * pageSize,
       tables, metaPrefixes, otherFiles,
     };
+  },
+  // Remove stock_history rows that repeat the previous row's stock for the same device+product
+  // (written by the old sync before 6.52.0). Keeps every change, so restock detection and the
+  // audit trail lose nothing. Done one device+product at a time, folding the WAL back every few
+  // hundred, so the write log never needs the free space of the whole table at once.
+  dedupeStockHistory({ dryRun = true } = {}) {
+    const before = db.prepare('SELECT COUNT(*) AS n FROM stock_history').get().n;
+    const pairs = db.prepare('SELECT DISTINCT deviceCode, goodsId FROM stock_history').all();
+    const repeatsSql = `SELECT id FROM (
+        SELECT id, stock, LAG(stock) OVER (ORDER BY recordedAt, id) AS prev
+          FROM stock_history WHERE deviceCode = ? AND goodsId = ?) WHERE prev = stock`;
+    const countRepeats = db.prepare(`SELECT COUNT(*) AS n FROM (${repeatsSql})`);
+    const delRepeats = db.prepare(`DELETE FROM stock_history WHERE id IN (${repeatsSql})`);
+    let removable = 0, removed = 0, i = 0;
+    for (const p of pairs) {
+      if (dryRun) { removable += countRepeats.get(p.deviceCode, p.goodsId).n; continue; }
+      removed += delRepeats.run(p.deviceCode, p.goodsId).changes;
+      if (++i % 200 === 0) { try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch (e) {} }
+    }
+    if (!dryRun) { try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch (e) {} }
+    return { dryRun, rowsBefore: before, pairs: pairs.length,
+             ...(dryRun ? { removable, rowsAfter: before - removable } : { removed, rowsAfter: before - removed }) };
   },
   // Fold the WAL back into the database and truncate it. Cheap; safe while serving.
   checkpointWal() { return db.pragma('wal_checkpoint(TRUNCATE)'); },

@@ -187,6 +187,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/app-release/latest-build',               handler: handleLatestBuild,    middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/storage',                          handler: handleStorageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/storage/compact',                  handler: handleStorageCompact, middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/admin/storage/dedupe-stock-history',     handler: handleDedupeStockHistory, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/:app/apk',                   handler: handleServeApk },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/complaints',        handler: handleComplaintIngest, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/complaints', handler: handleFridgeComplaint, middleware:[requireMachineKey] },
@@ -2000,13 +2001,28 @@ function handleStorageCompact(req, res) {
   try {
     const before = storage.storageReport();
     storage.checkpointWal();
-    // VACUUM writes a full copy of the database before dropping the old one: only when it fits.
+    // VACUUM writes a copy of the LIVE data (the file minus its free pages) before dropping the
+    // old file: only when that fits. Measuring against the whole file refused exactly the case
+    // compacting is for — a file that is mostly free pages after a clean-up.
     const free = before.volume && before.volume.freeBytes;
-    const vacuumed = Number.isFinite(free) && free > before.dbBytes * 1.2 + 20 * 1024 * 1024;
+    const liveBytes = Math.max(0, before.dbBytes - (before.freeBytes || 0));
+    const vacuumed = Number.isFinite(free) && free > liveBytes * 1.2 + 20 * 1024 * 1024;
     if (vacuumed) storage.vacuum();
     const after = storage.storageReport();
     console.log(`[STORAGE] compact: db ${before.dbBytes} → ${after.dbBytes}, wal ${before.walBytes} → ${after.walBytes}${vacuumed ? '' : ' (no VACUUM: not enough free space)'}`);
     ok(res, { vacuumed, before, after, warnPct: STORAGE_WARN_PCT });
+  } catch (e) { serverError(res, e); }
+}
+
+// POST /api/v1/admin/storage/dedupe-stock-history { dryRun: true|false } — dryRun (the default)
+// only counts. A real run deletes repeated rows; follow it with compact to give the space back.
+function handleDedupeStockHistory(req, res) {
+  try {
+    const dryRun = !(req.body && req.body.dryRun === false);
+    const t0 = Date.now();
+    const r = storage.dedupeStockHistory({ dryRun });
+    console.log(`[STORAGE] stock_history dedupe${dryRun ? ' (dry run)' : ''}: ${JSON.stringify(r)} in ${Date.now() - t0} ms`);
+    ok(res, { ...r, ms: Date.now() - t0 });
   } catch (e) { serverError(res, e); }
 }
 
