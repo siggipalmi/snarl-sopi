@@ -188,6 +188,8 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/admin/storage',                          handler: handleStorageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/storage/compact',                  handler: handleStorageCompact, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/storage/dedupe-stock-history',     handler: handleDedupeStockHistory, middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/admin/storage/schedule-cleanup',         handler: handleScheduleCleanup, middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/admin/storage/schedule-cleanup',         handler: handleGetScheduledCleanup, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/:app/apk',                   handler: handleServeApk },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/complaints',        handler: handleComplaintIngest, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/complaints', handler: handleFridgeComplaint, middleware:[requireMachineKey] },
@@ -2025,6 +2027,64 @@ function handleDedupeStockHistory(req, res) {
     ok(res, { ...r, ms: Date.now() - t0 });
   } catch (e) { serverError(res, e); }
 }
+
+// ── Scheduled clean-up ──
+// The stock_history clean-up pauses requests while it runs, so it is better done at a quiet hour
+// than from a console in the day. POST { at: ISO time } stores the run in schema_meta (it survives a
+// restart or a deploy); a minute tick runs it once when due — dedupe, then compact — logs it and
+// emails the AG admins the before/after. POST { at: null } cancels; GET shows what is scheduled.
+const CLEANUP_KEY = 'storage:scheduledCleanup';
+function getScheduledCleanup() {
+  try { return JSON.parse(storage.getMeta(CLEANUP_KEY) || 'null'); } catch (e) { return null; }
+}
+function handleGetScheduledCleanup(req, res) { ok(res, { scheduled: getScheduledCleanup() }); }
+function handleScheduleCleanup(req, res) {
+  const at = req.body && req.body.at;
+  if (at === null) { storage.setMeta(CLEANUP_KEY, 'null'); return ok(res, { scheduled: null }); }
+  const ms = Date.parse(String(at || ''));
+  if (!Number.isFinite(ms)) return badRequest(res, 'at must be an ISO time, e.g. "2026-10-16T03:00:00Z" (Iceland is UTC)');
+  if (ms < Date.now() - 60000) return badRequest(res, 'at is in the past');
+  const rec = { at: new Date(ms).toISOString(), by: (req.user && req.user.email) || null, createdAt: new Date().toISOString() };
+  storage.setMeta(CLEANUP_KEY, JSON.stringify(rec));
+  console.log(`[STORAGE] clean-up scheduled for ${rec.at} by ${rec.by || '?'}`);
+  ok(res, { scheduled: rec });
+}
+let cleanupRunning = false;
+function scheduledCleanupTick() {
+  const rec = getScheduledCleanup();
+  if (!rec || cleanupRunning || Date.parse(rec.at) > Date.now()) return;
+  cleanupRunning = true;
+  storage.setMeta(CLEANUP_KEY, 'null');                 // once only, even if the run throws
+  const mb = b => (b / 1048576).toFixed(1) + ' MB';
+  let detail;
+  try {
+    const before = storage.storageReport();
+    const t0 = Date.now();
+    const d = storage.dedupeStockHistory({ dryRun: false });
+    storage.checkpointWal();
+    const mid = storage.storageReport();
+    const liveBytes = Math.max(0, mid.dbBytes - (mid.freeBytes || 0));
+    const free = mid.volume && mid.volume.freeBytes;
+    const vacuumed = Number.isFinite(free) && free > liveBytes * 1.2 + 20 * 1024 * 1024;
+    if (vacuumed) storage.vacuum();
+    const after = storage.storageReport();
+    detail = `Scheduled clean-up done in ${Math.round((Date.now() - t0) / 1000)} s. ` +
+      `stock_history: removed ${d.removed.toLocaleString('en')} repeated rows, ${d.rowsAfter.toLocaleString('en')} kept. ` +
+      `Database ${mb(before.dbBytes)} → ${mb(after.dbBytes)}` + (vacuumed ? '' : ' (not rebuilt: not enough free space — press compact later)') +
+      `. Volume ${before.volume && before.volume.usedPct}% → ${after.volume && after.volume.usedPct}% full.`;
+    console.log('[STORAGE] ' + detail);
+  } catch (e) {
+    detail = 'Scheduled clean-up FAILED: ' + e.message;
+    console.error('[STORAGE] ' + detail);
+  } finally { cleanupRunning = false; }
+  const fromEnv = String(process.env.OPS_ALERT_EMAIL || '').split(',').map(s => s.trim()).filter(Boolean);
+  const to = fromEnv.length ? fromEnv : storage.listUsers().filter(u => u.role === 'ag_admin' && u.email).map(u => u.email);
+  for (const addr of to) {
+    email.sendOperatorAlert({ to: addr, operatorName: 'AG Vending', title: 'Gagnageymsla hreinsuð', detail, dashboardUrl: process.env.APP_URL || 'https://admin.agvending.is' })
+      .catch(err => console.error('[STORAGE] email failed:', err && err.message));
+  }
+}
+setInterval(scheduledCleanupTick, 60 * 1000).unref();
 
 function storageGuardTick() {
   try { storage.checkpointWal(); } catch (e) { console.error('[STORAGE] checkpoint failed:', e.message); }
