@@ -575,6 +575,24 @@ select.fi{cursor:pointer;}
 .ui-sheet.in{transform:none}.ui-sheet-bg.in{opacity:1}
 .ui-sheet-grab{width:40px;height:5px;border-radius:3px;background:var(--clay);margin:0 auto 12px}
 @media(min-width:700px){.ui-sheet{left:50%;right:auto;width:440px;margin-left:-220px}}
+/* New operator home (Yfirlit v3) */
+#page-dashboard.v3 > :not(#home-v3){display:none !important}
+#page-dashboard:not(.v3) > #home-v3{display:none}
+#home-v3{max-width:560px;margin:0 auto}
+.home-hello{font-family:var(--serif);font-style:italic;font-size:30px;line-height:1.1;margin:0}
+.home-date{color:var(--muted);font-size:13px;margin:3px 0 14px}
+.home-swipe{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px 0;padding:0 16px;scrollbar-width:none}
+.home-swipe::-webkit-scrollbar{display:none}
+.home-swipe-i{flex:0 0 88%;scroll-snap-align:center}
+.home-kpis{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.home-kpis>div{padding:10px 14px 12px}.home-kpis>div+div{border-left:1px solid var(--line)}
+.home-kpis small{display:block;color:var(--muted);font-size:11px}
+.home-kpis b{font-family:var(--serif);font-style:italic;font-size:26px;font-weight:600}
+.rl-box{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--clay);flex:none;display:flex;align-items:center;justify-content:center;font-size:12px}
+.rl-box.on{background:var(--ink);border-color:var(--ink);color:var(--cream)}
+.rl-qty{font-family:var(--serif);font-style:italic;font-size:24px;font-weight:600;min-width:36px;text-align:right}
+.rl-done .ui-row-t b,.rl-done .rl-qty{color:var(--muted);text-decoration:line-through}
+
 </style>
 
 </head>
@@ -757,6 +775,8 @@ select.fi{cursor:pointer;}
 
     <!-- ═══ DASHBOARD ═══ -->
     <div class="page active" id="page-dashboard">
+      <div id="home-v3"></div>
+      <div id="home-try-new" style="display:none;text-align:right;margin-bottom:8px"><a onclick="setHomeLayout(false)" style="font-size:12.5px;color:var(--bronze);cursor:pointer">Prófa nýja útlitið →</a></div>
       <div id="dash-opfilter" style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px"></div>
 
       <!-- 1 ── today: the number checked many times a day -->
@@ -1645,7 +1665,9 @@ select.fi{cursor:pointer;}
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                 <select class="fi" id="viewas-op" style="max-width:280px;font-size:13px"><option value="">Loading…</option></select>
                 <button class="btn btn-sm" onclick="startViewAs()">view as</button>
+                <button class="btn btn-sm btn-ghost" id="newui-btn" onclick="toggleNewUi()">new layout: …</button>
               </div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:6px">New layout = the mobile-first home (Yfirlit). Switch it on per operator; each of their users can still go back with "Gamla útlitið".</div>
             </div>
           </div>
         </div>
@@ -3252,7 +3274,7 @@ function renderDashRestock(ms) {
   }).join('');
 }
 
-async function renderDashboard() {
+async function renderDashboardClassic() {
   await hydrateMachinesFromBackend();
   await hydrateAlertsFromBackend();
   await refreshTodaySales();
@@ -3663,6 +3685,233 @@ let _mdDays = 30;
 // ═══════════════════════════════════════════════════════════════
 // RESTOCK (mobile-first slot stock editor → writes to Weimi)
 // ═══════════════════════════════════════════════════════════════
+
+// ── New operator home (Yfirlit, mockup v3) ────────────────────────────────────────────────────
+// Shown to operators whose new layout AG has switched on (Fleet → System), unless this browser chose
+// the old one ("Gamla útlitið"). Built from the shared ui.* blocks. Operator-facing text: Icelandic.
+function homeLayoutOld() { try { return localStorage.getItem('homeLayout') === 'old'; } catch (e) { return false; } }
+function setHomeLayout(old) {
+  try { old ? localStorage.setItem('homeLayout', 'old') : localStorage.removeItem('homeLayout'); } catch (e) {}
+  renderDashboard();
+}
+
+async function renderDashboard() {
+  const page = document.getElementById('page-dashboard');
+  if (currentUser && currentUser.role !== 'ag_admin' && backendOnline && API_TOKEN) {
+    let home = null;
+    try { const r = await API.get('/api/v1/operator/home'); if (r && r.ok) home = r.data; } catch (e) {}
+    window._homeNewUi = !!(home && home.newUi);
+    if (home && home.newUi && !homeLayoutOld()) {
+      page.classList.add('v3');
+      renderHomeV3(home);
+      return;
+    }
+  }
+  page.classList.remove('v3');
+  const tryNew = document.getElementById('home-try-new');
+  if (tryNew) tryNew.style.display = window._homeNewUi ? '' : 'none';
+  return renderDashboardClassic();
+}
+
+const IS_DAYS = ['sunnudagur', 'mánudagur', 'þriðjudagur', 'miðvikudagur', 'fimmtudagur', 'föstudagur', 'laugardagur'];
+const IS_MONTHS = ['janúar', 'febrúar', 'mars', 'apríl', 'maí', 'júní', 'júlí', 'ágúst', 'september', 'október', 'nóvember', 'desember'];
+function isDate(d) { return IS_DAYS[d.getDay()] + ' ' + d.getDate() + '. ' + IS_MONTHS[d.getMonth()]; }
+function isShortDate(ms) {
+  const d = new Date(ms), days = Math.floor((Date.now() - ms) / 86400000);
+  if (days < 1 && d.getDate() === new Date().getDate()) return 'í dag kl. ' + d.toTimeString().slice(0, 5);
+  return IS_DAYS[d.getDay()].slice(0, 3) + '. ' + d.getDate() + '. ' + IS_MONTHS[d.getMonth()].slice(0, 3);
+}
+function kr(n) { return Math.round(n || 0).toLocaleString('is-IS').replace(/,/g, '.') + ' kr'; }
+
+let _homeV3 = null;
+function renderHomeV3(home) {
+  _homeV3 = home;
+  const el = document.getElementById('home-v3');
+  const first = String((currentUser && currentUser.name) || '').split(' ')[0];
+  const h = new Date().getHours();
+  const hello = h < 5 ? 'Góða nótt' : h < 12 ? 'Góðan daginn' : h < 18 ? 'Góðan dag' : 'Gott kvöld';
+  const cards = (home.machines || []).map(m => {
+    const ok = m.online ? '● í lagi' : '● ekki í sambandi';
+    const meta = [m.isFridge && m.stockKnown ? (m.emptyCount ? m.emptyCount + (m.emptyCount === 1 ? ' hilla tóm' : ' hillur tómar') : 'engin hilla tóm') : '',
+                  m.lastRestockAt ? 'síðast fyllt ' + isShortDate(m.lastRestockAt) : ''].filter(Boolean).join(' · ');
+    const door = m.isFridge ? `<button class="ui-door" id="door-${rsEsc(m.deviceCode)}" onclick="homeDoor('${rsEsc(m.deviceCode)}')">🔓 Opna hurð</button>
+        <div class="ui-mcard-link" onclick="openRestockList('${rsEsc(m.deviceCode)}')"><b style="font-weight:500">📋 Áfyllingarlisti</b><span id="rl-count-${rsEsc(m.deviceCode)}">›</span></div>` : '';
+    return `<div class="ui-mcard"><div class="ui-mcard-top"><span class="ui-mcard-name" onclick="openMachineDetail('${rsEsc(m.deviceCode)}')" style="cursor:pointer">${rsEsc(m.name)}</span>
+      <span class="ui-mcard-ok${m.online ? '' : ' act'}">${ok}</span></div><div class="ui-mcard-meta">${rsEsc(meta) || '&nbsp;'}</div>${door}</div>`;
+  });
+  // Several machines: a swipeable row of cards.
+  const cardsHtml = cards.length > 1
+    ? `<div class="home-swipe">${cards.map(c => `<div class="home-swipe-i">${c}</div>`).join('')}</div>`
+    : cards.join('');
+
+  // Red = act now (offline, empty baskets, a complaint); low stock and missing photos are neutral.
+  const act = { offline: 1, empty: 1, complaint: 1 };
+  const go1 = { empty: m => ui.btn('Fylla á', `openRestockList('${m}')`), complaint: () => ui.btn('Svara', "go('complaints')"),
+                photo: () => ui.btn('Bæta við', "go('catalog')"), low: m => ui.btn('Skoða', `openRestockList('${m}')`), offline: m => ui.btn('Skoða', `openMachineDetail('${m}')`) };
+  const multi = (home.machines || []).length > 1;
+  const att = (home.attention || []).map(a => ui.row({
+    dot: act[a.kind] ? 'act' : '',
+    title: a.title + (multi ? ' · ' + a.machine : ''),
+    sub: a.kind === 'complaint' && a.detail ? 'fyrir ' + homeAgo(a.detail) : a.detail,
+    action: go1[a.kind] ? go1[a.kind](rsEsc(a.deviceCode)) : '',
+  })).join('');
+  const attCard = att ? ui.card('þarf athygli', `<span>${(home.attention || []).length}</span>`, att)
+                      : ui.card('þarf athygli', '', '<div class="ui-row"><div class="ui-row-t"><b>Ekkert í bili</b><small>Allt í lagi.</small></div></div>');
+
+  const t = home.today || {};
+  const chg = t.changePct == null ? '' : `<em style="font-style:normal;font-family:var(--mono);font-size:10px;color:${t.changePct >= 0 ? 'var(--success)' : 'var(--muted)'};display:block">${t.changePct >= 0 ? '+' : ''}${t.changePct}% vs. síðasta ${IS_DAYS[new Date().getDay()].slice(0, 3)}.</em>`;
+  const today = ui.card('í dag', `<span>kl. ${new Date().toTimeString().slice(0, 5)}</span>`,
+    `<div class="home-kpis"><div><small>sala</small><b>${kr(t.revenueKr)}</b>${chg}</div><div><small>kaup</small><b>${t.orders || 0}</b></div></div>`);
+
+  const ts = home.topSellers || [];
+  const maxU = Math.max(1, ...ts.map(x => x.units));
+  const top = ts.length ? ui.card('mest selt', `<span>${home.topSellersSince === 'restock' ? 'síðan fyllt var á' : 'síðustu 7 daga'}</span>`,
+    ts.map((x, i) => `<div class="ui-row" style="min-height:44px"><span style="font-family:var(--mono);font-size:11px;color:var(--muted);width:14px">${i + 1}</span>
+      <div class="ui-row-t"><b>${rsEsc(x.name)}</b><div style="height:5px;border-radius:3px;background:var(--bronze);opacity:.7;margin-top:4px;width:${Math.round(x.units / maxU * 100)}%"></div></div>
+      <div style="font-family:var(--mono);font-size:12px;text-align:right">${x.units}<small style="display:block;color:var(--muted);font-size:10px">${kr(x.revenueIsk)}</small></div></div>`).join('')) : '';
+
+  el.innerHTML = `<p class="home-hello">${hello}${first ? ', ' + rsEsc(first) : ''}</p><p class="home-date">${isDate(new Date())}</p>`
+    + cardsHtml + attCard + today + top
+    + `<div style="text-align:center;margin:18px 0 6px"><a onclick="setHomeLayout(true)" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Gamla útlitið</a></div>`;
+  // Fill each fridge's restock-list count without holding up the page; keep a door that is opening.
+  for (const m of (home.machines || [])) if (m.isFridge) {
+    loadRestockCount(m.deviceCode);
+    const d = _door[m.deviceCode];
+    if (d && (d.state === 'sending' || d.state === 'open')) setDoorButtons(m.deviceCode, d.state, d.label);
+  }
+}
+function homeAgo(iso) {
+  const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (!Number.isFinite(min)) return '';
+  return min < 60 ? min + ' mín' : min < 2880 ? Math.round(min / 60) + ' klst' : Math.round(min / 1440) + ' dögum';
+}
+
+const _restockLists = {};
+async function fetchRestockList(code) {
+  const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/restock-list');
+  if (!r || !r.ok) throw new Error((r && r.error && (r.error.message || r.error)) || 'villa');
+  _restockLists[code] = r.data;
+  return r.data;
+}
+async function loadRestockCount(code) {
+  try {
+    const d = await fetchRestockList(code);
+    const el = document.getElementById('rl-count-' + code);
+    if (el) el.textContent = d.items.length ? (d.total ? d.total + ' stk · ' : '') + d.items.length + (d.items.length === 1 ? ' vara' : ' vörur') + ' ›' : 'ekkert vantar ›';
+  } catch (e) {}
+}
+
+// Áfyllingarlisti: a bottom sheet with what to bring, ticked off while packing (ticks are kept per
+// browser until the next restock).
+function rlTicksKey(code, d) { return 'rlTicks:' + code + ':' + (d.lastRestockAt || 0); }
+function rlTicks(code, d) { try { return JSON.parse(localStorage.getItem(rlTicksKey(code, d)) || '{}'); } catch (e) { return {}; } }
+async function openRestockList(code) {
+  let d = _restockLists[code];
+  const sh = ui.sheet('<div style="color:var(--muted);font-size:13px;padding:10px 0">Sæki lista…</div>');
+  try { d = await fetchRestockList(code); } catch (e) { if (!d) { sh.innerHTML = '<div class="ui-sheet-grab"></div><div style="color:var(--alert);font-size:13px">Náði ekki í listann.</div>'; return; } }
+  drawRestockList(code, d);
+}
+function toggleRlTick(code, pid) {
+  const d = _restockLists[code]; if (!d) return;
+  const t = rlTicks(code, d); t[pid] = !t[pid];
+  try { localStorage.setItem(rlTicksKey(code, d), JSON.stringify(t)); } catch (e) {}
+  drawRestockList(code, d);
+}
+function drawRestockList(code, d) {
+  const sh = document.getElementById('ui-sheet'); if (!sh) return;
+  const ticks = rlTicks(code, d);
+  const since = d.lastRestockAt ? 'Selt síðan áfyllt ' + isShortDate(d.lastRestockAt) : 'Selt síðustu 7 daga';
+  const rows = d.items.map(i => {
+    const done = !!ticks[i.productId];
+    const tags = (i.empty ? ui.tag('tóm', true) : '') + (i.byWeight ? ui.tag('per kg') : '');
+    return `<div class="ui-row tap${done ? ' rl-done' : ''}" onclick="toggleRlTick('${rsEsc(code)}','${rsEsc(i.productId)}')">
+      <span class="rl-box${done ? ' on' : ''}">${done ? '✓' : ''}</span>
+      <div class="ui-row-t"><b>${rsEsc(i.name)}${tags}</b><small>${rsEsc(i.baskets.join(', '))}</small></div>
+      <span class="rl-qty">${i.bring == null ? '?' : i.bring}</span></div>`;
+  }).join('');
+  sh.innerHTML = '<div class="ui-sheet-grab"></div>'
+    + `<div style="font-family:var(--serif);font-style:italic;font-size:24px;line-height:1.1">Áfyllingarlisti</div>`
+    + `<div style="color:var(--muted);font-size:12.5px;margin:2px 0 12px">${rsEsc(d.name)} · ${since}${d.total ? ' · ' + d.total + ' stk' : ''}</div>`
+    + (rows ? ui.card('taka með', `<span>${d.items.length} ${d.items.length === 1 ? 'vara' : 'vörur'}</span>`, rows)
+            : '<div style="font-size:13px;color:var(--muted);padding:6px 0 14px">Ekkert vantar eftir því sem vélin best veit.</div>')
+    + `<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin:0 2px 12px">Fjöldi = það sem seldist síðan síðast var fyllt á. Þar sem hilla hefur skráð rými er fyllt upp í það. „?“ = hillan er tóm en sala ekki skráð.</div>`
+    + `<button class="ui-door" id="door-sheet-${rsEsc(code)}" onclick="homeDoor('${rsEsc(code)}', true)">🔓 Opna hurð</button>`;
+}
+
+// Opna hurð: confirm in a sheet (an open door means the machine stops charging), then the button
+// answers at once and follows the machine: sending → open (the app confirms; it polls every 5 s) →
+// or "no contact" after 30 s. Opening one door opens both, so cabinet A is always sent.
+const _door = {};
+function homeDoor(code, fromSheet) {
+  if (_door[code] && _door[code].state === 'sending') return;
+  if (currentUser && currentUser.viewingAs) { showToast('Viewing as an operator is read-only — the door stays shut.'); return; }
+  const m = ((_homeV3 && _homeV3.machines) || []).find(x => x.deviceCode === code) || { name: code };
+  ui.sheet(`<div style="font-family:var(--serif);font-style:italic;font-size:24px">Opna ${rsEsc(m.name)}?</div>
+    <div style="color:var(--muted);font-size:13px;margin:4px 0 16px;line-height:1.5">Vélin rukkar ekki meðan hurðin er opin. Lokaðu henni þegar áfyllingu er lokið.</div>
+    <button class="ui-door" onclick="ui.closeSheet();doHomeDoor('${rsEsc(code)}')">🔓 Opna hurð</button>
+    <div style="text-align:center;margin-top:12px"><a onclick="ui.closeSheet()${fromSheet ? `;openRestockList('${rsEsc(code)}')` : ''}" style="font-size:13px;color:var(--muted);cursor:pointer">Hætta við</a></div>`);
+}
+function setDoorButtons(code, state, label) {
+  _door[code] = Object.assign(_door[code] || {}, { state, label });
+  for (const id of ['door-' + code, 'door-sheet-' + code]) {
+    const b = document.getElementById(id); if (!b) continue;
+    b.className = 'ui-door' + (state === 'idle' ? '' : ' ' + state);
+    b.innerHTML = label;
+  }
+}
+async function doHomeDoor(code) {
+  setDoorButtons(code, 'sending', '<span class="ui-spin"></span> Sendi á vélina…');
+  // Stock before, to show what the restock added once the door closes.
+  let before = null;
+  try { before = await fetchRestockList(code); } catch (e) {}
+  let id = null;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'fridge_open_door', params: { cabinet: 'A' } });
+    if (!r || !r.ok) throw new Error((r && r.error && (r.error.message || r.error)) || 'villa');
+    id = r.data.id;
+  } catch (e) { setDoorButtons(code, 'fail', 'Tókst ekki · reyna aftur'); _door[code].state = 'idle-fail'; return; }
+  const t0 = Date.now();
+  while (Date.now() - t0 < 30000) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const h = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/commands/history?limit=10');
+      const c = h && h.ok && (h.data.commands || []).find(x => x.id === id);
+      if (c && c.status === 'done') { setDoorButtons(code, 'open', '● Hurð opin · lokaðu að áfyllingu lokinni'); watchRestock(code, before, t0); return; }
+      if (c && c.status !== 'pending') { setDoorButtons(code, 'fail', 'Vélin opnaði ekki · reyna aftur'); _door[code].state = 'idle-fail'; return; }
+    } catch (e) {}
+  }
+  setDoorButtons(code, 'fail', 'Náði ekki sambandi · reyna aftur');
+  _door[code].state = 'idle-fail';
+}
+// After the door opens: wait (up to 30 min) for the machine to report the restock, then show what
+// was added and what on the list was not filled.
+async function watchRestock(code, before, openedAt) {
+  const until = Date.now() + 30 * 60000;
+  while (Date.now() < until) {
+    await new Promise(r => setTimeout(r, 10000));
+    let after;
+    try { after = await fetchRestockList(code); } catch (e) { continue; }
+    if (!after.lastRestockAt || after.lastRestockAt < openedAt - 60000) continue;
+    const prev = {}; for (const b of ((before && before.baskets) || [])) prev[b.basket] = b;
+    let added = 0;
+    const filled = {};
+    for (const b of after.baskets) {
+      const p = prev[b.basket];
+      if (p && p.units != null && b.units != null && b.units > p.units) { added += b.units - p.units; filled[b.productId] = true; }
+    }
+    const missed = ((before && before.items) || []).filter(i => (i.bring || i.empty) && !i.byWeight && !filled[i.productId]);
+    const empty = after.items.filter(i => i.empty).length;
+    setDoorButtons(code, 'idle', '🔓 Opna hurð');
+    ui.sheet(`<div style="font-family:var(--serif);font-style:italic;font-size:24px">Áfylling skráð</div>
+      <div style="color:var(--muted);font-size:12.5px;margin:2px 0 12px">${rsEsc(after.name)} · ${isShortDate(after.lastRestockAt)}</div>`
+      + ui.card('niðurstaða', '', ui.row({ title: 'Bætt við', action: `<b style="font-family:var(--mono);font-weight:400">${added} stk</b>` })
+        + ui.row({ dot: empty ? 'act' : undefined, title: 'Tómar hillur', action: `<b style="font-family:var(--mono);font-weight:400">${empty}</b>` })
+        + (missed.length ? ui.row({ title: 'Á lista en ekki fyllt', sub: missed.map(i => i.name + (i.bring ? ' ' + i.bring : '')).join(', ') }) : ''))
+      + `<button class="ui-btn dark" style="width:100%" onclick="ui.closeSheet();renderDashboard()">Loka</button>`);
+    return;
+  }
+  setDoorButtons(code, 'idle', '🔓 Opna hurð');
+}
 
 // ── Shared building blocks: HTML builders for the .ui-* classes (see the CSS). All text is escaped.
 const ui = {
@@ -10026,7 +10275,27 @@ async function loadViewAsOperators() {
     const r = await API.get('/api/v1/operators');
     const list = ((r && r.data) || []).filter(o => o.machineCount > 0).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'is'));
     sel.innerHTML = list.map(o => `<option value="${rsEsc(o.id)}">${rsEsc(o.name)} · ${o.machineCount} machine${o.machineCount === 1 ? '' : 's'}</option>`).join('');
+    const n = await API.get('/api/v1/admin/new-ui');
+    window._newUiOps = (n && n.ok && n.data.operators) || [];
+    sel.onchange = drawNewUiBtn; drawNewUiBtn();
   } catch (e) { sel.innerHTML = '<option value="">Could not load operators</option>'; }
+}
+function drawNewUiBtn() {
+  const sel = document.getElementById('viewas-op'), b = document.getElementById('newui-btn');
+  if (!sel || !b) return;
+  b.textContent = 'new layout: ' + ((window._newUiOps || []).includes(sel.value) ? 'on' : 'off');
+}
+async function toggleNewUi() {
+  const sel = document.getElementById('viewas-op');
+  if (!sel || !sel.value) return;
+  const on = !(window._newUiOps || []).includes(sel.value);
+  const name = sel.options[sel.selectedIndex].text.split(' · ')[0];
+  if (!confirm('Turn the new layout ' + (on ? 'ON' : 'OFF') + ' for ' + name + '?')) return;
+  const r = await API.put('/api/v1/admin/operators/' + encodeURIComponent(sel.value) + '/new-ui', { on });
+  if (!r || !r.ok) { showToast('Failed'); return; }
+  window._newUiOps = on ? [...(window._newUiOps || []), sel.value] : (window._newUiOps || []).filter(x => x !== sel.value);
+  drawNewUiBtn();
+  showToast('New layout ' + (on ? 'on' : 'off') + ' for ' + name);
 }
 function startViewAs() {
   const sel = document.getElementById('viewas-op');
