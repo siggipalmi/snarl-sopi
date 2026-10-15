@@ -185,6 +185,8 @@ const routes = [
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/cohort',                     handler: handleSetAppCohort,   middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/latest-build',               handler: handleLatestBuild,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleFridgeStockReport, middleware:[requireMachineKey] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleGetFridgeStock, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/admin/ui-usage',                         handler: handleUiUsageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/storage',                          handler: handleStorageReport,  middleware:[requireAuth, requireAgAdmin] },
@@ -1995,6 +1997,36 @@ function notifyAgAdmins(m, title, detail) {
 // button, the WAL folded back every 6 hours, and an email to AG admins once the volume passes 80%.
 const STORAGE_WARN_PCT = Number(process.env.STORAGE_WARN_PCT) || 80;
 let storageWarnedAt = 0;   // in memory on purpose: when the disk is full, writing the mark fails too
+
+// ── Fridge basket stock (reported by the machine) ──
+// POST { reason: boot|sale|restock, cabinet?: A|B, baskets: [{ cabinet, basket, grams, units|null }] }
+// Latest state per basket; a restock report also dates the restock (for "since last restock").
+function handleFridgeStockReport(req, res) {
+  const { deviceCode } = req.params;
+  const m = machines[deviceCode];
+  if (!m) return notFound(res, `Device ${deviceCode} not found`);
+  const b = req.body || {};
+  const reason = ['boot', 'sale', 'restock'].includes(b.reason) ? b.reason : null;
+  if (!reason) return badRequest(res, 'reason must be boot, sale or restock');
+  const spec = machineFridgeSpec(m);
+  const cab = b.cabinet != null ? String(b.cabinet).toUpperCase() : null;
+  if (cab && !spec.cabinets.includes(cab)) return badRequest(res, `no cabinet ${cab} on this machine`);
+  const baskets = (Array.isArray(b.baskets) ? b.baskets : []).map(x => ({
+    cabinet: String(x.cabinet || '').toUpperCase(),
+    basket: Math.round(Number(x.basket)),
+    grams: Number.isFinite(Number(x.grams)) ? Math.round(Number(x.grams)) : null,
+    units: (x.units == null || !Number.isFinite(Number(x.units))) ? null : Math.max(0, Math.round(Number(x.units))),
+  })).filter(x => spec.cabinets.includes(x.cabinet) && x.basket >= 1 && x.basket <= spec.basketsPerCabinet);
+  try { storage.saveBasketStock(deviceCode, reason, cab, baskets); }
+  catch (e) { return serverError(res, e); }
+  ok(res, { saved: baskets.length, reason });
+}
+
+function handleGetFridgeStock(req, res) {
+  const { deviceCode } = req.params;
+  if (!machines[deviceCode]) return notFound(res, `Device ${deviceCode} not found`);
+  ok(res, { baskets: storage.basketStock(deviceCode), lastRestockAt: storage.lastFridgeRestockAt(deviceCode) });
+}
 
 // ── Dashboard page use ──
 // The dashboard reports each page / machine tab it shows; one counter per day, user and page.
