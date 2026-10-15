@@ -302,6 +302,14 @@ db.exec(`
     at         INTEGER NOT NULL,
     PRIMARY KEY (deviceCode, cabinet, basket)
   );
+  -- Count corrections (set_basket_count, 2026-10-15): every unit-weight change made from an
+  -- operator's count, because it changes how that basket is charged.
+  CREATE TABLE IF NOT EXISTS basket_calibrations (
+    deviceCode TEXT NOT NULL, cabinet TEXT NOT NULL, basket INTEGER NOT NULL, productId TEXT,
+    count INTEGER, machineCount INTEGER, grams INTEGER, oldUnitWeightG INTEGER, newUnitWeightG INTEGER,
+    commandId TEXT, issuedBy TEXT, at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_basket_cal ON basket_calibrations(deviceCode, at);
   -- When each cabinet was restocked (from the app's restock report). Small: one row per restock.
   CREATE TABLE IF NOT EXISTS fridge_restocks (
     deviceCode TEXT NOT NULL,
@@ -984,6 +992,9 @@ const stmts = {
       VALUES (@deviceCode, @cabinet, @basket, @grams, @units, @at)
       ON CONFLICT(deviceCode, cabinet, basket) DO UPDATE SET grams = excluded.grams, units = excluded.units, at = excluded.at`),
   listBasketStock: db.prepare('SELECT cabinet, basket, grams, units, at FROM fridge_basket_stock WHERE deviceCode = ? ORDER BY cabinet, basket'),
+  insertCalibration: db.prepare(`INSERT INTO basket_calibrations (deviceCode, cabinet, basket, productId, count, machineCount, grams, oldUnitWeightG, newUnitWeightG, commandId, issuedBy, at)
+      VALUES (@deviceCode, @cabinet, @basket, @productId, @count, @machineCount, @grams, @oldUnitWeightG, @newUnitWeightG, @commandId, @issuedBy, @at)`),
+  listCalibrations: db.prepare('SELECT * FROM basket_calibrations WHERE deviceCode = ? ORDER BY at DESC LIMIT ?'),
   insertRestock: db.prepare('INSERT INTO fridge_restocks (deviceCode, cabinet, at) VALUES (?, ?, ?)'),
   lastFridgeRestock: db.prepare('SELECT MAX(at) AS at FROM fridge_restocks WHERE deviceCode = ?'),
   pruneRestocks: db.prepare('DELETE FROM fridge_restocks WHERE at < ?'),
@@ -2424,6 +2435,11 @@ const storage = {
     })();
   },
   basketStock(deviceCode) { return stmts.listBasketStock.all(deviceCode); },
+  recordCalibration(c) { stmts.insertCalibration.run({ ...c, at: Date.now() }); },
+  listCalibrations(deviceCode, limit = 50) { return stmts.listCalibrations.all(deviceCode, limit); },
+  setBasketStockCount(deviceCode, cabinet, basket, grams, units) {
+    stmts.upsertBasketStock.run({ deviceCode, cabinet, basket, grams, units, at: Date.now() });
+  },
   lastFridgeRestockAt(deviceCode) { const r = stmts.lastFridgeRestock.get(deviceCode); return (r && r.at) || null; },
 
   recordUiUsage({ userId, role, operatorId, page }) {
