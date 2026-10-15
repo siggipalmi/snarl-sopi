@@ -189,6 +189,9 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/basket-calibration', handler: handleListCalibrations, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleFridgeStockReport, middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleGetFridgeStock, middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/restock-list',     handler: handleRestockList,    middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/admin/new-ui',                          handler: handleListNewUi,      middleware:[requireAuth, requireAgAdmin] },
+  { method:'PUT',  pattern:'/api/v1/admin/operators/:operatorId/new-ui',    handler: handleSetNewUi,       middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/operator/home',                         handler: handleOperatorHome,   middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/admin/fleet/health',                     handler: handleFleetHealth,    middleware:[requireAuth, requireAgAdmin] },
@@ -2267,6 +2270,8 @@ function handleOperatorHome(req, res) {
                changePct: lastWeekKr > 0 ? Math.round((todayKr - lastWeekKr) / lastWeekKr * 100) : null },
       topSellers,
       topSellersSince: cards.filter(c => c.lastRestockAt).length ? 'restock' : '7d',
+      // The new operator layout, switched on per operator by AG (rollout one operator at a time).
+      newUi: req.user.role !== 'ag_admin' && !!req.user.operatorId && storage.getMeta('newui:' + req.user.operatorId) === '1',
     });
   } catch (e) { serverError(res, e); }
 }
@@ -2305,6 +2310,62 @@ function handleFleetHealth(req, res) {
       .sort((a, b) => a.worst - b.worst || (b.issues.length - a.issues.length) || a.name.localeCompare(b.name, 'is'));
     ok(res, { machines: list, operators: Object.keys(operators).length,
               latest: { fridge: rel.fridge ? rel.fridge.targetVersionCode : null, coil: rel.coil ? rel.coil.targetVersionCode : null } });
+  } catch (e) { serverError(res, e); }
+}
+
+// ── New operator layout switch (per operator, AG-controlled) ──
+function handleListNewUi(req, res) {
+  ok(res, { operators: Object.keys(operators).filter(id => storage.getMeta('newui:' + id) === '1') });
+}
+function handleSetNewUi(req, res) {
+  const id = req.params.operatorId;
+  if (!operators[id]) return notFound(res, 'Operator not found');
+  const on = !!(req.body && req.body.on === true);
+  storage.setMeta('newui:' + id, on ? '1' : '0');
+  console.log(`[NEWUI] ${(req.user && req.user.email) || '?'} turned the new layout ${on ? 'on' : 'off'} for ${id}`);
+  ok(res, { operatorId: id, on });
+}
+
+// GET /api/v1/machines/:deviceCode/restock-list — what to bring on the next restock (fridges).
+// Per product: fill up to capacity where every basket of it has one and a known count; otherwise
+// what sold since the last restock. Empty baskets are flagged even when nothing is known to have
+// sold (bring is then null: "fill it", amount unknown). Per-kg products count purchases.
+function handleRestockList(req, res) {
+  const m = machines[req.params.deviceCode];
+  if (!m) return notFound(res, 'Machine not found');
+  if (!fridgeSpec(m.model).isFridge) return ok(res, { isFridge: false, items: [], baskets: [] });
+  try {
+    const now = Date.now();
+    const lastRestockAt = storage.lastFridgeRestockAt(m.deviceCode);
+    const since = lastRestockAt || (now - 7 * 86400000);
+    const stock = {};
+    for (const st of (storage.basketStock(m.deviceCode) || [])) stock[st.cabinet + st.basket] = st;
+    const sold = {};
+    for (const r of (storage.soldSince(m.deviceCode, since, true) || [])) sold[r.productId] = (sold[r.productId] || 0) + (r.units || 0);
+    const byProduct = {}, baskets = [];
+    for (const b of (storage.listFridgeBaskets(m.deviceCode) || [])) {
+      if (!b.productId || b.enabled === 0) continue;
+      const key = b.cabinet + b.basket, st = stock[key];
+      const units = st && st.units != null ? st.units : null;
+      baskets.push({ basket: key, productId: b.productId, units, grams: st ? st.grams : null });
+      const p = byProduct[b.productId] = byProduct[b.productId] || { productId: b.productId, baskets: [], empty: false, capGap: 0, capKnown: true };
+      p.baskets.push(key);
+      if (units != null && units <= 0) p.empty = true;
+      if (b.capacity && units != null) p.capGap += Math.max(0, b.capacity - units); else p.capKnown = false;
+    }
+    const items = [];
+    for (const p of Object.values(byProduct)) {
+      const prod = storage.getProduct(p.productId);
+      const byWeight = isSoldByWeight(prod);
+      const s = sold[p.productId] || 0;
+      const bring = (!byWeight && p.capKnown) ? p.capGap : (s || (p.empty ? null : 0));
+      if (!bring && !p.empty) continue;
+      items.push({ productId: p.productId, name: (prod && prod.name) || p.productId, imgUrl: (prod && prod.imgUrl) || null,
+                   baskets: p.baskets, bring, soldSince: s, empty: p.empty, byWeight, fromCapacity: !byWeight && p.capKnown });
+    }
+    items.sort((a, b) => (b.empty - a.empty) || ((b.bring || 0) - (a.bring || 0)) || a.name.localeCompare(b.name, 'is'));
+    ok(res, { isFridge: true, deviceCode: m.deviceCode, name: m.deviceName || m.deviceCode, lastRestockAt, since,
+              total: items.reduce((n, i) => n + (i.bring || 0), 0), items, baskets });
   } catch (e) { serverError(res, e); }
 }
 
