@@ -49,7 +49,7 @@ const server = http.createServer((req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Machine-Key');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Machine-Key, X-View-As-Operator');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   // Static files for GET requests that aren't API routes

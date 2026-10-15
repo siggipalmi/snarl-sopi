@@ -191,6 +191,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleGetFridgeStock, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/operator/home',                         handler: handleOperatorHome,   middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
+  { method:'GET',  pattern:'/api/v1/admin/fleet/health',                     handler: handleFleetHealth,    middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/ui-usage',                         handler: handleUiUsageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/complaints/close-old',            handler: handleCloseOldComplaints, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/fridges/fix-weights',              handler: handleFixWeights,     middleware:[requireAuth, requireAgAdmin] },
@@ -2267,6 +2268,43 @@ function handleOperatorHome(req, res) {
       topSellers,
       topSellersSince: cards.filter(c => c.lastRestockAt).length ? 'restock' : '7d',
     });
+  } catch (e) { serverError(res, e); }
+}
+
+// GET /api/v1/admin/fleet/health — every set-up machine with what needs AG's attention, worst first.
+// "needs" = offline, open warning/critical alerts, open complaints, an app update the machine
+// refused. Being behind the latest app build is listed separately: rollout is one machine at a time,
+// so most machines are behind by design.
+function handleFleetHealth(req, res) {
+  try {
+    const now = Date.now();
+    const alertCounts = storage.openAlertCountsByDevice();
+    const rel = { fridge: storage.getAppRelease('fridge'), coil: storage.getAppRelease('coil') };
+    const list = Object.values(machines)
+      .filter(m => m.isOnline || m.kioskVersion || (m.deviceName && m.deviceName !== m.deviceCode))
+      .map(m => {
+        const app = fridgeSpec(m.model).isFridge ? 'fridge' : 'coil';
+        const v = storage.getAppVersion(m.deviceCode);
+        const rv = storage.getAppRevert(m.deviceCode);
+        const vc = (v && v.vc != null) ? v.vc : null;
+        const target = rel[app] && rel[app].targetVersionCode;
+        const complaints = storage.openComplaints(m.deviceCode).n || 0;
+        const offlineMin = (!m.isOnline && m.lastSeenAt) ? Math.round((now - Date.parse(m.lastSeenAt)) / 60000) : null;
+        const issues = [];
+        if (!m.isOnline) issues.push({ kind: 'offline', level: 1, label: 'offline' });
+        if (rv && rv.rejected != null) issues.push({ kind: 'update_refused', level: 1, label: 'update refused' });
+        if (alertCounts[m.deviceCode]) issues.push({ kind: 'alerts', level: 2, label: alertCounts[m.deviceCode] + ' alert' + (alertCounts[m.deviceCode] === 1 ? '' : 's') });
+        if (complaints) issues.push({ kind: 'complaints', level: 2, label: complaints + ' complaint' + (complaints === 1 ? '' : 's') });
+        const behind = !!(target && vc != null && vc < target);
+        const op = operators[m.operatorId];
+        return { deviceCode: m.deviceCode, name: m.deviceName || m.deviceCode, operatorId: m.operatorId,
+                 operatorName: (op && op.name) || m.operatorName || '', app, online: !!m.isOnline,
+                 lastSeenAt: m.lastSeenAt || null, offlineMin, appVersion: m.kioskVersion || null, versionCode: vc,
+                 behind, issues, worst: issues.length ? Math.min(...issues.map(i => i.level)) : 9 };
+      })
+      .sort((a, b) => a.worst - b.worst || (b.issues.length - a.issues.length) || a.name.localeCompare(b.name, 'is'));
+    ok(res, { machines: list, operators: Object.keys(operators).length,
+              latest: { fridge: rel.fridge ? rel.fridge.targetVersionCode : null, coil: rel.coil ? rel.coil.targetVersionCode : null } });
   } catch (e) { serverError(res, e); }
 }
 

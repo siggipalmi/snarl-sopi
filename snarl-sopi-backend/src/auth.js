@@ -113,6 +113,19 @@ function requireAuth(req, res, next) {
       return json(res, 403, { error: 'account_suspended', message: 'This account is suspended. Please contact AG Vending.' });
     }
   }
+  // "View as operator" (AG only): the dashboard sends X-View-As-Operator and gets exactly what that
+  // operator's admin would see — read-only. Anything but a read is refused here, before any route
+  // runs, so no handler has to know about it.
+  const viewAs = req.headers['x-view-as-operator'];
+  if (viewAs && user.role === 'ag_admin') {
+    const op = operators[viewAs];
+    if (!op) return json(res, 400, { ok: false, error: 'unknown_operator' });
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      return json(res, 403, { ok: false, error: { code: 'view_only', message: 'Skoðunarhamur — ekki hægt að breyta.', messageEn: 'Viewing as an operator is read-only.' } });
+    }
+    req.user = { ...user, role: 'operator_admin', operatorId: op.id || viewAs, operatorName: op.name, viewingAs: true, realRole: user.role };
+    return next();
+  }
   req.user = user;
   next();
 }
