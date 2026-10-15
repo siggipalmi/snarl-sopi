@@ -191,6 +191,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleGetFridgeStock, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/admin/ui-usage',                         handler: handleUiUsageReport,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/admin/fridges/fix-weights',              handler: handleFixWeights,     middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/fridges/suspect-weights',          handler: handleSuspectWeights, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/fridges/sync-price-tags',         handler: handleFleetSyncPriceTags, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/storage',                          handler: handleStorageReport,  middleware:[requireAuth, requireAgAdmin] },
@@ -2088,6 +2089,7 @@ function handleSuspectWeights(req, res) {
       const st = stock[b.cabinet + b.basket];
       rows.push({
         deviceCode: m.deviceCode, machine: m.deviceName || m.deviceCode, basket: b.cabinet + b.basket,
+        cabinet: b.cabinet, basketNo: Number(b.basket), productId: b.productId,
         product: (p && p.name) || b.productId, unitWeightG: w,
         source: b.unitWeightG != null ? 'basket' : 'product',
         basketGrams: st ? st.grams : null, machineCount: st ? st.units : null,
@@ -2096,6 +2098,49 @@ function handleSuspectWeights(req, res) {
   }
   rows.sort((a, b) => String(a.machine).localeCompare(String(b.machine)) || a.basket.localeCompare(b.basket, undefined, { numeric: true }));
   ok(res, { count: rows.length, rows });
+}
+
+// POST /api/v1/admin/fridges/fix-weights { fixes: [{ deviceCode, cabinet, basket, productId, fromG, toG, source }] }
+// Applies reviewed unit-weight corrections from "check unit weights": source 'product' sets the
+// catalog weight (every machine selling it), 'basket' sets that basket's own unit weight. Only
+// applied if the weight is still `fromG` (so a stale screen can't overwrite a newer value), and
+// only within 0.5×–1.5× of it. Re-serves config to every fridge touched. Changes charging: it is a
+// reviewed AG action (Siggi, 2026-10-15), logged here.
+function handleFixWeights(req, res) {
+  const fixes = Array.isArray(req.body && req.body.fixes) ? req.body.fixes : [];
+  if (!fixes.length) return badRequest(res, 'fixes[] required');
+  const results = [], touchedMachines = new Set(), doneProducts = new Set();
+  for (const f of fixes) {
+    const toG = Math.round(Number(f.toG)), fromG = Math.round(Number(f.fromG));
+    const r = { deviceCode: f.deviceCode, basket: String(f.cabinet || '') + f.basket, productId: f.productId, fromG, toG };
+    if (!(toG > 0) || !(fromG > 0) || toG < fromG * 0.5 || toG > fromG * 1.5) { results.push({ ...r, status: 'refused', why: 'new weight must be 0.5×–1.5× the old' }); continue; }
+    try {
+      if (f.source === 'product') {
+        const p = storage.getProduct(String(f.productId));
+        if (!p) { results.push({ ...r, status: 'refused', why: 'product not found' }); continue; }
+        if (doneProducts.has(p.goodsId)) { results.push({ ...r, status: 'ok', why: 'product already updated' }); continue; }
+        if (Number(p.weightGrams) !== fromG) { results.push({ ...r, status: 'skipped', why: `catalog weight is now ${p.weightGrams} g` }); continue; }
+        storage.setProductWeight(p.goodsId, toG);
+        doneProducts.add(p.goodsId);
+        // Every fridge selling it without its own basket weight picks this up.
+        for (const mm of Object.values(machines)) {
+          if (!fridgeSpec(mm.model).isFridge) continue;
+          if ((storage.listFridgeBaskets(mm.deviceCode) || []).some(x => x.productId === p.goodsId && x.unitWeightG == null)) touchedMachines.add(mm.deviceCode);
+        }
+      } else {
+        const row = (storage.listFridgeBaskets(f.deviceCode) || []).find(x => x.cabinet === String(f.cabinet) && Number(x.basket) === Number(f.basket));
+        if (!row) { results.push({ ...r, status: 'refused', why: 'basket not found' }); continue; }
+        if (Number(row.unitWeightG) !== fromG) { results.push({ ...r, status: 'skipped', why: `basket weight is now ${row.unitWeightG} g` }); continue; }
+        storage.upsertFridgeBasket({ ...row, deviceCode: f.deviceCode, unitWeightG: toG, enabled: row.enabled !== 0 });
+        touchedMachines.add(f.deviceCode);
+      }
+      results.push({ ...r, status: 'ok' });
+    } catch (e) { results.push({ ...r, status: 'error', why: e.message }); }
+  }
+  for (const code of touchedMachines) { const mm = machines[code]; if (mm) touchConfig(mm); }
+  console.log(`[WEIGHTS] ${(req.user && req.user.email) || '?'} fixed ${results.filter(x => x.status === 'ok').length}/${fixes.length}: ` +
+    results.map(x => `${x.deviceCode}/${x.basket} ${x.fromG}→${x.toG} ${x.status}`).join('; '));
+  ok(res, { results, machinesUpdated: [...touchedMachines] });
 }
 
 // ── Fridge basket stock (reported by the machine) ──
