@@ -2188,7 +2188,11 @@ function handleOperatorHome(req, res) {
     const now = Date.now();
     const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);       // Iceland is UTC
     const t0 = dayStart.getTime(), week = 7 * 86400000;
-    const mine = machinesForUser(req.user);
+    // Leave out machines that were registered but never set up: no name of their own (the name is
+    // just the code), never ran an app, and not online. They flooded the list with ~30 "offline"
+    // items (2026-10-15).
+    const mine = machinesForUser(req.user).filter(m =>
+      m.isOnline || m.kioskVersion || (m.deviceName && m.deviceName !== m.deviceCode));
     const cards = [], attention = [], sold = {};
     let todayKr = 0, todayOrders = 0, lastWeekKr = 0;
     for (const m of mine) {
