@@ -291,6 +291,18 @@ db.exec(`
   -- child line rows. Report-only: the Nayax terminal already charged; this is for telemetry,
   -- reconciliation and dispute resolution. Backend recomputes quantities from the planogram
   -- and flags mismatches against the app's claimed values.
+  -- Dashboard page use, one counter per day/user/page (2026-10-15: to see what operators actually
+  -- open before simplifying the UI). Bounded: rows are counters, pruned after 120 days.
+  CREATE TABLE IF NOT EXISTS ui_usage (
+    day        TEXT NOT NULL,
+    userId     TEXT NOT NULL,
+    role       TEXT,
+    operatorId TEXT,
+    page       TEXT NOT NULL,
+    count      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, userId, page)
+  );
+
   CREATE TABLE IF NOT EXISTS kiosk_logs (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     deviceCode      TEXT NOT NULL,
@@ -933,6 +945,12 @@ const stmts = {
                                  VALUES (@deviceCode, @at, @atMs, @cabinetTempC, @humidity, @evaporator, @statusOk, @receivedAt)`),
   telemetrySince:    db.prepare('SELECT atMs, cabinetTempC, statusOk FROM telemetry WHERE deviceCode = ? AND atMs >= ? ORDER BY atMs ASC'),
   pruneTelemetry:    db.prepare('DELETE FROM telemetry WHERE atMs < ?'),
+  bumpUiUsage: db.prepare(`INSERT INTO ui_usage (day, userId, role, operatorId, page, count) VALUES (@day, @userId, @role, @operatorId, @page, 1)
+                            ON CONFLICT(day, userId, page) DO UPDATE SET count = count + 1, role = excluded.role, operatorId = excluded.operatorId`),
+  uiUsageSince: db.prepare(`SELECT role, page, SUM(count) AS views, COUNT(DISTINCT userId) AS users
+                              FROM ui_usage WHERE day >= ? GROUP BY role, page ORDER BY role, views DESC`),
+  uiUsersSince: db.prepare(`SELECT role, COUNT(DISTINCT userId) AS users FROM ui_usage WHERE day >= ? GROUP BY role`),
+  pruneUiUsage: db.prepare('DELETE FROM ui_usage WHERE day < ?'),
   insertKioskLog:    db.prepare('INSERT INTO kiosk_logs (deviceCode, atMs, kioskAppVersion, line) VALUES (?, ?, ?, ?)'),
   listKioskLogs:     db.prepare('SELECT id, atMs, kioskAppVersion, line FROM kiosk_logs WHERE deviceCode = ? ORDER BY id DESC LIMIT ?'),
   pruneKioskLogsAge: db.prepare('DELETE FROM kiosk_logs WHERE atMs < ?'),
@@ -2351,6 +2369,16 @@ const storage = {
     const n = Math.max(1, Math.min(2000, Number(limit) || 400));
     // Newest-first from SQL, reversed so the caller reads them in chronological order.
     return stmts.listKioskLogs.all(deviceCode, n).reverse();
+  },
+
+  recordUiUsage({ userId, role, operatorId, page }) {
+    const day = new Date().toISOString().slice(0, 10);
+    stmts.bumpUiUsage.run({ day, userId: String(userId), role: role || null, operatorId: operatorId || null, page: String(page).slice(0, 60) });
+  },
+  uiUsageReport(days) {
+    const since = new Date(Date.now() - (Math.max(1, days) - 1) * 86400000).toISOString().slice(0, 10);
+    try { stmts.pruneUiUsage.run(new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10)); } catch (e) {}
+    return { since, users: stmts.uiUsersSince.all(since), pages: stmts.uiUsageSince.all(since) };
   },
 
   pruneKioskLogs(deviceCode) {

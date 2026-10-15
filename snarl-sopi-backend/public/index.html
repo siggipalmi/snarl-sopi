@@ -2708,12 +2708,19 @@ function refreshNavGroupBadges() {
   });
 }
 
+// Page-use counter (which pages each role really opens; see /api/v1/admin/ui-usage).
+// Fire-and-forget: a failed counter never gets in the way.
+function trackUi(page) {
+  try { if (backendOnline && API_TOKEN && page) API.post('/api/v1/ui-usage', { page: String(page).toLowerCase() }).catch(() => {}); } catch (e) {}
+}
+
 function go(id, el) {
   // AG-only pages: operators can't reach these even by direct navigation.
   if ((id === 'settings' || id === 'operators' || id === 'deals' || id === 'leases') && currentUser?.role !== 'ag_admin') {
     showToast('Not available for your account');
     id = 'dashboard'; el = null;
   }
+  trackUi(id);
   // Resolve the matching sidebar item when not passed one (e.g. hash navigation).
   if (!el) el = document.querySelector(`.nav-item[onclick*="go('${id}'"]`);
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -4397,6 +4404,7 @@ async function openMachineDetail(deviceCode, fromHistory = false) {
   document.getElementById('md-back').onclick = function() {
     go('machines', document.querySelectorAll('.nav-item')[1]);
   };
+  trackUi('machine:open');
   renderMachineDetail();
 }
 
@@ -5502,6 +5510,7 @@ async function saveNotifThresholds() {
 }
 
 function showMdTab(name, el) {
+  trackUi('machine:' + name);
   document.querySelectorAll('#page-machinedetail .md-tabpanel').forEach(function(p){
     p.style.display = (p.getAttribute('data-panel') === name) ? '' : 'none';
   });
