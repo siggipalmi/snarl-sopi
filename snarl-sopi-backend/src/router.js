@@ -189,6 +189,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleGetFridgeStock, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/admin/ui-usage',                         handler: handleUiUsageReport,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/admin/fridges/sync-price-tags',         handler: handleFleetSyncPriceTags, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/storage',                          handler: handleStorageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/storage/compact',                  handler: handleStorageCompact, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/storage/dedupe-stock-history',     handler: handleDedupeStockHistory, middleware:[requireAuth, requireAgAdmin] },
@@ -1997,6 +1998,27 @@ function notifyAgAdmins(m, title, detail) {
 // button, the WAL folded back every 6 hours, and an email to AG admins once the volume passes 80%.
 const STORAGE_WARN_PCT = Number(process.env.STORAGE_WARN_PCT) || 80;
 let storageWarnedAt = 0;   // in memory on purpose: when the disk is full, writing the mark fails too
+
+// ── Fleet actions ──
+// POST /api/v1/admin/fridges/sync-price-tags — queue a FORCED price-tag sync on every fridge.
+// Rewrites each tag with the price the machine already has; no price or charging change. Added so
+// it can be done from an iPad (no console), after 6.54.1 left tags blank until forced.
+function handleFleetSyncPriceTags(req, res) {
+  const queued = [];
+  for (const m of Object.values(machines)) {
+    if (!fridgeSpec(m.model).isFridge) continue;
+    const id = 'cmd_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    storage.enqueueCommand({
+      id, deviceCode: m.deviceCode, type: 'sync_price_tags',
+      params: JSON.stringify({ force: true }),
+      issuedBy: (req.user && (req.user.name || req.user.email)) || null,
+      issuedAt: Date.now(),
+    });
+    queued.push({ deviceCode: m.deviceCode, name: m.deviceName || m.deviceCode, online: !!m.isOnline, app: m.kioskVersion || null });
+  }
+  console.log(`[FLEET] forced price-tag sync queued on ${queued.length} fridge(s) by ${(req.user && req.user.email) || '?'}`);
+  ok(res, { queued: queued.length, machines: queued });
+}
 
 // ── Fridge basket stock (reported by the machine) ──
 // POST { reason: boot|sale|restock, cabinet?: A|B, baskets: [{ cabinet, basket, grams, units|null }] }
