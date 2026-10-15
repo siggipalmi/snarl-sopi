@@ -291,6 +291,25 @@ db.exec(`
   -- child line rows. Report-only: the Nayax terminal already charged; this is for telemetry,
   -- reconciliation and dispute resolution. Backend recomputes quantities from the planogram
   -- and flags mismatches against the app's claimed values.
+  -- What the scales say is in each fridge basket, latest only (reported by the app 0.64.0+ at
+  -- startup, after each sale and after each restock). The backend has no scales of its own.
+  CREATE TABLE IF NOT EXISTS fridge_basket_stock (
+    deviceCode TEXT NOT NULL,
+    cabinet    TEXT NOT NULL,
+    basket     INTEGER NOT NULL,
+    grams      INTEGER,
+    units      INTEGER,
+    at         INTEGER NOT NULL,
+    PRIMARY KEY (deviceCode, cabinet, basket)
+  );
+  -- When each cabinet was restocked (from the app's restock report). Small: one row per restock.
+  CREATE TABLE IF NOT EXISTS fridge_restocks (
+    deviceCode TEXT NOT NULL,
+    cabinet    TEXT,
+    at         INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_fridge_restocks ON fridge_restocks(deviceCode, at);
+
   -- Dashboard page use, one counter per day/user/page (2026-10-15: to see what operators actually
   -- open before simplifying the UI). Bounded: rows are counters, pruned after 120 days.
   CREATE TABLE IF NOT EXISTS ui_usage (
@@ -945,6 +964,13 @@ const stmts = {
                                  VALUES (@deviceCode, @at, @atMs, @cabinetTempC, @humidity, @evaporator, @statusOk, @receivedAt)`),
   telemetrySince:    db.prepare('SELECT atMs, cabinetTempC, statusOk FROM telemetry WHERE deviceCode = ? AND atMs >= ? ORDER BY atMs ASC'),
   pruneTelemetry:    db.prepare('DELETE FROM telemetry WHERE atMs < ?'),
+  upsertBasketStock: db.prepare(`INSERT INTO fridge_basket_stock (deviceCode, cabinet, basket, grams, units, at)
+      VALUES (@deviceCode, @cabinet, @basket, @grams, @units, @at)
+      ON CONFLICT(deviceCode, cabinet, basket) DO UPDATE SET grams = excluded.grams, units = excluded.units, at = excluded.at`),
+  listBasketStock: db.prepare('SELECT cabinet, basket, grams, units, at FROM fridge_basket_stock WHERE deviceCode = ? ORDER BY cabinet, basket'),
+  insertRestock: db.prepare('INSERT INTO fridge_restocks (deviceCode, cabinet, at) VALUES (?, ?, ?)'),
+  lastFridgeRestock: db.prepare('SELECT MAX(at) AS at FROM fridge_restocks WHERE deviceCode = ?'),
+  pruneRestocks: db.prepare('DELETE FROM fridge_restocks WHERE at < ?'),
   bumpUiUsage: db.prepare(`INSERT INTO ui_usage (day, userId, role, operatorId, page, count) VALUES (@day, @userId, @role, @operatorId, @page, 1)
                             ON CONFLICT(day, userId, page) DO UPDATE SET count = count + 1, role = excluded.role, operatorId = excluded.operatorId`),
   uiUsageSince: db.prepare(`SELECT role, page, SUM(count) AS views, COUNT(DISTINCT userId) AS users
@@ -2370,6 +2396,19 @@ const storage = {
     // Newest-first from SQL, reversed so the caller reads them in chronological order.
     return stmts.listKioskLogs.all(deviceCode, n).reverse();
   },
+
+  saveBasketStock(deviceCode, reason, cabinet, baskets) {
+    const at = Date.now();
+    db.transaction(() => {
+      for (const b of baskets) stmts.upsertBasketStock.run({ deviceCode, cabinet: b.cabinet, basket: b.basket, grams: b.grams, units: b.units, at });
+      if (reason === 'restock') {
+        stmts.insertRestock.run(deviceCode, cabinet || null, at);
+        stmts.pruneRestocks.run(at - 400 * 86400000);
+      }
+    })();
+  },
+  basketStock(deviceCode) { return stmts.listBasketStock.all(deviceCode); },
+  lastFridgeRestockAt(deviceCode) { const r = stmts.lastFridgeRestock.get(deviceCode); return (r && r.at) || null; },
 
   recordUiUsage({ userId, role, operatorId, page }) {
     const day = new Date().toISOString().slice(0, 10);
