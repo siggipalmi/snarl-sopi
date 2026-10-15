@@ -5888,7 +5888,7 @@ function openFridgeBasketEditor(cab, n) {
   { const w = document.getElementById('fb-weight'); w.disabled = !!b.soldByWeight; w.placeholder = b.soldByWeight ? 'by weight — not needed' : ''; if (b.soldByWeight) w.value = ''; }
   document.getElementById('fb-enabled').checked = (b.enabled !== 0);
   document.getElementById('fb-msg').innerHTML = '';
-  _fpPickedProduct = b.productId ? { goodsId: b.productId, name: b.productName, weightGrams: b.effectiveWeightG, soldByWeight: !!b.soldByWeight } : null;
+  _fpPickedProduct = b.productId ? { goodsId: b.productId, name: b.productName, weightGrams: b.productWeightG, salePriceIsk: b.productPriceIsk, soldByWeight: !!b.soldByWeight } : null;
   scaleReset(cab, n);
   modal.classList.add('show');
 }
@@ -6463,14 +6463,16 @@ function fbPick(p) {
   document.getElementById('fb-picked').innerHTML = `<div style="font-size:12px">Selected: <strong>${p.name || p.goodsId}</strong></div>`;
   document.getElementById('fb-results').innerHTML = '';
   document.getElementById('fb-search').value = '';
-  // Autofill from the catalog when the field is empty — the operator can still override either
-  // (measured weight, or a fridge-specific price). We don't clobber a value already typed.
+  // *** A NEW PRODUCT BRINGS ITS OWN WEIGHT AND PRICE. This used to fill the fields only when
+  // empty, so re-assigning a basket kept the PREVIOUS product's weight and price (Siggi,
+  // 2026-10-15). Picking a product now always shows its catalog values; the operator can still
+  // type a measured weight or a fridge-specific price after picking.
   const w = document.getElementById('fb-weight');
   // Per kg: charged on grams taken, so there is no unit weight to give.
   if (p.soldByWeight) { w.value = ''; w.disabled = true; w.placeholder = 'by weight — not needed'; }
-  else { w.disabled = false; w.placeholder = ''; if (!w.value && p.weightGrams != null) w.value = p.weightGrams; }
+  else { w.disabled = false; w.placeholder = p.weightGrams != null ? '' : 'weigh one item (g)'; w.value = p.weightGrams != null ? p.weightGrams : ''; }
   const price = document.getElementById('fb-price');
-  if (!price.value && p.salePriceIsk != null) price.value = p.salePriceIsk;
+  price.value = p.salePriceIsk != null ? p.salePriceIsk : '';
 }
 
 async function saveFridgeBasket() {
@@ -6481,11 +6483,15 @@ async function saveFridgeBasket() {
   const weightRaw = document.getElementById('fb-weight').value.trim();
   const weight = weightRaw === '' ? null : parseInt(weightRaw, 10);
   if (enabled && !_fpPickedProduct.soldByWeight && (!weight || weight <= 0)) { msg.innerHTML = '<div class="rs-msg err">An enabled basket needs a measured unit weight (g).</div>'; return; }
+  // Same as the catalog → store nothing, so the basket keeps following the catalog (a later weight
+  // or price correction there reaches it). Only a value that differs is the basket's own.
+  const pk = _fpPickedProduct;
+  const priceVal = priceRaw === '' ? null : parseInt(priceRaw, 10);
   const body = {
     baskets: [{
-      cabinet: _fpEditCab, basket: _fpEditBasket, productId: _fpPickedProduct.goodsId,
-      priceIsk: priceRaw === '' ? null : parseInt(priceRaw, 10),
-      unitWeightG: weight,
+      cabinet: _fpEditCab, basket: _fpEditBasket, productId: pk.goodsId,
+      priceIsk: (priceVal != null && pk.salePriceIsk != null && priceVal === Number(pk.salePriceIsk)) ? null : priceVal,
+      unitWeightG: (weight != null && pk.weightGrams != null && weight === Number(pk.weightGrams)) ? null : weight,
       enabled,
     }]
   };
