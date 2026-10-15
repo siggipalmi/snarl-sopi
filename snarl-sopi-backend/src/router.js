@@ -1217,6 +1217,8 @@ function handleGetFridgeBaskets(req, res) {
     return { ...b, productName: p ? p.name : null, productImg: p ? p.imgUrl : null,
              effectiveWeightG: b.unitWeightG != null ? b.unitWeightG : (p ? p.weightGrams : null),
              effectivePriceIsk: b.priceIsk != null ? b.priceIsk : (p ? p.salePriceIsk : null),
+             // The catalog's own values, so the editor can tell an override from an inherited value.
+             productWeightG: p ? p.weightGrams : null, productPriceIsk: p ? p.salePriceIsk : null,
              soldByWeight: isSoldByWeight(p) };
   });
   const spec = machineFridgeSpec(m);
