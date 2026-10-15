@@ -3005,6 +3005,7 @@ const storage = {
     tx(batches);
     return stmts.listBatchesForSlot.all(deviceCode, goodsId);
   },
+  setProductWeight(goodsId, grams) { return db.prepare('UPDATE products SET weightGrams = ?, updatedAt = ? WHERE goodsId = ?').run(Math.round(grams), Date.now(), goodsId).changes; },
   setProductSoldByWeight(goodsId, on) { db.prepare('UPDATE products SET soldByWeight = ?, updatedAt = ? WHERE goodsId = ?').run(on ? 1 : 0, Date.now(), goodsId); },
   setProductPerishable(goodsId, val) { stmts.setPerishable.run(val ? 1 : 0, Date.now(), goodsId); },
 
