@@ -1569,6 +1569,11 @@ select.fi{cursor:pointer;}
             <div style="margin-top:12px"><button class="btn btn-sm" onclick="fleetDrinkWeights()">fix drink weights…</button>
               <span style="font-size:11.5px;color:var(--muted);margin-left:8px">500 g → 540 g, 330 g → 345 g, reviewed before applying</span></div>
             <div id="fleet-fix-msg" style="font-size:12px;margin-top:10px;overflow-x:auto"></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+              <button class="btn btn-sm" onclick="fleetCloseOldComplaints()">close complaints older than 30 days…</button>
+              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">For complaints handled outside the system. Shows how many first; nothing changes until you confirm.</span>
+            </div>
+            <div id="fleet-complaints-msg" style="font-size:12px;margin-top:10px"></div>
           </div>
         </div>
       </div>
@@ -9937,6 +9942,19 @@ async function fleetApplyWeights() {
     const res = r.data.results || [];
     el.innerHTML = '<b>' + res.filter(x => x.status === 'ok').length + ' of ' + res.length + ' applied</b> · ' + (r.data.machinesUpdated || []).length + ' fridge(s) get the new config within a minute.<br>' +
       res.filter(x => x.status !== 'ok').map(x => rsEsc(x.deviceCode + ' ' + x.basket + ': ' + x.status + ' — ' + (x.why || ''))).join('<br>');
+  } catch (e) { el.style.color = 'var(--alert)'; el.textContent = 'Failed: ' + e.message; }
+}
+
+async function fleetCloseOldComplaints() {
+  const el = document.getElementById('fleet-complaints-msg');
+  try {
+    const dry = await API.post('/api/v1/admin/complaints/close-old', { olderThanDays: 30, dryRun: true });
+    if (!dry || !dry.ok) throw new Error('failed');
+    if (!dry.data.count) { el.style.color = 'var(--success)'; el.textContent = 'No open complaints older than 30 days.'; return; }
+    if (!confirm('Close ' + dry.data.count + ' open complaint(s) older than 30 days?')) return;
+    const r = await API.post('/api/v1/admin/complaints/close-old', { olderThanDays: 30, dryRun: false });
+    if (!r || !r.ok) throw new Error('failed');
+    el.style.color = 'var(--ink)'; el.textContent = 'Closed ' + r.data.count + ' complaint(s).';
   } catch (e) { el.style.color = 'var(--alert)'; el.textContent = 'Failed: ' + e.message; }
 }
 
