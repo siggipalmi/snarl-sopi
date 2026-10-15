@@ -185,6 +185,8 @@ const routes = [
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/cohort',                     handler: handleSetAppCohort,   middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/app-release/latest-build',               handler: handleLatestBuild,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
+  { method:'GET',  pattern:'/api/v1/admin/ui-usage',                         handler: handleUiUsageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/storage',                          handler: handleStorageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/storage/compact',                  handler: handleStorageCompact, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/storage/dedupe-stock-history',     handler: handleDedupeStockHistory, middleware:[requireAuth, requireAgAdmin] },
@@ -1993,6 +1995,24 @@ function notifyAgAdmins(m, title, detail) {
 // button, the WAL folded back every 6 hours, and an email to AG admins once the volume passes 80%.
 const STORAGE_WARN_PCT = Number(process.env.STORAGE_WARN_PCT) || 80;
 let storageWarnedAt = 0;   // in memory on purpose: when the disk is full, writing the mark fails too
+
+// ── Dashboard page use ──
+// The dashboard reports each page / machine tab it shows; one counter per day, user and page.
+// Page names are a fixed vocabulary so nothing free-form (or personal) is stored.
+const UI_PAGE_RE = /^[a-z][a-z0-9_.:-]{0,59}$/;
+function handleUiUsage(req, res) {
+  const page = String((req.body && req.body.page) || '');
+  if (!UI_PAGE_RE.test(page)) return badRequest(res, 'page must be a short lower-case id');
+  try {
+    storage.recordUiUsage({ userId: req.user.id, role: req.user.role, operatorId: req.user.operatorId, page });
+  } catch (e) { /* never fail the dashboard over a counter */ }
+  ok(res, { recorded: true });
+}
+// GET /api/v1/admin/ui-usage?days=7 — views and distinct users per page, per role.
+function handleUiUsageReport(req, res) {
+  const days = Math.max(1, Math.min(120, parseInt(req.query.days, 10) || 7));
+  try { ok(res, { days, ...storage.uiUsageReport(days) }); } catch (e) { serverError(res, e); }
+}
 
 function handleStorageReport(req, res) {
   try { ok(res, { ...storage.storageReport(), warnPct: STORAGE_WARN_PCT }); }
