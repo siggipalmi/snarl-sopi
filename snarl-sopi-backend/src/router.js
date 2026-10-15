@@ -189,6 +189,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/basket-calibration', handler: handleListCalibrations, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleFridgeStockReport, middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/fridge/stock',      handler: handleGetFridgeStock, middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/operator/home',                         handler: handleOperatorHome,   middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/ui-usage',                               handler: handleUiUsage,        middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/admin/ui-usage',                         handler: handleUiUsageReport,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/admin/fridges/fix-weights',              handler: handleFixWeights,     middleware:[requireAuth, requireAgAdmin] },
@@ -2173,6 +2174,80 @@ function handleGetFridgeStock(req, res) {
   const { deviceCode } = req.params;
   if (!machines[deviceCode]) return notFound(res, `Device ${deviceCode} not found`);
   ok(res, { baskets: storage.basketStock(deviceCode), lastRestockAt: storage.lastFridgeRestockAt(deviceCode) });
+}
+
+// ── Operator home (step 3 of the operator UI, mockup v2 approved 2026-10-15) ──
+// GET /api/v1/operator/home — everything Yfirlit shows, for the signed-in user's machines only:
+//   machines[]  card per machine: online, empty/low baskets (fridges on app 0.64.0+), last restock
+//   attention[] to-do items, most urgent first, each naming the machine and what to do
+//   today       sales today and the same weekday last week (orders table; fridges are mirrored there)
+//   topSellers  top 5 products since each machine's last restock (7 days where none is recorded)
+const LOW_UNITS = 2;
+function handleOperatorHome(req, res) {
+  try {
+    const now = Date.now();
+    const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);       // Iceland is UTC
+    const t0 = dayStart.getTime(), week = 7 * 86400000;
+    const mine = machinesForUser(req.user);
+    const cards = [], attention = [], sold = {};
+    let todayKr = 0, todayOrders = 0, lastWeekKr = 0;
+    for (const m of mine) {
+      const isFridge = fridgeSpec(m.model).isFridge;
+      const name = m.deviceName || m.deviceCode;
+      const t = storage.revenueBetween(m.deviceCode, t0, now);
+      const lw = storage.revenueBetween(m.deviceCode, t0 - week, now - week);
+      todayKr += t.revenueKr || 0; todayOrders += t.orders || 0; lastWeekKr += lw.revenueKr || 0;
+
+      let empty = [], low = [], lastRestockAt = null, noPhoto = 0;
+      if (isFridge) {
+        lastRestockAt = storage.lastFridgeRestockAt(m.deviceCode);
+        const stock = {};
+        for (const s of (storage.basketStock(m.deviceCode) || [])) stock[s.cabinet + s.basket] = s;
+        for (const b of (storage.listFridgeBaskets(m.deviceCode) || [])) {
+          if (!b.productId || b.enabled === 0) continue;
+          const p = storage.getProduct(b.productId);
+          if (p && !p.imgUrl) noPhoto++;
+          const st = stock[b.cabinet + b.basket];
+          if (!st || st.units == null) continue;                     // per-kg, or not reported yet
+          const label = { basket: b.cabinet + b.basket, product: (p && p.name) || b.productId, units: st.units };
+          const lowAt = b.capacity ? Math.max(1, Math.round(b.capacity * 0.2)) : LOW_UNITS;
+          if (st.units <= 0) empty.push(label); else if (st.units <= lowAt) low.push(label);
+        }
+      }
+      const since = lastRestockAt || (now - week);
+      for (const r of (storage.soldSince(m.deviceCode, since, isFridge) || [])) {
+        const k = r.productId;
+        sold[k] = sold[k] || { productId: k, units: 0, revenueIsk: 0 };
+        sold[k].units += r.units || 0; sold[k].revenueIsk += Math.round(r.revenueIsk || 0);
+      }
+      const complaints = storage.openComplaints(m.deviceCode);
+      const offlineMin = (!m.isOnline && m.lastSeenAt) ? Math.round((now - Date.parse(m.lastSeenAt)) / 60000) : null;
+
+      cards.push({ deviceCode: m.deviceCode, name, isFridge, online: !!m.isOnline, app: m.kioskVersion || null,
+                   emptyCount: empty.length, lowCount: low.length, lastRestockAt,
+                   stockKnown: isFridge && (storage.basketStock(m.deviceCode) || []).length > 0 });
+      if (!m.isOnline) attention.push({ level: 1, kind: 'offline', deviceCode: m.deviceCode, machine: name,
+        title: 'Vél ekki í sambandi', detail: offlineMin != null ? `í ${offlineMin} mín` : '' });
+      if (empty.length) attention.push({ level: 1, kind: 'empty', deviceCode: m.deviceCode, machine: name,
+        title: `${empty.length} ${empty.length === 1 ? 'hilla tóm' : 'hillur tómar'}`, detail: empty.map(x => `${x.basket} ${x.product}`).join(', ') });
+      if (complaints.n) attention.push({ level: 2, kind: 'complaint', deviceCode: m.deviceCode, machine: name,
+        title: complaints.n === 1 ? 'Kvörtun bíður svars' : `${complaints.n} kvartanir bíða svars`, detail: complaints.latest || '' });
+      if (low.length) attention.push({ level: 3, kind: 'low', deviceCode: m.deviceCode, machine: name,
+        title: `${low.length} ${low.length === 1 ? 'hilla' : 'hillur'} lítið eftir`, detail: low.map(x => `${x.basket} ${x.product} (${x.units})`).join(', ') });
+      if (noPhoto) attention.push({ level: 4, kind: 'photo', deviceCode: m.deviceCode, machine: name,
+        title: `${noPhoto} ${noPhoto === 1 ? 'vara' : 'vörur'} án myndar`, detail: 'Birtast án myndar á skjánum' });
+    }
+    attention.sort((a, b) => a.level - b.level);
+    const topSellers = Object.values(sold).sort((a, b) => b.units - a.units || b.revenueIsk - a.revenueIsk).slice(0, 5)
+      .map(x => { const p = storage.getProduct(x.productId); return { ...x, name: (p && p.name) || x.productId, imgUrl: (p && p.imgUrl) || null }; });
+    ok(res, {
+      machines: cards, attention,
+      today: { revenueKr: todayKr, orders: todayOrders, sameDayLastWeekKr: lastWeekKr,
+               changePct: lastWeekKr > 0 ? Math.round((todayKr - lastWeekKr) / lastWeekKr * 100) : null },
+      topSellers,
+      topSellersSince: cards.filter(c => c.lastRestockAt).length ? 'restock' : '7d',
+    });
+  } catch (e) { serverError(res, e); }
 }
 
 // ── Dashboard page use ──
