@@ -2705,7 +2705,10 @@ async function bootApp(user) {
   if (route.page === 'machine' && route.param && DB.machines[route.param]) {
     openMachineDetail(route.param, true);
   } else {
-    go(validPages.includes(route.page) ? route.page : 'dashboard');
+    // AG on a computer lands on Fleet → Health (Siggi, 2026-10-16); everyone else, and AG on a
+    // phone, on the dashboard. A link with a page in it still goes to that page.
+    const landing = (currentUser?.role === 'ag_admin' && window.matchMedia('(min-width: 900px)').matches) ? 'settings' : 'dashboard';
+    go(validPages.includes(route.page) ? route.page : landing);
   }
   renderAlertBadge();
   if (backendOnline) {
