@@ -135,6 +135,15 @@ class MarshallPaymentController(
     var onLinkUp: ((port: String) -> Unit)? = null
 
     /**
+     * The terminal's decimal_place from its last handshake. Must be 0 for ISK: the app sends whole
+     * krónur, so a terminal on 2 would charge a 350 kr basket as 3.50 kr. Reported to the backend,
+     * which flags anything but 0 (2026-10-16).
+     */
+    @Volatile
+    var decimalPlace: Int? = null
+        private set
+
+    /**
      * *** THE LINK MUST RECOVER BY ITSELF.
      *
      * link.start() runs once and then waits for onReady forever. If the Nayax
@@ -269,6 +278,7 @@ class MarshallPaymentController(
                     // Handshake landed — stop the retry timer.
                     readyWatchdog?.interrupt()
                     readyWatchdog = null
+                    decimalPlace = config.decimal_place.toInt()
                     emit("✅ link onReady on $portPath — host up. decimal_place=${config.decimal_place} default_credit=${config.default_credit}")
                     runCatching { onLinkUp?.invoke(portPath) }
                     onReaderStateChanged?.invoke(true)

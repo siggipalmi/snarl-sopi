@@ -480,6 +480,7 @@ class MainActivity : ComponentActivity() {
                     up = NayaxLink.isUp(),
                     port = NayaxLink.portPath,
                     lastReadyAtMs = NayaxLink.lastReadyAtMs,
+                    decimalPlace = NayaxLink.decimalPlace,
                 )
             },
             telemetry = { client ->

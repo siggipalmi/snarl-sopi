@@ -41,6 +41,9 @@ object NayaxLink {
     var lastReadyAtMs: Long? = null
         private set
 
+    /** The terminal's decimal_place from its last handshake (must be 0 for ISK). */
+    val decimalPlace: Int? get() = controller.decimalPlace
+
     /** True while the reader can take a card. */
     fun isUp(): Boolean = when (controller.state) {
         MarshallPaymentController.State.READY,

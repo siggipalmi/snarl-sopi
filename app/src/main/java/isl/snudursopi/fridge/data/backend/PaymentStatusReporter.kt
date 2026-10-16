@@ -11,7 +11,13 @@ import java.time.Instant
 private const val TAG = "PaymentWatch"
 
 /** What the Nayax link looks like right now. */
-data class PaymentLinkStatus(val up: Boolean, val port: String?, val lastReadyAtMs: Long?)
+data class PaymentLinkStatus(
+    val up: Boolean,
+    val port: String?,
+    val lastReadyAtMs: Long?,
+    /** Terminal decimal places from the last handshake; anything but 0 mis-charges ISK. */
+    val decimalPlace: Int? = null,
+)
 
 /**
  * *** A MACHINE THAT CANNOT TAKE CARDS MUST SAY SO.
@@ -60,6 +66,7 @@ class PaymentStatusReporter(
                 put("up", s.up)
                 put("port", s.port)
                 put("lastReadyAt", s.lastReadyAtMs?.let { Instant.ofEpochMilli(it).toString() })
+                put("decimalPlace", s.decimalPlace)
             },
         )
         http.postRawJson("/api/v1/machines/$deviceCode/payment-status", body)
@@ -79,6 +86,7 @@ class PaymentStatusReporter(
             last == null ||
                 last.up != cur.up ||
                 last.port != cur.port ||
+                last.decimalPlace != cur.decimalPlace ||
                 now - lastPostMs >= HEARTBEAT_MS
     }
 }

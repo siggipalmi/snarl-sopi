@@ -20,6 +20,12 @@ class PaymentStatusReporterTest {
     @Test fun `a port change is posted at once`() =
         assertTrue(shouldPost(down, down.copy(port = "/dev/ttyS1"), 100, 101))
 
+    @Test fun `a decimal-place change is posted at once`() {
+        assertTrue(shouldPost(up, up.copy(decimalPlace = 2), 100, 101))
+        assertTrue(shouldPost(up.copy(decimalPlace = 2), up.copy(decimalPlace = 0), 100, 101))
+        assertFalse(shouldPost(up.copy(decimalPlace = 0), up.copy(decimalPlace = 0), 100, 101))
+    }
+
     @Test fun `no change is quiet until the heartbeat`() {
         assertFalse(shouldPost(down, down, lastPostMs = 0, now = HEARTBEAT_MS - 1))
         assertTrue(shouldPost(down, down, lastPostMs = 0, now = HEARTBEAT_MS))
