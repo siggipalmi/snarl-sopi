@@ -1935,6 +1935,7 @@ function handlePaymentStatus(req, res) {
   storage.setMeta('paylink:' + code, JSON.stringify(rec));
   // Act on a recovery straight away rather than on the next sweep.
   try { applyPaymentLinkAlert(code, rec, now); } catch (e) { console.error('[PAYLINK] alert error:', e.message); }
+  try { applyPaymentDecimalAlert(code, rec, now); } catch (e) { console.error('[PAYDEC] alert error:', e.message); }
   ok(res, { recorded: true });
 }
 
@@ -1947,7 +1948,47 @@ function nextPaymentLinkRecord(prev, report, now) {
     up, downSince, reportedAt: now,
     port: typeof report.port === 'string' ? report.port.slice(0, 32) : null,
     lastReadyAt: typeof report.lastReadyAt === 'string' ? report.lastReadyAt.slice(0, 40) : null,
+    // The terminal's decimal places from its last handshake (app 0.66.0+). Older apps don't send
+    // it, so keep the last known value rather than forgetting it.
+    decimalPlace: Number.isInteger(report.decimalPlace) ? report.decimalPlace
+      : (prev && Number.isInteger(prev.decimalPlace) ? prev.decimalPlace : null),
   };
+}
+
+// Pure: what to do with the decimal-places alert. ISK needs 0: the app sends whole krónur, so a
+// terminal on 2 charges a 350 kr basket as 3.50 kr (2026-10-16, 8626020602 came up on 2).
+function paymentDecimalAction(rec, alertOpen) {
+  if (!rec || !Number.isInteger(rec.decimalPlace)) return null;
+  if (rec.decimalPlace !== 0) return alertOpen ? null : 'raise';
+  return alertOpen ? 'resolve' : null;
+}
+
+function applyPaymentDecimalAlert(code, rec, now) {
+  const m = machines[code];
+  if (!m) return;
+  const id = 'alert_paydec_' + code;
+  const existing = storage.getAlert(id);
+  const action = paymentDecimalAction(rec, !!(existing && !existing.resolved));
+  if (!action) return;
+  const name = m.deviceName || code;
+  if (action === 'raise') {
+    storage.insertAlert({
+      id, type: 'payment_decimal_place', severity: 'critical',
+      title: `Posi á ${rec.decimalPlace} aukastöfum — ${name}`,
+      detail: `${code} · the Nayax terminal reports decimal_place=${rec.decimalPlace}. ISK needs 0: the machine sends whole krónur, ` +
+        `so a 350 kr sale would be charged as ${(350 / Math.pow(10, rec.decimalPlace)).toFixed(rec.decimalPlace)} kr. ` +
+        'Do not sell from this machine until Nayax has set the terminal to 0 decimal places.',
+      deviceCode: code, resolved: false, createdAt: new Date(now).toISOString(),
+    });
+    console.warn(`[PAYDEC] ${code} decimal_place=${rec.decimalPlace} — alert raised`);
+    notifyAgAdmins(m, `Posi á ${rec.decimalPlace} aukastöfum — ${name}`,
+      `The Nayax terminal on ${name} (${code}) reports decimal_place=${rec.decimalPlace}. ISK needs 0; until Nayax changes it, ` +
+      `every sale is charged at 1/${Math.pow(10, rec.decimalPlace)} of the price. Do not sell from this machine.`);
+  } else {
+    storage.resolveAlert(id);
+    console.log(`[PAYDEC] ${code} decimal_place=0 — alert resolved`);
+    notifyAgAdmins(m, `Posi rétt stilltur — ${name}`, `The Nayax terminal on ${name} (${code}) now reports decimal_place=0.`);
+  }
 }
 
 // Pure: what to do with the alert, given the record and whether one is open.
@@ -2298,6 +2339,11 @@ function handleFleetHealth(req, res) {
         const issues = [];
         if (!m.isOnline) issues.push({ kind: 'offline', level: 1, label: 'offline' });
         if (rv && rv.rejected != null) issues.push({ kind: 'update_refused', level: 1, label: 'update refused' });
+        let pay = null;
+        try { pay = JSON.parse(storage.getMeta('paylink:' + m.deviceCode) || 'null'); } catch (e) {}
+        if (pay && Number.isInteger(pay.decimalPlace) && pay.decimalPlace !== 0) {
+          issues.push({ kind: 'nayax_decimals', level: 1, label: 'Nayax decimals ' + pay.decimalPlace });
+        }
         if (alertCounts[m.deviceCode]) issues.push({ kind: 'alerts', level: 2, label: alertCounts[m.deviceCode] + ' alert' + (alertCounts[m.deviceCode] === 1 ? '' : 's') });
         if (complaints) issues.push({ kind: 'complaints', level: 2, label: complaints + ' complaint' + (complaints === 1 ? '' : 's') });
         const behind = !!(target && vc != null && vc < target);
@@ -2305,7 +2351,7 @@ function handleFleetHealth(req, res) {
         return { deviceCode: m.deviceCode, name: m.deviceName || m.deviceCode, operatorId: m.operatorId,
                  operatorName: (op && op.name) || m.operatorName || '', app, online: !!m.isOnline,
                  lastSeenAt: m.lastSeenAt || null, offlineMin, appVersion: m.kioskVersion || null, versionCode: vc,
-                 behind, issues, worst: issues.length ? Math.min(...issues.map(i => i.level)) : 9 };
+                 behind, issues, decimalPlace: pay && Number.isInteger(pay.decimalPlace) ? pay.decimalPlace : null, worst: issues.length ? Math.min(...issues.map(i => i.level)) : 9 };
       })
       .sort((a, b) => a.worst - b.worst || (b.issues.length - a.issues.length) || a.name.localeCompare(b.name, 'is'));
     ok(res, { machines: list, operators: Object.keys(operators).length,
