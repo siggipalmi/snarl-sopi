@@ -32,9 +32,12 @@
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .fld{display:flex;flex-direction:column;gap:7px;position:relative}
   .fld>label,.fld .flabel{font-family:'Geist Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--mute)}
-  input,textarea{font-family:inherit;font-size:16px;color:var(--ink);background:#FFF;border:.5px solid var(--line2);border-radius:8px;padding:12px 14px;width:100%}
-  input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,107,62,.12)}
-  input[aria-invalid="true"]{border-color:var(--err)}
+  input,textarea,select{font-family:inherit;font-size:16px;color:var(--ink);background:#FFF;border:.5px solid var(--line2);border-radius:8px;padding:12px 14px;width:100%}
+  select{appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238A8275' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,107,62,.12)}
+  input[aria-invalid="true"],select[aria-invalid="true"]{border-color:var(--err)}
   .hint{font-size:13px;color:var(--mute)}
   .err{font-size:13px;color:var(--err)}
   .err:empty{display:none}
@@ -125,15 +128,21 @@
         <div class="lbl">2 · Fyrir undirritun samnings</div>
         <h2>Undirritandi</h2>
         <div class="sign-box">
-          <p class="hint" style="margin:0 0 14px">Framkvæmdastjóri undirritar leigusamninginn rafrænt með rafrænum skilríkjum. Beiðni um undirritun er send á netfangið og farsímanúmerið hér að neðan.</p>
+          <p class="hint" style="margin:0 0 14px">Framkvæmdastjóri eða prókúruhafi undirritar leigusamninginn rafrænt með rafrænum skilríkjum. Beiðni um undirritun er send á netfangið og farsímanúmerið hér að neðan.</p>
+          <div class="fld" id="signer-pick" hidden style="margin-bottom:14px">
+            <label for="undirritandi_val">Hver undirritar?</label>
+            <select id="undirritandi_val" aria-describedby="undirritandi_val-err"></select>
+            <span class="err" id="undirritandi_val-err" role="alert"></span>
+          </div>
           <div class="signer" id="signer" hidden>
             <dl>
               <dt>Nafn</dt><dd id="s-name"></dd>
               <dt>Kennitala</dt><dd id="s-kt"></dd>
+              <dt>Hlutverk</dt><dd id="s-role"></dd>
             </dl>
             <span class="hint">Úr fyrirtækjaskrá.</span>
           </div>
-          <p class="hint" id="signer-wait" style="margin:0 0 14px">Sláðu inn kennitölu leigutaka hér að ofan til að sækja framkvæmdastjóra.</p>
+          <p class="hint" id="signer-wait" style="margin:0 0 14px">Sláðu inn kennitölu leigutaka hér að ofan til að sækja undirritendur úr fyrirtækjaskrá.</p>
           <div id="signer-manual" hidden>
             <p class="hint" style="margin:0 0 12px">Enginn framkvæmdastjóri er skráður í fyrirtækjaskrá. Hver undirritar samninginn fyrir hönd leigutaka?</p>
             <div class="grid2" style="margin-bottom:14px">
@@ -393,14 +402,40 @@
     state.company = c;
     $('company').classList.toggle('on', Boolean(c));
     $('signer-wait').hidden = Boolean(c);
-    $('signer').hidden = !c || !c.hasManager;
     $('signer-manual').hidden = !c || c.hasManager;
-    if (!c) return;
+    if (!c) { $('signer').hidden = true; $('signer-pick').hidden = true; return; }
     $('c-name').textContent = c.companyName;
     $('c-addr').textContent = c.registeredAddress || '—';
-    $('s-name').textContent = c.managerName || '';
-    $('s-kt').textContent = c.managerNationalId || '—';
+    // Several official signers: the customer picks one. Nothing is preselected, so the
+    // choice is deliberate; with one signer there is nothing to choose.
+    const signers = c.signers || [];
+    const pick = $('undirritandi_val');
+    pick.innerHTML = '';
+    if (signers.length > 1) {
+      pick.append(new Option('Veldu undirritanda…', ''));
+      signers.forEach((x, i) => pick.append(new Option(x.roles ? `${x.name} (${x.roles})` : x.name, String(i))));
+    }
+    $('signer-pick').hidden = signers.length < 2;
+    setError('undirritandi_val', '');
+    showSigner();
   }
+
+  // The card under the dropdown shows the chosen signer (or the only one).
+  function chosenSigner() {
+    const signers = (state.company && state.company.signers) || [];
+    if (signers.length === 1) return signers[0];
+    const i = $('undirritandi_val').value;
+    return i === '' ? null : signers[Number(i)] || null;
+  }
+  function showSigner() {
+    const x = chosenSigner();
+    $('signer').hidden = !x;
+    if (!x) return;
+    $('s-name').textContent = x.name;
+    $('s-kt').textContent = x.nationalId || '—';
+    $('s-role').textContent = x.roles || '—';
+  }
+  $('undirritandi_val').addEventListener('change', () => { setError('undirritandi_val', ''); showSigner(); });
 
   // ─── Address autocomplete (combobox) ───────────────────────────────────────
   const addr = $('heimilisfang');
@@ -486,6 +521,9 @@
     const errs = {};
     if (digits(ktInput.value).length !== 10) errs.kennitala = 'Sláðu inn 10 stafa kennitölu.';
     else if (!state.company) errs.kennitala = errs.kennitala || $('kennitala-err').textContent || 'Bíddu eftir að upplýsingar berist úr fyrirtækjaskrá.';
+    if (state.company && (state.company.signers || []).length > 1 && !chosenSigner()) {
+      errs.undirritandi_val = 'Veldu hver undirritar samninginn.';
+    }
     if (state.company && !state.company.hasManager) {
       if (!$('undirritandi_nafn').value.trim()) errs.undirritandi_nafn = 'Skráðu nafn þess sem undirritar.';
       if (!ktValid($('undirritandi_kt').value)) errs.undirritandi_kt = 'Kennitala er ekki gild.';
@@ -516,7 +554,7 @@
   }
 
   function applyErrors(errs) {
-    ['kennitala', 'undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi',
+    ['kennitala', 'undirritandi_val', 'undirritandi_nafn', 'undirritandi_kt', 'undirritandi_netfang', 'undirritandi_simi',
      'tengilidur_nafn', 'netfang', 'simi', 'netfang_reikninga',
      'taeki', 'heimilisfang'].forEach(k => setError(k, errs[k] || ''));
     const first = Object.keys(errs)[0];
@@ -541,8 +579,10 @@
     const body = {
       vefsida: form.vefsida.value,
       kennitala: digits(ktInput.value),
-      undirritandi_nafn: $('undirritandi_nafn').value.trim(),
-      undirritandi_kt: digits($('undirritandi_kt').value),
+      // A registry signer is sent by kennitala (and name, for one the registry has no
+      // kennitala for); otherwise what was typed in.
+      undirritandi_nafn: chosenSigner() ? chosenSigner().name : $('undirritandi_nafn').value.trim(),
+      undirritandi_kt: chosenSigner() ? (chosenSigner().value || '') : digits($('undirritandi_kt').value),
       undirritandi_netfang: $('undirritandi_netfang').value.trim(),
       undirritandi_simi: $('undirritandi_simi').value.trim(),
       netfang: ($('same-as-signer').checked ? $('undirritandi_netfang') : $('netfang')).value.trim(),

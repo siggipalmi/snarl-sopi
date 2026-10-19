@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   addressLookupQuery, buildContractPayload, buildCpiQuery, claimShortfall, dedupeKey, describeMachines,
   firstOfNextMonth, formatKennitala, formatKr, formatLongDate, formatPhone, formatStartDate, isValidKennitala,
-  accountHolderFor, parseCpiOverride, pickLatestCpi, signerFor, validateForm,
+  accountHolderFor, chosenSigner, companySigners, parseCpiOverride, pickLatestCpi, signerFor, validateForm,
 } from '../src/lib.js';
 
 const NOW = new Date('2026-09-25T10:00:00Z');
@@ -107,7 +107,7 @@ test('the signer is typed in when the registry has no manager', () => {
     ...SIGNER, undirritandi_nafn: 'Anna Jónsdóttir', undirritandi_kt: '590922-0800',
   }, NOW);
   const company = { companyName: 'X ehf.' };
-  assert.deepEqual(signerFor(company, form), { nafn: 'Anna Jónsdóttir', kennitala: '5909220800' });
+  assert.deepEqual(signerFor(company, form), { nafn: 'Anna Jónsdóttir', kennitala: '5909220800', hlutverk: '' });
   const p = buildContractPayload({
     id: 'x', form, company, now: NOW,
     claim: { radnumer_sjalfsala: 'a\nb', radnumer_nayax: 'c\nd', counts: { einfaldur: 2 }, warnings: [] },
@@ -160,6 +160,37 @@ test('the operations contact gets the login: the signer unless someone else is n
   const { tengilidur, ...old } = other.value;
   assert.equal(accountHolderFor(company, old).nafn, 'Júlíus Ingi Jónsson');
   assert.equal(accountHolderFor(company, old).netfang, 'sigga@lavashow.com');
+});
+
+test('the signer is chosen from the framkvæmdastjóri and prókúruhafar in the registry', () => {
+  const company = {
+    companyName: 'X ehf.', managerName: 'Sigga Framkv', managerNationalId: '0202802389',
+    signers: [
+      { name: 'Sigga Framkv', nationalId: '0202802389', roles: ['Framkvæmdastjóri', 'Prókúruhafi'] },
+      { name: 'Jón Prókúra', nationalId: '0101801309', roles: ['Prókúruhafi'] },
+    ],
+  };
+  const list = companySigners(company);
+  assert.equal(list.length, 2);
+  assert.equal(list[0].hlutverk, 'Framkvæmdastjóri, Prókúruhafi');
+
+  const form = kt => validateForm({ kennitala: '4607161010', netfang: 'a@b.is', simi: '8237777', einfaldur: 1,
+    heimilisfang: 'x', ...SIGNER, undirritandi_kt: kt }, NOW).value;
+  assert.deepEqual(signerFor(company, form('010180-1309')), { nafn: 'Jón Prókúra', kennitala: '0101801309', hlutverk: 'Prókúruhafi' });
+  assert.equal(chosenSigner(list, form('')), undefined);              // nothing chosen
+  assert.equal(chosenSigner(list, form('0303803389')), undefined);    // not in the registry
+  assert.equal(signerFor(company, form('')).nafn, 'Sigga Framkv');     // falls back to the first
+
+  const p = buildContractPayload({ id: 'x', form: form('0101801309'), company, now: NOW,
+    claim: { radnumer_sjalfsala: '1', radnumer_nayax: '2', counts: { einfaldur: 1 } }, cpi: { vnv: '1', manudur: 'm' } });
+  assert.equal(p.Nafn_Framkvaemdastjora, 'Jón Prókúra');
+  assert.equal(p.Kennitala_Undirritanda, '0101801309');
+  assert.equal(p.Hlutverk_Undirritanda, 'Prókúruhafi');
+
+  // A lookup Worker without `signers` still gives its single manager
+  assert.deepEqual(companySigners({ managerName: 'Anna', managerNationalId: '590922-0800', managerPosition: 'Framkvæmdastjóri' }),
+    [{ nafn: 'Anna', kennitala: '5909220800', hlutverk: 'Framkvæmdastjóri' }]);
+  assert.deepEqual(companySigners({ companyName: 'Y' }), []);
 });
 
 test('a claim that did not cover every machine is a shortfall', () => {

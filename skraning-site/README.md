@@ -38,8 +38,12 @@ browser ──▶ skraning Worker ──▶ D1 (every registration, with its ste
   the backend (v6.32.5) claims none and the registration waits, retrying, instead of reaching Zapier.
 - **The lease always starts on the first of the coming month.** The form shows the date; the
   customer does not choose it.
-- **The signer is collected for e-signing.** Name and kennitala of the framkvæmdastjóri come from
-  fyrirtækjaskrá (typed in when the registry has none); the form asks for their email and mobile.
+- **The signer is collected for e-signing.** Who can sign comes from fyrirtækjaskrá: the
+  framkvæmdastjóri and any prókúruhafi. With more than one, the customer picks from a list, and the
+  server accepts only a person the registry lists at submit time. When the registry has nobody, name
+  and kennitala are typed in. The form asks for the signer's email and mobile. The list needs the
+  `signers` field from `skattur-company-lookup` (see `../skattur-company-lookup/SIGNERS.md`);
+  without it the registry's single manager is used, as before.
 - **The customer gets a login, with their machines in it.** "Tengiliður vegna reksturs" is the
   person who runs the machines day to day (name, email, phone; the signer unless ticked otherwise).
   Just before the Zap is called, the backend creates the operator for the company, emails that person
@@ -111,6 +115,7 @@ In the lease-agreement Zap:
    | `Kennitala_Undirritanda` | 0101801234 (10 digits, no dash) |
    | `Netfang_Undirritanda` | julius@lavashow.com |
    | `Simi_Undirritanda` | 8237777 (digits, `+` kept for foreign numbers) |
+   | `Hlutverk_Undirritanda` | Framkvæmdastjóri, Prókúruhafi, or both; empty when typed in |
 
    The operations contact (already given a login by the Worker, so the Zap does not need to call
    `/operators/provision`): `Nafn_Tengilids`, with `Netfang_Samskipti` and `Simi`.
