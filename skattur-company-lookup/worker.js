@@ -5,7 +5,7 @@
 // SKATTUR_API_KEY secret. This file is the full code to paste there.
 //
 // Same as the earlier version, plus `signers`: everyone who can sign for the
-// company (framkvæmdastjóri and prókúruhafar), and a new cache key (company-v5)
+// company (framkvæmdastjóri and prókúruhafar), and a new cache key (company-v6)
 // so cached answers without `signers` are not reused.
 
 export default {
@@ -96,10 +96,10 @@ function normalizeNationalId(value) {
 
 async function getCompanyData(nationalId, env, debug = false, noCache = false) {
   /*
-    v5: answers now carry `signers`. A new key means older cached answers
+    v6: answers carry `signers` with the framkvæmdastjóri recognised. A new key means older cached answers
     (without it) are ignored automatically.
   */
-  const cacheKey = `company-v5/${nationalId}.json`;
+  const cacheKey = `company-v6/${nationalId}.json`;
 
   if (!debug && !noCache && env.COMPANY_CACHE) {
     const cached = await env.COMPANY_CACHE.get(cacheKey);
@@ -406,7 +406,9 @@ function pickSigners(relationships) {
     const text = normalizeText(fixIcelandicText(
       `${getAny(r, ["type", "Type"])} ${getAny(r, ["position", "Position"])}`
     ));
-    if (text.includes("framkvaemdastjori")) return "Framkvæmdastjóri";
+    // Skatturinn lists the framkvæmdastjóri as type "Framkvæmdastjórn", often with
+    // an empty position, so match both "-stjórn" and "-stjóri".
+    if (text.includes("framkvaemdastjor")) return "Framkvæmdastjóri";
     if (text.includes("prokur")) return "Prókúruhafi";
     return "";
   };
