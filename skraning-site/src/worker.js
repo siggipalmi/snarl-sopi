@@ -14,7 +14,7 @@
 // only has to copy fields into "Create Document From Template".
 
 import {
-  MACHINES, MAX_ATTEMPTS, accountHolderFor, addressLookupQuery, describeMachines, signerFor, backoffMinutes, buildContractPayload, buildCpiQuery,
+  MACHINES, MAX_ATTEMPTS, accountHolderFor, addressLookupQuery, chosenSigner, companySigners, describeMachines, signerFor, backoffMinutes, buildContractPayload, buildCpiQuery,
   claimShortfall, dedupeKey, firstOfNextMonth, formatKennitala, formatLongDate, isValidKennitala, isoDate,
   normalizeKennitala, parseCpiOverride, pickLatestCpi, registeredAddress, validateForm,
 } from './lib.js';
@@ -91,9 +91,17 @@ async function handleCompany(url, env) {
   return json({
     companyName: c.companyName,
     registeredAddress: registeredAddress(c),
+    // Everyone who can sign (framkvæmdastjóri, prókúruhafar); the form offers a choice when
+    // there is more than one. `value` is what the form sends back as undirritandi_kt.
+    signers: companySigners(c).map(x => ({
+      name: x.nafn,
+      nationalId: x.kennitala ? formatKennitala(x.kennitala) : '',
+      roles: x.hlutverk,
+      value: x.kennitala,
+    })),
     managerName: c.managerName || '',
     managerNationalId: c.managerNationalId ? formatKennitala(c.managerNationalId) : '',
-    hasManager: Boolean(c.managerName),
+    hasManager: companySigners(c).length > 0,
   });
 }
 
@@ -144,11 +152,17 @@ async function handleSubmit(request, env, ctx) {
       return json({ error: 'upstream', message: 'Ekki tókst að sækja upplýsingar úr fyrirtækjaskrá. Reynið aftur eftir smá stund.' }, 502);
     }
     if (!company) errors.kennitala = 'Engar upplýsingar fundust fyrir þessa kennitölu í fyrirtækjaskrá.';
-    else if (!company.managerName) {
-      // No manager in the registry: the signer has to be named here, with a kennitala
-      // that rafræn skilríki can match.
-      if (!form.undirritandi.nafn) errors.undirritandi_nafn = 'Skráðu nafn þess sem undirritar.';
-      if (!isValidKennitala(form.undirritandi.kennitala)) errors.undirritandi_kt = 'Kennitala er ekki gild.';
+    else {
+      const signers = companySigners(company);
+      if (!signers.length) {
+        // No signer in the registry: the signer has to be named here, with a kennitala
+        // that rafræn skilríki can match.
+        if (!form.undirritandi.nafn) errors.undirritandi_nafn = 'Skráðu nafn þess sem undirritar.';
+        if (!isValidKennitala(form.undirritandi.kennitala)) errors.undirritandi_kt = 'Kennitala er ekki gild.';
+      } else if (signers.length > 1 && !chosenSigner(signers, form)) {
+        // Several official signers: the choice must be one of them, as the registry says now.
+        errors.undirritandi_val = 'Veldu hver undirritar samninginn.';
+      }
     }
   }
   if (!errors.heimilisfang) {

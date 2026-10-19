@@ -175,13 +175,41 @@ export function validateForm(body, now) {
   };
 }
 
-// Who signs: the registry's manager when there is one, otherwise the person typed
-// into the form. Returns { nafn, kennitala } with kennitala as 10 digits or ''.
-export function signerFor(company, form) {
-  if (company.managerName) {
-    return { nafn: company.managerName, kennitala: normalizeKennitala(company.managerNationalId) };
+// Everyone fyrirtækjaskrá says can sign: the lookup's `signers` list (framkvæmdastjóri and
+// prókúruhafar), or, from a lookup Worker that predates that list, its single manager.
+// [{ nafn, kennitala (10 digits or ''), hlutverk }]
+export function companySigners(company) {
+  const list = (Array.isArray(company && company.signers) ? company.signers : [])
+    .map(x => ({
+      nafn: String(x.name || '').trim(),
+      kennitala: normalizeKennitala(x.nationalId),
+      hlutverk: (Array.isArray(x.roles) ? x.roles : []).join(', '),
+    }))
+    .filter(x => x.nafn);
+  if (list.length) return list;
+  if (company && company.managerName) {
+    return [{
+      nafn: company.managerName,
+      kennitala: normalizeKennitala(company.managerNationalId),
+      hlutverk: company.managerPosition || 'Framkvæmdastjóri',
+    }];
   }
-  return { nafn: form.undirritandi.nafn, kennitala: form.undirritandi.kennitala };
+  return [];
+}
+
+// The registry signer the form chose: matched by kennitala, or by name when the registry
+// has no kennitala for them. Undefined when nothing matches.
+export function chosenSigner(signers, form) {
+  const kt = form.undirritandi.kennitala;
+  return signers.find(x => (x.kennitala && x.kennitala === kt) || (!x.kennitala && x.nafn === form.undirritandi.nafn));
+}
+
+// Who signs: the registry signer chosen on the form (the first when only one is listed),
+// otherwise the person typed in. Returns { nafn, kennitala, hlutverk }, kennitala 10 digits or ''.
+export function signerFor(company, form) {
+  const signers = companySigners(company);
+  if (signers.length) return chosenSigner(signers, form) || signers[0];
+  return { nafn: form.undirritandi.nafn, kennitala: form.undirritandi.kennitala, hlutverk: '' };
 }
 
 // The operations contact: gets the operator login. Their email and phone are the
@@ -314,6 +342,7 @@ export function buildContractPayload({ id, form, company, claim, cpi, now }) {
     // Who signs with rafræn skilríki: for the e-sign (Taktikal) step
     Nafn_Undirritanda: signer.nafn,
     Kennitala_Undirritanda: signer.kennitala,        // 10 digits, no dash
+    Hlutverk_Undirritanda: signer.hlutverk,         // e.g. "Framkvæmdastjóri", "Prókúruhafi"
     Netfang_Undirritanda: form.undirritandi.netfang,
     Simi_Undirritanda: normalizePhone(form.undirritandi.simi),
 
