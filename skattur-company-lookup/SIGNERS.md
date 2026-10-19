@@ -22,7 +22,7 @@ const cacheKey = `company-v4/${nationalId}.json`;
 to
 
 ```js
-const cacheKey = `company-v5/${nationalId}.json`;
+const cacheKey = `company-v6/${nationalId}.json`;
 ```
 
 ## 2. Add `signers` to the answer
@@ -52,7 +52,9 @@ function pickSigners(relationships) {
     const text = normalizeText(fixIcelandicText(
       `${getAny(r, ["type", "Type"])} ${getAny(r, ["position", "Position"])}`
     ));
-    if (text.includes("framkvaemdastjori")) return "Framkvæmdastjóri";
+    // Skatturinn lists the framkvæmdastjóri as type "Framkvæmdastjórn", often with
+    // an empty position, so match both "-stjórn" and "-stjóri".
+    if (text.includes("framkvaemdastjor")) return "Framkvæmdastjóri";
     if (text.includes("prokur")) return "Prókúruhafi";
     return "";
   };
