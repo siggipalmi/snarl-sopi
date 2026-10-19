@@ -3784,9 +3784,9 @@ function renderHomeV3(home) {
   const cardsHtml = `<div class="home-swipe${cards.length > 1 ? ' multi' : ''}">${cards.map(c => `<div class="home-swipe-i">${c}</div>`).join('')}</div>`;
 
   // Red = act now (offline, empty baskets, a complaint); low stock and missing photos are neutral.
-  const act = { offline: 1, empty: 1, complaint: 1 };
+  const act = { door_open: 1, offline: 1, empty: 1, complaint: 1 };
   const go1 = { empty: m => ui.btn('Fylla á', `openRestockList('${m}')`), complaint: () => ui.btn('Svara', "go('complaints')"),
-                photo: () => ui.btn('Bæta við', "go('catalog')"), low: m => ui.btn('Skoða', `openRestockList('${m}')`), offline: m => ui.btn('Skoða', `openMachineDetail('${m}')`) };
+                photo: () => ui.btn('Bæta við', "go('catalog')"), door_open: m => ui.btn('Skoða', `openMachineDetail('${m}')`), low: m => ui.btn('Skoða', `openRestockList('${m}')`), offline: m => ui.btn('Skoða', `openMachineDetail('${m}')`) };
   const multi = (home.machines || []).length > 1;
   const att = (home.attention || []).map(a => ui.row({
     dot: act[a.kind] ? 'act' : '',
