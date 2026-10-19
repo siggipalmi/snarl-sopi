@@ -173,6 +173,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/transactions',       handler: handleMachineTransactions, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetry,      middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/payment-status',    handler: handlePaymentStatus,  middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/door-status',       handler: handleDoorStatus,     middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleGetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleSetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleKioskLogs,      middleware:[requireMachineKey] },
@@ -1939,6 +1940,50 @@ function handlePaymentStatus(req, res) {
   ok(res, { recorded: true });
 }
 
+// POST /machines/:code/door-status { open, cabinet, since } — fridge app 0.66.2+. Sent when a
+// restock ends with the bolt still released (nobody touched a basket for 10 minutes, or the hour
+// ran out): the machine is selling again with its door unlocked, so anyone can take stock without
+// paying. Sent again with open:false when the bolt latches, which resolves the alert.
+function handleDoorStatus(req, res) {
+  const code = req.params.deviceCode;
+  const m = machines[code];
+  if (!m) return notFound(res, `Machine ${code} not found`);
+  const b = req.body || {};
+  if (typeof b.open !== 'boolean') return badRequest(res, 'open (boolean) is required');
+  const now = Date.now();
+  const rec = { open: b.open, cabinet: b.cabinet === 'B' ? 'B' : 'A',
+                since: typeof b.since === 'string' ? b.since.slice(0, 40) : null, reportedAt: now };
+  storage.setMeta('door:' + code, JSON.stringify(rec));
+  const id = 'alert_door_open_' + code;
+  const existing = storage.getAlert(id);
+  const open = !!(existing && !existing.resolved);
+  const name = m.deviceName || code;
+  try {
+    if (rec.open && !open) {
+      storage.insertAlert({
+        id, type: 'door_left_open', severity: 'critical',
+        title: `Hurð skilin eftir opin — ${name}`,
+        detail: `${code} · cabinet ${rec.cabinet}: a restock ended with the door still unlocked` +
+          (rec.since ? ` (opened ${rec.since})` : '') + ' and no basket has changed for 10 minutes. ' +
+          'The machine is selling again, so stock can be taken without paying. Close the door until it latches.',
+        deviceCode: code, resolved: false, createdAt: new Date(now).toISOString(),
+      });
+      console.warn(`[DOOR] ${code} left open — alert raised`);
+      notifyAgAdmins(m, `Hurð skilin eftir opin — ${name}`,
+        `The door of ${name} (${code}) was left unlocked after a restock. Stock can be taken without paying until it is closed.`);
+    } else if (!rec.open && open) {
+      storage.resolveAlert(id);
+      console.log(`[DOOR] ${code} latched — alert resolved`);
+      notifyAgAdmins(m, `Hurð lokuð — ${name}`, `The door of ${name} (${code}) has latched again.`);
+    }
+  } catch (e) { console.error('[DOOR] alert error:', e.message); }
+  ok(res, { recorded: true });
+}
+
+function doorLeftOpen(code) {
+  try { const d = JSON.parse(storage.getMeta('door:' + code) || 'null'); return !!(d && d.open); } catch (e) { return false; }
+}
+
 // Pure: fold one report into the stored record. downSince starts at the first "down" report and is
 // kept while the link stays down; any "up" clears it.
 function nextPaymentLinkRecord(prev, report, now) {
@@ -2291,6 +2336,8 @@ function handleOperatorHome(req, res) {
       cards.push({ deviceCode: m.deviceCode, name, isFridge, online: !!m.isOnline, app: m.kioskVersion || null,
                    emptyCount: empty.length, lowCount: low.length, lastRestockAt,
                    stockKnown: isFridge && (storage.basketStock(m.deviceCode) || []).length > 0 });
+      if (doorLeftOpen(m.deviceCode)) attention.push({ level: 0, kind: 'door_open', deviceCode: m.deviceCode, machine: name,
+        title: 'Hurð skilin eftir opin', detail: 'Lokaðu hurðinni þar til hún smellur í lás — vélin selur á meðan.' });
       if (!m.isOnline) attention.push({ level: 1, kind: 'offline', deviceCode: m.deviceCode, machine: name,
         title: 'Vél ekki í sambandi', detail: offlineMin != null ? `í ${offlineMin} mín` : '' });
       if (empty.length) attention.push({ level: 1, kind: 'empty', deviceCode: m.deviceCode, machine: name,
@@ -2339,6 +2386,7 @@ function handleFleetHealth(req, res) {
         const issues = [];
         if (!m.isOnline) issues.push({ kind: 'offline', level: 1, label: 'offline' });
         if (rv && rv.rejected != null) issues.push({ kind: 'update_refused', level: 1, label: 'update refused' });
+        if (doorLeftOpen(m.deviceCode)) issues.push({ kind: 'door_open', level: 1, label: 'door left open' });
         let pay = null;
         try { pay = JSON.parse(storage.getMeta('paylink:' + m.deviceCode) || 'null'); } catch (e) {}
         if (pay && Number.isInteger(pay.decimalPlace) && pay.decimalPlace !== 0) {
