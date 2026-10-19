@@ -304,6 +304,26 @@ class FridgeViewModel(
     @Volatile
     private var restockActivityMs = 0L
 
+    /** When the bolt released for the current restock. */
+    @Volatile
+    private var restockUnlockedAtMs = 0L
+
+    private var doorLeftOpenJob: Job? = null
+
+    /**
+     * A restock timed out with the bolt still released: report the door as left open, then wait —
+     * as long as it takes — for the bolt to latch and report it closed.
+     */
+    private fun watchDoorLeftOpen(cabinet: Int, sinceMs: Long) {
+        doorLeftOpenJob?.cancel()
+        doorLeftOpenJob = viewModelScope.launch {
+            runCatching { stockClient()?.doorStatus(open = true, cabinet = cabinet, sinceMs = sinceMs) }
+            hardware.doorState.first { ds -> ds != null && ds.locked }
+            android.util.Log.i("FridgeFlow", "door on cabinet $cabinet latched after being left open")
+            runCatching { stockClient()?.doorStatus(open = false, cabinet = cabinet, sinceMs = null) }
+        }
+    }
+
     /**
      * Watch the board's door pushes and settle automatically when the door goes
      * open -> closed. The board pushes on change (and every ~10s), so this is
@@ -401,6 +421,7 @@ class FridgeViewModel(
                     outcome = "never_unlocked"
                 } else {
                     val unlockedAtMs = System.currentTimeMillis()
+                    restockUnlockedAtMs = unlockedAtMs
                     restockActivityMs = unlockedAtMs
                     while (true) {
                         val latched = withTimeoutOrNull(RESTOCK_CHECK_MS) {
@@ -435,6 +456,9 @@ class FridgeViewModel(
                         "with the door never latched",
                 )
             }
+            // The machine goes back to selling with its bolt still released: say so, and say again
+            // when it finally latches, so the alert clears by itself.
+            if (outcome == "idle" || outcome == "max") watchDoorLeftOpen(cabinet, restockUnlockedAtMs)
             finishRestock(cabinet, recorded = outcome != "never_unlocked")
         }
     }

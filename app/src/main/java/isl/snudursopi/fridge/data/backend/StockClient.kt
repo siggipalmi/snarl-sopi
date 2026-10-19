@@ -32,13 +32,44 @@ class StockClient(
     private val lock = Mutex()
     private var pendingRestock: Report? = null
 
+    /** The latest door report not yet delivered; a newer one replaces it. */
+    private var pendingDoor: Map<String, Any?>? = null
+
     suspend fun report(reason: String, cabinet: Int?, baskets: List<BasketStock>) {
         val r = Report(reason, cabinet, baskets)
         if (!send(r) && reason == "restock") lock.withLock { pendingRestock = r }
     }
 
-    /** Retry a held restock report. Called from the backend loop. */
+    /**
+     * A restock ended with the bolt still released — nobody touched a basket for 10 minutes — or
+     * the door has latched again. `POST /api/v1/machines/{code}/door-status`; the backend alerts on
+     * open and resolves on closed. Only the latest state matters, so a failed one is held and
+     * replaced by any newer one.
+     */
+    suspend fun doorStatus(open: Boolean, cabinet: Int, sinceMs: Long?) {
+        val body = buildMap<String, Any?> {
+            put("open", open)
+            put("cabinet", if (cabinet == 2) "B" else "A")
+            sinceMs?.let { put("since", java.time.Instant.ofEpochMilli(it).toString()) }
+        }
+        lock.withLock { pendingDoor = body }
+        flushDoor()
+    }
+
+    private suspend fun flushDoor() {
+        val body = lock.withLock { pendingDoor } ?: return
+        try {
+            http.postJson("/api/v1/machines/$deviceCode/door-status", body)
+            Log.i(TAG, "door status reported (open=${body["open"]})")
+            lock.withLock { if (pendingDoor === body) pendingDoor = null }
+        } catch (e: Exception) {
+            Log.w(TAG, "door status not sent: ${e.message}")
+        }
+    }
+
+    /** Retry a held restock report and door report. Called from the backend loop. */
     suspend fun flush() {
+        flushDoor()
         val r = lock.withLock { pendingRestock } ?: return
         if (send(r)) lock.withLock { if (pendingRestock === r) pendingRestock = null }
     }
