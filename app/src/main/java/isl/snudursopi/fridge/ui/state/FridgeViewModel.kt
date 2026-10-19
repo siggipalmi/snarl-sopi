@@ -3,6 +3,7 @@ package isl.snudursopi.fridge.ui.state
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import isl.snudursopi.fridge.domain.Planogram
+import isl.snudursopi.fridge.domain.RestockTimer
 import isl.snudursopi.fridge.domain.Language
 import isl.snudursopi.fridge.domain.LanguageCycle
 import isl.snudursopi.fridge.domain.Settlement
@@ -299,6 +300,10 @@ class FridgeViewModel(
      *  our door-closed signal on hardware with no door sensor. */
     private var sawUnlocked = false
 
+    /** Last time a basket changed during a restock (RestockTimer.ACTIVITY_G). */
+    @Volatile
+    private var restockActivityMs = 0L
+
     /**
      * Watch the board's door pushes and settle automatically when the door goes
      * open -> closed. The board pushes on change (and every ~10s), so this is
@@ -379,44 +384,58 @@ class FridgeViewModel(
             // ended the restock in the same breath it started, before the door
             // had moved. Requiring the unlock first makes a retained value
             // harmless.
-            val closed = try {
-                withTimeoutOrNull(RESTOCK_MAX_MS) {
-                    var sawUnlocked = false
-                    hardware.doorState.first { ds ->
-                        // *** NOT MATCHED TO `cabinet`. A double drives one
-                        // lock for both doors, so the report only ever arrives
-                        // under one cabinet number; requiring a match meant
-                        // restock on the other cabinet never completed — it sat
-                        // the full 15 minutes while the nudger hammered the
-                        // board. Any real unlock-then-lock is the transition we
-                        // are waiting for.
-                        if (ds == null) return@first false
-                        if (!ds.locked) {
-                            sawUnlocked = true
-                            false
-                        } else {
-                            sawUnlocked
-                        }
-                    }
+            // Two waits with their own limits (RestockTimer): first for the bolt to release at all,
+            // then — someone is working — for it to latch again, following the scales.
+            // *** A REAL UNLOCKED -> LOCKED TRANSITION, never a bare "locked": doorState is a
+            // StateFlow, so first{} gets its CURRENT value at once, and after any earlier session
+            // that is "locked". Waiting for the unlock first makes a retained value harmless.
+            // *** NOT MATCHED TO `cabinet`: a double drives one lock for both doors, so the report
+            // may arrive under the other cabinet number.
+            var outcome = "closed"
+            try {
+                val unlocked = withTimeoutOrNull(RestockTimer.UNLOCK_WAIT_MS) {
+                    hardware.doorState.first { ds -> ds != null && !ds.locked }
                     true
+                }
+                if (unlocked == null) {
+                    outcome = "never_unlocked"
+                } else {
+                    val unlockedAtMs = System.currentTimeMillis()
+                    restockActivityMs = unlockedAtMs
+                    while (true) {
+                        val latched = withTimeoutOrNull(RESTOCK_CHECK_MS) {
+                            hardware.doorState.first { ds -> ds != null && ds.locked }
+                            true
+                        }
+                        if (latched != null) break
+                        val end = RestockTimer.shouldEnd(System.currentTimeMillis(), unlockedAtMs, restockActivityMs)
+                        if (end != null) { outcome = end.name.lowercase(); break }
+                    }
                 }
             } finally {
                 nudger.cancel()
             }
 
-            if (closed == null) {
-                // NEVER STRAND THE MACHINE. Sitting in RESTOCK forever means it
-                // stops earning and — because commands defer while it's busy —
-                // can't be recovered remotely either. Fall back to idle, but
-                // re-read the baseline on the way out so we can't sell against
-                // stale weights if something was in fact moved.
-                android.util.Log.e(
+            // NEVER STRAND THE MACHINE: whatever ended it, re-read the baseline and go back to
+            // idle. Sitting in RESTOCK forever stops it earning and defers every command.
+            when (outcome) {
+                "never_unlocked" -> android.util.Log.e(
                     "FridgeFlow",
-                    "restock on cabinet $cabinet TIMED OUT with no door-close — " +
-                        "returning to idle and re-reading the baseline anyway",
+                    "restock on cabinet $cabinet: the bolt never released in " +
+                        "${RestockTimer.UNLOCK_WAIT_MS / 1000}s — back to idle, no restock recorded",
+                )
+                "idle" -> android.util.Log.e(
+                    "FridgeFlow",
+                    "restock on cabinet $cabinet ended: no basket changed for " +
+                        "${RestockTimer.IDLE_MS / 60000} min and the door never latched — is it left open?",
+                )
+                "max" -> android.util.Log.e(
+                    "FridgeFlow",
+                    "restock on cabinet $cabinet ended at the ${RestockTimer.MAX_MS / 60000}-min ceiling " +
+                        "with the door never latched",
                 )
             }
-            finishRestock(cabinet)
+            finishRestock(cabinet, recorded = outcome != "never_unlocked")
         }
     }
 
@@ -429,8 +448,12 @@ class FridgeViewModel(
      */
     private fun startRestockGrid(cabinet: Int) {
         viewModelScope.launch {
+            var prev: Map<Int, Int>? = null
             while (_ui.value.phase == FridgePhase.RESTOCK) {
                 val weights = hardware.readWeightsFresh()
+                // Someone moving stock: keeps an open restock from timing out (RestockTimer).
+                if (RestockTimer.changed(prev, weights)) restockActivityMs = System.currentTimeMillis()
+                if (weights != null) prev = weights
                 val faults = hardware.sensorFaults.value
                 _ui.value = _ui.value.copy(
                     restockCells = buildRestockCells(cabinet, weights, faults),
@@ -487,12 +510,13 @@ class FridgeViewModel(
         }
     }
 
-    private suspend fun finishRestock(cabinet: Int) {
+    private suspend fun finishRestock(cabinet: Int, recorded: Boolean = true) {
         val fresh = hardware.readWeightsFresh()
         if (fresh != null) {
             idleWeights = fresh
             idleWeightsAtMs = System.currentTimeMillis()
-            reportStock("restock", cabinet, fresh)
+            // A door that never opened is not a restock: don't reset "sold since the last restock".
+            if (recorded) reportStock("restock", cabinet, fresh)
             android.util.Log.i(
                 "FridgeFlow",
                 "restock done on cabinet $cabinet — baseline re-read (${fresh.size} trays)",
@@ -1275,11 +1299,6 @@ private const val RESTOCK_HOLD_S = 120
 private const val RESTOCK_REISSUE_MS = 30_000L
 
 /**
- * Hard ceiling on a restock. Reached only if the door never closes; we then
- * re-baseline and return to idle rather than leaving the machine unsellable
- * and unreachable.
- */
-/**
  * Gap between restock grid refreshes.
  *
  * A full 16-tray read already takes ~2.4s, so a 2s gap meant near back-to-back
@@ -1290,12 +1309,9 @@ private const val RESTOCK_REISSUE_MS = 30_000L
 private const val RESTOCK_GRID_POLL_MS = 4_000L
 
 /**
- * *** WAS 15 MINUTES, WHICH IS A MACHINE OUT OF SERVICE FOR A QUARTER OF AN HOUR.
+ * Restock limits live in RestockTimer. History: 15 minutes for everything kept a faulty machine out
+ * of service for a quarter hour; the 5 minutes that replaced it cut real restocks short (Nordic
+ * Hostel, 2026-10-16). Now: 2 min for the bolt to release, then 10 still minutes or an hour.
  *
- * If the door never reports closing — a silent cabinet, a failed sensor — the
- * restock flow used to sit here for the full quarter hour with the phase stuck
- * on RESTOCK, refusing customers the whole time. Five minutes is longer than any
- * real restock and short enough that a fault does not take the machine out of
- * service for the afternoon.
- */
-private const val RESTOCK_MAX_MS = 5L * 60L * 1000L
+ * How often an open restock checks its idle and hour limits (RestockTimer) while waiting. */
+private const val RESTOCK_CHECK_MS = 15_000L
