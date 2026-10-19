@@ -1,9 +1,15 @@
 # skattur-company-lookup: return every official signer
 
-The live Worker's source is not in this repo; it is edited in the Cloudflare dashboard
+The live Worker is edited in the Cloudflare dashboard
 (**Workers & Pages → skattur-company-lookup → Edit code**). Editing there keeps its
-bindings (cache) and the `SKATTUR_API_KEY` secret. These three edits add a `signers`
-list to `/company` and leave every existing field as it was.
+bindings (cache) and the `SKATTUR_API_KEY` secret.
+
+**Simplest:** replace everything in the editor with [`worker.js`](worker.js) from this folder
+and click Deploy. It is the live code with the three edits below already made, and its
+character-repair table is written with escapes so nothing is lost in copy and paste.
+
+Or make the three edits by hand. They add a `signers` list to `/company` and leave every
+existing field as it was.
 
 ## 1. New cache key
 
