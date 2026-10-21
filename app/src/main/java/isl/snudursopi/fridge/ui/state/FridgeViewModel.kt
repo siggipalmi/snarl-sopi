@@ -188,6 +188,35 @@ class FridgeViewModel(
         viewModelScope.launch { runCatching { client.report(reason, cabinet, baskets) } }
     }
 
+    /**
+     * The scale half of the self-test (SelfTestReporter), from the idle watch's latest read — no
+     * extra bus traffic. Null unless idle, so a test never competes with a customer.
+     *  - missing: baskets this machine should have that did not answer the last read
+     *  - faults: baskets the board reports a sensor fault for
+     *  - drift: a basket reading -30 g or less, or an unassigned basket off zero by 30 g or more —
+     *    both mean its zero has moved and counts on it will be wrong
+     */
+    fun scaleSelfTest(): Map<String, Any?>? {
+        if (_ui.value.phase != FridgePhase.IDLE) return null
+        val expected = planogram.spec.physicalBaskets
+        val w = idleWeights
+        val label = { c: Any, b: Int -> "$c$b" }
+        val assigned = planogram.baskets.filter { it.productId != null }.map { it.trayIndex }.toSet()
+        return mapOf(
+            "expected" to expected.size,
+            "answered" to expected.count { it.third in w },
+            "missing" to expected.filter { it.third !in w }.map { label(it.first, it.second) },
+            "faults" to hardware.sensorFaults.value.mapNotNull { (tray, code) ->
+                expected.find { it.third == tray }?.let { "${label(it.first, it.second)}:$code" }
+            },
+            "drift" to expected.mapNotNull { (c, b, t) ->
+                val g = w[t] ?: return@mapNotNull null
+                if (g <= -SELF_TEST_DRIFT_G || (t !in assigned && g >= SELF_TEST_DRIFT_G)) "${label(c, b)}:$g" else null
+            },
+            "readAgeS" to if (idleWeightsAtMs > 0) (System.currentTimeMillis() - idleWeightsAtMs) / 1000 else null,
+        )
+    }
+
     fun startIdleWatch() {
         viewModelScope.launch {
             while (true) {
@@ -1331,6 +1360,9 @@ private const val RESTOCK_REISSUE_MS = 30_000L
  * feedback; the bus needs the clear air far more.
  */
 private const val RESTOCK_GRID_POLL_MS = 4_000L
+
+/** An empty basket this far from zero has drifted (self-test warning). */
+private const val SELF_TEST_DRIFT_G = 30
 
 /**
  * Restock limits live in RestockTimer. History: 15 minutes for everything kept a faulty machine out

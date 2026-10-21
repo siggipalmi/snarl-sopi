@@ -483,6 +483,33 @@ class MainActivity : ComponentActivity() {
                     decimalPlace = NayaxLink.decimalPlace,
                 )
             },
+            selfTest = {
+                viewModel.scaleSelfTest()?.let { scales ->
+                    val ctx = applicationContext
+                    val stat = android.os.StatFs(ctx.filesDir.absolutePath)
+                    val mem = android.app.ActivityManager.MemoryInfo().also {
+                        (ctx.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager)
+                            .getMemoryInfo(it)
+                    }
+                    val now = System.currentTimeMillis()
+                    val processStartMs = now - (android.os.SystemClock.elapsedRealtime() -
+                        android.os.Process.getStartElapsedRealtime())
+                    mapOf(
+                        "app" to isl.snudursopi.fridge.AppVersion.name,
+                        "deviceTime" to java.time.Instant.ofEpochMilli(now).toString(),
+                        "processStart" to java.time.Instant.ofEpochMilli(processStartMs).toString(),
+                        "scales" to scales,
+                        "autoTime" to (android.provider.Settings.Global.getInt(
+                            ctx.contentResolver, android.provider.Settings.Global.AUTO_TIME, 0) == 1),
+                        "deviceOwner" to KioskManager.isDeviceOwner(ctx),
+                        "weimiHidden" to KioskManager.weimiHidden(ctx),
+                        "storageFreePct" to (stat.availableBytes * 100 / maxOf(1L, stat.totalBytes)).toInt(),
+                        "memAvailMb" to (mem.availMem / 1_048_576L).toInt(),
+                        "lowMemory" to mem.lowMemory,
+                        "payment" to mapOf("up" to NayaxLink.isUp(), "decimalPlace" to NayaxLink.decimalPlace),
+                    )
+                }
+            },
             telemetry = { client ->
                 isl.snudursopi.fridge.data.backend.TelemetryLoop(
                     client = client,

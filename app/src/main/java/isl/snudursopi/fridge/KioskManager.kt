@@ -93,6 +93,16 @@ object KioskManager {
         }
     }
 
+    /** For the self-test: is each Weimi app still hidden? Null when we are not Device Owner. */
+    fun weimiHidden(context: Context): Map<String, Boolean>? {
+        if (!isDeviceOwner(context)) return null
+        val dpm = dpm(context)
+        val admin = adminComponent(context)
+        return WEIMI_PACKAGES_TO_HIDE.associateWith { pkg ->
+            runCatching { dpm.isApplicationHidden(admin, pkg) }.getOrDefault(true)
+        }
+    }
+
     /**
      * Only these two. NOT the launcher — hiding it before we are home leaves the
      * board with no launcher at all. NOT installer or qy_ota — those are Weimi's
