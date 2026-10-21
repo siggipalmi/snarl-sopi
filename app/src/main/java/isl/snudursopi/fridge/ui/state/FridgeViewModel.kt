@@ -95,6 +95,8 @@ class FridgeViewModel(
             logoUrl = p.logoUrl,
             posters = p.posters,
             showPosters = p.showPosters,
+            outOfService = p.outOfService,
+            outOfServiceReason = p.outOfServiceReason,
             idleTimeoutSeconds = p.idleTimeoutSeconds,
             receiptsEnabled = p.receiptsEnabled,
         )
@@ -269,6 +271,13 @@ class FridgeViewModel(
     /** Called when the customer taps a card on the idle screen. */
     fun onCardTapped() {
         if (_ui.value.phase != FridgePhase.IDLE) return
+        // CLOSED FOR SALE: refuse the card and close the reader's session, so nothing is held and
+        // the door stays shut. The closed screen is already telling the customer why.
+        if (_ui.value.outOfService) {
+            android.util.Log.i("FridgeFlow", "card refused — machine is out of service")
+            runCatching { payment.cancel("closed") }
+            return
+        }
         orderId = "fr-" + System.currentTimeMillis()
         sessionStartedAtMs = System.currentTimeMillis()
         transition(FridgePhase.AUTHORIZING)
@@ -1052,6 +1061,9 @@ class FridgeViewModel(
             logoUrl = it.logoUrl,
             posters = it.posters,
             showPosters = it.showPosters,
+            // A machine closed for sale stays closed after a restock (freshIdle runs then too).
+            outOfService = it.outOfService,
+            outOfServiceReason = it.outOfServiceReason,
             idleTimeoutSeconds = it.idleTimeoutSeconds,
             cabinetCount = it.cabinetCount,
             language = defaultLanguage,

@@ -116,6 +116,9 @@ data class FridgeUiState(
     val logoUrl: String? = null,
     val posters: List<isl.snudursopi.fridge.domain.Poster> = emptyList(),
     val showPosters: Boolean = true,
+    /** Closed for sale — see Planogram.outOfService. */
+    val outOfService: Boolean = false,
+    val outOfServiceReason: String? = null,
     val idleTimeoutSeconds: Int = 60,
     /** The ⓘ sheet is open. */
     val showInfo: Boolean = false,

@@ -128,7 +128,7 @@ fun FridgeFlowScreen(
             // headline.
             Box(Modifier.weight(1f).fillMaxWidth()) {
         when (state.phase) {
-            FridgePhase.IDLE -> IdleView(state, idleClock)
+            FridgePhase.IDLE -> if (state.outOfService) ClosedView(state) else IdleView(state, idleClock)
             FridgePhase.AUTHORIZING -> Centered(
                 language = state.language,
                 titleRes = R.string.authorizing_title,
@@ -248,7 +248,7 @@ fun FridgeFlowScreen(
         // the sheets: in turn with the animation, never while a customer or the
         // info sheet has the screen. Bleeds through the 44dp padding to the panel
         // edge, because a poster with a cream frame looks like a mistake.
-        if (state.showPosters && state.posters.isNotEmpty()) {
+        if (state.showPosters && state.posters.isNotEmpty() && !state.outOfService) {
             IdlePosters(
                 posters = state.posters,
                 active = state.phase == FridgePhase.IDLE && !state.showInfo && !showAdmin,
@@ -284,6 +284,36 @@ fun FridgeFlowScreen(
  * like a locked cooler — words alone don't overcome the assumption that the door
  * won't open.
  */
+/**
+ * Closed for sale (config.outOfService). All three languages at once, Icelandic first, because a
+ * customer who can't buy shouldn't have to find the language button to learn why. The reason is
+ * the operator's own text; a master close sends none.
+ */
+@Composable
+private fun ClosedView(state: FridgeUiState) {
+    Column(
+        Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("🔒", fontSize = 54.sp)
+        Spacer(Modifier.height(18.dp))
+        Text(
+            "Lokað tímabundið",
+            fontFamily = AppFonts.Cormorant, fontStyle = FontStyle.Italic, fontWeight = FontWeight.SemiBold,
+            fontSize = 84.sp, color = AppColors.Ink, textAlign = TextAlign.Center,
+        )
+        state.outOfServiceReason?.let {
+            Spacer(Modifier.height(12.dp))
+            Text(it, fontSize = 26.sp, color = AppColors.InkSoft, textAlign = TextAlign.Center)
+        }
+        Spacer(Modifier.height(26.dp))
+        Text("Temporarily closed · Chwilowo nieczynne", fontSize = 20.sp, color = AppColors.Muted, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(40.dp))
+        Text("Við biðjumst velvirðingar á óþægindunum", fontSize = 17.sp, color = AppColors.Muted, textAlign = TextAlign.Center)
+    }
+}
+
 @Composable
 private fun IdleView(state: FridgeUiState, t: Float) {
 

@@ -118,6 +118,9 @@ object FridgeConfigParser {
             logoUrl = logo,
             posters = posters,
             showPosters = data.field("showAdRegion")?.asBoolean() ?: true,
+            outOfService = data.field("outOfService")?.asBoolean() ?: false,
+            outOfServiceReason = data.field("outOfServiceReason")?.takeIf { !it.isNull }?.asText()
+                ?.trim()?.takeIf { it.isNotEmpty() }?.take(120),
             idleTimeoutSeconds = (data.field("idleTimeoutSeconds")?.asInt() ?: 60).coerceIn(10, 3600),
             led = parseLed(fridge.field("led")),
             receiptsEnabled = data.field("receipts")?.field("enabled")?.asBoolean() ?: false,

@@ -53,8 +53,8 @@ android {
         targetSdk = 34
         // Fridge app starts its OWN forward-only version line at 1 (decision D5),
         // never shared with the coil app's ~128 line.
-        versionCode = 159
-        versionName = "0.67.0"
+        versionCode = 160
+        versionName = "0.68.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

@@ -105,6 +105,13 @@ data class Planogram(
      * page — so a machine with a poster saved and its box ticked showed nothing.
      */
     val showPosters: Boolean = true,
+    /**
+     * Closed for sale (config.outOfService): by the operator, or AG's master close. The screen says
+     * "Lokað tímabundið" and card taps are refused; restocking and commands still work.
+     */
+    val outOfService: Boolean = false,
+    /** The operator's own words for the closed screen; never set for a master close. */
+    val outOfServiceReason: String? = null,
     /** Seconds idle before posters join the rotation (config.idleTimeoutSeconds). */
     val idleTimeoutSeconds: Int = 60,
     /** Cabinet lighting (fridge.led). On/off only on this hardware — see [LightPolicy]. */
