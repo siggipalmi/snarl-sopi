@@ -43,6 +43,7 @@ const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
         revokeToken } = require('./auth');
 const email = require('./email');
+const fleetHealth = require('./fleetHealth');
 const { buildCustomerReceipt } = require('./customerReceipt');
 const crypto = require('crypto');
 const { ok, created, notFound, badRequest, serverError, json,
@@ -174,6 +175,8 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetry,      middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/payment-status',    handler: handlePaymentStatus,  middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/door-status',       handler: handleDoorStatus,     middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/self-test',         handler: handleSelfTest,       middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/admin/morning-report',                  handler: handleMorningReportNow, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleGetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleSetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleKioskLogs,      middleware:[requireMachineKey] },
@@ -2369,43 +2372,190 @@ function handleOperatorHome(req, res) {
 // refused. Being behind the latest app build is listed separately: rollout is one machine at a time,
 // so most machines are behind by design.
 function handleFleetHealth(req, res) {
+  try { ok(res, computeFleetHealth(Date.now())); } catch (e) { serverError(res, e); }
+}
+
+// Every set-up machine with its issues, worst first. Shared by Fleet → Health and the morning report.
+function computeFleetHealth(now) {
+  const alertCounts = storage.openAlertCountsByDevice();
+  const rel = { fridge: storage.getAppRelease('fridge'), coil: storage.getAppRelease('coil') };
+  const list = Object.values(machines)
+    .filter(m => m.isOnline || m.kioskVersion || (m.deviceName && m.deviceName !== m.deviceCode))
+    .map(m => {
+      const isFridge = fridgeSpec(m.model).isFridge;
+      const app = isFridge ? 'fridge' : 'coil';
+      const v = storage.getAppVersion(m.deviceCode);
+      const rv = storage.getAppRevert(m.deviceCode);
+      const vc = (v && v.vc != null) ? v.vc : null;
+      const target = rel[app] && rel[app].targetVersionCode;
+      const complaints = storage.openComplaints(m.deviceCode).n || 0;
+      const offlineMin = (!m.isOnline && m.lastSeenAt) ? Math.round((now - Date.parse(m.lastSeenAt)) / 60000) : null;
+      // Offline for a week or more (or never seen): a machine not in service, listed weekly in the
+      // morning report rather than every day.
+      const longOffline = !m.isOnline && (offlineMin == null || offlineMin > 7 * 24 * 60);
+      const issues = [];
+      if (!m.isOnline) issues.push({ kind: 'offline', level: 1, label: 'offline' });
+      if (rv && rv.rejected != null) issues.push({ kind: 'update_refused', level: 1, label: 'update refused' });
+      if (doorLeftOpen(m.deviceCode)) issues.push({ kind: 'door_open', level: 1, label: 'door left open' });
+      let pay = null;
+      try { pay = JSON.parse(storage.getMeta('paylink:' + m.deviceCode) || 'null'); } catch (e) {}
+      if (pay && Number.isInteger(pay.decimalPlace) && pay.decimalPlace !== 0) {
+        issues.push({ kind: 'nayax_decimals', level: 1, label: 'Nayax decimals ' + pay.decimalPlace,
+                      detail: `The terminal is on ${pay.decimalPlace} decimal places; ISK needs 0, or a 350 kr sale is charged as 3.50 kr.` });
+      }
+      let st = null;
+      try { st = JSON.parse(storage.getMeta('selftest:' + m.deviceCode) || 'null'); } catch (e) {}
+      issues.push(...fleetHealth.selfTestIssues(st, now, !!m.isOnline));
+      if (m.isOnline) {
+        try {
+          const silent = fleetHealth.silenceIssue(storage.saleTimesSince(m.deviceCode, now - 28 * 86400000, isFridge), now);
+          if (silent) issues.push(silent);
+          if (isFridge) {
+            const failed = fleetHealth.failedPurchasesIssue(storage.recentFridgeOutcomes(m.deviceCode, 10), now);
+            if (failed) issues.push(failed);
+          }
+        } catch (e) { console.error('[HEALTH] sales check failed for', m.deviceCode, e.message); }
+      }
+      if (alertCounts[m.deviceCode]) issues.push({ kind: 'alerts', level: 2, label: alertCounts[m.deviceCode] + ' alert' + (alertCounts[m.deviceCode] === 1 ? '' : 's') });
+      if (complaints) issues.push({ kind: 'complaints', level: 2, label: complaints + ' complaint' + (complaints === 1 ? '' : 's') });
+      const behind = !!(target && vc != null && vc < target);
+      const op = operators[m.operatorId];
+      return { deviceCode: m.deviceCode, name: m.deviceName || m.deviceCode, operatorId: m.operatorId,
+               operatorName: (op && op.name) || m.operatorName || '', app, online: !!m.isOnline,
+               lastSeenAt: m.lastSeenAt || null, offlineMin, longOffline, appVersion: m.kioskVersion || null, versionCode: vc,
+               selfTestAt: st ? st.receivedAt : null,
+               behind, issues, decimalPlace: pay && Number.isInteger(pay.decimalPlace) ? pay.decimalPlace : null,
+               worst: issues.length ? Math.min(...issues.map(i => i.level)) : 9 };
+    })
+    .sort((a, b) => a.worst - b.worst || (b.issues.length - a.issues.length) || a.name.localeCompare(b.name, 'is'));
+  return { machines: list, operators: Object.keys(operators).length,
+           latest: { fridge: rel.fridge ? rel.fridge.targetVersionCode : null, coil: rel.coil ? rel.coil.targetVersionCode : null } };
+}
+
+// POST /machines/:code/self-test — fridge app 0.67.0+, every 15 minutes while idle.
+function handleSelfTest(req, res) {
+  const code = req.params.deviceCode;
+  if (!machines[code]) return notFound(res, `Machine ${code} not found`);
+  const b = req.body || {};
+  if (!b.scales || typeof b.scales !== 'object') return badRequest(res, 'scales is required');
+  let prev = null;
+  try { prev = JSON.parse(storage.getMeta('selftest:' + code) || 'null'); } catch (e) {}
+  const rec = fleetHealth.nextSelfTestRecord(prev, b, Date.now());
+  storage.setMeta('selftest:' + code, JSON.stringify(rec));
+  ok(res, { recorded: true });
+}
+
+// ── Morning fleet report (07:45, AG admins only) ──
+// Critical problems already email the moment they happen; this is the daily sweep that also shows
+// the quiet ones. Machines offline a week or more are listed on Mondays only. Product expiry is
+// left out: it is stock, not hardware or software (Siggi, 2026-10-21).
+const REPORT_SKIP_ALERT_TYPES = new Set(['fridge_expired_product']);
+
+function buildMorningReport(now) {
+  const health = computeFleetHealth(now);
+  const monday = new Date(now).getUTCDay() === 1;
+  const openAlerts = storage.listAlerts().filter(a => !a.resolved && a.deviceCode && !REPORT_SKIP_ALERT_TYPES.has(a.type));
+  const need = [], warn = [], notChecked = [], okNames = [], noSelfTest = [];
+  for (const m of health.machines) {
+    if (m.longOffline) {
+      if (monday) notChecked.push({ name: m.name, code: m.deviceCode,
+        what: m.offlineMin == null ? 'never seen online' : `offline ${Math.round(m.offlineMin / 1440)} days`,
+        detail: 'Listed on Mondays until it is set up or removed.' });
+      continue;
+    }
+    const alerts = openAlerts.filter(a => a.deviceCode === m.deviceCode);
+    const lv1 = m.issues.filter(i => i.level === 1);
+    const lv2 = m.issues.filter(i => i.level === 2 && i.kind !== 'alerts');
+    for (const i of lv1) need.push({ name: m.name, code: m.deviceCode, what: i.label, detail: i.detail || '' });
+    for (const a of alerts) {
+      // Alerts the health rules already describe would only repeat themselves.
+      if (/^(offline|payment_decimal_place|door_left_open)$/.test(a.type)) continue;
+      (a.severity === 'critical' ? need : warn).push({ name: m.name, code: m.deviceCode, what: a.title, detail: a.detail || '' });
+    }
+    for (const i of lv2) warn.push({ name: m.name, code: m.deviceCode, what: i.label, detail: i.detail || '' });
+    if (m.online && !m.selfTestAt && m.app === 'fridge') noSelfTest.push(m.name);
+    if (!lv1.length && !lv2.length && !alerts.length) okNames.push(m.name);
+  }
+  // One line for every fridge still on an app without the self-test, not a row each.
+  if (noSelfTest.length) {
+    notChecked.unshift({ name: `${noSelfTest.length} fridge${noSelfTest.length === 1 ? '' : 's'}`, code: '',
+                         what: 'no self-test yet', detail: `App older than 0.67.0: ${noSelfTest.join(', ')}.` });
+  }
+  const needMachines = new Set(need.map(x => x.code)).size;
+  const warnMachines = new Set(warn.map(x => x.code)).size;
+  const y0 = new Date(now); y0.setUTCHours(0, 0, 0, 0);
+  let salesYesterday = 0;
+  for (const m of Object.values(machines)) {
+    try { salesYesterday += storage.revenueBetween(m.deviceCode, y0.getTime() - 86400000, y0.getTime()).revenueKr || 0; } catch (e) {}
+  }
+  const subject = `Fleet 07:45 · ${needMachines} need you · ${warnMachines} warning${warnMachines === 1 ? '' : 's'} · ${okNames.length} OK`;
+  return { subject, need, warn, notChecked, okNames, salesYesterday, needMachines, warnMachines, date: new Date(now) };
+}
+
+function renderMorningReport(r) {
+  const esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const d = r.date;
+  const kr = n => Math.round(n).toLocaleString('is-IS').replace(/,/g, '.') + ' kr';
+  const url = (process.env.APP_URL || 'https://admin.agvending.is') + '/#settings';
+  const row = (x, red) => `<tr><td style="padding:9px 14px;border-top:1px solid #E8E2D8;font:13px/1.45 Arial,sans-serif;color:#1A1A1A">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${red ? '#B8471F' : '#D4CCBE'};margin-right:8px"></span>
+      <b style="font-weight:600">${esc(x.name)} · ${esc(x.what)}</b>${x.detail ? `<br><span style="color:#8A8275;font-size:12px">${esc(x.detail)}</span>` : ''}</td></tr>`;
+  const card = (title, aside, rows) => `<table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #E8E2D8;border-radius:12px;margin:0 0 12px;border-collapse:separate">
+      <tr><td style="padding:10px 14px 6px;font:italic 19px Georgia,serif;color:#1A1A1A">${esc(title)}<span style="float:right;font:11.5px Arial,sans-serif;color:#8A8275;padding-top:5px">${esc(aside)}</span></td></tr>${rows}</table>`;
+  const tile = (label, value, red) => `<td width="25%" style="padding:4px"><div style="background:#fff;border:1px solid #E8E2D8;border-radius:10px;padding:8px 10px">
+      <div style="font:10.5px Arial,sans-serif;color:#8A8275;text-transform:uppercase;letter-spacing:.05em">${label}</div>
+      <div style="font:italic 600 24px Georgia,serif;color:${red ? '#B8471F' : '#1A1A1A'}">${value}</div></div></td>`;
+  let html = `<div style="background:#FAF7F2;padding:18px">
+    <div style="font:italic 28px Georgia,serif;color:#1A1A1A">Fleet this morning</div>
+    <div style="font:13px Arial,sans-serif;color:#8A8275;margin:2px 0 14px">${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]} · checked ${d.toISOString().slice(11, 16)}</div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px"><tr>
+      ${tile('Need you', r.needMachines, r.needMachines > 0)}${tile('Warnings', r.warnMachines)}${tile('OK', r.okNames.length)}${tile('Sales yesterday', kr(r.salesYesterday))}</tr></table>`;
+  html += r.need.length ? card('need you today', "can't sell, or charges wrongly", r.need.map(x => row(x, true)).join(''))
+                        : card('need you today', '', `<tr><td style="padding:9px 14px;border-top:1px solid #E8E2D8;font:13px Arial,sans-serif;color:#4A6B2E">Nothing. Every machine can sell and charge correctly.</td></tr>`);
+  if (r.warn.length) html += card('warnings', 'no rush, but look this week', r.warn.map(x => row(x, false)).join(''));
+  html += card('all OK', `${r.okNames.length} machine${r.okNames.length === 1 ? '' : 's'}`,
+    `<tr><td style="padding:9px 14px;border-top:1px solid #E8E2D8;font:12.5px/1.6 Arial,sans-serif;color:#3A3A3A">${esc(r.okNames.join(', ')) || '—'}</td></tr>`);
+  if (r.notChecked.length) html += card('not checked', String(r.notChecked.length), r.notChecked.map(x => row(x, false)).join(''));
+  html += `<a href="${url}" style="display:block;text-align:center;background:#1A1A1A;color:#FAF7F2;border-radius:10px;padding:12px;font:600 14px Arial,sans-serif;text-decoration:none">Open Fleet → Health</a>
+    <div style="font:11px Arial,sans-serif;color:#8A8275;margin-top:12px">Sent to AG admins only. Critical problems are emailed as they happen; this report repeats anything still open. Product expiry is not included.</div></div>`;
+  const line = x => `- ${x.name}: ${x.what}${x.detail ? ' — ' + x.detail : ''}`;
+  const text = [r.subject, '', 'NEED YOU TODAY', ...(r.need.length ? r.need.map(line) : ['- nothing']),
+    ...(r.warn.length ? ['', 'WARNINGS', ...r.warn.map(line)] : []),
+    '', `ALL OK (${r.okNames.length}): ${r.okNames.join(', ')}`,
+    ...(r.notChecked.length ? ['', 'NOT CHECKED', ...r.notChecked.map(line)] : []), '', url].join('\n');
+  return { html, text };
+}
+
+async function sendMorningReport(now) {
+  const r = buildMorningReport(now);
+  const { html, text } = renderMorningReport(r);
+  const fromEnv = String(process.env.OPS_ALERT_EMAIL || '').split(',').map(s => s.trim()).filter(Boolean);
+  const to = fromEnv.length ? fromEnv : storage.listUsers().filter(u => u.role === 'ag_admin' && u.email).map(u => u.email);
+  for (const addr of to) await email.send({ to: addr, subject: r.subject, text, html, fromName: 'AG Vending' });
+  console.log(`[MORNING] sent to ${to.length}: ${r.subject}`);
+  return { subject: r.subject, to: to.length, need: r.need.length, warn: r.warn.length };
+}
+
+// POST /api/v1/admin/morning-report { send } — preview (default) or send it now.
+async function handleMorningReportNow(req, res) {
   try {
-    const now = Date.now();
-    const alertCounts = storage.openAlertCountsByDevice();
-    const rel = { fridge: storage.getAppRelease('fridge'), coil: storage.getAppRelease('coil') };
-    const list = Object.values(machines)
-      .filter(m => m.isOnline || m.kioskVersion || (m.deviceName && m.deviceName !== m.deviceCode))
-      .map(m => {
-        const app = fridgeSpec(m.model).isFridge ? 'fridge' : 'coil';
-        const v = storage.getAppVersion(m.deviceCode);
-        const rv = storage.getAppRevert(m.deviceCode);
-        const vc = (v && v.vc != null) ? v.vc : null;
-        const target = rel[app] && rel[app].targetVersionCode;
-        const complaints = storage.openComplaints(m.deviceCode).n || 0;
-        const offlineMin = (!m.isOnline && m.lastSeenAt) ? Math.round((now - Date.parse(m.lastSeenAt)) / 60000) : null;
-        const issues = [];
-        if (!m.isOnline) issues.push({ kind: 'offline', level: 1, label: 'offline' });
-        if (rv && rv.rejected != null) issues.push({ kind: 'update_refused', level: 1, label: 'update refused' });
-        if (doorLeftOpen(m.deviceCode)) issues.push({ kind: 'door_open', level: 1, label: 'door left open' });
-        let pay = null;
-        try { pay = JSON.parse(storage.getMeta('paylink:' + m.deviceCode) || 'null'); } catch (e) {}
-        if (pay && Number.isInteger(pay.decimalPlace) && pay.decimalPlace !== 0) {
-          issues.push({ kind: 'nayax_decimals', level: 1, label: 'Nayax decimals ' + pay.decimalPlace });
-        }
-        if (alertCounts[m.deviceCode]) issues.push({ kind: 'alerts', level: 2, label: alertCounts[m.deviceCode] + ' alert' + (alertCounts[m.deviceCode] === 1 ? '' : 's') });
-        if (complaints) issues.push({ kind: 'complaints', level: 2, label: complaints + ' complaint' + (complaints === 1 ? '' : 's') });
-        const behind = !!(target && vc != null && vc < target);
-        const op = operators[m.operatorId];
-        return { deviceCode: m.deviceCode, name: m.deviceName || m.deviceCode, operatorId: m.operatorId,
-                 operatorName: (op && op.name) || m.operatorName || '', app, online: !!m.isOnline,
-                 lastSeenAt: m.lastSeenAt || null, offlineMin, appVersion: m.kioskVersion || null, versionCode: vc,
-                 behind, issues, decimalPlace: pay && Number.isInteger(pay.decimalPlace) ? pay.decimalPlace : null, worst: issues.length ? Math.min(...issues.map(i => i.level)) : 9 };
-      })
-      .sort((a, b) => a.worst - b.worst || (b.issues.length - a.issues.length) || a.name.localeCompare(b.name, 'is'));
-    ok(res, { machines: list, operators: Object.keys(operators).length,
-              latest: { fridge: rel.fridge ? rel.fridge.targetVersionCode : null, coil: rel.coil ? rel.coil.targetVersionCode : null } });
+    if (req.body && req.body.send === true) return ok(res, await sendMorningReport(Date.now()));
+    const r = buildMorningReport(Date.now());
+    ok(res, { subject: r.subject, html: renderMorningReport(r).html });
   } catch (e) { serverError(res, e); }
 }
+
+// 07:45 Iceland time (UTC), once a day; the mark is stored so a restart doesn't send it twice.
+setInterval(() => {
+  const now = new Date();
+  if (now.getUTCHours() * 60 + now.getUTCMinutes() < 7 * 60 + 45) return;
+  const day = now.toISOString().slice(0, 10);
+  if (storage.getMeta('morningReport:lastDay') === day) return;
+  storage.setMeta('morningReport:lastDay', day);
+  sendMorningReport(now.getTime()).catch(e => console.error('[MORNING] failed:', e.message));
+}, 60 * 1000).unref();
 
 // ── New operator layout switch (per operator, AG-controlled) ──
 function handleListNewUi(req, res) {
