@@ -1223,9 +1223,15 @@ function handleGetFridgeBaskets(req, res) {
   const { deviceCode } = req.params;
   const m = machines[deviceCode];
   if (!m) return notFound(res, `Device ${deviceCode} not found`);
+  // What the scales last reported per basket (app 0.64.0+: at boot, after each sale and restock), so
+  // the planogram tiles can show a count like the machine's restock screen (operators, 2026-10-21).
+  const stock = {};
+  for (const st of (storage.basketStock(deviceCode) || [])) stock[st.cabinet + ':' + st.basket] = st;
   const baskets = storage.listFridgeBaskets(deviceCode).map(b => {
     const p = b.productId ? storage.getProduct(b.productId) : null;
+    const st = stock[b.cabinet + ':' + b.basket];
     return { ...b, productName: p ? p.name : null, productImg: p ? p.imgUrl : null,
+             stockUnits: st && st.units != null ? st.units : null, stockGrams: st ? st.grams : null, stockAt: st ? st.at : null,
              effectiveWeightG: b.unitWeightG != null ? b.unitWeightG : (p ? p.weightGrams : null),
              effectivePriceIsk: b.priceIsk != null ? b.priceIsk : (p ? p.salePriceIsk : null),
              // The catalog's own values, so the editor can tell an override from an inherited value.
