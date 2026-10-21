@@ -1709,6 +1709,7 @@ select.fi{cursor:pointer;}
                 <select class="fi" id="viewas-op" style="max-width:280px;font-size:13px"><option value="">Loading…</option></select>
                 <button class="btn btn-sm" onclick="startViewAs()">view as</button>
                 <button class="btn btn-sm btn-ghost" id="newui-btn" onclick="toggleNewUi()">new layout: …</button>
+                <button class="btn btn-sm btn-ghost" id="opclose-btn" onclick="toggleOperatorClose()" style="color:var(--alert);border-color:var(--alert)">master close: …</button>
               </div>
               <div style="font-size:11.5px;color:var(--muted);margin-top:6px">New layout = the mobile-first home (Yfirlit). Switch it on per operator; each of their users can still go back with "Gamla útlitið".</div>
             </div>
@@ -3778,7 +3779,7 @@ function renderHomeV3(home) {
   const h = new Date().getHours();
   const hello = h < 5 ? 'Góða nótt' : h < 12 ? 'Góðan daginn' : h < 18 ? 'Góðan dag' : 'Gott kvöld';
   const cards = (home.machines || []).map(m => {
-    const ok = m.online ? '● í lagi' : '● ekki í sambandi';
+    const ok = m.closed ? '● lokað' + (m.closedBy === 'ag' ? ' (AG)' : '') : m.online ? '● í lagi' : '● ekki í sambandi';
     const meta = [m.isFridge && m.stockKnown ? (m.emptyCount ? m.emptyCount + (m.emptyCount === 1 ? ' hilla tóm' : ' hillur tómar') : 'engin hilla tóm') : '',
                   m.lastRestockAt ? 'síðast fyllt ' + isShortDate(m.lastRestockAt) : ''].filter(Boolean).join(' · ');
     const door = m.isFridge ? `<button class="ui-door" id="door-${rsEsc(m.deviceCode)}" onclick="homeDoor('${rsEsc(m.deviceCode)}')">🔓 Opna hurð</button>
@@ -5457,13 +5458,7 @@ function renderMachineControls(code) {
   if (!el) return;
   // (temp render is defined below as renderMachineTemp)
   const m = DB.machines[code] || {};
-  const s = m.settings || {};
-  const oos = !!s.outOfService;
-  el.innerHTML = `
-    <div class="toggle-row" style="border:none;padding:0 0 12px">
-      <div><div class="tgl-label">out of service</div><div style="font-size:11px;color:var(--muted)">kiosk shows a closed screen and stops selling</div></div>
-      <label class="tgl"><input type="checkbox" ${oos ? 'checked' : ''} onchange="setOutOfService('${code}',this.checked)"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
-    </div>
+  el.innerHTML = closureControls(code, m) + `
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="restartMachineCmd('${code}','app')">↻ restart app</button>
       <button class="btn btn-sm btn-ghost" onclick="launchSupport('${code}')">◉ open remote support</button>
@@ -5552,15 +5547,62 @@ function openKioskDesigner(code) {
   renderHeroPage();
 }
 
-async function setOutOfService(code, on) {
+// Out of service (2026-10-21): the operator's own switch with a reason the screen shows, and for
+// AG a master close the operator can't undo. A fridge needs app 0.68.0+ to obey it.
+function closureControls(code, m) {
+  const c = m.closure || { closed: !!(m.settings && m.settings.outOfService), by: m.settings && m.settings.outOfService ? 'operator' : null };
+  const isAg = currentUser?.role === 'ag_admin';
+  const agClosed = c.closed && c.by === 'ag';
+  const opOn = c.closed && c.by === 'operator';
+  const reason = (c.by === 'operator' && c.reason) ? c.reason : '';
+  let h = '';
+  if (agClosed && !isAg) {
+    h += '<div style="background:var(--alert-bg);color:var(--alert);font-size:12.5px;padding:10px 12px;border-radius:8px;margin-bottom:12px;line-height:1.45">🔒 Closed by AG Vending. Contact AG Vending to reopen this machine.</div>';
+  }
+  h += `<div class="toggle-row" style="border:none;padding:0 0 6px">
+      <div><div class="tgl-label">close this machine</div><div style="font-size:11px;color:var(--muted)">${agClosed && !isAg ? 'locked while AG Vending has it closed' : 'the screen says “Lokað tímabundið” and cards are refused; back to selling within a minute of switching off'}</div></div>
+      <label class="tgl"><input type="checkbox" ${opOn || (agClosed && !isAg) ? 'checked' : ''} ${agClosed && !isAg ? 'disabled' : ''} onchange="setOutOfService('${code}',this.checked)"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+    </div>`;
+  if (!(agClosed && !isAg)) {
+    h += `<input class="fi" id="oos-reason" maxlength="120" placeholder="Reason shown on the screen (optional)" value="${rsEsc(reason)}" style="margin-bottom:12px;font-size:12.5px"${opOn ? ` onchange="setOutOfService('${code}',true,true)"` : ''}>`;
+  }
+  if (isAg) {
+    const opScope = agClosed && c.scope === 'operator';
+    h += `<div style="border:1px solid var(--alert);border-radius:10px;padding:10px 12px;margin-bottom:14px">
+      <div class="toggle-row" style="border:none;padding:0">
+        <div><div class="tgl-label" style="color:var(--alert)">master close · AG only</div><div style="font-size:11px;color:var(--muted)">${opScope ? 'closed with all of this operator’s machines — reopen from Fleet → System → operators' : 'overrides the operator; they can’t reopen it. Customers only see “Lokað tímabundið”.'}</div></div>
+        <label class="tgl"><input type="checkbox" ${agClosed ? 'checked' : ''} ${opScope ? 'disabled' : ''} onchange="setMasterClose('${code}',this.checked)"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+      </div>
+      ${agClosed && c.note ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px">Note: ${rsEsc(c.note)}${c.since ? ' · since ' + rsEsc(String(c.since).slice(0, 10)) : ''}</div>` : ''}
+    </div>`;
+  }
+  return h;
+}
+
+async function setOutOfService(code, on, quiet) {
   if (!backendOnline) { showToast('backend offline'); renderMachineControls(code); return; }
-  if (on && !confirm('Take this machine out of service?\n\nThe kiosk will show a closed screen and stop selling until you switch it back.')) { renderMachineControls(code); return; }
+  if (on && !quiet && !confirm('Close this machine for sale?\n\nThe screen will say “Lokað tímabundið” and cards are refused until you switch it back.')) { renderMachineControls(code); return; }
+  const reasonEl = document.getElementById('oos-reason');
   try {
-    const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/out-of-service', { outOfService: on });
-    if (r.ok) {
-      if (DB.machines[code]) { DB.machines[code].settings = DB.machines[code].settings || {}; DB.machines[code].settings.outOfService = on; }
-      showToast(on ? 'Machine set out of service' : 'Machine back in service');
-    } else showToast(r.error || 'could not update');
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/out-of-service', { outOfService: on, reason: reasonEl ? reasonEl.value : '' });
+    if (r && r.ok) {
+      if (DB.machines[code]) DB.machines[code].closure = r.data.closure;
+      showToast(quiet ? 'Reason updated' : on ? 'Machine closed — the screen changes within a minute' : 'Machine back in service');
+    } else showToast((r && r.error && (r.error.messageEn || r.error.message || r.error)) || 'could not update');
+  } catch (e) { showToast('error: ' + e.message); }
+  renderMachineControls(code);
+}
+
+async function setMasterClose(code, on) {
+  let note = '';
+  if (on) {
+    note = prompt('Master close this machine?\n\nInternal note (not shown to customers), e.g. unpaid bill:', '');
+    if (note === null) { renderMachineControls(code); return; }
+  } else if (!confirm('Reopen this machine? The operator’s own switch applies again.')) { renderMachineControls(code); return; }
+  try {
+    const r = await API.put('/api/v1/admin/machines/' + encodeURIComponent(code) + '/master-close', { on, note });
+    if (r && r.ok) { if (DB.machines[code]) DB.machines[code].closure = r.data.closure; showToast(on ? 'Master closed' : 'Master close lifted'); }
+    else showToast((r && r.error) || 'could not update');
   } catch (e) { showToast('error: ' + e.message); }
   renderMachineControls(code);
 }
@@ -10383,7 +10425,7 @@ function drawFleetHealth() {
   const d = window._fleetHealth; if (!d) return;
   const all = d.machines || [];
   const filters = {
-    needs:   ['Needs you', m => m.worst < 9],
+    needs:   ['Needs you', m => m.worst <= 2],
     offline: ['Offline',   m => m.issues.some(i => i.kind === 'offline')],
     behind:  ['Old app',   m => m.behind],
     all:     ['All',       () => true],
@@ -10403,7 +10445,7 @@ function drawFleetHealth() {
   if (!list.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 14px">' + (q ? 'No machine matches.' : _fleetFilter === 'needs' ? 'Nothing needs you. All machines are fine.' : 'None.') + '</div>'; return; }
   const ago = m => m.online ? 'online' : (m.offlineMin == null ? 'never seen' : m.offlineMin < 60 ? 'seen ' + m.offlineMin + ' min ago' : m.offlineMin < 2880 ? 'seen ' + Math.round(m.offlineMin / 60) + ' h ago' : 'seen ' + Math.round(m.offlineMin / 1440) + ' d ago');
   const tags = m => m.issues.map(i => ui.tag(i.label, i.level === 1)).join('') + (m.behind ? ui.tag('old app') : '');
-  const dot = m => m.worst === 1 ? 'act' : m.worst === 9 ? 'ok' : '';
+  const dot = m => m.worst === 1 ? 'act' : m.worst >= 3 ? 'ok' : '';
   if (wide) {
     el.innerHTML = `<table class="fh-table"><thead><tr><th></th><th>Machine</th><th>Operator</th><th>Type</th><th>App</th><th>Last seen</th><th>Issues</th></tr></thead><tbody>`
       + list.map(m => `<tr onclick="openMachineDetail('${rsEsc(m.deviceCode)}')"><td><span class="ui-dot ${dot(m)}"></span></td>
@@ -10451,13 +10493,34 @@ async function loadViewAsOperators() {
     sel.innerHTML = list.map(o => `<option value="${rsEsc(o.id)}">${rsEsc(o.name)} · ${o.machineCount} machine${o.machineCount === 1 ? '' : 's'}</option>`).join('');
     const n = await API.get('/api/v1/admin/new-ui');
     window._newUiOps = (n && n.ok && n.data.operators) || [];
-    sel.onchange = drawNewUiBtn; drawNewUiBtn();
+    sel.onchange = drawNewUiBtn; drawNewUiBtn(); loadClosedOps();
   } catch (e) { sel.innerHTML = '<option value="">Could not load operators</option>'; }
 }
 function drawNewUiBtn() {
   const sel = document.getElementById('viewas-op'), b = document.getElementById('newui-btn');
   if (!sel || !b) return;
   b.textContent = 'new layout: ' + ((window._newUiOps || []).includes(sel.value) ? 'on' : 'off');
+  const c = document.getElementById('opclose-btn');
+  if (c) c.textContent = 'master close all machines: ' + ((window._closedOps || {})[sel.value] ? 'ON' : 'off');
+}
+async function loadClosedOps() {
+  try { const r = await API.get('/api/v1/admin/master-close'); window._closedOps = (r && r.ok && r.data.operators) || {}; } catch (e) { window._closedOps = {}; }
+  drawNewUiBtn();
+}
+async function toggleOperatorClose() {
+  const sel = document.getElementById('viewas-op');
+  if (!sel || !sel.value) return;
+  const name = sel.options[sel.selectedIndex].text.split(' · ')[0];
+  const on = !(window._closedOps || {})[sel.value];
+  let note = '';
+  if (on) {
+    note = prompt('Master close ALL of ' + name + '’s machines?\n\nThey stop selling within a minute and ' + name + ' can’t reopen them. Customers only see “Lokað tímabundið”.\n\nInternal note (e.g. unpaid bill):', '');
+    if (note === null) return;
+  } else if (!confirm('Reopen all of ' + name + '’s machines?')) return;
+  const r = await API.put('/api/v1/admin/operators/' + encodeURIComponent(sel.value) + '/master-close', { on, note });
+  if (!r || !r.ok) { showToast('Failed'); return; }
+  showToast((on ? 'Master closed ' : 'Reopened ') + r.data.machines + ' machine(s) of ' + name);
+  loadClosedOps();
 }
 async function toggleNewUi() {
   const sel = document.getElementById('viewas-op');
