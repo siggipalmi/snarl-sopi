@@ -5302,11 +5302,48 @@ function handleSoldOut(req, res) {
  * GET /api/v1/machines/:deviceCode/detail
  * Single-machine bundle for the detail page — machine + recent activity summary.
  */
+/**
+ * Presence and app version, DERIVED rather than read from the stored record.
+ *
+ * *** THE STORED isOnline IS WEIMI'S OPINION, AND WEIMI IS WRONG ABOUT OUR MACHINES.
+ *
+ * handleWeimiDevices copies Weimi's own isOnline onto the machine record, and Weimi marks a
+ * machine running OUR kiosk app as offline by design - the FAQ in index.html says so in as many
+ * words ("Machines running the kiosk app show as 'offline' in Weimi portal"). So 62160479 read
+ * "offline" on 2026-10-21 while selling, with the app running in front of whoever was looking.
+ *
+ * kioskVersion has the same problem from the other direction: it is only real once the machine has
+ * relayed a log carrying its version. Until then it is whatever the seed row said - '0.21' on
+ * nearly every coil machine in db.js - and presenting a seeded string as the running version is
+ * worse than admitting we do not know. The frontend already renders "unknown" for null and says in
+ * its own comment that unknown is information too.
+ *
+ * kiosk_seen is written by markKioskSeen on every authenticated kiosk call, so it is OUR evidence
+ * and cannot be poisoned by a sync.
+ *
+ * Only the detail endpoint uses this so far. handleOperatorHome and the fleet list still read the
+ * stored flag, which also drives the attention list, longOffline and the 07:45 report - moving
+ * those changes what the fleet report says, so it is a deliberate second change, not a drive-by.
+ */
+function livePresence(m) {
+  const seenRaw = storage.getMeta('kiosk_seen:' + m.deviceCode);
+  const appVer = storage.getAppVersion(m.deviceCode);
+  const everCheckedIn = !!seenRaw || !!appVer;
+  return {
+    isOnline: storage.isKioskAlive(m.deviceCode),
+    // isoOrNull, not a hand-rolled guard: new Date(NaN).toISOString() THROWS, so a malformed
+    // kiosk_seen value would 500 the whole detail page. NaN is falsy, so isoOrNull returns null.
+    lastSeenAt: isoOrNull(Number(seenRaw)),
+    kioskVersion: everCheckedIn ? (m.kioskVersion || null) : null,
+    lastAppVersionCode: (appVer && appVer.vc != null) ? appVer.vc : null,
+  };
+}
+
 function handleMachineDetail(req, res) {
   const m = machines[req.params.deviceCode];
   if (!m) return notFound(res, 'Machine not found');
   ok(res, {
-    machine: m,
+    machine: Object.assign({}, m, livePresence(m)),
     operatorName: operators[m.operatorId]?.name || null,
     keyStatus: (() => {
       const k = storage.getMachineKey(m.deviceCode);
