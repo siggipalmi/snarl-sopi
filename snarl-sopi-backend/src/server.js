@@ -48,6 +48,11 @@ function serveStatic(req, res) {
 const server = http.createServer((req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
+  // Browser hardening (security review, 2026-10-21): the dashboard may not be framed by another
+  // site (clickjacking), content types are not guessed, and other sites get no referrer path.
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Machine-Key, X-View-As-Operator');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
