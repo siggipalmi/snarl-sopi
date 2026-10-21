@@ -116,6 +116,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/product-drafts',                          handler: handleListDrafts,     middleware:[requireAuth] },
   { method:'DELETE', pattern:'/api/v1/product-drafts/:id',                    handler: handleDeleteDraft,    middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/products',                               handler: handleCreateProduct, middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/products/quick',                         handler: handleQuickProduct,  middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/products',                               handler: handleListProducts,  middleware:[requireAuth] },
   { method:'PUT',  pattern:'/api/v1/products/:goodsId',                      handler: handleUpdateProduct, middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/slots/product',      handler: handleSlotProduct, middleware:[requireAuth, requireMachineAccess] },
@@ -7761,6 +7762,46 @@ async function handleImportProducts(req, res) {
   }
   const counts = results.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
   ok(res, { counts, results });
+}
+
+// POST /api/v1/products/quick — a product created from the planogram's basket editor (Siggi,
+// 2026-10-21: "add new product from the planogram if it doesn't exist"). Our catalog only — fridges
+// don't use Weimi's — and the photo is optional: without one the kiosk shows the name in large type.
+// { name, priceIsk, vatRate (11|24), soldByWeight, weightGrams?, imageBase64?, imageType? }
+async function handleQuickProduct(req, res) {
+  const b = req.body || {};
+  const name = String(b.name || '').trim().slice(0, 200);
+  const price = Number(b.priceIsk);
+  if (!name) return badRequest(res, 'name is required');
+  if (!Number.isFinite(price) || price <= 0 || price > 1000000) return badRequest(res, 'priceIsk must be a positive number of krónur');
+  const byWeight = b.soldByWeight === true;
+  const w = b.weightGrams == null || b.weightGrams === '' ? null : Math.round(Number(b.weightGrams));
+  if (w != null && (!Number.isFinite(w) || w <= 0 || w > 20000)) return badRequest(res, 'weightGrams must be 1–20000');
+  if (!byWeight && w == null) return badRequest(res, 'weightGrams is needed for a product sold per item');
+  const goodsId = 'p-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  let imgUrl = null;
+  if (b.imageBase64) {
+    const r2 = require('./r2');
+    if (!r2.isConfigured()) return json(res, 500, { ok: false, error: 'image hosting (R2) not configured' });
+    let data = String(b.imageBase64), type = b.imageType || 'image/jpeg';
+    const m = data.match(/^data:([^;]+);base64,(.*)$/s);
+    if (m) { type = m[1]; data = m[2]; }
+    const buf = Buffer.from(data, 'base64');
+    if (!buf.length || buf.length > 8 * 1024 * 1024) return badRequest(res, 'image must be under 8 MB');
+    const ext = /png/.test(type) ? 'png' : /webp/.test(type) ? 'webp' : 'jpg';
+    try { imgUrl = await r2.putObject(`products/${goodsId}.${ext}`, buf, type); }
+    catch (e) { return json(res, 502, { ok: false, stage: 'image_upload', error: e.message }); }
+  }
+  try {
+    storage.upsertProduct({ goodsId, weimiId: null, goodsCode: goodsId, customCode: goodsId, name,
+      salePriceIsk: Math.round(price), vatRate: Number(b.vatRate) === 24 ? 24 : 11,
+      weightGrams: byWeight ? null : w, measurement: 0, imgUrl });
+    if (byWeight) storage.setProductSoldByWeight(goodsId, true);
+  } catch (e) { return serverError(res, e); }
+  console.log(`[PRODUCTS] ${(req.user && req.user.email) || '?'} created ${goodsId} "${name}" from the planogram`);
+  const p = storage.getProduct(goodsId) || {};
+  ok(res, { goodsId, name, salePriceIsk: Math.round(price), weightGrams: byWeight ? null : w,
+            soldByWeight: byWeight, imgUrl: p.imgUrl || imgUrl });
 }
 
 async function handleCreateProduct(req, res) {
