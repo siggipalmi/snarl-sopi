@@ -311,6 +311,13 @@ const routes = [
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
+// *** EVERY /debug ROUTE IS AG-ONLY (security review, 2026-10-21). About twenty were public:
+// sales samples, machine command history, kiosk config, Weimi catalog reads and a Weimi write test,
+// open to anyone who guessed the URL. Nothing on the machines or the dashboard calls them unsigned.
+for (const r of routes) {
+  if (r.pattern.startsWith('/api/v1/debug/')) r.middleware = [requireAuth, requireAgAdmin];
+}
+
 function router(req, res) {
   const url      = new URL(req.url, 'http://localhost');
   const pathname = url.pathname;
@@ -845,11 +852,39 @@ function handleWhatIsMyIp(req, res) {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+// Failed sign-ins per IP and per email, so a password can't be guessed by brute force: 10 failures
+// in 15 minutes locks that IP / that email out for the rest of the window. In memory on purpose
+// (a restart clears it; it only has to slow guessing down).
+const LOGIN_WINDOW_MS = 15 * 60 * 1000, LOGIN_MAX_FAILS = 10;
+const _loginFails = new Map();
+function loginFailCount(key, now) {
+  const list = (_loginFails.get(key) || []).filter(t => now - t < LOGIN_WINDOW_MS);
+  _loginFails.set(key, list);
+  return list.length;
+}
+function clientIp(req) {
+  return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || '?';
+}
+
+// Ids that the dashboard puts inside attributes and click handlers (product codes, device codes).
+const SAFE_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
+
 function handleLogin(req, res) {
   const { email, password } = req.body || {};
   if (!email || !password) return badRequest(res, 'email and password required');
-  const user = users.find(u => u.email === email && u.password === password);
-  if (!user) return json(res, 401, { ok: false, error: 'Invalid credentials' });
+  const now = Date.now();
+  const ipKey = 'ip:' + clientIp(req), emailKey = 'em:' + String(email).toLowerCase();
+  if (loginFailCount(ipKey, now) >= LOGIN_MAX_FAILS || loginFailCount(emailKey, now) >= LOGIN_MAX_FAILS) {
+    return json(res, 429, { ok: false, error: 'Too many failed sign-ins. Try again in 15 minutes.' });
+  }
+  // The seeded demo accounts' password, and any account still on it, can never sign in.
+  const user = password === 'demo' ? null : users.find(u => u.email === email && u.password === password);
+  if (!user) {
+    _loginFails.get(ipKey).push(now); _loginFails.get(emailKey).push(now);
+    if (_loginFails.size > 10000) _loginFails.clear();
+    console.warn(`[AUTH] failed sign-in for ${String(email).slice(0, 80)} from ${ipKey.slice(3)}`);
+    return json(res, 401, { ok: false, error: 'Invalid credentials' });
+  }
   if (user.role !== 'ag_admin' && user.operatorId) {
     const op = operators[user.operatorId];
     if (op && op.suspended) {
@@ -2896,6 +2931,7 @@ function handleGetMachine(req, res) {
 function handleAddMachine(req, res) {
   const { deviceCode, deviceName, location, operatorName, model } = req.body || {};
   if (!deviceCode || !deviceName) return badRequest(res, 'deviceCode and deviceName required');
+  if (!SAFE_ID_RE.test(String(deviceCode))) return badRequest(res, 'deviceCode may only contain letters, digits, . _ -');
   if (machines[deviceCode]) return badRequest(res, 'Device code already exists');
   // model matters: it's how a gravity fridge is identified (GR-*), which decides whether the
   // config carries a fridge planogram. Defaulting silently to the coil model would register a
@@ -7819,6 +7855,8 @@ async function handleImportProducts(req, res) {
   async function importOne(row) {
     const code = String(row.code || '').trim();
     if (!code) return { code: '', status: 'error', error: 'no code' };
+    // A product code ends up inside the dashboard's click handlers: letters, digits . _ - only.
+    if (!SAFE_ID_RE.test(code)) return { code: code.slice(0, 40), status: 'error', error: 'code may only contain letters, digits, . _ -' };
     const vatRate = (Number(row.vatRate) === 24) ? 24 : 11;
     const cost    = (row.costPriceIsk != null && row.costPriceIsk !== '') ? Math.max(0, Math.round(Number(row.costPriceIsk))) : null;
     const weight  = (row.weightGrams  != null && row.weightGrams  !== '') ? Math.max(0, Math.round(Number(row.weightGrams)))  : null;

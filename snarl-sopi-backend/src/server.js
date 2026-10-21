@@ -45,9 +45,26 @@ function serveStatic(req, res) {
   return true;
 }
 
+// *** NO MARKUP IN STORED TEXT (security review, 2026-10-21). Every string in a request body loses
+// '<' and '>', so a customer's complaint note, an operator's product or machine name, or anything a
+// machine reports can never carry HTML into the dashboard, whatever page later shows it. Secrets,
+// passwords and image data are left exactly as sent; req.rawBody (webhook signatures) is untouched.
+const KEEP_RAW = /password|secret|token|signature|base64|key$/i;
+function stripTags(v, key) {
+  if (typeof v === 'string') return (key && KEEP_RAW.test(key)) || v.startsWith('data:') ? v : v.replace(/[<>]/g, '');
+  if (Array.isArray(v)) return v.map(x => stripTags(x, key));
+  if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = stripTags(v[k], k); return o; }
+  return v;
+}
+
 const server = http.createServer((req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
+  // Browser hardening (security review, 2026-10-21): the dashboard may not be framed by another
+  // site (clickjacking), content types are not guessed, and other sites get no referrer path.
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Machine-Key, X-View-As-Operator');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
@@ -68,6 +85,7 @@ const server = http.createServer((req, res) => {
       req.body = {};
       req._bodyParseError = true;
     }
+    req.body = stripTags(req.body);
     router(req, res);
   });
 });
