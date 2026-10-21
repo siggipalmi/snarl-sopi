@@ -2454,6 +2454,17 @@ const storage = {
     const a = stmts.openFridgeComplaints.get(deviceCode) || {}, b = stmts.openCoilComplaints.get(deviceCode) || {};
     return { n: (a.n || 0) + (b.n || 0), latest: [a.latest, b.latest].filter(Boolean).sort().pop() || null };
   },
+  // Fleet health (2026-10-19): sale timestamps for the "no sales for longer than usual" check, and
+  // a fridge's latest purchase outcomes for "failed purchases in a row".
+  saleTimesSince(deviceCode, sinceMs, isFridge) {
+    const rows = isFridge
+      ? db.prepare("SELECT receivedAt AS t FROM fridge_settlements WHERE deviceCode = ? AND outcome = 'charged' AND receivedAt >= ?").all(deviceCode, sinceMs)
+      : db.prepare('SELECT DISTINCT createTime AS t FROM order_items WHERE deviceCode = ? AND createTime >= ?').all(deviceCode, sinceMs);
+    return rows.map(r => Number(r.t)).filter(Number.isFinite);
+  },
+  recentFridgeOutcomes(deviceCode, n) {
+    return db.prepare('SELECT outcome, receivedAt AS at FROM fridge_settlements WHERE deviceCode = ? ORDER BY receivedAt DESC LIMIT ?').all(deviceCode, n);
+  },
   // Close open complaints created before an ISO time (both tables). Counts only when dryRun.
   closeOldComplaints(beforeIso, dryRun) {
     const tables = ['complaints', 'fridge_complaints'];

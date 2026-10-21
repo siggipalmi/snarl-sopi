@@ -1618,6 +1618,12 @@ select.fi{cursor:pointer;}
               <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">For complaints handled outside the system. Shows how many first; nothing changes until you confirm.</span>
             </div>
             <div id="fleet-complaints-msg" style="font-size:12px;margin-top:10px"></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+              <button class="btn btn-sm" onclick="morningReport(false)">preview morning report</button>
+              <button class="btn btn-sm btn-ghost" onclick="morningReport(true)">send it now</button>
+              <span style="font-size:11.5px;color:var(--muted);max-width:520px;line-height:1.45">The 07:45 fleet report, to AG admins only. Preview shows it here; send emails it now (it still goes out at 07:45).</span>
+            </div>
+            <div id="fleet-morning-msg" style="font-size:12px;margin-top:10px"></div>
           </div>
         </div>
       </div>
@@ -10505,6 +10511,20 @@ async function fleetApplyWeights() {
     const res = r.data.results || [];
     el.innerHTML = '<b>' + res.filter(x => x.status === 'ok').length + ' of ' + res.length + ' applied</b> · ' + (r.data.machinesUpdated || []).length + ' fridge(s) get the new config within a minute.<br>' +
       res.filter(x => x.status !== 'ok').map(x => rsEsc(x.deviceCode + ' ' + x.basket + ': ' + x.status + ' — ' + (x.why || ''))).join('<br>');
+  } catch (e) { el.style.color = 'var(--alert)'; el.textContent = 'Failed: ' + e.message; }
+}
+
+async function morningReport(send) {
+  const el = document.getElementById('fleet-morning-msg');
+  if (send && !confirm('Email the morning report to AG admins now?')) return;
+  el.style.color = 'var(--muted)'; el.textContent = send ? 'Sending…' : 'Building…';
+  try {
+    const r = await API.post('/api/v1/admin/morning-report', { send: !!send });
+    if (!r || !r.ok) throw new Error((r && r.error && (r.error.messageEn || r.error.message || r.error)) || 'failed');
+    if (send) { el.style.color = 'var(--ink)'; el.textContent = 'Sent to ' + r.data.to + ': ' + r.data.subject; return; }
+    el.textContent = '';
+    ui.sheet('<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Subject: <b style="color:var(--ink);font-weight:500">' + rsEsc(r.data.subject) + '</b></div>'
+      + '<iframe sandbox style="width:100%;height:70vh;border:1px solid var(--line);border-radius:10px;background:#fff" srcdoc="' + rsEsc(r.data.html) + '"></iframe>');
   } catch (e) { el.style.color = 'var(--alert)'; el.textContent = 'Failed: ' + e.message; }
 }
 
