@@ -45,6 +45,18 @@ function serveStatic(req, res) {
   return true;
 }
 
+// *** NO MARKUP IN STORED TEXT (security review, 2026-10-21). Every string in a request body loses
+// '<' and '>', so a customer's complaint note, an operator's product or machine name, or anything a
+// machine reports can never carry HTML into the dashboard, whatever page later shows it. Secrets,
+// passwords and image data are left exactly as sent; req.rawBody (webhook signatures) is untouched.
+const KEEP_RAW = /password|secret|token|signature|base64|key$/i;
+function stripTags(v, key) {
+  if (typeof v === 'string') return (key && KEEP_RAW.test(key)) || v.startsWith('data:') ? v : v.replace(/[<>]/g, '');
+  if (Array.isArray(v)) return v.map(x => stripTags(x, key));
+  if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = stripTags(v[k], k); return o; }
+  return v;
+}
+
 const server = http.createServer((req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -73,6 +85,7 @@ const server = http.createServer((req, res) => {
       req.body = {};
       req._bodyParseError = true;
     }
+    req.body = stripTags(req.body);
     router(req, res);
   });
 });

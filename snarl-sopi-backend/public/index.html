@@ -3024,15 +3024,15 @@ function populateMachineSelects() {
   ['hero-machine-select','display-machine-select'].forEach(id=>{
     const sel = document.getElementById(id);
     if(!sel) return;
-    sel.innerHTML = codes.filter(c=>!DB.machines[c].unsupported).map(c=>`<option value="${c}">${c} — ${DB.machines[c].deviceName}</option>`).join('');
+    sel.innerHTML = codes.filter(c=>!DB.machines[c].unsupported).map(c=>`<option value="${c}">${c} — ${rsEsc(DB.machines[c].deviceName)}</option>`).join('');
   });
   const tabsEl = document.getElementById('catalog-machine-tabs');
   if(tabsEl) {
-    tabsEl.innerHTML = codes.filter(c=>!DB.machines[c].unsupported).map((c,i)=>`<div class="tab${i===0?' active':''}" onclick="selectCatalogMachine('${c}',this)">${DB.machines[c].deviceName}</div>`).join('');
+    tabsEl.innerHTML = codes.filter(c=>!DB.machines[c].unsupported).map((c,i)=>`<div class="tab${i===0?' active':''}" onclick="selectCatalogMachine('${c}',this)">${rsEsc(DB.machines[c].deviceName)}</div>`).join('');
   }
   const pdSel = document.getElementById('pd-machine-select');
   if(pdSel) {
-    pdSel.innerHTML = '<option value="">— select a machine —</option>' + codes.filter(c=>!DB.machines[c].unsupported).map(c=>`<option value="${c}">${c} — ${DB.machines[c].deviceName}</option>`).join('');
+    pdSel.innerHTML = '<option value="">— select a machine —</option>' + codes.filter(c=>!DB.machines[c].unsupported).map(c=>`<option value="${c}">${c} — ${rsEsc(DB.machines[c].deviceName)}</option>`).join('');
   }
 }
 
@@ -3152,7 +3152,7 @@ async function refreshMachineComparison() {
       return '<div onclick="openMachineDetail(\'' + m.deviceCode + '\')" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;padding:5px 0;font-size:12px;cursor:pointer">' +
         '<div style="display:flex;align-items:center;gap:6px;min-width:0">' +
           '<span style="width:6px;height:6px;border-radius:50%;background:' + statusDotColor + ';flex-shrink:0"></span>' +
-          '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px dotted var(--line)" title="' + m.deviceName + '">' + m.deviceName + '</span>' +
+          '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px dotted var(--line)" title="' + rsEsc(m.deviceName) + '">' + rsEsc(m.deviceName) + '</span>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:8px">' +
           '<div style="flex:1;height:6px;background:var(--cream-deep);border-radius:3px;overflow:hidden">' +
@@ -3208,8 +3208,8 @@ async function refreshDashboardSoldOut() {
         return '<div class="al-item" style="padding:11px 18px">' +
           '<div class="al-pip" style="background:var(--alert)"></div>' +
           '<div class="al-body">' +
-            '<div class="al-title" style="font-size:13px">' + (s.productName || '(unknown product)') + '</div>' +
-            '<div class="al-meta">' + s.machineName + ' · empty since ' + since + '</div>' +
+            '<div class="al-title" style="font-size:13px">' + rsEsc(s.productName || '(unknown product)') + '</div>' +
+            '<div class="al-meta">' + rsEsc(s.machineName) + ' · empty since ' + since + '</div>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -3223,8 +3223,8 @@ async function refreshDashboardSoldOut() {
         return '<div class="al-item" style="padding:11px 18px">' +
           '<div class="al-pip" style="background:' + (e.restockedAt ? 'var(--bronze-light)' : 'var(--alert)') + '"></div>' +
           '<div class="al-body">' +
-            '<div class="al-title" style="font-size:13px">' + (e.productName || '(unknown product)') + '</div>' +
-            '<div class="al-meta">' + e.machineName + ' · sold out ' + when + ' · ' + dur + '</div>' +
+            '<div class="al-title" style="font-size:13px">' + rsEsc(e.productName || '(unknown product)') + '</div>' +
+            '<div class="al-meta">' + rsEsc(e.machineName) + ' · sold out ' + when + ' · ' + dur + '</div>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -3365,7 +3365,7 @@ async function renderDashboardClassic() {
   document.getElementById('dash-alerts').innerHTML = active.length ? active.map(a=>
     '<div class="al-item" onclick="go(&quot;alerts&quot;,document.querySelectorAll(&quot;.nav-item&quot;)[2])">' +
     '<div class="al-pip" style="background:'+(pipColor[a.severity]||'var(--clay)')+'"></div>' +
-    '<div class="al-body"><div class="al-title">'+a.title+'</div><div class="al-meta">'+a.detail+'</div></div>' +
+    '<div class="al-body"><div class="al-title">'+rsEsc(a.title)+'</div><div class="al-meta">'+rsEsc(a.detail)+'</div></div>' +
     '<div class="al-time">'+timeAgo(a.createdAt)+'</div></div>'
   ).join('') : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">'+t('dash.noAlerts')+'</div>';
 
@@ -3376,7 +3376,7 @@ function renderDashOperatorFilter() {
   if (!el) return;
   if (currentUser?.role !== 'ag_admin' || !_operatorsCache.length) { el.innerHTML = ''; return; }
   const opts = '<option value="">'+t('dash.allOperators')+'</option>' +
-    _operatorsCache.map(o => `<option value="${o.id}"${o.id === dashOperatorFilter ? ' selected' : ''}>${o.name}</option>`).join('');
+    _operatorsCache.map(o => `<option value="${o.id}"${o.id === dashOperatorFilter ? ' selected' : ''}>${rsEsc(o.name)}</option>`).join('');
   el.innerHTML = '<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">'+t('dash.operatorLabel')+'</span>' +
     `<select class="op-select" onchange="setDashOperator(this.value)" style="font-family:var(--serif);font-style:italic;font-size:14px;background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 8px;cursor:pointer">${opts}</select>`;
 }
@@ -3426,7 +3426,7 @@ async function renderMachinesRevenue() {
         const h = (v / Math.max(...values)) * 180;
         const x = 40 + i * (560 / values.length);
         const y = 200 - h;
-        return `<rect x="${x}" y="${y}" width="${Math.max(1, 560/values.length - 4)}" height="${h}" fill="var(--bronze)" opacity="0.7"/><text x="${x + 560/(2*values.length)}" y="215" font-size="10" text-anchor="middle" fill="var(--muted)">${labels[i].slice(0,12)}</text><text x="${x + 560/(2*values.length)}" y="${y - 5}" font-size="9" text-anchor="middle" fill="var(--bronze)">${formatKr(v)}</text>`;
+        return `<rect x="${x}" y="${y}" width="${Math.max(1, 560/values.length - 4)}" height="${h}" fill="var(--bronze)" opacity="0.7"/><text x="${x + 560/(2*values.length)}" y="215" font-size="10" text-anchor="middle" fill="var(--muted)">${rsEsc(labels[i].slice(0,12))}</text><text x="${x + 560/(2*values.length)}" y="${y - 5}" font-size="9" text-anchor="middle" fill="var(--bronze)">${formatKr(v)}</text>`;
       }).join('')
     }</g>` : '') +
     '</svg>';
@@ -3562,7 +3562,7 @@ async function loadOperators(force) {
 
 function operatorSelectHtml(deviceCode, currentOperatorId) {
   const opts = _operatorsCache.map(o =>
-    `<option value="${o.id}"${o.id === currentOperatorId ? ' selected' : ''}>${o.name}</option>`
+    `<option value="${o.id}"${o.id === currentOperatorId ? ' selected' : ''}>${rsEsc(o.name)}</option>`
   ).join('');
   return `<select class="op-select" data-prev="${currentOperatorId || ''}"
     onchange="assignOperator('${deviceCode}', this)"
@@ -3674,7 +3674,7 @@ function machineRowCard(m) {
   const restock = m.lastVisitAt ? ('restocked ' + timeAgo(m.lastVisitAt)) : 'never restocked';
   const keyFlag = (m.keySource === 'build' || m.keySource === 'none')
     ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--alert)" title="Key still comes from this machine\'s own build — a generic update would lock it out">key: not migrated</span>' : '';
-  const meta = [m.deviceCode, m.location, restock].filter(Boolean).join(' · ') + keyFlag;
+  const meta = rsEsc([m.deviceCode, m.location, restock].filter(Boolean).join(' · ')) + keyFlag;
   let revTxt;
   if (m.isKioskModel === false) revTxt = '<span style="color:var(--muted)">n/a</span>';
   else if (!m.isOnline) revTxt = '<span style="color:var(--muted)">—</span>';
@@ -3683,7 +3683,7 @@ function machineRowCard(m) {
   return `<div onclick="openMachineDetail('${m.deviceCode}')" style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--cream);border:1px solid var(--line);border-radius:12px;cursor:pointer">
     <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;${dotStyle}"></div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.deviceName}${badge}</div>
+      <div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rsEsc(m.deviceName)}${badge}</div>
       <div style="font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${meta}</div>
     </div>
     <div style="text-align:right;flex-shrink:0">
@@ -4514,7 +4514,7 @@ function renderSwapList() {
     const gid = String(p.goodsId).replace(/'/g, "\\'");
     const isCur = String(p.goodsId) === String(curGid);
     const img = p.image
-      ? '<img src="' + p.image + '" alt="" style="width:34px;height:34px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">'
+      ? '<img src="' + rsEsc(p.image) + '" alt="" style="width:34px;height:34px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">'
       : '<div style="width:34px;height:34px;flex-shrink:0"></div>';
     return '<div class="sw-item" onclick="chooseSwap(\'' + gid + '\')">' + img +
       '<div style="flex:1;min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + rsEsc(p.name) + (isCur ? ' <span style="color:var(--muted);font-size:11px">(current)</span>' : '') + '</div>' +
@@ -4526,7 +4526,7 @@ function chooseSwap(goodsId) {
   const p = (_catalog || []).find(x => String(x.goodsId) === String(goodsId));
   if (!p) return;
   _swapChosen = p;
-  const img = p.image ? '<img src="' + p.image + '" alt="" style="width:42px;height:42px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">' : '';
+  const img = p.image ? '<img src="' + rsEsc(p.image) + '" alt="" style="width:42px;height:42px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">' : '';
   document.getElementById('sw-chosen').innerHTML = img +
     '<div style="flex:1;min-width:0"><div style="font-weight:600">' + rsEsc(p.name) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">tap another product above to change selection</div></div>';
@@ -5771,12 +5771,12 @@ async function renderMachineDetail() {
     _mdModel = String(m.model || '');
     document.getElementById('md-name').textContent = m.deviceName;
     document.getElementById('md-meta').innerHTML =
-      m.deviceCode + ' · ' + (m.location || '—') + ' · ' + (dr.data.operatorName || '—') +
+      m.deviceCode + ' · ' + rsEsc(m.location || '—') + ' · ' + rsEsc(dr.data.operatorName || '—') +
       ' · ' + (m.isOnline ? '<span style="color:var(--success)">online</span>' : '<span style="color:var(--alert)">offline</span>') +
       // Always state the running app version — "unknown" is information too, and knowing what's on a
       // placed machine matters before you push an update or chase a bug.
       ' · <span title="app version running on this machine">app ' +
-        (m.kioskVersion ? ('v' + m.kioskVersion) : '<span style="color:var(--muted)">unknown</span>') +
+        (m.kioskVersion ? ('v' + rsEsc(m.kioskVersion)) : '<span style="color:var(--muted)">unknown</span>') +
         (m.lastAppVersionCode != null ? ' <span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '') +
       '</span>';
 
@@ -5805,7 +5805,7 @@ async function renderMachineDetail() {
         '<div class="al-item" style="padding:10px 18px">' +
           '<div class="al-pip" style="background:var(--alert)"></div>' +
           '<div class="al-body">' +
-            '<div class="al-title" style="font-size:13px">' + (s.productName || '(unknown)') + '</div>' +
+            '<div class="al-title" style="font-size:13px">' + rsEsc(s.productName || '(unknown)') + '</div>' +
             '<div class="al-meta">empty since ' + timeAgo(s.updatedAt) + '</div>' +
           '</div>' +
         '</div>'
@@ -5896,10 +5896,10 @@ async function renderMachineDetail() {
       } else {
         document.getElementById('md-top-products').innerHTML = top.slice(0, 20).map(p => {
           const img = p.image
-            ? '<img class="tp-thumb" src="' + p.image + '" alt="" onerror="this.style.visibility=\'hidden\'">'
+            ? '<img class="tp-thumb" src="' + rsEsc(p.image) + '" alt="" onerror="this.style.visibility=\'hidden\'">'
             : '<div class="tp-thumb"></div>';
           return '<tr>' +
-            '<td class="rcard-head"><div class="tp-name">' + img + '<span class="tname" style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (p.productName || '(unknown)') + '</span></div></td>' +
+            '<td class="rcard-head"><div class="tp-name">' + img + '<span class="tname" style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + rsEsc(p.productName || '(unknown)') + '</span></div></td>' +
             '<td data-label="units" style="font-family:var(--mono)">' + p.units + '</td>' +
             '<td data-label="revenue" style="font-family:var(--mono)">' + formatKr(p.revenueKr) + '</td>' +
           '</tr>';
@@ -6140,7 +6140,7 @@ async function renderMachineSoldOut(code) {
       var since = s.updatedAt ? timeAgo(s.updatedAt) : '';
       return '<div style="display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)">' +
         '<div style="width:7px;height:7px;border-radius:50%;background:var(--bronze-light);margin-top:5px;flex-shrink:0"></div>' +
-        '<div><div style="font-size:13px;font-weight:500">' + (s.productName || '(unknown product)') + '</div>' +
+        '<div><div style="font-size:13px;font-weight:500">' + rsEsc(s.productName || '(unknown product)') + '</div>' +
         '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px">' + [where, since ? ('sold out ' + since) : ''].filter(Boolean).join(' · ') + '</div></div></div>';
     }).join('');
   } catch (e) {
@@ -6209,17 +6209,17 @@ async function renderMachineLayout(code) {
         // state YOU control, distinct from Weimi's isEnable/isBroken which we can't change.
         if (isKioskClosed) { border = 'var(--muted)'; }
         const label = (b.name || '—').slice(0, 16);
-        const img = b.image ? '<img src="' + b.image + '" alt="" style="width:100%;height:38px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
+        const img = b.image ? '<img src="' + rsEsc(b.image) + '" alt="" style="width:100%;height:38px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
         _mdBays[b.code] = { goodsId: b.goodsId || '', name: b.name || '', priceIsk: b.priceIsk || 0 };
         const kioskBadge = isKioskClosed ? '<div style="position:absolute;top:3px;left:3px;font-family:var(--mono);font-size:7.5px;background:var(--muted);color:#fff;padding:0 3px;border-radius:3px">not selling</div>' : '';
-        return `<div title="slot ${physicalSlot(b.code)} · ${b.name || 'empty'} · ${b.currStock}/${b.maxStock} · ${formatKr(b.priceIsk)}${(showWeimiFlags && b.isBroken) ? ' · BROKEN (Weimi)' : ''}${(showWeimiFlags && !b.isEnable) ? ' · closed (Weimi)' : ''}${isKioskClosed ? ' · not selling (kiosk)' : ''}"
+        return `<div title="slot ${physicalSlot(b.code)} · ${rsEsc(b.name || 'empty')} · ${b.currStock}/${b.maxStock} · ${formatKr(b.priceIsk)}${(showWeimiFlags && b.isBroken) ? ' · BROKEN (Weimi)' : ''}${(showWeimiFlags && !b.isEnable) ? ' · closed (Weimi)' : ''}${isKioskClosed ? ' · not selling (kiosk)' : ''}"
           onclick="openSlotMenu('${code}','${b.code}')"
           style="position:relative;flex:1;min-width:72px;max-width:120px;background:${bg};border:1px ${isKioskClosed ? 'dashed' : 'solid'} ${border};border-radius:6px;padding:6px 6px 5px;font-size:10px;line-height:1.25;cursor:pointer${isKioskClosed ? ';opacity:.72' : ''}">
           <div class="bay-edit-badge">&#9998;</div>
           ${kioskBadge}
           ${img}
           <div style="font-family:var(--mono);color:var(--muted);font-size:9px">slot ${physicalSlot(b.code)}</div>
-          <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label || '—'}</div>
+          <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rsEsc(label || '—')}</div>
           <div style="font-family:var(--mono);color:${b.currStock === 0 ? 'var(--alert)' : 'var(--muted)'}">${b.currStock}/${b.maxStock}</div>
           <div style="font-family:var(--mono);color:var(--bronze);font-size:9px">${b.priceIsk} kr</div>
         </div>`;
@@ -6315,10 +6315,10 @@ function fridgeBasketCard(cab, n) {
   let bg = 'var(--cream-deep)', border = 'var(--line)';
   if (!has) { bg = '#FBF7F0'; border = 'var(--line)'; }
   else if (!enabled) { bg = '#F0EDE6'; }
-  const img = (b && b.productImg) ? '<img src="' + b.productImg + '" alt="" style="width:100%;height:32px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
+  const img = (b && b.productImg) ? '<img src="' + rsEsc(b.productImg) + '" alt="" style="width:100%;height:32px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
   const inner = has ? `
       ${img}
-      <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(name||'—').slice(0,18)}</div>
+      <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rsEsc((name||'—').slice(0,18))}</div>
       <div style="font-family:var(--mono);color:var(--bronze);font-size:9px">${price != null ? price + (b.soldByWeight ? ' kr/kg' : ' kr') : '—'}${isOverride ? ' <span style=\"color:var(--muted)\">·ovr</span>' : ''}</div>
       <div style="font-family:var(--mono);color:var(--muted);font-size:9px">${b.soldByWeight ? 'by weight' : (weight != null ? weight + ' g' : 'no weight')}</div>`
     : `<div style="color:var(--muted);font-size:16px;text-align:center;padding:6px 0">＋</div>
@@ -6382,7 +6382,7 @@ function openFridgeBasketEditor(cab, n) {
   const fbNewEl = document.getElementById('fb-new'); if (fbNewEl) fbNewEl.innerHTML = '';
   document.getElementById('fb-results').innerHTML = '';
   document.getElementById('fb-picked').innerHTML = b.productId
-    ? `<div style="font-size:12px">Current: <strong>${b.productName || b.productId}</strong></div>` : '<div style="font-size:12px;color:var(--muted)">No product assigned</div>';
+    ? `<div style="font-size:12px">Current: <strong>${rsEsc(b.productName || b.productId)}</strong></div>` : '<div style="font-size:12px;color:var(--muted)">No product assigned</div>';
   document.getElementById('fb-price').value = (b.priceIsk != null ? b.priceIsk : '');
   document.getElementById('fb-price').placeholder = (b.effectivePriceIsk != null ? 'inherits ' + b.effectivePriceIsk : 'catalog price');
   document.getElementById('fb-weight').value = (b.unitWeightG != null ? b.unitWeightG : (b.effectiveWeightG != null ? b.effectiveWeightG : ''));
@@ -6927,6 +6927,7 @@ function scaleCalibrateSend() {
 }
 
 let _fbSearchTimer = null;
+let _fbResults = [];
 function fbSearchInput() {
   clearTimeout(_fbSearchTimer);
   _fbSearchTimer = setTimeout(fbDoSearch, 220);
@@ -6943,18 +6944,21 @@ async function fbDoSearch() {
     // Always offer a new product as the last row, named after the search (Siggi, 2026-10-21).
     const addRow = `<div onclick="fbNewOpen()" style="display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer;color:var(--bronze);font-weight:500;font-size:12.5px;border-top:1px solid var(--line)">＋ New product “${rsEsc(q)}”</div>`;
     if (!list.length) { box.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:6px 10px">No matches in the product catalog.</div>' + addRow; return; }
+    _fbResults = [];
     box.innerHTML = list.slice(0, 10).map(p => {
-      const payload = JSON.stringify({ goodsId: p.goodsId, name: p.name, weightGrams: p.weightGrams, salePriceIsk: p.salePriceIsk, soldByWeight: !!p.soldByWeight }).replace(/'/g, "&#39;");
+      // The product travels by index, never as JSON inside an onclick: a name with quotes could
+      // otherwise break out of the attribute (security review, 2026-10-21).
+      const idx = _fbResults.push({ goodsId: p.goodsId, name: p.name, weightGrams: p.weightGrams, salePriceIsk: p.salePriceIsk, soldByWeight: !!p.soldByWeight }) - 1;
       const img = p.imgUrl
-        ? '<img src="' + p.imgUrl + '" alt="" style="width:34px;height:34px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">'
+        ? '<img src="' + rsEsc(p.imgUrl) + '" alt="" style="width:34px;height:34px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">'
         : '<div style="width:34px;height:34px;flex-shrink:0"></div>';
       const meta = p.soldByWeight
         ? [p.salePriceIsk != null ? p.salePriceIsk + ' kr/kg' : null, 'by weight'].filter(Boolean).join(' · ')
         : [p.salePriceIsk != null ? p.salePriceIsk + ' kr' : null, p.weightGrams != null ? p.weightGrams + ' g' : null].filter(Boolean).join(' · ');
-      return `<div onclick='fbPick(${payload})' style="display:flex;align-items:center;gap:10px;padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--line)">
+      return `<div onclick="fbPick(_fbResults[${idx}])" style="display:flex;align-items:center;gap:10px;padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--line)">
         ${img}
         <div style="flex:1;min-width:0">
-          <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${(p.name || '#' + p.goodsId)}</div>
+          <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${rsEsc(p.name || '#' + p.goodsId)}</div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">${meta || '—'}</div>
         </div>
       </div>`;
@@ -7041,7 +7045,7 @@ async function fbNewSave() {
 
 function fbPick(p) {
   _fpPickedProduct = p;
-  document.getElementById('fb-picked').innerHTML = `<div style="font-size:12px">Selected: <strong>${p.name || p.goodsId}</strong></div>`;
+  document.getElementById('fb-picked').innerHTML = `<div style="font-size:12px">Selected: <strong>${rsEsc(p.name || p.goodsId)}</strong></div>`;
   document.getElementById('fb-results').innerHTML = '';
   document.getElementById('fb-search').value = '';
   // *** A NEW PRODUCT BRINGS ITS OWN WEIGHT AND PRICE. This used to fill the fields only when
@@ -7100,7 +7104,7 @@ function openFridgeBulkFill() {
     const b = _fpBaskets[cab + ':' + n] || {};
     rows.push(`<tr data-cab="${cab}" data-basket="${n}">
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 6px">${cab}${n}</td>
-      <td style="padding:3px 4px"><input class="fbk-prod" value="${b.productId || ''}" placeholder="productId" style="width:150px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"><span class="fbk-name" style="font-size:10px;color:var(--muted);margin-left:4px">${b.productName ? b.productName.slice(0,18) : ''}</span></td>
+      <td style="padding:3px 4px"><input class="fbk-prod" value="${rsEsc(b.productId || '')}" placeholder="productId" style="width:150px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"><span class="fbk-name" style="font-size:10px;color:var(--muted);margin-left:4px">${b.productName ? b.productName.slice(0,18) : ''}</span></td>
       <td style="padding:3px 4px"><input class="fbk-price" type="number" value="${b.priceIsk != null ? b.priceIsk : ''}" placeholder="${b.effectivePriceIsk != null ? b.effectivePriceIsk : 'inherit'}" style="width:64px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"></td>
       <td style="padding:3px 4px"><input class="fbk-weight" type="number" value="${b.unitWeightG != null ? b.unitWeightG : ''}" placeholder="g" style="width:56px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"></td>
       <td style="padding:3px 6px;text-align:center"><input class="fbk-en" type="checkbox" ${b.enabled !== 0 ? 'checked' : ''}></td>
@@ -7172,7 +7176,7 @@ async function renderAlerts() {
   document.getElementById('alerts-list').innerHTML = list.map(a=>`
     <div class="al-item" style="${a.resolved?'opacity:.5':''}">
       <div class="al-pip" style="background:${pipColor[a.severity]||'var(--clay)'}"></div>
-      <div class="al-body"><div class="al-title">${a.title}</div><div class="al-meta">${a.detail}</div></div>
+      <div class="al-body"><div class="al-title">${rsEsc(a.title)}</div><div class="al-meta">${rsEsc(a.detail)}</div></div>
       ${!a.resolved?`<span class="pill pill-out btn-sm" style="cursor:pointer;margin-right:8px" onclick="resolveAlert('${a.id}')">resolve</span>`:'<span class="pill pill-up btn-sm" style="margin-right:8px">resolved</span>'}
       <div class="al-time">${timeAgo(a.createdAt)}</div>
     </div>
@@ -8428,7 +8432,7 @@ async function renderReports() {
         '<div class="stat"><div class="stat-lbl">refund rate</div><div class="stat-val">' + d.refundRate + '%</div></div>';
       document.getElementById('report-table').innerHTML = (d.byMachine || []).map(m =>
         '<tr>' +
-          '<td><div class="tname">' + m.machineName + '</div></td>' +
+          '<td><div class="tname">' + rsEsc(m.machineName) + '</div></td>' +
           '<td></td>' +
           '<td style="font-family:var(--mono)">' + m.orders + '</td>' +
           '<td style="font-family:var(--mono)">' + formatKr(m.revenueKr) + '</td>' +
@@ -8622,7 +8626,7 @@ async function renderTopProducts() {
     document.getElementById('top-products-table').innerHTML = top.length === 0 ? empty :
       top.slice(0, 12).map(p =>
         '<tr>' +
-          '<td><div class="tname">' + (p.productName || '(unknown)') + '</div></td>' +
+          '<td><div class="tname">' + rsEsc(p.productName || '(unknown)') + '</div></td>' +
           '<td style="font-family:var(--mono)">' + p.units + '</td>' +
           '<td style="font-family:var(--mono)">' + formatKr(p.revenueKr) + '</td>' +
           '<td style="font-family:var(--mono);color:var(--muted)">' + p.machineCount + '</td>' +
@@ -8633,7 +8637,7 @@ async function renderTopProducts() {
     document.getElementById('slow-products-table').innerHTML = slow.length === 0 ? emptyS :
       slow.slice(0, 12).map(p =>
         '<tr>' +
-          '<td><div class="tname">' + (p.productName || '(unknown)') + '</div></td>' +
+          '<td><div class="tname">' + rsEsc(p.productName || '(unknown)') + '</div></td>' +
           '<td style="font-family:var(--mono)">' + p.units + '</td>' +
           '<td style="font-family:var(--mono)">' + formatKr(p.revenueKr) + '</td>' +
         '</tr>'
@@ -8727,9 +8731,9 @@ function renderComplaintsTable(list) {
   };
   document.getElementById('complaints-table').innerHTML = list.map(c => `
     <tr style="cursor:pointer" onclick="openComplaint('${c.id}')">
-      <td class="rcard-head"><span class="tname" style="font-weight:500">${c.machineName}</span><div class="tsub">${c.operatorName}</div></td>
+      <td class="rcard-head"><span class="tname" style="font-weight:500">${rsEsc(c.machineName)}</span><div class="tsub">${rsEsc(c.operatorName)}</div></td>
       <td data-label="received" style="font-family:var(--mono);font-size:11px;color:var(--muted)">${timeAgo(c.createdAt)}</td>
-      <td data-label="customer" style="font-family:var(--mono);font-size:11px">${c.customerEmail}</td>
+      <td data-label="customer" style="font-family:var(--mono);font-size:11px">${rsEsc(c.customerEmail)}</td>
       <td data-label="items" style="font-size:12px">${c.items.length} item${c.items.length===1?'':'s'}${c.note ? ' · <span style="color:var(--muted);font-style:italic">has note</span>' : ''}</td>
       <td data-label="amount" style="font-family:var(--mono);font-size:12px">${c.totalIsk} kr</td>
       <td data-label="status">${statusPill(c.status)}${!c.repliedAt && c.status==='open' ? ' <span class="pill pill-warn" style="font-size:9px">no reply yet</span>' : ''}</td>
@@ -8748,7 +8752,7 @@ async function openComplaint(complaintId) {
 }
 
 function showComplaintModal(c) {
-  const itemsList = c.items.map(i => `<tr><td style="padding:5px 0;font-size:13px">${i.name}</td><td style="padding:5px 0;font-family:var(--mono);font-size:12px;text-align:right">${i.priceIsk} kr</td></tr>`).join('');
+  const itemsList = c.items.map(i => `<tr><td style="padding:5px 0;font-size:13px">${rsEsc(i.name)}</td><td style="padding:5px 0;font-family:var(--mono);font-size:12px;text-align:right">${rsEsc(i.priceIsk)} kr</td></tr>`).join('');
   const refundDisabled = c.status === 'refunded' ? 'disabled' : '';
   const refundLabel    = c.status === 'refunded' ? 'Refunded ' + c.refundedAmount + ' kr' : 'Refund ' + c.totalIsk + ' kr';
 
@@ -8758,8 +8762,8 @@ function showComplaintModal(c) {
 
     <div style="background:var(--cream-deep);padding:14px 16px;border-radius:var(--rsm);margin-bottom:16px">
       <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">machine</div>
-      <div style="font-weight:600;font-size:15px">${c.machineName}</div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px">${c.deviceCode} · ${c.operatorName}</div>
+      <div style="font-weight:600;font-size:15px">${rsEsc(c.machineName)}</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px">${rsEsc(c.deviceCode)} · ${rsEsc(c.operatorName)}</div>
     </div>
 
     <div style="margin-bottom:14px">
@@ -8769,14 +8773,14 @@ function showComplaintModal(c) {
       </tbody></table>
     </div>
 
-    ${c.note ? `<div style="background:var(--cream-deep);padding:12px 14px;border-radius:var(--rsm);margin-bottom:14px;font-size:13px;font-style:italic">"${c.note}"</div>` : ''}
+    ${c.note ? `<div style="background:var(--cream-deep);padding:12px 14px;border-radius:var(--rsm);margin-bottom:14px;font-size:13px;font-style:italic">"${rsEsc(c.note)}"</div>` : ''}
 
     <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12px;color:var(--muted);margin-bottom:16px">
-      <div>Customer</div><div style="color:var(--ink);font-family:var(--mono);font-size:11px">${c.customerEmail}</div>
+      <div>Customer</div><div style="color:var(--ink);font-family:var(--mono);font-size:11px">${rsEsc(c.customerEmail)}</div>
       <div>Submitted</div><div style="color:var(--ink);font-family:var(--mono);font-size:11px">${new Date(c.timestampMs).toLocaleString()}</div>
-      <div>Trade no.</div><div style="color:var(--ink);font-family:var(--mono);font-size:10.5px">${c.tradeNo}</div>
-      ${c.refundedAt ? `<div>Refunded</div><div style="color:var(--ink)">${c.refundedAmount} kr · by ${c.refundedBy} · ${timeAgo(c.refundedAt)}</div>` : ''}
-      ${c.repliedAt ? `<div>Replied</div><div style="color:var(--ink)">by ${c.repliedBy} · ${timeAgo(c.repliedAt)}</div>` : ''}
+      <div>Trade no.</div><div style="color:var(--ink);font-family:var(--mono);font-size:10.5px">${rsEsc(c.tradeNo)}</div>
+      ${c.refundedAt ? `<div>Refunded</div><div style="color:var(--ink)">${c.refundedAmount} kr · by ${rsEsc(c.refundedBy)} · ${timeAgo(c.refundedAt)}</div>` : ''}
+      ${c.repliedAt ? `<div>Replied</div><div style="color:var(--ink)">by ${rsEsc(c.repliedBy)} · ${timeAgo(c.repliedAt)}</div>` : ''}
     </div>
 
     ${c.repliedAt ? '' : `
@@ -8889,7 +8893,7 @@ function renderOperatorsTable(list) {
       <td><div class="tname" style="display:flex;align-items:center">${chev}${logo}${nameSpan}</div>${o.isAGVending?'<div class="tsub" style="color:var(--bronze)">⌬ AG Vending</div>':''}${o.suspended?'<div class="tsub" style="color:var(--alert)">⊘ suspended</div>':''}</td>
       <td style="font-family:var(--mono);font-size:12px">${countCell}</td>
       <td style="font-family:var(--mono);font-size:12px">${o.userCount || 0}</td>
-      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${o.contactEmail || '—'}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${rsEsc(o.contactEmail || '—')}</td>
       <td>${actions}</td>
     </tr>
     <tr id="opm-${o.id}" style="display:none"><td colspan="5" style="padding:0 12px 10px 30px;background:var(--cream)">${opMachinesHtml(o.id)}</td></tr>`;
@@ -9809,11 +9813,11 @@ function renderUsersTable(userList, pendingInvites) {
     <tr style="opacity:.85">
       <td><div style="display:flex;align-items:center;gap:9px">
         <div class="avatar" style="width:24px;height:24px;font-size:9px;background:var(--cream-deep);color:var(--muted);border:.5px dashed var(--clay)">${(p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
-        <div><div style="font-weight:500;font-size:13px">${p.name||'—'}</div><div class="tsub" style="font-family:var(--mono);font-size:9.5px">invited by ${p.invitedBy}</div></div>
+        <div><div style="font-weight:500;font-size:13px">${rsEsc(p.name||'—')}</div><div class="tsub" style="font-family:var(--mono);font-size:9.5px">invited by ${rsEsc(p.invitedBy)}</div></div>
       </div></td>
-      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${p.email}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${rsEsc(p.email)}</td>
       <td>${rolePill(p.role)}</td>
-      <td style="font-size:12.5px">${p.operatorName || '—'}</td>
+      <td style="font-size:12.5px">${rsEsc(p.operatorName || '—')}</td>
       <td><span class="pill pill-warn" style="font-size:9.5px">awaiting acceptance</span></td>
       <td><span class="pill pill-out" style="cursor:pointer;font-size:9.5px" onclick="resendInvite('${p.token}')">resend email</span>&nbsp;<span class="pill pill-out" style="cursor:pointer;font-size:9.5px" onclick="copyInviteLink('${p.token}')">copy link</span>&nbsp;<span class="pill pill-dn" style="cursor:pointer;font-size:9.5px" onclick="revokeInvite('${p.token}')">revoke</span></td>
     </tr>
@@ -9821,10 +9825,10 @@ function renderUsersTable(userList, pendingInvites) {
 
   const userRows = userList.map(u=>`
     <tr>
-      <td><div style="display:flex;align-items:center;gap:9px"><div class="avatar" style="width:24px;height:24px;font-size:9px">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div><div style="font-weight:500;font-size:13px">${u.name}</div></div></td>
-      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${u.email}</td>
+      <td><div style="display:flex;align-items:center;gap:9px"><div class="avatar" style="width:24px;height:24px;font-size:9px">${rsEsc(u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase())}</div><div style="font-weight:500;font-size:13px">${rsEsc(u.name)}</div></div></td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${rsEsc(u.email)}</td>
       <td>${rolePill(u.role)}</td>
-      <td style="font-size:12.5px">${u.operatorName || u.machineAccess || '—'}</td>
+      <td style="font-size:12.5px">${rsEsc(u.operatorName || u.machineAccess || '—')}</td>
       <td style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${u.lastActiveAt?timeAgo(u.lastActiveAt):'never'}</td>
       <td>${currentUser?.role === 'ag_admin' ? `<span class="pill pill-out" style="cursor:pointer" onclick="openEditUser('${u.id}')">edit</span>` : ''}</td>
     </tr>
@@ -10885,9 +10889,9 @@ function openEditMachine(code) {
   document.getElementById('modal-machine').innerHTML = `<div class="modal-card">
     <div class="modal-title">edit machine.</div>
     <div class="field"><div class="fl">device code</div><input class="fi mono" id="m-deviceCode" value="${m.deviceCode}" readonly style="opacity:.6"></div>
-    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" value="${m.deviceName}"></div>
-    <div class="field"><div class="fl">location</div><input class="fi" id="m-location" value="${m.location}"></div>
-    <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" value="${m.settings.operatorName}"></div>
+    <div class="field"><div class="fl">machine name</div><input class="fi" id="m-deviceName" value="${rsEsc(m.deviceName)}"></div>
+    <div class="field"><div class="fl">location</div><input class="fi" id="m-location" value="${rsEsc(m.location || '')}"></div>
+    <div class="field"><div class="fl">operator name</div><input class="fi" id="m-operatorName" value="${rsEsc(m.settings.operatorName || '')}"></div>
     ${machineModelField(m.model)}
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-full" onclick="saveMachine('${code}')"><span>save changes</span><span>→</span></button>

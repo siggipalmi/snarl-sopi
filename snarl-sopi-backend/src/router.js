@@ -866,6 +866,9 @@ function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || '?';
 }
 
+// Ids that the dashboard puts inside attributes and click handlers (product codes, device codes).
+const SAFE_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
+
 function handleLogin(req, res) {
   const { email, password } = req.body || {};
   if (!email || !password) return badRequest(res, 'email and password required');
@@ -2928,6 +2931,7 @@ function handleGetMachine(req, res) {
 function handleAddMachine(req, res) {
   const { deviceCode, deviceName, location, operatorName, model } = req.body || {};
   if (!deviceCode || !deviceName) return badRequest(res, 'deviceCode and deviceName required');
+  if (!SAFE_ID_RE.test(String(deviceCode))) return badRequest(res, 'deviceCode may only contain letters, digits, . _ -');
   if (machines[deviceCode]) return badRequest(res, 'Device code already exists');
   // model matters: it's how a gravity fridge is identified (GR-*), which decides whether the
   // config carries a fridge planogram. Defaulting silently to the coil model would register a
@@ -7851,6 +7855,8 @@ async function handleImportProducts(req, res) {
   async function importOne(row) {
     const code = String(row.code || '').trim();
     if (!code) return { code: '', status: 'error', error: 'no code' };
+    // A product code ends up inside the dashboard's click handlers: letters, digits . _ - only.
+    if (!SAFE_ID_RE.test(code)) return { code: code.slice(0, 40), status: 'error', error: 'code may only contain letters, digits, . _ -' };
     const vatRate = (Number(row.vatRate) === 24) ? 24 : 11;
     const cost    = (row.costPriceIsk != null && row.costPriceIsk !== '') ? Math.max(0, Math.round(Number(row.costPriceIsk))) : null;
     const weight  = (row.weightGrams  != null && row.weightGrams  !== '') ? Math.max(0, Math.round(Number(row.weightGrams)))  : null;
