@@ -515,6 +515,19 @@ function receiptsOffered(op) {
   return !!(String((op && op.name) || '').trim() && String((op && op.kennitala) || '').replace(/\D/g, '').length === 10);
 }
 
+// Is this machine closed for sale, and by whom? AG's master close (this machine, or every machine of
+// its operator) wins over the operator's own switch and can't be undone by the operator. Only the
+// operator's reason is ever shown to customers; AG's note is internal (2026-10-21).
+function machineClosure(m) {
+  const s = (m && m.settings) || {};
+  let op = null;
+  try { op = JSON.parse(storage.getMeta('opclosed:' + m.operatorId) || 'null'); } catch (e) { op = null; }
+  if (s.agClosed) return { closed: true, by: 'ag', scope: 'machine', note: s.agClosedNote || null, since: s.agClosedAt || null };
+  if (op && op.on) return { closed: true, by: 'ag', scope: 'operator', note: op.note || null, since: op.at || null };
+  if (s.outOfService) return { closed: true, by: 'operator', reason: s.outOfServiceReason || null, since: s.outOfServiceAt || null };
+  return { closed: false };
+}
+
 function buildConfigResponse(machine) {
   const HOUSE_EMAIL = 'hallo@snarlogsopi.is';
   const op = operators[machine.operatorId] || {};
@@ -537,8 +550,8 @@ function buildConfigResponse(machine) {
       // then shows the operator name alone, as it always has.
       logoUrl: (op.logoUrl || '').trim() || null,
     },
-    outOfService: !!cfg.outOfService,
-    outOfServiceReason: cfg.outOfServiceReason || null,
+    outOfService: machineClosure(machine).closed,
+    outOfServiceReason: (() => { const c = machineClosure(machine); return c.closed && c.by === 'operator' ? c.reason : null; })(),
     // Language: codes are Android resource qualifiers (is/en/pl → res/values-<code>, with
     // "is" falling through to the default res/values). Per-machine default so a workplace can
     // open in Icelandic and a hotel in English. Labels are for a language-name UI if needed.
@@ -715,7 +728,7 @@ function touchConfig(machine) {
   } catch (e) { console.error('[MIGRATE] fridge config bump failed:', e.message); }
 })();
 
-module.exports = {
+module.exports = { machineClosure,
   operators, machines, alerts: alertsProxy, orders: ordersProxy,
   users: usersProxy, authTokens, apiConfig,
   storage,

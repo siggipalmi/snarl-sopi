@@ -34,7 +34,7 @@ const {
   operators, machines, alerts, orders, users, authTokens, apiConfig,
   storage,
   provisionMachine, validateMachineKey, revokeKey, generateMachineKey,
-  buildConfigResponse, touchConfig, fridgeSpec, machineFridgeSpec, weightLineIsk, isSoldByWeight, BY_WEIGHT_MIN_G, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
+  buildConfigResponse, machineClosure, touchConfig, fridgeSpec, machineFridgeSpec, weightLineIsk, isSoldByWeight, BY_WEIGHT_MIN_G, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
@@ -232,6 +232,9 @@ const routes = [
   { method:'POST', pattern:'/api/v1/featured/batch',                         handler: handleBatchFeatured, middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/operators/:operatorId/suspend',          handler: handleSuspendOperator, middleware:[requireAuth, requireAgAdmin] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/out-of-service',     handler: handleMachineOutOfService, middleware:[requireAuth, requireMachineAccess] },
+  { method:'PUT',  pattern:'/api/v1/admin/machines/:deviceCode/master-close', handler: handleMachineMasterClose, middleware:[requireAuth, requireAgAdmin] },
+  { method:'PUT',  pattern:'/api/v1/admin/operators/:operatorId/master-close', handler: handleOperatorMasterClose, middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/admin/master-close',                     handler: handleListMasterClose, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/restart',           handler: handleMachineRestart, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/cooling',           handler: handleCooling,        middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/grid-order',         handler: handleSetGridOrder, middleware:[requireAuth, requireMachineAccess] },
@@ -2343,7 +2346,9 @@ function handleOperatorHome(req, res) {
       const complaints = storage.openComplaints(m.deviceCode);
       const offlineMin = (!m.isOnline && m.lastSeenAt) ? Math.round((now - Date.parse(m.lastSeenAt)) / 60000) : null;
 
+      const cl = machineClosure(m);
       cards.push({ deviceCode: m.deviceCode, name, isFridge, online: !!m.isOnline, app: m.kioskVersion || null,
+                   closed: cl.closed, closedBy: cl.closed ? cl.by : null,
                    emptyCount: empty.length, lowCount: low.length, lastRestockAt,
                    stockKnown: isFridge && (storage.basketStock(m.deviceCode) || []).length > 0 });
       if (doorLeftOpen(m.deviceCode)) attention.push({ level: 0, kind: 'door_open', deviceCode: m.deviceCode, machine: name,
@@ -2413,7 +2418,13 @@ function computeFleetHealth(now) {
       let st = null;
       try { st = JSON.parse(storage.getMeta('selftest:' + m.deviceCode) || 'null'); } catch (e) {}
       issues.push(...fleetHealth.selfTestIssues(st, now, !!m.isOnline));
-      if (m.isOnline) {
+      // Closed for sale: shown, never a fault, and no "no sales" while closed.
+      const closure = machineClosure(m);
+      if (closure.closed) {
+        issues.push({ kind: 'closed', level: 3, label: closure.by === 'ag' ? 'master closed' : 'closed by operator',
+                      detail: [closure.since ? 'since ' + String(closure.since).slice(0, 16).replace('T', ' ') : '', closure.note || closure.reason || ''].filter(Boolean).join(' · ') });
+      }
+      if (m.isOnline && !closure.closed) {
         try {
           const silent = fleetHealth.silenceIssue(storage.saleTimesSince(m.deviceCode, now - 28 * 86400000, isFridge), now);
           if (silent) issues.push(silent);
@@ -2430,7 +2441,7 @@ function computeFleetHealth(now) {
       return { deviceCode: m.deviceCode, name: m.deviceName || m.deviceCode, operatorId: m.operatorId,
                operatorName: (op && op.name) || m.operatorName || '', app, online: !!m.isOnline,
                lastSeenAt: m.lastSeenAt || null, offlineMin, longOffline, appVersion: m.kioskVersion || null, versionCode: vc,
-               selfTestAt: st ? st.receivedAt : null,
+               selfTestAt: st ? st.receivedAt : null, closure,
                behind, issues, decimalPlace: pay && Number.isInteger(pay.decimalPlace) ? pay.decimalPlace : null,
                worst: issues.length ? Math.min(...issues.map(i => i.level)) : 9 };
     })
@@ -2462,12 +2473,17 @@ function buildMorningReport(now) {
   const health = computeFleetHealth(now);
   const monday = new Date(now).getUTCDay() === 1;
   const openAlerts = storage.listAlerts().filter(a => !a.resolved && a.deviceCode && !REPORT_SKIP_ALERT_TYPES.has(a.type));
-  const need = [], warn = [], notChecked = [], okNames = [], noSelfTest = [];
+  const need = [], warn = [], notChecked = [], okNames = [], noSelfTest = [], closed = [];
   for (const m of health.machines) {
     if (m.longOffline) {
       if (monday) notChecked.push({ name: m.name, code: m.deviceCode,
         what: m.offlineMin == null ? 'never seen online' : `offline ${Math.round(m.offlineMin / 1440)} days`,
         detail: 'Listed on Mondays until it is set up or removed.' });
+      continue;
+    }
+    if (m.closure && m.closure.closed) {
+      const c = m.issues.find(i => i.kind === 'closed');
+      closed.push({ name: m.name, code: m.deviceCode, what: c ? c.label : 'closed', detail: c ? c.detail : '' });
       continue;
     }
     const alerts = openAlerts.filter(a => a.deviceCode === m.deviceCode);
@@ -2496,7 +2512,7 @@ function buildMorningReport(now) {
     try { salesYesterday += storage.revenueBetween(m.deviceCode, y0.getTime() - 86400000, y0.getTime()).revenueKr || 0; } catch (e) {}
   }
   const subject = `Fleet 07:45 · ${needMachines} need you · ${warnMachines} warning${warnMachines === 1 ? '' : 's'} · ${okNames.length} OK`;
-  return { subject, need, warn, notChecked, okNames, salesYesterday, needMachines, warnMachines, date: new Date(now) };
+  return { subject, need, warn, notChecked, okNames, closed, salesYesterday, needMachines, warnMachines, date: new Date(now) };
 }
 
 function renderMorningReport(r) {
@@ -2524,6 +2540,7 @@ function renderMorningReport(r) {
   if (r.warn.length) html += card('warnings', 'no rush, but look this week', r.warn.map(x => row(x, false)).join(''));
   html += card('all OK', `${r.okNames.length} machine${r.okNames.length === 1 ? '' : 's'}`,
     `<tr><td style="padding:9px 14px;border-top:1px solid #E8E2D8;font:12.5px/1.6 Arial,sans-serif;color:#3A3A3A">${esc(r.okNames.join(', ')) || '—'}</td></tr>`);
+  if (r.closed.length) html += card('closed', 'not selling on purpose', r.closed.map(x => row(x, false)).join(''));
   if (r.notChecked.length) html += card('not checked', String(r.notChecked.length), r.notChecked.map(x => row(x, false)).join(''));
   html += `<a href="${url}" style="display:block;text-align:center;background:#1A1A1A;color:#FAF7F2;border-radius:10px;padding:12px;font:600 14px Arial,sans-serif;text-decoration:none">Open Fleet → Health</a>
     <div style="font:11px Arial,sans-serif;color:#8A8275;margin-top:12px">Sent to AG admins only. Critical problems are emailed as they happen; this report repeats anything still open. Product expiry is not included.</div></div>`;
@@ -2531,6 +2548,7 @@ function renderMorningReport(r) {
   const text = [r.subject, '', 'NEED YOU TODAY', ...(r.need.length ? r.need.map(line) : ['- nothing']),
     ...(r.warn.length ? ['', 'WARNINGS', ...r.warn.map(line)] : []),
     '', `ALL OK (${r.okNames.length}): ${r.okNames.join(', ')}`,
+    ...(r.closed.length ? ['', 'CLOSED', ...r.closed.map(line)] : []),
     ...(r.notChecked.length ? ['', 'NOT CHECKED', ...r.notChecked.map(line)] : []), '', url].join('\n');
   return { html, text };
 }
@@ -2838,6 +2856,7 @@ function handleListMachines(req, res) {
   const alertCounts = storage.openAlertCountsByDevice();
   const list = machinesForUser(req.user).map(m => ({
     ...machineSummary(m),
+    closure: closureFor(m, req.user),
     openAlertCount: alertCounts[m.deviceCode] || 0,
     // From the last config_health. 'stored' means the machine holds its key in DataStore and is
     // safe to receive a generic build; 'build' means it still depends on a key baked into its own
@@ -2856,6 +2875,7 @@ function handleGetMachine(req, res) {
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
   ok(res, {
     ...machineDetail(m),
+    closure: closureFor(m, req.user),
     keyStatus: (() => { const k = storage.getMachineKey(m.deviceCode); return k ? (k.revokedAt ? 'revoked' : 'active') : 'not_provisioned'; })(),
     configPreview: buildConfigResponse(m),
     // Last config_health snapshot, so the machine view can show whether the kiosk agrees with us
@@ -3856,15 +3876,67 @@ function handleSuspendOperator(req, res) {
 
 // ── PUT /api/v1/machines/:deviceCode/out-of-service ───────────────────────────
 // Sets a flag the kiosk honors to show a closed screen and stop selling.
+// The operator's own switch (operators and AG). Refused for an operator while AG has the machine
+// master-closed, so an unpaid bill can't be reopened from the operator's side.
 function handleMachineOutOfService(req, res) {
   const code = req.params.deviceCode;
   const m = machines[code];
   if (!m) return json(res, 404, { ok: false, error: 'machine not found' });
+  const c = machineClosure(m);
+  if (c.by === 'ag' && req.user.role !== 'ag_admin') {
+    return json(res, 403, { ok: false, error: { code: 'master_closed', message: 'Lokað af AG Vending — hafðu samband við AG Vending.', messageEn: 'Closed by AG Vending. Contact AG Vending to reopen this machine.' } });
+  }
   m.settings = m.settings || {};
-  m.settings.outOfService = !!(req.body && req.body.outOfService);
-  m.settings.outOfServiceReason = (req.body && req.body.reason) ? String(req.body.reason) : null;
+  const on = !!(req.body && req.body.outOfService);
+  if (on !== !!m.settings.outOfService) m.settings.outOfServiceAt = on ? new Date().toISOString() : null;
+  m.settings.outOfService = on;
+  m.settings.outOfServiceReason = (on && req.body && req.body.reason) ? String(req.body.reason).trim().slice(0, 120) || null : null;
   touchConfig(m);
-  ok(res, { deviceCode: code, outOfService: m.settings.outOfService, configVersion: m.configVersion });
+  console.log(`[CLOSED] ${(req.user && req.user.email) || '?'} ${on ? 'closed' : 'reopened'} ${code}`);
+  ok(res, { deviceCode: code, outOfService: on, closure: machineClosure(m), configVersion: m.configVersion });
+}
+
+// AG master close, one machine. { on, note } — the note is internal, never shown to customers.
+function handleMachineMasterClose(req, res) {
+  const m = machines[req.params.deviceCode];
+  if (!m) return notFound(res, 'machine not found');
+  const on = !!(req.body && req.body.on === true);
+  m.settings = m.settings || {};
+  m.settings.agClosed = on;
+  m.settings.agClosedNote = on ? (String((req.body && req.body.note) || '').trim().slice(0, 200) || null) : null;
+  m.settings.agClosedAt = on ? new Date().toISOString() : null;
+  touchConfig(m);
+  console.log(`[CLOSED] ${(req.user && req.user.email) || '?'} master-${on ? 'closed' : 'reopened'} ${m.deviceCode}`);
+  ok(res, { deviceCode: m.deviceCode, closure: machineClosure(m) });
+}
+
+// AG master close, every machine of an operator (an unpaid bill, for example).
+function handleOperatorMasterClose(req, res) {
+  const id = req.params.operatorId;
+  if (!operators[id]) return notFound(res, 'operator not found');
+  const on = !!(req.body && req.body.on === true);
+  storage.setMeta('opclosed:' + id, JSON.stringify(on
+    ? { on: true, note: String((req.body && req.body.note) || '').trim().slice(0, 200) || null, at: new Date().toISOString(), by: req.user.email || null }
+    : { on: false }));
+  const ms = Object.values(machines).filter(m => m.operatorId === id);
+  for (const m of ms) touchConfig(m);
+  console.log(`[CLOSED] ${(req.user && req.user.email) || '?'} master-${on ? 'closed' : 'reopened'} operator ${id} (${ms.length} machines)`);
+  ok(res, { operatorId: id, on, machines: ms.length });
+}
+
+function handleListMasterClose(req, res) {
+  const ops = {};
+  for (const id of Object.keys(operators)) {
+    try { const v = JSON.parse(storage.getMeta('opclosed:' + id) || 'null'); if (v && v.on) ops[id] = v; } catch (e) {}
+  }
+  ok(res, { operators: ops });
+}
+
+// What the dashboard may know about a machine's closure: AG's internal note only for AG.
+function closureFor(m, user) {
+  const c = machineClosure(m);
+  if (c.by === 'ag' && (!user || user.role !== 'ag_admin')) return { closed: true, by: 'ag', scope: c.scope };
+  return c;
 }
 
 // ── POST /api/v1/machines/:deviceCode/restart ─────────────────────────────────
