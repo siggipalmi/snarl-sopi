@@ -3272,8 +3272,17 @@ function handleDebugExpiry(req, res) {
 
 // Weimi aisle code -> friendly slot label, matching the kiosk's canonical decode exactly:
 // 9 positions per layer, columnBaseZero, columns beyond 9 rejected. Layer A -> 1-9, B -> 21-29,
-// C -> 31-39, D -> 41-49, E -> 51-59. Used to compare a friendly aisle ("A51") against the stored
-// Weimi codes in disabledAisles ("0-E09").
+// C -> 31-39, D -> 41-49, E -> 51-59, F -> 61-69.
+//
+// The "1x" block is skipped: layer B starts at 21, not 11. Same shape as the fridge trays being
+// 20 apart rather than 16, which cost two days to somebody assuming the obvious.
+//
+// Six-layer machines are real and in the fleet - 54 aisles, 9 per layer: 62160492 and both Grótta
+// units. This list stopped at E, which read as if five layers were the maximum; the formula always
+// handled F, only the comment was short.
+//
+// Used to compare a friendly aisle ("A51") against the stored Weimi codes in disabledAisles
+// ("0-E09").
 function physicalSlotServer(aisleCode) {
   const m = /^\d+-([A-Z])(\d+)$/.exec(String(aisleCode || ''));
   if (!m) return String(aisleCode || '');

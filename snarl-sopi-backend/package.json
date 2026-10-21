@@ -1,6 +1,6 @@
 {
   "name": "snarl-sopi-backend",
-  "version": "6.65.0",
+  "version": "6.65.1",
   "description": "Snarl and Sopi operator backend v6.46.2: fridge baskets link to catalog products only. The basket picker searched coil layouts too and could store a Weimi layout id, so the fridge sold a line with no name, image or VSK (Happy Monkey). Unknown product ids are now refused on save; existing ones show their layout name and image. Cumulative over v6.46.1.",
   "main": "src/server.js",
   "scripts": {

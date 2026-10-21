@@ -3990,8 +3990,10 @@ const ui = {
 function rsEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // Map a Weimi aisle code ("0-A00") to the machine's PHYSICAL slot number.
-// Shelves use tens blocks: top shelf 1–9, then 21–29, 31–39, 41–49, …
-// (the first shelf has no tens digit; the "1x" block is skipped).
+// Shelves use tens blocks: top shelf 1–9, then 21–29, 31–39, 41–49, 51–59, 61–69
+// (the first shelf has no tens digit; the "1x" block is skipped). Six layers, A–F, exist in the
+// fleet: a 54-aisle machine is 6 layers of 9. Kept in step with physicalSlotServer in router.js,
+// which holds the same arithmetic.
 function physicalSlot(aisleCode){
   const m = /^\d+-([A-Z])(\d+)$/.exec(String(aisleCode||''));
   if(!m) return String(aisleCode||'');
