@@ -43,6 +43,7 @@ const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
         revokeToken, revokeAllForUser, requireCap } = require('./auth');
 const roles = require('./roles');
+const adminPin = require('./adminPin');
 const email = require('./email');
 const fleetHealth = require('./fleetHealth');
 const { buildCustomerReceipt } = require('./customerReceipt');
@@ -182,6 +183,9 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetry,      middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/payment-status',    handler: handlePaymentStatus,  middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/door-status',       handler: handleDoorStatus,     middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/admin-pin-event',   handler: handleAdminPinEvent,  middleware:[requireMachineKey] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/admin-pin',         handler: handleGetAdminPin,    middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/admin-pin',         handler: handleNewAdminPin,    middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/self-test',         handler: handleSelfTest,       middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/admin/morning-report',                  handler: handleMorningReportNow, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/admin/backup',                          handler: handleBackupStatus,   middleware:[requireAuth, requireAgAdmin] },
@@ -2997,7 +3001,64 @@ function handleConfig(req, res) {
     res.writeHead(304); res.end(); return;
   }
 
-  ok(res, buildConfigResponse(machine));
+  // The admin PIN hash goes only to the machine itself, never into the dashboard's config preview.
+  const pin = adminPinRecord(machine.deviceCode);
+  ok(res, { ...buildConfigResponse(machine),
+            adminPin: pin ? { algo: pin.algo, iter: pin.iter, salt: pin.salt, hash: pin.hash } : null });
+}
+
+// ── Per-machine kiosk admin PIN (src/adminPin.js) ──
+function adminPinRecord(code) { try { return JSON.parse(storage.getMeta('adminpin:' + code) || 'null'); } catch (e) { return null; } }
+function adminPinStatus(code) {
+  const rec = adminPinRecord(code);
+  let ev = null; try { ev = JSON.parse(storage.getMeta('adminpinev:' + code) || 'null'); } catch (e) {}
+  return { set: !!rec, setAt: rec ? rec.setAt : null, setBy: rec ? rec.setBy : null,
+           lastUsedAt: (ev && ev.lastOkAt) || null, lastLockoutAt: (ev && ev.lastLockoutAt) || null };
+}
+// GET /machines/:code/admin-pin (AG) — set?, when, by whom, last used. Never the PIN or its hash.
+function handleGetAdminPin(req, res) {
+  if (!machines[req.params.deviceCode]) return notFound(res, 'Machine not found');
+  ok(res, adminPinStatus(req.params.deviceCode));
+}
+// POST /machines/:code/admin-pin (AG) — a new random PIN, shown once. The machine picks up the hash
+// with its next config poll; until then (and on an app older than 0.69.0) the old code works.
+function handleNewAdminPin(req, res) {
+  const m = machines[req.params.deviceCode];
+  if (!m) return notFound(res, 'Machine not found');
+  const pin = adminPin.newPin();
+  const rec = { ...adminPin.hashPin(pin), setAt: new Date().toISOString(), setBy: (req.user && req.user.name) || null };
+  storage.setMeta('adminpin:' + m.deviceCode, JSON.stringify(rec));
+  touchConfig(m);
+  console.log(`[ADMINPIN] ${m.deviceCode} new PIN set by ${req.user && req.user.email}`);
+  ok(res, { pin, ...adminPinStatus(m.deviceCode) });
+}
+// POST /machines/:code/admin-pin-event { type: 'ok' | 'lockout', failures? } — from the kiosk.
+// A lockout (5 wrong PINs) is an alert for AG: someone is guessing, or a technician has the wrong one.
+function handleAdminPinEvent(req, res) {
+  const code = req.params.deviceCode;
+  const m = machines[code];
+  if (!m) return notFound(res, 'Machine not found');
+  const type = String((req.body && req.body.type) || '');
+  if (type !== 'ok' && type !== 'lockout') return badRequest(res, "type must be 'ok' or 'lockout'");
+  let ev = {}; try { ev = JSON.parse(storage.getMeta('adminpinev:' + code) || '{}') || {}; } catch (e) {}
+  const now = new Date().toISOString();
+  if (type === 'ok') ev.lastOkAt = now; else ev.lastLockoutAt = now;
+  storage.setMeta('adminpinev:' + code, JSON.stringify(ev));
+  if (type === 'lockout') {
+    const name = m.deviceName || code;
+    const detail = `Five wrong admin PINs in a row on ${name}; the PIN pad is locked for 5 minutes. Someone may be guessing, or a technician has the wrong PIN.`;
+    storage.insertAlert({ id: 'alert_adminpin_' + code + '_' + Date.now(), type: 'admin_pin_lockout', severity: 'warning',
+      title: `Admin PIN locked — ${name}`, detail, deviceCode: code, resolved: false, createdAt: now });
+    console.warn('[ADMINPIN] ' + detail);
+    const fromEnv = String(process.env.OPS_ALERT_EMAIL || '').split(',').map(s => s.trim()).filter(Boolean);
+    const to = fromEnv.length ? fromEnv : storage.listUsers().filter(u => u.role === 'ag_admin' && u.email).map(u => u.email);
+    for (const addr of to) {
+      email.sendOperatorAlert({ to: addr, operatorName: 'AG Vending', title: `Admin PIN locked — ${name}`, detail,
+        dashboardUrl: (process.env.APP_URL || 'https://admin.agvending.is') + '/?page=machines&code=' + code })
+        .catch(e => console.error('[ADMINPIN] email failed:', e.message));
+    }
+  }
+  ok(res, { recorded: true });
 }
 
 /**
