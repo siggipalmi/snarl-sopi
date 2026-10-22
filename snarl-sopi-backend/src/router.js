@@ -41,7 +41,7 @@ const {
 } = require('./db');
 const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
-        revokeToken, requireCap } = require('./auth');
+        revokeToken, revokeAllForUser, requireCap } = require('./auth');
 const roles = require('./roles');
 const email = require('./email');
 const fleetHealth = require('./fleetHealth');
@@ -158,6 +158,10 @@ const routes = [
   { method:'POST', pattern:'/api/v1/auth/login',                             handler: handleLogin },
   { method:'POST', pattern:'/api/v1/auth/logout',                            handler: handleLogout, middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/auth/change-password',                   handler: handleChangePassword, middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/auth/forgot-password',                   handler: handleForgotPassword },
+  { method:'GET',  pattern:'/api/v1/password-reset/:token',                  handler: handleGetPasswordReset },
+  { method:'POST', pattern:'/api/v1/password-reset/:token',                  handler: handleUsePasswordReset },
+  { method:'POST', pattern:'/api/v1/users/:userId/password-reset',           handler: handleIssuePasswordReset, middleware:[requireAuth, requireOperatorAdmin] },
 
   // Invitations
   { method:'GET',  pattern:'/api/v1/invitations/:token',                     handler: handleGetInvitation },
@@ -5770,6 +5774,91 @@ function handleAcceptInvitation(req, res) {
  * POST /api/v1/auth/change-password
  * For logged-in users to change their own password.
  */
+// ── Password reset (2026-10-22) ──
+// An admin can make a reset link for one of their users and send it themselves (works with email
+// down), and anyone can ask for one by email from the sign-in screen. The link is the only
+// credential, so: 32 random bytes, only its hash stored, single use, short life, and using it signs
+// the user out everywhere.
+const PW_RESET_ADMIN_TTL_MS = 24 * 3600 * 1000;   // handed over by a person, maybe not read at once
+const PW_RESET_SELF_TTL_MS  = 60 * 60 * 1000;     // emailed to the user who just asked
+const pwResetHash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
+function pwResetLink(token) { return (process.env.APP_URL || 'https://admin.agvending.is') + '/?reset=' + token; }
+function newPasswordReset(user, createdBy, ttlMs) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const { expiresAt } = storage.createPasswordReset(pwResetHash(token), user.id, createdBy, ttlMs);
+  return { token, link: pwResetLink(token), expiresAt };
+}
+
+// POST /users/:userId/password-reset — AG for anyone; an operator admin for their own operator's users.
+async function handleIssuePasswordReset(req, res) {
+  const target = storage.getUser(req.params.userId);
+  const isAg = req.user.role === 'ag_admin';
+  if (!target || (!isAg && (target.operatorId !== req.user.operatorId || target.role === 'ag_admin'))) {
+    return notFound(res, 'User not found');
+  }
+  const r = newPasswordReset(target, req.user.id, PW_RESET_ADMIN_TTL_MS);
+  let emailed = false;
+  try {
+    const sent = await email.sendPasswordReset({ to: target.email, name: target.name, link: r.link, hours: 24, byName: req.user.name });
+    emailed = !!(sent && sent.mocked === false);
+  } catch (e) { console.error('[PWRESET] email failed:', e.message); }
+  console.log(`[PWRESET] ${req.user.email} made a reset link for ${target.email}${emailed ? ' (emailed)' : ''}`);
+  ok(res, { token: r.token, link: r.link, expiresAt: new Date(r.expiresAt).toISOString(), emailed, email: target.email });
+}
+
+// POST /auth/forgot-password { email } — always the same answer, so it can't be used to learn which
+// addresses have accounts. Limited per address and per IP.
+const _forgotHits = new Map();
+function forgotLimited(key, max, windowMs) {
+  const now = Date.now();
+  const list = (_forgotHits.get(key) || []).filter(t => now - t < windowMs);
+  if (_forgotHits.size > 10000) _forgotHits.clear();
+  if (list.length >= max) { _forgotHits.set(key, list); return true; }
+  list.push(now); _forgotHits.set(key, list); return false;
+}
+async function handleForgotPassword(req, res) {
+  const addr = String((req.body && req.body.email) || '').trim().toLowerCase().slice(0, 200);
+  const answer = () => ok(res, { message: 'If that address has an account, a reset link is on its way.' });
+  if (!addr || forgotLimited('ip:' + clientIp(req), 5, 15 * 60000) || forgotLimited('em:' + addr, 3, 60 * 60000)) return answer();
+  const user = users.find(u => String(u.email || '').toLowerCase() === addr);
+  if (!user) return answer();
+  const r = newPasswordReset(user, null, PW_RESET_SELF_TTL_MS);
+  email.sendPasswordReset({ to: user.email, name: user.name, link: r.link, hours: 1 })
+    .then(() => console.log(`[PWRESET] link emailed to ${user.email} on request`))
+    .catch(e => console.error('[PWRESET] email failed:', e.message));
+  answer();
+}
+
+function livePasswordReset(token) {
+  const rec = storage.getPasswordReset(pwResetHash(token));
+  if (!rec || rec.usedAt || rec.expiresAt <= Date.now()) return null;
+  const user = storage.getUser(rec.userId);
+  return user ? { rec, user } : null;
+}
+
+// GET /password-reset/:token — is the link still good, and for whom.
+function handleGetPasswordReset(req, res) {
+  const live = livePasswordReset(req.params.token);
+  if (!live) return json(res, 404, { ok: false, error: 'This link has expired or has already been used. Ask for a new one.' });
+  ok(res, { name: live.user.name, email: live.user.email });
+}
+
+// POST /password-reset/:token { password } — set it, sign out everywhere else, sign in here.
+function handleUsePasswordReset(req, res) {
+  const password = String((req.body && req.body.password) || '');
+  if (password.length < 8) return badRequest(res, 'Password must be at least 8 characters');
+  if (password === 'demo') return badRequest(res, 'Choose a different password');
+  const live = livePasswordReset(req.params.token);
+  if (!live || !storage.usePasswordReset(pwResetHash(req.params.token))) {
+    return json(res, 404, { ok: false, error: 'This link has expired or has already been used. Ask for a new one.' });
+  }
+  storage.updateUserPassword(live.user.id, hashPassword(password));
+  revokeAllForUser(live.user.id);
+  const token = createToken(live.user.id);
+  console.log(`[PWRESET] ${live.user.email} set a new password`);
+  ok(res, { token, user: publicUser(storage.getUser(live.user.id)) });
+}
+
 function handleChangePassword(req, res) {
   const { currentPassword, newPassword } = req.body || {};
   if (!currentPassword || !newPassword) return badRequest(res, 'currentPassword and newPassword required');

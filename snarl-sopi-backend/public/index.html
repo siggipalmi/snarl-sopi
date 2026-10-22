@@ -672,6 +672,32 @@ select.fi{cursor:pointer;}
 </div>
 
 <!-- ══════════════════════════════════════════
+     PASSWORD RESET (?reset=<token>)
+══════════════════════════════════════════ -->
+<div class="login-wrap" id="reset-screen" style="display:none">
+  <div class="login-card">
+    <div class="ag-logo ag-logo-login" role="img" aria-label="AG Vending"></div>
+    <div class="login-sub">choose a new password</div>
+    <div id="reset-loading" style="text-align:center;padding:20px 0;color:var(--muted)">Checking the link…</div>
+    <div id="reset-form" style="display:none">
+      <div style="background:var(--cream-deep);border-radius:var(--rsm);padding:12px 14px;margin-bottom:18px">
+        <div id="reset-name" style="font-family:var(--serif);font-style:italic;font-size:18px;font-weight:500"></div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="reset-email"></div>
+      </div>
+      <div class="login-err" id="reset-err"></div>
+      <div class="field"><div class="fl">new password</div><input class="fi" id="reset-pw1" type="password" placeholder="at least 8 characters" autocomplete="new-password"></div>
+      <div class="field"><div class="fl">confirm password</div><input class="fi" id="reset-pw2" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+      <button class="btn btn-full" onclick="usePasswordReset()" style="margin-top:8px"><span>save and sign in</span><span>→</span></button>
+    </div>
+    <div id="reset-error-screen" style="display:none;text-align:center;padding:20px 0">
+      <div style="font-size:14px;color:var(--alert);margin-bottom:10px">Link not valid</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:18px" id="reset-error-msg"></div>
+      <a href="?" style="font-size:13px;color:var(--bronze);text-decoration:none">→ go to sign in</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
      LOGIN
 ══════════════════════════════════════════ -->
 <div class="login-wrap" id="login-screen">
@@ -682,6 +708,8 @@ select.fi{cursor:pointer;}
     <div class="field"><div class="fl">email</div><input class="fi" id="login-email" type="email" placeholder="sky@agvending.is" autocomplete="username"></div>
     <div class="field"><div class="fl">password</div><input class="fi" id="login-pw" type="password" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="btn btn-full" onclick="doLogin()" style="margin-top:8px"><span>sign in</span><span>→</span></button>
+    <div style="text-align:center;margin-top:10px"><a onclick="forgotPassword()" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Gleymt lykilorð? · Forgot password?</a></div>
+    <div id="login-note" style="display:none;font-size:12px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.45"></div>
     <!-- Public features page for people who don't have an account yet. Everything under public/ is
          served without auth, so this is reachable from the login screen by design.
          The old "password demo" hint is gone deliberately: prospects should ASK for a demo account so
@@ -2831,9 +2859,94 @@ async function acceptInvite() {
   }
 }
 
+// ─── Password reset ───────────────────────────────────────────────────────────
+
+// Sign-in screen: email a reset link to the address typed above. Same answer whether or not it exists.
+async function forgotPassword() {
+  const note = document.getElementById('login-note');
+  const addr = document.getElementById('login-email').value.trim();
+  note.style.display = 'block';
+  if (!addr) { note.textContent = 'Type your email above first, then tap “Forgot password?” again.'; return; }
+  try {
+    const r = await fetch(API_BASE + '/api/v1/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: addr }) });
+    const j = await r.json().catch(() => ({}));
+    note.textContent = (j.data && j.data.message) || 'If that address has an account, a reset link is on its way.';
+    note.textContent += ' No email? Ask your admin for a reset link.';
+  } catch (e) { note.textContent = 'Could not reach the server. Try again shortly.'; }
+}
+
+async function loadPasswordReset(token) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('reset-screen').style.display = 'flex';
+  const fail = msg => {
+    document.getElementById('reset-loading').style.display = 'none';
+    document.getElementById('reset-error-screen').style.display = 'block';
+    document.getElementById('reset-error-msg').textContent = msg;
+  };
+  try {
+    const r = await fetch(API_BASE + '/api/v1/password-reset/' + encodeURIComponent(token));
+    const j = await r.json();
+    if (!r.ok || !j.ok) return fail(j.error || 'This link has expired or has already been used.');
+    document.getElementById('reset-loading').style.display = 'none';
+    document.getElementById('reset-name').textContent = j.data.name || '';
+    document.getElementById('reset-email').textContent = j.data.email || '';
+    document.getElementById('reset-form').style.display = 'block';
+    window._resetToken = token;
+  } catch (e) { fail('Could not check the link. The server may be restarting; try again shortly.'); }
+}
+
+async function usePasswordReset() {
+  const pw1 = document.getElementById('reset-pw1').value, pw2 = document.getElementById('reset-pw2').value;
+  const err = document.getElementById('reset-err');
+  const show = t => { err.textContent = t; err.style.display = 'block'; };
+  err.style.display = 'none';
+  if (pw1.length < 8) return show('Password must be at least 8 characters');
+  if (pw1 !== pw2) return show('Passwords do not match');
+  try {
+    const r = await fetch(API_BASE + '/api/v1/password-reset/' + encodeURIComponent(window._resetToken), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw1 }) });
+    const j = await r.json();
+    if (!r.ok || !j.ok) return show(apiErrText(j, 'Could not save the password'));
+    API_TOKEN = j.data.token; DB.authToken = j.data.token;
+    const u = j.data.user;
+    let user = DB.users.find(x => x.email === u.email);
+    if (!user) { user = { id: u.id, name: u.name, email: u.email, role: u.role, operatorId: u.operatorId, operatorName: u.operatorName, isAGVending: u.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() }; DB.users.push(user); }
+    DB.session = user.id;
+    DB.machines = {}; DB.alerts = []; DB.orders = [];
+    saveData();
+    history.replaceState(null, '', window.location.pathname);
+    document.getElementById('reset-screen').style.display = 'none';
+    bootApp(user);
+  } catch (e) { show('Network error: ' + e.message); }
+}
+
+// Users list: make a reset link the admin can copy and send (works with email down).
+async function issueResetLink(userId) {
+  const u = _usersList.find(x => x.id === userId);
+  if (!u) return;
+  if (!confirm(`Make a password reset link for ${u.name}?\n\nTheir current password keeps working until they use the link. Using it signs them out everywhere.`)) return;
+  const r = await API.post('/api/v1/users/' + encodeURIComponent(userId) + '/password-reset', {});
+  if (!r || !r.ok) { showToast(apiErrText(r, 'Could not make a reset link')); return; }
+  const d = r.data;   // the link points at this dashboard, like invite links
+  const modal = document.getElementById('modal-dyn');
+  modal.innerHTML = `<div class="modal-card">
+    <div class="modal-title">reset link.</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">${d.emailed ? `Also emailed to <strong style="color:var(--ink)">${rsEsc(d.email)}</strong>.` : `Email isn't working, so send this to <strong style="color:var(--ink)">${rsEsc(d.email)}</strong> yourself (text message, chat).`}
+      It works once and expires ${rsEsc(fmtDateTime(Date.parse(d.expiresAt)))}. Anyone with the link can set the password, so send it only to them.</div>
+    <div class="field"><div class="fl">reset link</div><input class="fi mono" id="resetlink" readonly value="${rsEsc(API_BASE + '/?reset=' + d.token)}" style="font-size:11px" onclick="this.select()"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-full" onclick="copyText(document.getElementById('resetlink').value)"><span>copy link</span><span>⧉</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-dyn')">done</button>
+    </div>
+  </div>`;
+  modal.classList.add('show');
+}
+
 // Auto-login if session exists, OR show invitation if ?invite= param is present
 window.addEventListener('load', () => {
   const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get('reset');
+  if (resetToken) { loadPasswordReset(resetToken); return; }
   const inviteToken = params.get('invite');
   if (inviteToken) {
     loadInvitation(inviteToken);
@@ -9939,7 +10052,7 @@ function renderUsersTable(userList, pendingInvites) {
       <td>${rolePill(u.role)}</td>
       <td style="font-size:12.5px">${rsEsc(u.operatorName || '—')}${machinesOf(u) ? `<div class="tsub">${machinesOf(u)}</div>` : ''}</td>
       <td style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${u.lastActiveAt?timeAgo(u.lastActiveAt):'never'}</td>
-      <td>${canEdit(u) ? `<span class="pill pill-out" style="cursor:pointer" onclick="openEditUser('${rsEsc(u.id)}')">edit</span>` : ''}</td>
+      <td>${canEdit(u) ? `<span class="pill pill-out" style="cursor:pointer" onclick="openEditUser('${rsEsc(u.id)}')">edit</span>&nbsp;<span class="pill pill-out" style="cursor:pointer" onclick="issueResetLink('${rsEsc(u.id)}')">reset password</span>` : ''}</td>
     </tr>
   `).join('');
 
