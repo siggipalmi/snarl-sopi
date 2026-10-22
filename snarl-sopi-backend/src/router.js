@@ -46,6 +46,7 @@ const email = require('./email');
 const fleetHealth = require('./fleetHealth');
 const { buildCustomerReceipt } = require('./customerReceipt');
 const crypto = require('crypto');
+const { hashPassword, verifyPassword, isHashed } = require('./passwords');
 const { ok, created, notFound, badRequest, serverError, json,
         validateSettings, validateFeatured } = require('./helpers');
 const weimi = require('./weimi');
@@ -878,7 +879,8 @@ function handleLogin(req, res) {
     return json(res, 429, { ok: false, error: 'Too many failed sign-ins. Try again in 15 minutes.' });
   }
   // The seeded demo accounts' password, and any account still on it, can never sign in.
-  const user = password === 'demo' ? null : users.find(u => u.email === email && u.password === password);
+  const found = password === 'demo' ? null : users.find(u => u.email === email);
+  const user = found && verifyPassword(found.password, String(password)) ? found : null;
   if (!user) {
     _loginFails.get(ipKey).push(now); _loginFails.get(emailKey).push(now);
     if (_loginFails.size > 10000) _loginFails.clear();
@@ -890,6 +892,11 @@ function handleLogin(req, res) {
     if (op && op.suspended) {
       return json(res, 403, { ok: false, error: 'This account is suspended. Please contact AG Vending.' });
     }
+  }
+  // Accounts from before hashing still hold the password as typed: replace it now that we have it.
+  if (!isHashed(user.password)) {
+    storage.updateUserPassword(user.id, hashPassword(String(password)));
+    console.log(`[AUTH] password for ${user.id} moved to a hash`);
   }
   const token = createToken(user.id);
   storage.updateLastActive(user.id);
@@ -5550,7 +5557,7 @@ function handleAcceptInvitation(req, res) {
     id:          `u${users.length + 1}`,
     name:        invite.name,
     email:       invite.email,
-    password,    // TODO: hash with bcrypt in production
+    password:    hashPassword(String(password)),
     role:        invite.role,
     operatorId:  invite.operatorId,
     machineAccess: invite.machineAccess || 'all',
@@ -5574,9 +5581,9 @@ function handleChangePassword(req, res) {
   const { currentPassword, newPassword } = req.body || {};
   if (!currentPassword || !newPassword) return badRequest(res, 'currentPassword and newPassword required');
   if (newPassword.length < 8) return badRequest(res, 'New password must be at least 8 characters');
-  if (req.user.password !== currentPassword) return json(res, 401, { error: 'Current password is incorrect' });
+  if (!verifyPassword(req.user.password, String(currentPassword))) return json(res, 401, { error: 'Current password is incorrect' });
 
-  storage.updateUserPassword(req.user.id, newPassword);
+  storage.updateUserPassword(req.user.id, hashPassword(String(newPassword)));
   ok(res, { message: 'Password changed' });
 }
 
