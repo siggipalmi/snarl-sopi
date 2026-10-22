@@ -1135,6 +1135,7 @@ select.fi{cursor:pointer;}
             <div style="display:flex;gap:12px">
               <div class="ph-action" onclick="showMachineKey(_mdDeviceCode)">show key</div>
               <div class="ph-action" onclick="migrateMachineKey(_mdDeviceCode)">migrate key</div>
+              <div class="ph-action" onclick="revokeMachineKeyUi(_mdDeviceCode)" style="color:var(--alert)">revoke key</div>
               <div class="ph-action" onclick="checkConfigHealth(_mdDeviceCode)">↻ ask the machine</div>
             </div>
           </div>
@@ -4332,6 +4333,50 @@ async function migrateMachineKey(code) {
     const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'set_machine_key', params: {} });
     if (r && r.ok) showToast('Key sent — then run the health check to confirm it reads "stored"');
     else showToast((r && r.error) || 'could not send the key');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
+/**
+ * Revoke this machine's key so it can pair afresh.
+ *
+ * *** THE 409 TOLD YOU TO DO THIS AND THERE WAS NO BUTTON.
+ *
+ * A machine pairs by entering its vélarnúmer; the kiosk then calls
+ * /api/v1/machines/provision, which needs no machine key and hands one back.
+ * But that endpoint REFUSES while a key is already active, and says so in
+ * Icelandic: "Afturkallið núverandi lykil á stjórnborðinu" — revoke the
+ * current key in the dashboard. Until now the dashboard offered no way to.
+ *
+ * That is exactly how 62160479 broke on 2026-10-21: a key was issued from
+ * "show key" before the machine had paired, so its pairing call hit the 409,
+ * got no key, and the machine spent a day presenting an invalid one — selling
+ * by card the whole time and able to report none of it.
+ *
+ * Revoking does NOT stop a machine selling. Card authorisation is the Nayax
+ * terminal on its own line, dispensing is the control board over serial, and
+ * prices come from cached config. validateMachineKey already returns false for
+ * a wrong key AND a revoked one, and requireMachineKey answers both with the
+ * same 401 ("invalid, expired, or revoked") — so a mis-keyed machine cannot
+ * tell the difference, and a correctly-keyed one loses only its reporting
+ * until someone pairs it again.
+ */
+async function revokeMachineKeyUi(code) {
+  if (!code) return;
+  if (!confirm(
+    'Revoke this machine\'s key?\n\n' +
+    code + ' will be unable to report sales, poll config or answer commands ' +
+    'until it is paired again at the machine.\n\n' +
+    'It keeps selling: card payment and dispensing do not go through us.\n\n' +
+    'Use this when the key on the machine is wrong and it needs to pair afresh.'
+  )) return;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/revoke-key', {});
+    if (r && r.ok) {
+      showToast('Key revoked — pair the machine again to issue a new one');
+      openMachineDetail(code);
+    } else {
+      showToast((r && r.error) || 'could not revoke the key');
+    }
   } catch (e) { showToast('error: ' + e.message); }
 }
 
