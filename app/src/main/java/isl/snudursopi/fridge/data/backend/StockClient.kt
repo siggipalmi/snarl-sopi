@@ -67,6 +67,16 @@ class StockClient(
         }
     }
 
+    /** An admin PIN result ('ok' or 'lockout'). Best effort: a lost 'ok' only dates "last used". */
+    suspend fun adminPinEvent(type: String) {
+        try {
+            http.postJson("/api/v1/machines/$deviceCode/admin-pin-event", mapOf("type" to type))
+            Log.i(TAG, "admin PIN event reported ($type)")
+        } catch (e: Exception) {
+            Log.w(TAG, "admin PIN event not sent: ${e.message}")
+        }
+    }
+
     /** Retry a held restock report and door report. Called from the backend loop. */
     suspend fun flush() {
         flushDoor()

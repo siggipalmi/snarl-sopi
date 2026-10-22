@@ -50,6 +50,16 @@ import isl.snudursopi.fridge.scheduleAppRelaunch
 import isl.snudursopi.fridge.ui.theme.AppColors
 import isl.snudursopi.fridge.ui.theme.AppFonts
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.rememberCoroutineScope
+import isl.snudursopi.fridge.R
+import isl.snudursopi.fridge.domain.AdminPin
+import isl.snudursopi.fridge.domain.AdminPinGuard
+import isl.snudursopi.fridge.domain.AdminPinHash
+import isl.snudursopi.fridge.domain.Language
+import isl.snudursopi.fridge.ui.util.localized
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -97,24 +107,47 @@ fun AdminClock(
 private fun clockText(): String =
     SimpleDateFormat("HH:mm", Locale.US).format(Date())
 
+/** Where the PIN lockout lives, so a power cycle doesn't reset the count. */
+private class AdminPinPrefs(context: Context) : AdminPinGuard.Store {
+    private val prefs = context.getSharedPreferences("admin_pin", Context.MODE_PRIVATE)
+    override var failures: Int
+        get() = prefs.getInt("failures", 0)
+        set(v) { prefs.edit().putInt("failures", v).apply() }
+    override var lockedUntilMs: Long
+        get() = prefs.getLong("locked_until", 0L)
+        set(v) { prefs.edit().putLong("locked_until", v).apply() }
+}
+
 /**
  * PIN gate, then the actions.
  *
- * The PIN matches coil's for now — one code across the fleet, and it lives in
- * exactly one place so it can be moved to config later without hunting.
+ * *** THE PIN IS THIS MACHINE'S OWN (0.69.0). AG sets it in the dashboard; the config carries only
+ * a hash ([pinHash]), checked here offline. No hash means the fleet's shared 123456, so a machine
+ * keeps working through the rollout. Five wrong PINs lock the pad for five minutes, kept across
+ * restarts, and the backend is told (onPinEvent "lockout") so AG gets an alert.
  */
-private const val ADMIN_PIN = "123456"
-
 @Composable
 fun AdminSheet(
     onClose: () -> Unit,
     deviceCode: String? = null,
     lastPollOkMs: Long? = null,
+    pinHash: AdminPinHash? = null,
+    language: Language = Language.Icelandic,
+    onPinEvent: (String) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val guard = remember { AdminPinGuard(AdminPinPrefs(context)) }
+    val scope = rememberCoroutineScope()
     var entered by remember { mutableStateOf("") }
     var unlocked by remember { mutableStateOf(false) }
     var wrong by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
+    var lockedMs by remember { mutableStateOf(guard.lockedForMs()) }
     var pairing by remember { mutableStateOf(false) }
+    // Count a lock down on screen, then reopen the pad by itself.
+    LaunchedEffect(lockedMs > 0) {
+        while (lockedMs > 0) { delay(1_000); lockedMs = guard.lockedForMs() }
+    }
 
     Box(
         Modifier
@@ -136,14 +169,34 @@ fun AdminSheet(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (!unlocked) {
+                val title = when {
+                    lockedMs > 0 -> localized(language, R.string.admin_pin_locked, ((lockedMs + 59_999) / 60_000).toInt())
+                    wrong -> localized(language, R.string.admin_pin_wrong, guard.triesLeft())
+                    else -> localized(language, R.string.admin_pin_title)
+                }
                 PinPad(
+                    title = title,
                     entered = entered,
-                    wrong = wrong,
+                    wrong = wrong || lockedMs > 0,
                     onDigit = {
+                        if (lockedMs > 0 || checking) return@PinPad
                         wrong = false
                         if (entered.length < 6) entered += it
                         if (entered.length == 6) {
-                            if (entered == ADMIN_PIN) unlocked = true else { wrong = true; entered = "" }
+                            val pin = entered
+                            checking = true
+                            // PBKDF2 takes a moment on a tablet: off the main thread.
+                            scope.launch {
+                                val ok = withContext(Dispatchers.Default) { AdminPin.check(pinHash, pin) }
+                                checking = false
+                                entered = ""
+                                if (ok) {
+                                    guard.succeeded(); unlocked = true; onPinEvent("ok")
+                                } else {
+                                    wrong = true
+                                    if (guard.failed()) { lockedMs = guard.lockedForMs(); onPinEvent("lockout") }
+                                }
+                            }
                         }
                     },
                     onBack = { if (entered.isNotEmpty()) entered = entered.dropLast(1) },
@@ -161,13 +214,14 @@ fun AdminSheet(
 
 @Composable
 private fun PinPad(
+    title: String,
     entered: String,
     wrong: Boolean,
     onDigit: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     Text(
-        if (wrong) "rangt númer" else "aðgangsnúmer",
+        title,
         fontFamily = AppFonts.Cormorant,
         fontStyle = FontStyle.Italic,
         fontWeight = FontWeight.SemiBold,

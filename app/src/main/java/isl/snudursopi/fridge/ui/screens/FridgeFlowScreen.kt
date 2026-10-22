@@ -88,6 +88,7 @@ fun FridgeFlowScreen(
     onReceiptDomain: (String) -> Unit = {},
     onReceiptCancel: () -> Unit = {},
     onReceiptSend: () -> Unit = {},
+    onAdminPinEvent: (String) -> Unit = {},
 ) {
     // Admin is local UI state, not app state — it must work even if the backend
     // is unreachable, which is exactly when someone needs it.
@@ -272,6 +273,9 @@ fun FridgeFlowScreen(
                 onClose = { showAdmin = false },
                 deviceCode = state.deviceCode,
                 lastPollOkMs = state.lastPollOkMs,
+                pinHash = state.adminPin,
+                language = state.language,
+                onPinEvent = onAdminPinEvent,
             )
         }
     }

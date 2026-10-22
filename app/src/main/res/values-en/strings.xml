@@ -111,4 +111,8 @@
     <string name="receipt_sent_to">to %1$s</string>
     <string name="receipt_sent_queued">it will go out as soon as the machine is back online</string>
     <string name="receipt_returning">back to start in %1$d s</string>
+    <!-- Admin sheet PIN pad (0.69.0) -->
+    <string name="admin_pin_title">access code</string>
+    <string name="admin_pin_wrong">wrong code · %1$d tries left</string>
+    <string name="admin_pin_locked">locked · try again in %1$d min</string>
 </resources>

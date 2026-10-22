@@ -642,6 +642,7 @@ class MainActivity : ComponentActivity() {
                                 onReceiptDomain = { viewModel.addReceiptDomain(it) },
                                 onReceiptCancel = { viewModel.cancelReceiptEmail() },
                                 onReceiptSend = { viewModel.sendReceipt() },
+                                onAdminPinEvent = { viewModel.reportAdminPinEvent(it) },
                             )
                             // Runtime toggle, not BuildConfig.DEBUG: field
                             // machines run the debug variant because Device

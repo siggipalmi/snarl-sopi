@@ -119,6 +119,8 @@ data class FridgeUiState(
     /** Closed for sale — see Planogram.outOfService. */
     val outOfService: Boolean = false,
     val outOfServiceReason: String? = null,
+    /** The admin PIN hash from config; null means the shared code (AdminPin). */
+    val adminPin: isl.snudursopi.fridge.domain.AdminPinHash? = null,
     val idleTimeoutSeconds: Int = 60,
     /** The ⓘ sheet is open. */
     val showInfo: Boolean = false,

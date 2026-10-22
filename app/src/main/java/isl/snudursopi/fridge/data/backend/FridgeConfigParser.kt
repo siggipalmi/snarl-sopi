@@ -121,6 +121,12 @@ object FridgeConfigParser {
             outOfService = data.field("outOfService")?.asBoolean() ?: false,
             outOfServiceReason = data.field("outOfServiceReason")?.takeIf { !it.isNull }?.asText()
                 ?.trim()?.takeIf { it.isNotEmpty() }?.take(120),
+            adminPin = data.field("adminPin")?.let {
+                isl.snudursopi.fridge.domain.AdminPinHash.fromConfig(
+                    it.field("algo")?.asText(), it.field("iter")?.takeIf { n -> n.isNumber }?.asInt(),
+                    it.field("salt")?.asText(), it.field("hash")?.asText(),
+                )
+            },
             idleTimeoutSeconds = (data.field("idleTimeoutSeconds")?.asInt() ?: 60).coerceIn(10, 3600),
             led = parseLed(fridge.field("led")),
             receiptsEnabled = data.field("receipts")?.field("enabled")?.asBoolean() ?: false,

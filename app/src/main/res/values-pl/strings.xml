@@ -110,4 +110,8 @@
     <string name="receipt_sent_to">na %1$s</string>
     <string name="receipt_sent_queued">zostanie wysłany, gdy automat odzyska połączenie</string>
     <string name="receipt_returning">powrót do ekranu startowego za %1$d s</string>
+    <!-- Admin sheet PIN pad (0.69.0) -->
+    <string name="admin_pin_title">kod dostępu</string>
+    <string name="admin_pin_wrong">zły kod · pozostało prób: %1$d</string>
+    <string name="admin_pin_locked">zablokowane · spróbuj za %1$d min</string>
 </resources>

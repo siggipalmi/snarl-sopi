@@ -97,9 +97,15 @@ class FridgeViewModel(
             showPosters = p.showPosters,
             outOfService = p.outOfService,
             outOfServiceReason = p.outOfServiceReason,
+            adminPin = p.adminPin,
             idleTimeoutSeconds = p.idleTimeoutSeconds,
             receiptsEnabled = p.receiptsEnabled,
         )
+    }
+
+    /** The admin sheet's PIN results, for the backend: 'ok', or 'lockout' after five wrong. */
+    fun reportAdminPinEvent(type: String) {
+        viewModelScope.launch { runCatching { stockClient()?.adminPinEvent(type) } }
     }
 
     /** Most recent resting weights, refreshed while the machine sits idle. */
@@ -1064,6 +1070,7 @@ class FridgeViewModel(
             // A machine closed for sale stays closed after a restock (freshIdle runs then too).
             outOfService = it.outOfService,
             outOfServiceReason = it.outOfServiceReason,
+            adminPin = it.adminPin,
             idleTimeoutSeconds = it.idleTimeoutSeconds,
             cabinetCount = it.cabinetCount,
             language = defaultLanguage,

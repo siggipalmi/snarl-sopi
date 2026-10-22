@@ -135,4 +135,8 @@
     <string name="receipt_sent_to">á %1$s</string>
     <string name="receipt_sent_queued">hún fer af stað um leið og vélin nær sambandi</string>
     <string name="receipt_returning">aftur á upphafsskjá eftir %1$d s</string>
+    <!-- Admin sheet PIN pad (0.69.0) -->
+    <string name="admin_pin_title">aðgangsnúmer</string>
+    <string name="admin_pin_wrong">rangt númer · %1$d tilraunir eftir</string>
+    <string name="admin_pin_locked">læst · reyndu aftur eftir %1$d mín</string>
 </resources>

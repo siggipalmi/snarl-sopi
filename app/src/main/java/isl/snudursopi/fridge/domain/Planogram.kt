@@ -112,6 +112,8 @@ data class Planogram(
     val outOfService: Boolean = false,
     /** The operator's own words for the closed screen; never set for a master close. */
     val outOfServiceReason: String? = null,
+    /** This machine's admin PIN hash (config.adminPin); null means the shared code. See [AdminPin]. */
+    val adminPin: AdminPinHash? = null,
     /** Seconds idle before posters join the rotation (config.idleTimeoutSeconds). */
     val idleTimeoutSeconds: Int = 60,
     /** Cabinet lighting (fridge.led). On/off only on this hardware — see [LightPolicy]. */
