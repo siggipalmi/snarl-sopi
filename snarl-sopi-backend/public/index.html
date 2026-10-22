@@ -3987,6 +3987,15 @@ const ui = {
   },
   closeSheet() { ['ui-sheet', 'ui-sheet-bg'].forEach(id => { const e = document.getElementById(id); if (e) e.remove(); }); },
 };
+// The text of a failed API reply. error is a string from most routes, but an object
+// ({code, message, messageEn}) from some (view-as read-only, contract errors, and the client's own
+// "no/empty/bad response" cases) — shown as "[object Object]" if printed directly.
+function apiErrText(r, fallback) {
+  const e = r && (r.error || r.message);
+  if (!e) return fallback;
+  if (typeof e === 'string') return e;
+  return e.messageEn || e.message || e.code || fallback;
+}
 function rsEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // Map a Weimi aisle code ("0-A00") to the machine's PHYSICAL slot number.
@@ -4670,7 +4679,7 @@ async function createNewProduct() {
       }
       setTimeout(() => closeModal('modal-newproduct'), 700);
     } else {
-      msg.innerHTML = '<div class="rs-msg err">Could not create: ' + rsEsc(r.error || r.message || 'unknown error') + '</div>';
+      msg.innerHTML = '<div class="rs-msg err">Could not create: ' + rsEsc(apiErrText(r, 'unknown error')) + '</div>';
     }
   } catch (e) {
     msg.innerHTML = '<div class="rs-msg err">Network error: ' + rsEsc(e.message) + '</div>';
@@ -4784,7 +4793,7 @@ async function saveEditProduct() {
         renderCatalog();
       }
     } else {
-      msg.innerHTML = '<div class="rs-msg err">Could not save: ' + rsEsc(r.error || r.message || 'unknown error') + '</div>';
+      msg.innerHTML = '<div class="rs-msg err">Could not save: ' + rsEsc(apiErrText(r, 'unknown error')) + '</div>';
     }
   } catch (e) {
     msg.innerHTML = '<div class="rs-msg err">Network error: ' + rsEsc(e.message) + '</div>';
@@ -5689,7 +5698,7 @@ async function issuePairingCode() {
     msg.textContent = 'Type this on the machine. Redeeming it issues a new machine key and retires the old one.';
   } else {
     msg.style.color = 'var(--alert)';
-    msg.textContent = (r && (r.error || r.message)) || 'Could not generate a code.';
+    msg.textContent = apiErrText(r, 'Could not generate a code.');
   }
   btn.disabled = false;
 }
@@ -5733,7 +5742,7 @@ async function setMdLanguage(code) {
     msg.textContent = label + ' set. The machine switches on its next config poll (about two minutes).';
   } else {
     msg.style.color = 'var(--alert)';
-    msg.textContent = (r && (r.error || r.message)) || 'Could not change the language.';
+    msg.textContent = apiErrText(r, 'Could not change the language.');
   }
 }
 
@@ -8006,7 +8015,7 @@ async function saveWiring() {
     msg.textContent = 'Saved. The machine picks this up on its next config poll (about two minutes).';
   } else {
     msg.style.color = 'var(--alert)';
-    msg.textContent = (r && (r.error || r.message)) || 'Could not save — check you are signed in as AG admin.';
+    msg.textContent = apiErrText(r, 'Could not save — check you are signed in as AG admin.');
   }
 }
 
