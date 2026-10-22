@@ -242,6 +242,15 @@ seedIfEmpty();
   if (added > 0) console.log('[DB] TEST_MACHINE_KEYS: activated ' + added + ' key(s)');
 })();
 
+// Passwords still stored as typed (accounts from before 6.67.0). Each is replaced by a hash on that
+// user's next sign-in; this line shows how many are left.
+(function countPlainPasswords() {
+  const { isHashed } = require('./passwords');
+  const all = storage.listUsers();
+  const plain = all.filter(u => !isHashed(u.password)).length;
+  if (plain) console.log(`[AUTH] ${plain} of ${all.length} account(s) still have an unhashed password; each is hashed at its next sign-in`);
+})();
+
 // ─── Compatibility layer ──────────────────────────────────────────────────────
 // Many existing handlers read from `machines`, `users` etc. as if they were
 // plain objects/arrays. We expose Proxy-backed views that look like objects
