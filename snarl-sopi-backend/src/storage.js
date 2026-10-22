@@ -129,6 +129,16 @@ db.exec(`
     consumedAt    INTEGER
   );
 
+  -- Password reset links (2026-10-22). Only the SHA-256 of the token is stored; single use.
+  CREATE TABLE IF NOT EXISTS password_resets (
+    tokenHash   TEXT PRIMARY KEY,
+    userId      TEXT NOT NULL,
+    createdBy   TEXT,
+    createdAt   INTEGER NOT NULL,
+    expiresAt   INTEGER NOT NULL,
+    usedAt      INTEGER
+  );
+
   CREATE TABLE IF NOT EXISTS machine_keys (
     deviceCode  TEXT PRIMARY KEY REFERENCES machines(deviceCode),
     apiKey      TEXT NOT NULL,
@@ -743,6 +753,11 @@ const stmts = {
   insertInvitation:  db.prepare(`INSERT INTO invitations (token, email, name, role, operatorId, inviterId, machineAccess, createdAt, expiresAt, consumedAt)
                                  VALUES (@token, @email, @name, @role, @operatorId, @inviterId, @machineAccess, @createdAt, @expiresAt, @consumedAt)`),
   consumeInvitation: db.prepare('UPDATE invitations SET consumedAt = ? WHERE token = ?'),
+  insertPwReset:     db.prepare('INSERT INTO password_resets (tokenHash, userId, createdBy, createdAt, expiresAt, usedAt) VALUES (?, ?, ?, ?, ?, NULL)'),
+  getPwReset:        db.prepare('SELECT * FROM password_resets WHERE tokenHash = ?'),
+  usePwReset:        db.prepare('UPDATE password_resets SET usedAt = ? WHERE tokenHash = ? AND usedAt IS NULL AND expiresAt > ?'),
+  retirePwResets:    db.prepare('UPDATE password_resets SET usedAt = ? WHERE userId = ? AND usedAt IS NULL'),
+  purgePwResets:     db.prepare('DELETE FROM password_resets WHERE expiresAt < ?'),
   deleteInvitation:  db.prepare('DELETE FROM invitations WHERE token = ?'),
   deleteInvitationsByOperator: db.prepare('DELETE FROM invitations WHERE operatorId = ?'),
   cleanupExpired:    db.prepare('DELETE FROM invitations WHERE expiresAt < ?'),
@@ -1383,6 +1398,18 @@ const storage = {
     });
   },
   consumeInvitation(token) { stmts.consumeInvitation.run(Date.now(), token); },
+
+  // Password resets. A new link retires the user's older ones; using one is conditional, so a link
+  // can only ever set one password.
+  createPasswordReset(tokenHash, userId, createdBy, ttlMs) {
+    const now = Date.now();
+    stmts.purgePwResets.run(now - 7 * 86400000);
+    stmts.retirePwResets.run(now, userId);
+    stmts.insertPwReset.run(tokenHash, userId, createdBy || null, now, now + ttlMs);
+    return { expiresAt: now + ttlMs };
+  },
+  getPasswordReset(tokenHash) { return stmts.getPwReset.get(tokenHash) || null; },
+  usePasswordReset(tokenHash) { return stmts.usePwReset.run(Date.now(), tokenHash, Date.now()).changes === 1; },
   deleteInvitation(token)  { stmts.deleteInvitation.run(token); },
   cleanupExpiredInvitations() { stmts.cleanupExpired.run(Date.now() - 30*24*3600*1000); },
 

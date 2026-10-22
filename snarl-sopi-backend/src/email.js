@@ -135,6 +135,38 @@ ${OPERATOR_BRAND}`;
   return send({ to, subject, text, html, fromName: OPERATOR_BRAND });
 }
 
+/** A password reset link: from an admin (byName) or asked for on the sign-in screen. */
+async function sendPasswordReset({ to, name, link, hours, byName }) {
+  const subject = 'Nýtt lykilorð — AG Vending';
+  const why = byName ? `${byName} bjó til tengil svo þú getir valið nýtt lykilorð.` : 'Beðið var um nýtt lykilorð fyrir aðganginn þinn.';
+  const life = hours === 1 ? '1 klukkustund' : `${hours} klukkustundir`;
+  const text = `Hæ ${name},
+
+${why}
+
+${link}
+
+Tengillinn virkar einu sinni og gildir í ${life}. Ef þú baðst ekki um þetta getur þú hunsað póstinn; lykilorðið breytist ekki.
+
+Bestu kveðjur,
+${OPERATOR_BRAND}`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#E8DFD0;color:#1A1A1A;line-height:1.6;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#E8DFD0;padding:32px 16px;"><tr><td align="center">
+  <table width="100%" style="max-width:520px;background:#FAF7F2;border:.5px solid #E8E2D8;border-radius:16px;padding:36px 32px;"><tr><td>
+    <div style="font-weight:700;font-size:26px;letter-spacing:-.5px;margin-bottom:24px;">AG Vending</div>
+    <p style="margin:0 0 16px;">Hæ <strong>${escapeHtml(name)}</strong>,</p>
+    <p style="margin:0 0 20px;">${escapeHtml(why)}</p>
+    <table cellpadding="0" cellspacing="0" style="margin:0 0 20px;"><tr><td style="background:#1A1A1A;border-radius:999px;">
+      <a href="${escapeHtml(link)}" style="display:inline-block;color:#FAF7F2;text-decoration:none;padding:12px 28px;font-size:14px;font-weight:500;">Velja nýtt lykilorð &nbsp;→</a>
+    </td></tr></table>
+    <p style="margin:0 0 8px;font-size:13px;color:#6B6B6B;">Tengillinn virkar einu sinni og gildir í ${life}.</p>
+    <p style="margin:0;font-size:11px;color:#8A8275;">Ef þú baðst ekki um þetta getur þú hunsað póstinn; lykilorðið breytist ekki.</p>
+  </td></tr></table>
+</td></tr></table></body></html>`;
+  return send({ to, subject, text, html, fromName: OPERATOR_BRAND });
+}
+
 /** Sent when someone changes a user's role, so nobody discovers it by a button going missing. */
 async function sendRoleChanged({ to, name, operatorName, changedBy, role, machineNames }) {
   const subject = `Hlutverk þitt hjá ${operatorName} hefur breyst`;
@@ -386,7 +418,7 @@ function escapeHtml(s) {
   })[c]);
 }
 
-module.exports = { send, sendInvitation, sendRoleChanged, sendComplaintToOperator, sendFridgeComplaintToOperator, sendComplaintAckToCustomer, sendComplaintReplyToCustomer, sendOperatorAlert, sendMachineDigest };
+module.exports = { send, sendInvitation, sendRoleChanged, sendPasswordReset, sendComplaintToOperator, sendFridgeComplaintToOperator, sendComplaintAckToCustomer, sendComplaintReplyToCustomer, sendOperatorAlert, sendMachineDigest };
 
 // ─── Complaint emails ─────────────────────────────────────────────────────────
 
