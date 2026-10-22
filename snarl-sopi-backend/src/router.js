@@ -41,7 +41,8 @@ const {
 } = require('./db');
 const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
-        revokeToken } = require('./auth');
+        revokeToken, requireCap } = require('./auth');
+const roles = require('./roles');
 const email = require('./email');
 const fleetHealth = require('./fleetHealth');
 const { buildCustomerReceipt } = require('./customerReceipt');
@@ -289,7 +290,8 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/detail',            handler: handleMachineDetail, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/users',                                  handler: handleListUsers,    middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/users',                                  handler: handleInviteUser,   middleware:[requireAuth, requireOperatorAdmin] },
-  { method:'PUT',  pattern:'/api/v1/users/:userId',                          handler: handleUpdateUser,   middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/roles',                                  handler: handleListRoles,      middleware:[requireAuth] },
+  { method:'PUT',  pattern:'/api/v1/users/:userId',                          handler: handleUpdateUser,   middleware:[requireAuth, requireOperatorAdmin] },
   { method:'GET',  pattern:'/api/v1/invitations',                            handler: handleListInvitations, middleware:[requireAuth, requireOperatorAdmin] },
   { method:'DELETE', pattern:'/api/v1/invitations/:token',                   handler: handleRevokeInvitation, middleware:[requireAuth, requireOperatorAdmin] },
   { method:'POST', pattern:'/api/v1/invitations/:token/resend',              handler: handleResendInvitation, middleware:[requireAuth, requireOperatorAdmin] },
@@ -319,6 +321,58 @@ const routes = [
 // open to anyone who guessed the URL. Nothing on the machines or the dashboard calls them unsigned.
 for (const r of routes) {
   if (r.pattern.startsWith('/api/v1/debug/')) r.middleware = [requireAuth, requireAgAdmin];
+}
+
+// *** WHAT EACH ROLE MAY DO (Siggi, 2026-10-22; table in roles.js). Routes not listed need only
+// 'restock', which every signed-in user has: reading their machines, restock lists, opening doors
+// (commands are filtered further in handleEnqueueCommand), stock counts, moving products, and
+// creating a new product. AG-only and operator-admin routes keep their own guards.
+const ROUTE_CAPS = {
+  sales: [
+    'GET /api/v1/orders', 'GET /api/v1/orders/today', 'GET /api/v1/reports/summary',
+    'GET /api/v1/reports/revenue-series', 'GET /api/v1/reports/machine-comparison',
+    'GET /api/v1/reports/top-products', 'GET /api/v1/reports/profit', 'GET /api/v1/reports/hourly',
+    'GET /api/v1/reports/dispense-issues', 'GET /api/v1/deals', 'GET /api/v1/weimi/orders',
+    'GET /api/v1/machines/:deviceCode/nayax/sales', 'GET /api/v1/machines/:deviceCode/transactions',
+    'GET /api/v1/machines/:deviceCode/fridge/settlements',
+    // Purchase receipts carry cost prices.
+    'GET /api/v1/receipts', 'GET /api/v1/receipts/:id', 'POST /api/v1/receipts/extract',
+    'POST /api/v1/receipts/:id/confirm', 'GET /api/v1/product-drafts', 'DELETE /api/v1/product-drafts/:id',
+  ],
+  billing: [
+    'GET /api/v1/operators/:operatorId/invoices', 'GET /api/v1/operators/:operatorId/ledger',
+    'GET /api/v1/operators/:operatorId/invoices/:invoiceId/pdf',
+  ],
+  prices: ['POST /api/v1/products/price', 'POST /api/v1/machines/:deviceCode/slots/price'],
+  products: ['PUT /api/v1/products/:goodsId', 'PUT /api/v1/products/:goodsId/perishable', 'POST /api/v1/products/import'],
+  close: ['PUT /api/v1/machines/:deviceCode/out-of-service'],
+  complaints: [
+    'GET /api/v1/complaints', 'GET /api/v1/complaints/:complaintId', 'POST /api/v1/complaints/:complaintId/reply',
+    'POST /api/v1/complaints/:complaintId/status', 'GET /api/v1/machines/:deviceCode/fridge/complaints',
+  ],
+  refunds: ['POST /api/v1/complaints/:complaintId/refund'],
+  manage: [
+    'PUT /api/v1/machines/:deviceCode/bay-config', 'PUT /api/v1/machines/:deviceCode/hardware',
+    'POST /api/v1/machines/:deviceCode/weimi/sync', 'POST /api/v1/weimi/sync/:deviceCode',
+    'POST /api/v1/machines/:deviceCode/nayax/link', 'POST /api/v1/machines/:deviceCode/nayax/sync',
+    'PUT /api/v1/machines/:deviceCode/notifications', 'PUT /api/v1/machines/:deviceCode',
+    'PUT /api/v1/machines/:deviceCode/profile', 'PUT /api/v1/machines/:deviceCode/featured',
+    'POST /api/v1/featured/batch', 'POST /api/v1/machines/:deviceCode/restart',
+    'POST /api/v1/machines/:deviceCode/cooling', 'PUT /api/v1/machines/:deviceCode/grid-order',
+    'PUT /api/v1/machines/:deviceCode/ads', 'POST /api/v1/machines/:deviceCode/ads/upload',
+    'PUT /api/v1/machines/:deviceCode/settings', 'POST /api/v1/machines/:deviceCode/revoke-key',
+    'POST /api/v1/alerts/:id/resolve',
+  ],
+};
+{
+  const byKey = new Map(routes.map(r => [r.method + ' ' + r.pattern, r]));
+  for (const [cap, keys] of Object.entries(ROUTE_CAPS)) {
+    for (const k of keys) {
+      const r = byKey.get(k);
+      if (!r) throw new Error('ROUTE_CAPS names a route that does not exist: ' + k);
+      r.middleware = [...(r.middleware || [requireAuth]), requireCap(cap)];
+    }
+  }
 }
 
 function router(req, res) {
@@ -1302,6 +1356,10 @@ function handleSetFridgeBaskets(req, res) {
   const rejected = [];
   const spec = machineFridgeSpec(m);
   const per = spec.basketsPerCabinet;
+  // A restocker moves products but doesn't set prices: a basket keeps its own price override only
+  // while it keeps its product; a product moved in sells at its catalog price.
+  const canPrice = roles.can(req.user, 'prices');
+  const current = canPrice ? null : new Map(storage.listFridgeBaskets(deviceCode).map(r => [r.cabinet + ':' + r.basket, r]));
   for (const b of list) {
     if (b.cabinet == null || b.basket == null) continue;
     // Numbering contract: basket is 1..basketsPerCabinet (16, or 10 on 8625060404) WITHIN each
@@ -1311,6 +1369,18 @@ function handleSetFridgeBaskets(req, res) {
     if (!spec.cabinets.includes(cab)) { rejected.push({ cabinet: b.cabinet, basket: b.basket, reason: 'bad_cabinet', detail: `This machine has no cabinet ${cab} (has ${spec.cabinets.join('+') || 'none'}).` }); continue; }
     if (!(bn >= 1 && bn <= per)) { rejected.push({ cabinet: cab, basket: b.basket, reason: 'bad_basket', detail: `basket must be 1-${per} within a cabinet on this machine.` }); continue; }
     b.cabinet = cab; b.basket = bn;
+    if (!canPrice) {
+      const cur = current.get(cab + ':' + bn);
+      const keep = cur && cur.productId === (b.productId || null) ? (cur.priceIsk == null ? null : Number(cur.priceIsk)) : null;
+      const want = b.priceIsk == null || b.priceIsk === '' ? null : Number(b.priceIsk);
+      const prod = b.productId ? storage.getProduct(b.productId) : null;
+      const catalog = prod && prod.salePriceIsk != null ? Number(prod.salePriceIsk) : null;
+      // The bulk editor sends the price it shows, which is the catalog price when there is no override.
+      if (want !== keep && !(keep === null && want === catalog)) {
+        rejected.push({ cabinet: cab, basket: bn, reason: 'role_forbidden', detail: "Your role (Restocker) can't change prices." });
+        continue;
+      }
+    }
     // A basket that is enabled and stocked MUST have a resolvable unit weight, or the machine
     // cannot price what leaves it — and since the door exposes every basket at once, the app
     // can't safely open at all. Catch it here rather than let a bad row reach the machine.
@@ -1354,7 +1424,8 @@ function handleSetFridgeBaskets(req, res) {
   // return 304 and the machine would never see it — a silent failure.
   if (n) touchConfig(m);
   if (rejected.length) {
-    return json(res, 400, { ok: false, error: 'Some baskets were rejected — see rejected[] (per-piece products need a unit weight, per-kg products a kilo price).',
+    const roleRefusal = rejected.find(x => x.reason === 'role_forbidden');
+    return json(res, roleRefusal ? 403 : 400, { ok: false, error: roleRefusal ? roleRefusal.detail : 'Some baskets were rejected — see rejected[] (per-piece products need a unit weight, per-kg products a kilo price).',
       updated: n, rejected, configVersion: m.configVersion });
   }
   ok(res, { deviceCode, updated: n, configVersion: m.configVersion });
@@ -2412,11 +2483,16 @@ function handleOperatorHome(req, res) {
     attention.sort((a, b) => a.level - b.level);
     const topSellers = Object.values(sold).sort((a, b) => b.units - a.units || b.revenueIsk - a.revenueIsk).slice(0, 5)
       .map(x => { const p = storage.getProduct(x.productId); return { ...x, name: (p && p.name) || x.productId, imgUrl: (p && p.imgUrl) || null }; });
+    const seesSales = roles.can(req.user, 'sales');
     ok(res, {
-      machines: cards, attention,
-      today: { revenueKr: todayKr, orders: todayOrders, sameDayLastWeekKr: lastWeekKr,
-               changePct: lastWeekKr > 0 ? Math.round((todayKr - lastWeekKr) / lastWeekKr * 100) : null },
-      topSellers,
+      machines: cards,
+      // Complaints are handled by managers and admins; a restocker couldn't open them.
+      attention: roles.can(req.user, 'complaints') ? attention : attention.filter(a => a.kind !== 'complaint'),
+      // A restocker sees what sells (units), not what it earns.
+      today: seesSales ? { revenueKr: todayKr, orders: todayOrders, sameDayLastWeekKr: lastWeekKr,
+               changePct: lastWeekKr > 0 ? Math.round((todayKr - lastWeekKr) / lastWeekKr * 100) : null } : null,
+      topSellers: seesSales ? topSellers : topSellers.map(({ revenueIsk, ...x }) => x),
+      seesSales,
       topSellersSince: cards.filter(c => c.lastRestockAt).length ? 'restock' : '7d',
       // The new operator layout, switched on per operator by AG (rollout one operator at a time).
       newUi: req.user.role !== 'ag_admin' && !!req.user.operatorId && storage.getMeta('newui:' + req.user.operatorId) === '1',
@@ -3460,6 +3536,10 @@ function validateLedPolicy(raw) {
 
 const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update', 'set_basket_count'];
 const CMD_TTL_MS = 5 * 60 * 1000;
+const CMD_AG_ONLY = new Set(['clear_device_owner', 'set_payment_port', 'set_machine_key']);
+// What a restocker may send: open a door, count, read the scales, clear a jam, test a vend.
+const CMD_RESTOCK = new Set(['fridge_open_door', 'set_basket_count', 'scale_read', 'read_all_trays', 'read_temp',
+  'clear_aisle_fault', 'test_vend', 'sync_price_tags', 'query_channel_status', 'config_health']);
 
 // ── Payment serial port ───────────────────────────────────────────────────────────────────────
 // This used to refuse any port that did not match a per-machine-type rule (coil ttyS3, double
@@ -3486,6 +3566,14 @@ function handleEnqueueCommand(req, res) {
   if (!machines[deviceCode]) return notFound(res, `Machine ${deviceCode} not found`);
   const type = String((req.body && req.body.type) || '').trim();
   if (!CMD_TYPES.includes(type)) return badRequest(res, `type must be one of: ${CMD_TYPES.join(', ')}`);
+  // Device Owner, machine identity and serial ports stay with AG; a restocker gets the restock set.
+  if (CMD_AG_ONLY.has(type) && req.user?.role !== 'ag_admin') {
+    return json(res, 403, { ok: false, code: 'role_forbidden', error: `${type} is for AG Vending admins only.` });
+  }
+  if (!roles.can(req.user, 'manage') && !CMD_RESTOCK.has(type)) {
+    const r = roles.roleInfo(req.user && req.user.role);
+    return json(res, 403, { ok: false, code: 'role_forbidden', error: `Your role (${r ? r.label : 'unknown'}) can't send ${type}.` });
+  }
   const params = (req.body && req.body.params && typeof req.body.params === 'object' && !Array.isArray(req.body.params))
     ? req.body.params : {};
   if (type === 'clear_aisle_fault') {
@@ -4871,6 +4959,9 @@ function handleListAlerts(req, res) {
 function handleResolveAlert(req, res) {
   const alert = storage.getAlert(req.params.id);
   if (!alert) return notFound(res, `Alert ${req.params.id} not found`);
+  if (req.user.role !== 'ag_admin' && (!alert.deviceCode || !userCanAccessMachine(req.user, alert.deviceCode))) {
+    return notFound(res, `Alert ${req.params.id} not found`);
+  }
   storage.resolveAlert(req.params.id);
   ok(res, { ...alert, resolved: true, resolvedAt: new Date().toISOString() });
 }
@@ -5465,19 +5556,54 @@ function handleListUsers(req, res) {
   ok(res, list.map(publicUser), { total: list.length });
 }
 
+// A restocker's machines: device codes of [operatorId]'s machines. Returns { list } or { error }.
+function parseMachineAccess(raw, role, operatorId) {
+  if (roles.normalizeRole(role) !== 'operator_restocker') return { list: 'all' };
+  if (!Array.isArray(raw) || !raw.length) return { error: 'Choose at least one machine for a restocker.' };
+  const own = new Set(Object.values(machines).filter(m => m.operatorId === operatorId).map(m => m.deviceCode));
+  const list = [...new Set(raw.map(String))];
+  const bad = list.filter(c => !own.has(c));
+  if (bad.length) return { error: `Not this operator's machine(s): ${bad.join(', ')}.` };
+  return { list };
+}
+
 /**
- * PUT /api/v1/users/:userId — AG-admin edit of a user's name, role, and operator.
- * Used to move users between operators and change permissions.
+ * GET /api/v1/roles — the roles, what each may do, and which ones the caller may give. The invite and
+ * edit screens show these texts, so what a user reads is what the backend enforces (roles.js).
  */
-function handleUpdateUser(req, res) {
+function handleListRoles(req, res) {
+  const grantable = roles.grantableRoles(req.user);
+  const myRole = roles.normalizeRole(req.user.role);
+  ok(res, { mine: { role: myRole, caps: myRole === 'ag_admin' ? Object.keys(roles.CAP_TEXT) : (roles.CAPS[myRole] || []) },
+            roles: roles.ROLES.map(r => ({ ...r, grantable: grantable.includes(r.id) })),
+            changes: Object.fromEntries(roles.ROLE_IDS.map(a => [a, Object.fromEntries(roles.ROLE_IDS.map(b => [b, roles.roleChange(a, b)]))])) });
+}
+
+/**
+ * PUT /api/v1/users/:userId { name?, role?, operatorId?, machineAccess? }
+ * AG: anyone, any role, any operator. An operator admin: users in their own operator, any role but
+ * AG admin, and not the operator's last admin. The change applies on the user's next request (every
+ * request re-reads the user), and they are emailed when their role changes.
+ */
+async function handleUpdateUser(req, res) {
   const target = storage.getUser(req.params.userId);
   if (!target) return notFound(res, 'User not found');
+  const isAg = req.user.role === 'ag_admin';
+  if (!isAg && (target.operatorId !== req.user.operatorId || target.role === 'ag_admin')) {
+    return notFound(res, 'User not found');
+  }
 
-  const validRoles = ['ag_admin', 'operator_admin', 'operator_manager', 'operator_viewer'];
-  const newRole = req.body.role != null ? String(req.body.role) : target.role;
-  if (!validRoles.includes(newRole)) return badRequest(res, `role must be one of ${validRoles.join(', ')}`);
+  const oldRole = roles.normalizeRole(target.role);
+  const newRole = req.body.role != null ? String(req.body.role) : oldRole;
+  if (!roles.ROLE_IDS.includes(newRole)) return badRequest(res, `role must be one of ${roles.ROLE_IDS.join(', ')}`);
+  if (!roles.grantableRoles(req.user).includes(newRole)) {
+    return json(res, 403, { ok: false, code: 'role_forbidden', error: 'Only AG Vending admins can make someone an AG admin.' });
+  }
 
   let newOpId = req.body.operatorId != null ? String(req.body.operatorId) : target.operatorId;
+  if (!isAg && newOpId !== target.operatorId) {
+    return json(res, 403, { ok: false, code: 'role_forbidden', error: 'Only AG Vending admins can move a user to another operator.' });
+  }
   // AG admins always live on the AG Vending house operator.
   if (newRole === 'ag_admin') {
     const house = Object.values(operators).find(o => o.isAGVending);
@@ -5491,15 +5617,27 @@ function handleUpdateUser(req, res) {
     if (agAdmins.length <= 1) return badRequest(res, 'Cannot remove the last AG Vending admin');
     if (target.id === req.user.id) return badRequest(res, 'You cannot remove your own AG admin access');
   }
+  // Nor an operator's last admin: nobody would be left to manage its users.
+  if (target.role === 'operator_admin' && (newRole !== 'operator_admin' || newOpId !== target.operatorId)) {
+    const admins = users.filter(u => u.operatorId === target.operatorId && u.role === 'operator_admin');
+    if (admins.length <= 1) return badRequest(res, `${target.name} is the only operator admin of ${operators[target.operatorId]?.name || 'this operator'}. Make someone else admin first.`);
+  }
+
+  const ma = req.body.machineAccess !== undefined || newRole !== oldRole
+    ? parseMachineAccess(req.body.machineAccess !== undefined ? req.body.machineAccess : target.machineAccess, newRole, newOpId)
+    : { list: target.machineAccess || 'all' };
+  if (ma.error) return badRequest(res, ma.error);
 
   const newName = (req.body.name != null && String(req.body.name).trim())
     ? String(req.body.name).trim() : target.name;
 
-  storage.updateUser({
-    id: target.id, name: newName, role: newRole, operatorId: newOpId,
-    machineAccess: target.machineAccess || 'all',
-  });
-  console.log(`[USER] ${req.user.name} updated ${target.email} → role=${newRole}, operator=${operators[newOpId].name}`);
+  storage.updateUser({ id: target.id, name: newName, role: newRole, operatorId: newOpId, machineAccess: ma.list });
+  console.log(`[USER] ${req.user.name} updated ${target.email} → role=${newRole}, operator=${operators[newOpId].name}, machines=${Array.isArray(ma.list) ? ma.list.join(',') : 'all'}`);
+  if (newRole !== oldRole && target.email) {
+    const machineNames = Array.isArray(ma.list) ? ma.list.map(c => (machines[c] && machines[c].deviceName) || c) : null;
+    email.sendRoleChanged({ to: target.email, name: newName, operatorName: operators[newOpId].name,
+      changedBy: req.user.name, role: newRole, machineNames }).catch(e => console.error('[USER] role email failed:', e.message));
+  }
   ok(res, publicUser(storage.getUser(target.id)));
 }
 
@@ -5514,12 +5652,12 @@ async function handleInviteUser(req, res) {
     return json(res, 403, { error: 'Forbidden — you cannot invite users to this operator' });
   }
 
-  const validRoles = ['ag_admin', 'operator_admin', 'operator_manager', 'operator_viewer'];
-  if (!validRoles.includes(role)) return badRequest(res, `role must be one of ${validRoles.join(', ')}`);
-
-  if (role === 'ag_admin' && req.user.role !== 'ag_admin') {
+  if (!roles.ROLE_IDS.includes(role)) return badRequest(res, `role must be one of ${roles.ROLE_IDS.join(', ')}`);
+  if (!roles.grantableRoles(req.user).includes(role)) {
     return json(res, 403, { error: 'Only AG Vending admins can create AG admins' });
   }
+  const ma = parseMachineAccess(machineAccess, role, targetOpId);
+  if (ma.error) return badRequest(res, ma.error);
 
   if (users.find(u => u.email === inviteeEmail)) return badRequest(res, 'Email already exists');
 
@@ -5535,7 +5673,7 @@ async function handleInviteUser(req, res) {
   const invite = createInvitation({
     email: inviteeEmail, name, role, operatorId: targetOpId,
     inviterId: req.user.id,
-    machineAccess: machineAccess || 'all',
+    machineAccess: ma.list,
   });
 
   // Send the invitation email with the signup link. Real delivery happens only
@@ -8470,6 +8608,14 @@ async function handleSlotProduct(req, res) {
   if (!aisleCode) return json(res, 400, { ok: false, error: 'aisleCode required' });
   if (!goodsId) return json(res, 400, { ok: false, error: 'goodsId required' });
   if (!Number.isFinite(isk) || isk < 0) return json(res, 400, { ok: false, error: 'valid priceIsk required' });
+  // A restocker moves products but doesn't set prices: the slot takes the product's catalog price.
+  if (!roles.can(req.user, 'prices')) {
+    const p = storage.getProduct(goodsId);
+    if (!p || p.salePriceIsk == null || Math.round(isk) !== Math.round(Number(p.salePriceIsk))) {
+      return json(res, 403, { ok: false, code: 'role_forbidden',
+        error: `Your role (Restocker) can't change prices. ${p && p.salePriceIsk != null ? `Use the product's price, ${Math.round(Number(p.salePriceIsk))} kr.` : 'This product has no catalog price yet; ask a manager.'}` });
+    }
+  }
   const priceCents = Math.round(isk) * 100;
 
   // 1) Assign the new product + price to this one slot.

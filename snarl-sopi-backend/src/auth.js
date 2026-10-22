@@ -4,12 +4,14 @@
  * Roles:
  *   ag_admin         — AG Vending users, full access
  *   operator_admin   — manage own operator, invite staff, edit machines
- *   operator_manager — edit assigned machines, view sales
- *   operator_viewer  — read-only
+ *   operator_manager — runs the operator's machines; no users, invoices or refunds
+ *   operator_restocker — opens, restocks and moves products on assigned machines
+ * What each may do is in roles.js; requireCap enforces it per route.
  */
 
 const crypto = require('crypto');
 const storage = require('./storage');
+const roles = require('./roles');
 const { authTokens, users, machines, operators, userCanAccessMachine, userCanAccessOperator,
         userCanInviteTo, userCanReassignWithin } = require('./db');
 
@@ -126,8 +128,21 @@ function requireAuth(req, res, next) {
     req.user = { ...user, role: 'operator_admin', operatorId: op.id || viewAs, operatorName: op.name, viewingAs: true, realRole: user.role };
     return next();
   }
-  req.user = user;
+  // operator_viewer was never enforced as read-only; it now means restocker (roles.js).
+  req.user = user.role === 'operator_viewer' ? { ...user, role: roles.normalizeRole(user.role) } : user;
   next();
+}
+
+/** Refuse unless the signed-in user's role allows [cap] (roles.js). The reason names the role. */
+function requireCap(cap) {
+  const mw = (req, res, next) => {
+    if (roles.can(req.user, cap)) return next();
+    const r = roles.roleInfo(req.user && req.user.role);
+    return json(res, 403, { ok: false, code: 'role_forbidden', cap,
+      error: `Your role (${r ? r.label : 'unknown'}) can't ${roles.CAP_TEXT[cap] || cap}.` });
+  };
+  mw.cap = cap;
+  return mw;
 }
 
 /** Require AG Vending admin role. */
@@ -177,7 +192,7 @@ function requireKioskAuth(req, res, next) {
 module.exports = {
   createToken, verifyToken, revokeToken, revokeAllForUser,
   requireAuth, requireAdmin, requireAgAdmin, requireOperatorAdmin,
-  requireMachineAccess, requireOperatorAccess, requireKioskAuth,
+  requireMachineAccess, requireOperatorAccess, requireKioskAuth, requireCap,
   KIOSK_SECRET,
 };
 
