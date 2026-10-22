@@ -179,6 +179,8 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/door-status',       handler: handleDoorStatus,     middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/self-test',         handler: handleSelfTest,       middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/admin/morning-report',                  handler: handleMorningReportNow, middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/admin/backup',                          handler: handleBackupStatus,   middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/admin/backup',                          handler: handleBackupNow,      middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleGetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleSetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleKioskLogs,      middleware:[requireMachineKey] },
@@ -623,6 +625,7 @@ function handleHealth(req, res) {
     onboarding: {
       operatorProvisionKey: !!process.env.PROVISION_KEY,     // gates POST /operators/provision (the Zap)
       machineProvisionSecret: !!process.env.PROVISION_SECRET, // gates kiosk machine provisioning
+      dbBackup: backup.backupConfig().problems.length === 0,   // daily encrypted copy to R2 (BACKUP_*)
       email: !!process.env.SENDGRID_API_KEY ? 'sendgrid' : 'console-only',
       emailFrom: process.env.EMAIL_FROM || 'hallo@snarlogsopi.is',
       appUrl: process.env.APP_URL || 'https://admin.agvending.is',
@@ -2541,6 +2544,9 @@ function buildMorningReport(now) {
     if (m.online && !m.selfTestAt && m.app === 'fridge') noSelfTest.push(m.name);
     if (!lv1.length && !lv2.length && !alerts.length) okNames.push(m.name);
   }
+  // The nightly database backup: say so every morning until it is set up and succeeding.
+  const bk = backupStatus(now);
+  if (bk.problem) notChecked.unshift({ name: 'Database backup', code: '', what: bk.problem, detail: bk.detail });
   // One line for every fridge still on an app without the self-test, not a row each.
   if (noSelfTest.length) {
     notChecked.unshift({ name: `${noSelfTest.length} fridge${noSelfTest.length === 1 ? '' : 's'}`, code: '',
@@ -2623,6 +2629,55 @@ setInterval(() => {
   storage.setMeta('morningReport:lastDay', day);
   sendMorningReport(now.getTime()).catch(e => console.error('[MORNING] failed:', e.message));
 }, 60 * 1000).unref();
+
+// ── Daily database backup to R2 (src/backup.js) ──
+// After 03:15 UTC, once a day. A failed run is retried hourly; the day is only marked done on success.
+const backup = require('./backup');
+let _backupRunning = false;
+function lastBackup() { try { return JSON.parse(storage.getMeta('backup:last') || 'null'); } catch (e) { return null; } }
+function lastGoodBackup() { try { return JSON.parse(storage.getMeta('backup:lastOk') || 'null'); } catch (e) { return null; } }
+function backupStatus(now) {
+  const cfg = backup.backupConfig(), last = lastBackup(), good = lastGoodBackup();
+  if (cfg.problems.length) return { configured: false, problem: 'not set up', detail: cfg.problems.join('; ') + '.', last, lastOk: good };
+  if (last && !last.ok) return { configured: true, problem: 'last run failed', detail: last.error, last, lastOk: good };
+  if (!good) return { configured: true, problem: null, last, lastOk: null };   // set up; first run tonight
+  if (now - good.at > 36 * 3600000) return { configured: true, problem: `none for ${Math.round((now - good.at) / 3600000)} h`, detail: 'Last good copy: ' + good.key + '.', last, lastOk: good };
+  return { configured: true, problem: null, last, lastOk: good };
+}
+async function doBackup(now) {
+  if (_backupRunning) throw new Error('a backup is already running');
+  _backupRunning = true;
+  try {
+    const r = await backup.runBackup(storage, now);
+    const rec = { at: now, ok: true, key: r.key, bytes: r.bytes, rawBytes: r.rawBytes };
+    storage.setMeta('backup:last', JSON.stringify(rec));
+    storage.setMeta('backup:lastOk', JSON.stringify(rec));
+    console.log(`[BACKUP] ${r.key} uploaded (${(r.bytes / 1048576).toFixed(1)} MB encrypted, ${(r.rawBytes / 1048576).toFixed(1)} MB raw)`);
+    return rec;
+  } catch (e) {
+    storage.setMeta('backup:last', JSON.stringify({ at: now, ok: false, error: String(e.message || e).slice(0, 300) }));
+    console.error('[BACKUP] failed:', e.message);
+    throw e;
+  } finally { _backupRunning = false; }
+}
+setInterval(() => {
+  const now = new Date();
+  if (now.getUTCHours() * 60 + now.getUTCMinutes() < 3 * 60 + 15) return;
+  const day = now.toISOString().slice(0, 10);
+  if (storage.getMeta('backup:lastDay') === day) return;
+  if (backup.backupConfig().problems.length) return;
+  const last = lastBackup();
+  if (last && !last.ok && now.getTime() - last.at < 3600000) return;   // retry a failure hourly
+  doBackup(now.getTime()).then(() => storage.setMeta('backup:lastDay', day)).catch(() => {});
+}, 60 * 1000).unref();
+
+// GET /api/v1/admin/backup — set up?, last run, last good copy.
+function handleBackupStatus(req, res) { ok(res, backupStatus(Date.now())); }
+// POST /api/v1/admin/backup — run one now (to test the setup without waiting for 03:15).
+async function handleBackupNow(req, res) {
+  try { ok(res, await doBackup(Date.now())); }
+  catch (e) { json(res, 500, { ok: false, error: String(e.message || e) }); }
+}
 
 // ── New operator layout switch (per operator, AG-controlled) ──
 function handleListNewUi(req, res) {

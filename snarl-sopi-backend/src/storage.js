@@ -3102,4 +3102,8 @@ storage.dbPersistent = !DB_IS_FALLBACK;
 setTimeout(() => { try { storage.telemetrySweep(); } catch (e) { console.error('[TELEM] sweep error:', e.message); } }, 30_000);
 setInterval(() => { try { storage.telemetrySweep(); } catch (e) { console.error('[TELEM] sweep error:', e.message); } }, 5 * 60 * 1000).unref();
 
+// Online copy of the whole database to [destPath] (better-sqlite3's backup API: consistent while
+// the server keeps writing). Used by the daily R2 backup.
+storage.backupTo = destPath => db.backup(destPath);
+
 module.exports = storage;
