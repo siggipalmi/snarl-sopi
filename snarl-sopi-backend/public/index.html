@@ -1038,6 +1038,18 @@ select.fi{cursor:pointer;}
           </div>
         </div>
 
+        <div class="panel" style="margin-bottom:16px;display:none" id="md-pin-panel">
+          <div class="ph"><div class="ph-title">admin PIN.</div></div>
+          <div style="padding:14px 18px 16px">
+            <div id="md-pin-status" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:11px"></div>
+            <div id="md-pin-new" style="display:none;margin-bottom:11px">
+              <div id="md-pin-digits" style="font-family:var(--mono);font-size:30px;letter-spacing:6px;font-weight:500"></div>
+              <div style="font-size:11.5px;color:var(--muted);line-height:1.45">Shown once — write it down now. Works on the machine within a minute; the old PIN stops then.</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="newAdminPin()" id="md-pin-btn" style="width:100%">generate new PIN &rarr;</button>
+          </div>
+        </div>
+
         <div class="panel" style="margin-bottom:16px" id="md-lang-panel">
           <div class="ph"><div class="ph-title">kiosk language.</div></div>
           <div style="padding:14px 18px 16px">
@@ -5866,7 +5878,42 @@ async function openFridgeDoor(code, cabinet) {
 // Pairing codes. AG-admin only, so the panel stays hidden for everyone else rather than showing a
 // button that 403s. Generating supersedes any live code for this machine — a code read off a screen
 // an hour ago should not still work.
+// Per-machine admin PIN (AG only). The backend never returns the PIN again or its hash; a new one is
+// shown once. A fridge needs app 0.69.0+ to use it; older apps keep 123456.
+async function renderMdAdminPin() {
+  const panel = document.getElementById('md-pin-panel');
+  if (!panel) return;
+  const model = (typeof _mdModel !== 'undefined' && _mdModel) || String((DB.machines[_mdDeviceCode] || {}).model || '');
+  if (currentUser?.role !== 'ag_admin' || !/^GR-/.test(model)) { panel.style.display = 'none'; return; }   // fridges only
+  panel.style.display = '';
+  document.getElementById('md-pin-new').style.display = 'none';
+  const st = document.getElementById('md-pin-status');
+  st.textContent = 'Loading…';
+  const r = await API.get('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/admin-pin');
+  if (!r || !r.ok) { st.textContent = apiErrText(r, 'Could not load'); return; }
+  showAdminPinStatus(r.data);
+}
+function showAdminPinStatus(d) {
+  const day = iso => iso ? fmtDateTime(Date.parse(iso)) : null;
+  document.getElementById('md-pin-status').innerHTML = d.set
+    ? `Own PIN set ${rsEsc(day(d.setAt))}${d.setBy ? ' by ' + rsEsc(d.setBy) : ''}.<br>Last used: ${rsEsc(day(d.lastUsedAt) || 'not yet')}`
+      + (d.lastLockoutAt ? `<br><span style="color:var(--alert)">Locked out after 5 wrong tries ${rsEsc(day(d.lastLockoutAt))}.</span>` : '')
+    : 'Still on the shared PIN (123456). Generate one for this machine; needs fridge app 0.69.0 or newer.';
+}
+async function newAdminPin() {
+  if (!confirm('Make a new admin PIN for this machine?\n\nThe old PIN stops working within a minute. The new one is shown once.')) return;
+  const btn = document.getElementById('md-pin-btn');
+  btn.disabled = true;
+  const r = await API.post('/api/v1/machines/' + encodeURIComponent(_mdDeviceCode) + '/admin-pin', {});
+  btn.disabled = false;
+  if (!r || !r.ok) { showToast(apiErrText(r, 'Could not make a PIN')); return; }
+  document.getElementById('md-pin-digits').textContent = String(r.data.pin).replace(/(\d{3})(\d{3})/, '$1 · $2');
+  document.getElementById('md-pin-new').style.display = '';
+  showAdminPinStatus(r.data);
+}
+
 function renderMdPairing() {
+  renderMdAdminPin();
   const panel = document.getElementById('md-pair-panel');
   if (!panel) return;
   if (currentUser?.role !== 'ag_admin') { panel.style.display = 'none'; return; }
