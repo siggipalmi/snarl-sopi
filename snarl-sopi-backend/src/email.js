@@ -89,6 +89,7 @@ async function sendInvitation({ to, name, inviterName, operatorName, role, invit
 
 ${inviterName} hefur boðið þér aðgang að rekstri ${operatorName} hjá AG Vending.
 Þú hefur fengið hlutverkið: ${roleLabel(role)}.
+${roleDescription(role)}
 
 Til að virkja aðganginn þinn og setja lykilorð, smelltu á tengilinn:
 
@@ -112,7 +113,7 @@ ${OPERATOR_BRAND}`;
 
         <p style="margin:0 0 16px;">Hæ <strong>${escapeHtml(name)}</strong>,</p>
         <p style="margin:0 0 16px;"><strong>${escapeHtml(inviterName)}</strong> hefur boðið þér aðgang að rekstri <strong>${escapeHtml(operatorName)}</strong> hjá AG Vending.</p>
-        <p style="margin:0 0 24px;">Þú hefur fengið hlutverkið: <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#F7F0E6;color:#8B6B3E;font-family:monospace;font-size:11px;">${escapeHtml(roleLabel(role))}</span></p>
+        <p style="margin:0 0 24px;">Þú hefur fengið hlutverkið: <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#F7F0E6;color:#8B6B3E;font-family:monospace;font-size:11px;">${escapeHtml(roleLabel(role))}</span><br><span style="font-size:13px;color:#6B6B6B;">${escapeHtml(roleDescription(role))}</span></p>
 
         <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
           <tr><td style="background:#1A1A1A;border-radius:999px;">
@@ -134,15 +135,46 @@ ${OPERATOR_BRAND}`;
   return send({ to, subject, text, html, fromName: OPERATOR_BRAND });
 }
 
+/** Sent when someone changes a user's role, so nobody discovers it by a button going missing. */
+async function sendRoleChanged({ to, name, operatorName, changedBy, role, machineNames }) {
+  const subject = `Hlutverk þitt hjá ${operatorName} hefur breyst`;
+  const machinesLine = machineNames && machineNames.length ? `Vélar: ${machineNames.join(', ')}.` : '';
+  const text = `Hæ ${name},
+
+${changedBy} hefur breytt hlutverki þínu hjá ${operatorName} í: ${roleLabel(role)}.
+${roleDescription(role)}
+${machinesLine}
+
+Breytingin tekur gildi strax: ${APP_URL}
+
+Bestu kveðjur,
+${OPERATOR_BRAND}`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#E8DFD0;color:#1A1A1A;line-height:1.6;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#E8DFD0;padding:32px 16px;"><tr><td align="center">
+  <table width="100%" style="max-width:520px;background:#FAF7F2;border:.5px solid #E8E2D8;border-radius:16px;padding:36px 32px;"><tr><td>
+    <div style="font-weight:700;font-size:26px;letter-spacing:-.5px;margin-bottom:24px;">AG Vending</div>
+    <p style="margin:0 0 16px;">Hæ <strong>${escapeHtml(name)}</strong>,</p>
+    <p style="margin:0 0 16px;"><strong>${escapeHtml(changedBy)}</strong> hefur breytt hlutverki þínu hjá <strong>${escapeHtml(operatorName)}</strong> í:
+      <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#F7F0E6;color:#8B6B3E;font-family:monospace;font-size:11px;">${escapeHtml(roleLabel(role))}</span></p>
+    <p style="margin:0 0 16px;font-size:14px;color:#3A3A3A;">${escapeHtml(roleDescription(role))}</p>
+    ${machinesLine ? `<p style="margin:0 0 16px;font-size:13px;color:#6B6B6B;">${escapeHtml(machinesLine)}</p>` : ''}
+    <p style="margin:0;font-size:13px;color:#6B6B6B;">Breytingin tekur gildi strax.</p>
+  </td></tr></table>
+</td></tr></table></body></html>`;
+  return send({ to, subject, text, html, fromName: OPERATOR_BRAND });
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Labels and descriptions live in roles.js, so emails say what the dashboard says.
 function roleLabel(role) {
-  return {
-    ag_admin:         'AG Vending stjórnandi',
-    operator_admin:   'Rekstrar stjórnandi',
-    operator_manager: 'Rekstrar umsjónamaður',
-    operator_viewer:  'Áhorfandi',
-  }[role] || role;
+  const r = require('./roles').roleInfo(role);
+  return r ? r.labelIs : role;
+}
+function roleDescription(role) {
+  const r = require('./roles').roleInfo(role);
+  return r ? r.descriptionIs : '';
 }
 
 // Fridge complaints have their own shape (reason + basket lines, no tradeNo/totalIsk) and, for a
@@ -354,7 +386,7 @@ function escapeHtml(s) {
   })[c]);
 }
 
-module.exports = { send, sendInvitation, sendComplaintToOperator, sendFridgeComplaintToOperator, sendComplaintAckToCustomer, sendComplaintReplyToCustomer, sendOperatorAlert, sendMachineDigest };
+module.exports = { send, sendInvitation, sendRoleChanged, sendComplaintToOperator, sendFridgeComplaintToOperator, sendComplaintAckToCustomer, sendComplaintReplyToCustomer, sendOperatorAlert, sendMachineDigest };
 
 // ─── Complaint emails ─────────────────────────────────────────────────────────
 

@@ -533,6 +533,14 @@ select.fi{cursor:pointer;}
 .rcpt-v.suggest{background:var(--bronze-bg);color:var(--bronze)}
 .rcpt-v.mismatch{background:var(--alert-bg);color:var(--alert)}
 
+/* Role and machine pickers (invite / edit user) */
+.role-opt{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;background:#fff}
+.role-opt input{margin-top:3px}.role-opt b{display:block;font-weight:500;font-size:13px}.role-opt small{display:block;color:var(--muted);font-size:11.5px;line-height:1.4}
+.role-opt:has(input:checked){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.mach-opt{display:flex;gap:9px;align-items:center;min-height:36px;font-size:13px;cursor:pointer}.mach-opt small{color:var(--muted);font-family:var(--mono);font-size:10.5px}
+.mach-list{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:4px 10px;background:#fff}
+.role-change{font-size:12px;line-height:1.5;background:var(--cream-deep);border-radius:8px;padding:9px 11px;margin:4px 0 10px}
+.role-change b{font-weight:500}
 /* ── Shared building blocks (2026-10-15) ─────────────────────────────────────
    Every new screen is built from these six: card, row, chip, tag, machine card,
    bottom sheet. Colour rule: red (--alert) only for "act now"; green only for the
@@ -711,8 +719,8 @@ select.fi{cursor:pointer;}
       <div class="nav-item ag-only" onclick="go('settings',this)" style="display:none"><span class="nav-icon">⊞</span> <span data-i18n="nav.settings">Fleet</span></div>
       <div class="nav-item" onclick="go('machines',this)"><span class="nav-icon">⬡</span> <span data-i18n="nav.machines">Machines</span> <span class="nav-badge" id="nb-machines">4</span></div>
       <div class="nav-item" onclick="go('alerts',this)"><span class="nav-icon">◉</span> <span data-i18n="nav.alerts">Alerts</span> <span class="nav-badge" id="nb-alerts">3</span></div>
-      <div class="nav-item" onclick="go('complaints',this)"><span class="nav-icon">⚠</span> <span data-i18n="nav.complaints">Complaints</span> <span class="nav-badge" id="nb-complaints" style="display:none">0</span></div>
-      <div class="nav-item" onclick="go('orders',this)"><span class="nav-icon">◧</span> <span data-i18n="nav.orders">Orders</span></div>
+      <div class="nav-item" data-cap="complaints" onclick="go('complaints',this)"><span class="nav-icon">⚠</span> <span data-i18n="nav.complaints">Complaints</span> <span class="nav-badge" id="nb-complaints" style="display:none">0</span></div>
+      <div class="nav-item" data-cap="sales" onclick="go('orders',this)"><span class="nav-icon">◧</span> <span data-i18n="nav.orders">Orders</span></div>
     </div>
   </div>
 
@@ -724,8 +732,8 @@ select.fi{cursor:pointer;}
     </div>
     <div class="nav-group-items">
       <div class="nav-item" onclick="go('catalog',this)"><span class="nav-icon">▣</span> <span data-i18n="nav.catalog">Catalog &amp; Slots</span></div>
-      <div class="nav-item" onclick="go('hero',this)"><span class="nav-icon">✦</span> <span data-i18n="nav.hero">Hero &amp; Featured</span></div>
-      <div class="nav-item" onclick="go('display',this)"><span class="nav-icon">▭</span> <span data-i18n="nav.display">Display Settings</span></div>
+      <div class="nav-item" data-cap="manage" onclick="go('hero',this)"><span class="nav-icon">✦</span> <span data-i18n="nav.hero">Hero &amp; Featured</span></div>
+      <div class="nav-item" data-cap="manage" onclick="go('display',this)"><span class="nav-icon">▭</span> <span data-i18n="nav.display">Display Settings</span></div>
       <div class="nav-item" onclick="go('expiry',this)"><span class="nav-icon">◷</span> <span data-i18n="nav.expiry">Expiry</span></div>
       <div class="nav-item" onclick="go('deals',this)" style="display:none"><span class="nav-icon">%</span> <span data-i18n="nav.deals">Deals</span></div>
     </div>
@@ -738,9 +746,9 @@ select.fi{cursor:pointer;}
       <span class="nav-chev">▸</span>
     </div>
     <div class="nav-group-items">
-      <div class="nav-item" onclick="go('reports',this)"><span class="nav-icon">◫</span> <span data-i18n="nav.reports">Reports</span></div>
-      <div class="nav-item" onclick="go('receipts',this)"><span class="nav-icon">⛃</span> <span data-i18n="nav.receipts">Receipts</span></div>
-      <div class="nav-item" onclick="go('billing',this)"><span class="nav-icon">▤</span> <span data-i18n="nav.billing">Billing</span></div>
+      <div class="nav-item" data-cap="sales" onclick="go('reports',this)"><span class="nav-icon">◫</span> <span data-i18n="nav.reports">Reports</span></div>
+      <div class="nav-item" data-cap="sales" onclick="go('receipts',this)"><span class="nav-icon">⛃</span> <span data-i18n="nav.receipts">Receipts</span></div>
+      <div class="nav-item" data-cap="billing" onclick="go('billing',this)"><span class="nav-icon">▤</span> <span data-i18n="nav.billing">Billing</span></div>
       <div class="nav-item" onclick="go('leases',this)" style="display:none"><span class="nav-icon">▣</span> <span data-i18n="nav.leases">Lease inventory</span></div>
     </div>
   </div>
@@ -753,7 +761,7 @@ select.fi{cursor:pointer;}
     </div>
     <div class="nav-group-items">
       <div class="nav-item" onclick="go('operators',this)" style="display:none"><span class="nav-icon">⌬</span> <span data-i18n="nav.operators">Operators</span></div>
-      <div class="nav-item" onclick="go('users',this)"><span class="nav-icon">◎</span> <span data-i18n="nav.users">Users</span></div>
+      <div class="nav-item" data-cap="users" onclick="go('users',this)"><span class="nav-icon">◎</span> <span data-i18n="nav.users">Users</span></div>
       <div class="nav-item" onclick="go('help',this)"><span class="nav-icon">?</span> <span data-i18n="nav.help">Help</span></div>
     </div>
   </div>
@@ -2001,14 +2009,8 @@ select.fi{cursor:pointer;}
       <div class="fl">operator</div>
       <select class="fi" id="u-operator"></select>
     </div>
-    <div class="field"><div class="fl">role</div>
-      <select class="fi" id="u-role">
-        <option value="operator_admin">operator admin</option>
-        <option value="operator_manager">manager</option>
-        <option value="operator_viewer">viewer</option>
-        <option value="ag_admin" class="ag-only-option">AG Vending admin</option>
-      </select>
-    </div>
+    <div class="field"><div class="fl">role</div><div id="u-roles"></div></div>
+    <div class="field" id="u-machines-field" style="display:none"><div class="fl">machines</div><div class="mach-list" id="u-machines"></div></div>
     <div style="font-size:11px;color:var(--muted);background:var(--cream-deep);padding:10px 12px;border-radius:var(--rsm);margin-bottom:8px">
       An email with a signup link is sent to them. You'll also get a copy-able link to share, and you can resend the email anytime from the users list.
     </div>
@@ -2705,6 +2707,8 @@ async function bootApp(user) {
   await checkBackend();
   if (backendOnline) updateBackendIndicator();
   await hydrateMachinesFromBackend();
+  await loadRoles();
+  applyCapVisibility();
 
   populateMachineSelects();
   // Open the page or machine named in the URL hash (so refresh returns here); else dashboard.
@@ -3749,7 +3753,8 @@ async function renderDashboard() {
     let home = null;
     try { const r = await API.get('/api/v1/operator/home'); if (r && r.ok) home = r.data; } catch (e) {}
     window._homeNewUi = !!(home && home.newUi);
-    if (home && home.newUi && !homeLayoutOld()) {
+    // A restocker always gets the machine cards (open door, restock list); the classic dashboard is sales.
+    if (home && ((home.newUi && !homeLayoutOld()) || home.seesSales === false)) {
       page.classList.add('v3');
       renderHomeV3(home);
       return;
@@ -3805,9 +3810,10 @@ function renderHomeV3(home) {
   const attCard = att ? ui.card('þarf athygli', `<span>${(home.attention || []).length}</span>`, att)
                       : ui.card('þarf athygli', '', '<div class="ui-row"><div class="ui-row-t"><b>Ekkert í bili</b><small>Allt í lagi.</small></div></div>');
 
+  const seesSales = home.seesSales !== false;
   const t = home.today || {};
   const chg = t.changePct == null ? '' : `<em style="font-style:normal;font-family:var(--mono);font-size:10px;color:${t.changePct >= 0 ? 'var(--success)' : 'var(--muted)'};display:block">${t.changePct >= 0 ? '+' : ''}${t.changePct}% vs. síðasta ${IS_DAYS[new Date().getDay()].slice(0, 3)}.</em>`;
-  const today = ui.card('í dag', `<span>kl. ${new Date().toTimeString().slice(0, 5)}</span>`,
+  const today = !seesSales ? '' : ui.card('í dag', `<span>kl. ${new Date().toTimeString().slice(0, 5)}</span>`,
     `<div class="home-kpis"><div><small>sala</small><b>${kr(t.revenueKr)}</b>${chg}</div><div><small>kaup</small><b>${t.orders || 0}</b></div></div>`);
 
   const ts = home.topSellers || [];
@@ -3815,12 +3821,12 @@ function renderHomeV3(home) {
   const top = ts.length ? ui.card('mest selt', `<span>${home.topSellersSince === 'restock' ? 'síðan fyllt var á' : 'síðustu 7 daga'}</span>`,
     ts.map((x, i) => `<div class="ui-row" style="min-height:44px"><span style="font-family:var(--mono);font-size:11px;color:var(--muted);width:14px">${i + 1}</span>
       <div class="ui-row-t"><b>${rsEsc(x.name)}</b><div style="height:5px;border-radius:3px;background:var(--bronze);opacity:.7;margin-top:4px;width:${Math.round(x.units / maxU * 100)}%"></div></div>
-      <div style="font-family:var(--mono);font-size:12px;text-align:right">${x.units}<small style="display:block;color:var(--muted);font-size:10px">${kr(x.revenueIsk)}</small></div></div>`).join('')) : '';
+      <div style="font-family:var(--mono);font-size:12px;text-align:right">${x.units}${seesSales ? `<small style="display:block;color:var(--muted);font-size:10px">${kr(x.revenueIsk)}</small>` : ''}</div></div>`).join('')) : '';
 
   el.innerHTML = `<p class="home-hello">${hello}${first ? ', ' + rsEsc(first) : ''}</p><p class="home-date">${isDate(new Date())}</p>`
     + `<div class="home-main"><div class="home-machines"><div class="home-mh">vélar</div>${cardsHtml}</div>`
     + `<div class="home-cols"><div class="home-col-a">${attCard}</div><div class="home-col-b">${today}${top}</div></div></div>`
-    + `<div style="text-align:center;margin:18px 0 6px"><a onclick="setHomeLayout(true)" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Gamla útlitið</a></div>`;
+    + (seesSales ? `<div style="text-align:center;margin:18px 0 6px"><a onclick="setHomeLayout(true)" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Gamla útlitið</a></div>` : '');
   // Fill each fridge's restock-list count without holding up the page; keep a door that is opening.
   for (const m of (home.machines || [])) if (m.isFridge) {
     loadRestockCount(m.deviceCode);
@@ -3996,6 +4002,49 @@ function apiErrText(r, fallback) {
   if (typeof e === 'string') return e;
   return e.messageEn || e.message || e.code || fallback;
 }
+// ── Roles (roles.js on the backend; GET /api/v1/roles) ──
+// The texts shown when inviting or editing a user come from the backend, so they say exactly what
+// the backend enforces. canDo() only hides what a role can't use; the backend refuses it anyway.
+let _roles = null;
+async function loadRoles() {
+  if (!backendOnline || !API_TOKEN) return null;
+  try { const r = await API.get('/api/v1/roles'); if (r && r.ok) _roles = r.data; } catch (e) {}
+  return _roles;
+}
+function canDo(cap) {
+  if (!currentUser) return false;
+  if (currentUser.role === 'ag_admin') return true;
+  return !_roles || !_roles.mine || _roles.mine.caps.includes(cap);
+}
+function applyCapVisibility() {
+  document.querySelectorAll('.nav-item[data-cap]').forEach(el => { if (!canDo(el.dataset.cap)) el.style.display = 'none'; });
+  try { refreshNavGroupBadges(); } catch (e) {}
+}
+function roleLabelOf(role) {
+  const r = _roles && _roles.roles.find(x => x.id === (role === 'operator_viewer' ? 'operator_restocker' : role));
+  return r ? r.label : String(role || '').replace(/_/g, ' ');
+}
+function roleRadiosHtml(group, selected, onchange) {
+  return (_roles ? _roles.roles : []).filter(r => r.grantable).map(r => `<label class="role-opt">
+      <input type="radio" name="${group}" value="${r.id}"${r.id === selected ? ' checked' : ''} onchange="${onchange}">
+      <span><b>${rsEsc(r.label)}</b><small>${rsEsc(r.description)}</small></span></label>`).join('');
+}
+function checkedValue(group) { const el = document.querySelector(`input[name="${group}"]:checked`); return el ? el.value : null; }
+// The machines a restocker can be given: this operator's.
+let _allMachinesForPick = null;
+async function machineChecklistHtml(group, operatorId, selected) {
+  if (!_allMachinesForPick) {
+    try { const r = await API.get('/api/v1/machines'); _allMachinesForPick = (r && r.ok && r.data) || []; } catch (e) { _allMachinesForPick = []; }
+  }
+  const sel = new Set(Array.isArray(selected) ? selected : []);
+  const list = _allMachinesForPick.filter(m => !operatorId || m.operatorId === operatorId)
+    .sort((a, b) => String(a.deviceName || '').localeCompare(String(b.deviceName || ''), 'is'));
+  if (!list.length) return '<div style="font-size:12px;color:var(--muted)">This operator has no machines yet.</div>';
+  return list.map(m => `<label class="mach-opt"><input type="checkbox" name="${group}" value="${rsEsc(m.deviceCode)}"${sel.has(m.deviceCode) ? ' checked' : ''}>
+      <span>${rsEsc(m.deviceName || m.deviceCode)} <small>· ${rsEsc(m.deviceCode)}</small></span></label>`).join('');
+}
+function checkedValues(group) { return Array.from(document.querySelectorAll(`input[name="${group}"]:checked`)).map(el => el.value); }
+
 function rsEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // Map a Weimi aisle code ("0-A00") to the machine's PHYSICAL slot number.
@@ -5561,6 +5610,7 @@ function openKioskDesigner(code) {
 // Out of service (2026-10-21): the operator's own switch with a reason the screen shows, and for
 // AG a master close the operator can't undo. A fridge needs app 0.68.0+ to obey it.
 function closureControls(code, m) {
+  if (!canDo('close')) return '';
   const c = m.closure || { closed: !!(m.settings && m.settings.outOfService), by: m.settings && m.settings.outOfService ? 'operator' : null };
   const isAg = currentUser?.role === 'ag_admin';
   const agClosed = c.closed && c.by === 'ag';
@@ -6394,6 +6444,7 @@ function openFridgeBasketEditor(cab, n) {
   document.getElementById('fb-picked').innerHTML = b.productId
     ? `<div style="font-size:12px">Current: <strong>${rsEsc(b.productName || b.productId)}</strong></div>` : '<div style="font-size:12px;color:var(--muted)">No product assigned</div>';
   document.getElementById('fb-price').value = (b.priceIsk != null ? b.priceIsk : '');
+  document.getElementById('fb-price').readOnly = !canDo('prices');   // a restocker moves products, not prices
   document.getElementById('fb-price').placeholder = (b.effectivePriceIsk != null ? 'inherits ' + b.effectivePriceIsk : 'catalog price');
   document.getElementById('fb-weight').value = (b.unitWeightG != null ? b.unitWeightG : (b.effectiveWeightG != null ? b.effectiveWeightG : ''));
   { const w = document.getElementById('fb-weight'); w.disabled = !!b.soldByWeight; w.placeholder = b.soldByWeight ? 'by weight — not needed' : ''; if (b.soldByWeight) w.value = ''; }
@@ -7115,7 +7166,7 @@ function openFridgeBulkFill() {
     rows.push(`<tr data-cab="${cab}" data-basket="${n}">
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 6px">${cab}${n}</td>
       <td style="padding:3px 4px"><input class="fbk-prod" value="${rsEsc(b.productId || '')}" placeholder="productId" style="width:150px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"><span class="fbk-name" style="font-size:10px;color:var(--muted);margin-left:4px">${b.productName ? b.productName.slice(0,18) : ''}</span></td>
-      <td style="padding:3px 4px"><input class="fbk-price" type="number" value="${b.priceIsk != null ? b.priceIsk : ''}" placeholder="${b.effectivePriceIsk != null ? b.effectivePriceIsk : 'inherit'}" style="width:64px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"></td>
+      <td style="padding:3px 4px"><input class="fbk-price" type="number"${canDo('prices') ? '' : ' readonly'} value="${b.priceIsk != null ? b.priceIsk : ''}" placeholder="${b.effectivePriceIsk != null ? b.effectivePriceIsk : 'inherit'}" style="width:64px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"></td>
       <td style="padding:3px 4px"><input class="fbk-weight" type="number" value="${b.unitWeightG != null ? b.unitWeightG : ''}" placeholder="g" style="width:56px;font-family:var(--mono);font-size:10px;padding:3px 5px;border:1px solid var(--line);border-radius:4px"></td>
       <td style="padding:3px 6px;text-align:center"><input class="fbk-en" type="checkbox" ${b.enabled !== 0 ? 'checked' : ''}></td>
     </tr>`);
@@ -9786,6 +9837,7 @@ async function toggleSuspend(id, suspend) {
 }
 
 async function renderUsers() {
+  if (!_roles) await loadRoles();
   let userList = DB.users;
   let pendingInvites = [];
 
@@ -9813,10 +9865,12 @@ function renderUsersTable(userList, pendingInvites) {
   document.getElementById('users-sub').textContent = subText;
 
   const rolePill = role => {
-    const map = { ag_admin:'pill-dark', operator_admin:'pill-bz', operator_manager:'pill-out', operator_viewer:'pill-out',
-                  super_admin:'pill-dark', operator:'pill-bz', technician:'pill-out' };
-    return pill(map[role] || 'pill-out', role.replace(/_/g,' '));
+    const map = { ag_admin:'pill-dark', operator_admin:'pill-bz', operator_manager:'pill-out', operator_restocker:'pill-out', operator_viewer:'pill-out' };
+    return pill(map[role] || 'pill-out', rsEsc(roleLabelOf(role)));
   };
+  const machinesOf = u => Array.isArray(u.machineAccess)
+    ? `${u.machineAccess.length} machine${u.machineAccess.length === 1 ? '' : 's'}` : '';
+  const canEdit = u => currentUser && (currentUser.role === 'ag_admin' || (canDo('users') && u.role !== 'ag_admin'));
 
   // Show invitations first, then active users
   const pendingRows = pending.map(p => `
@@ -9838,9 +9892,9 @@ function renderUsersTable(userList, pendingInvites) {
       <td><div style="display:flex;align-items:center;gap:9px"><div class="avatar" style="width:24px;height:24px;font-size:9px">${rsEsc(u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase())}</div><div style="font-weight:500;font-size:13px">${rsEsc(u.name)}</div></div></td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${rsEsc(u.email)}</td>
       <td>${rolePill(u.role)}</td>
-      <td style="font-size:12.5px">${rsEsc(u.operatorName || u.machineAccess || '—')}</td>
+      <td style="font-size:12.5px">${rsEsc(u.operatorName || '—')}${machinesOf(u) ? `<div class="tsub">${machinesOf(u)}</div>` : ''}</td>
       <td style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${u.lastActiveAt?timeAgo(u.lastActiveAt):'never'}</td>
-      <td>${currentUser?.role === 'ag_admin' ? `<span class="pill pill-out" style="cursor:pointer" onclick="openEditUser('${u.id}')">edit</span>` : ''}</td>
+      <td>${canEdit(u) ? `<span class="pill pill-out" style="cursor:pointer" onclick="openEditUser('${rsEsc(u.id)}')">edit</span>` : ''}</td>
     </tr>
   `).join('');
 
@@ -9850,52 +9904,72 @@ function renderUsersTable(userList, pendingInvites) {
 async function openEditUser(userId) {
   const u = _usersList.find(x => x.id === userId);
   if (!u) { showToast('User not found'); return; }
-  await loadOperators();
-  const roles = [['operator_admin','operator admin'],['operator_manager','manager'],['operator_viewer','viewer'],['ag_admin','AG Vending admin']];
-  const roleOpts = roles.map(([v,l]) => `<option value="${v}"${u.role===v?' selected':''}>${l}</option>`).join('');
-  const opOpts = _operatorsCache.map(o => `<option value="${o.id}"${o.id===u.operatorId?' selected':''}>${rsEsc(o.name)}</option>`).join('');
+  if (!_roles) await loadRoles();
+  const isAg = currentUser && currentUser.role === 'ag_admin';
+  if (isAg) await loadOperators();
+  const role = u.role === 'operator_viewer' ? 'operator_restocker' : u.role;
+  const opOpts = isAg ? _operatorsCache.map(o => `<option value="${rsEsc(o.id)}"${o.id===u.operatorId?' selected':''}>${rsEsc(o.name)}</option>`).join('') : '';
   const modal = document.getElementById('modal-dyn');
   modal.innerHTML = `<div class="modal-card">
     <div class="modal-title">edit user.</div>
     <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:14px">${rsEsc(u.email)}</div>
     <div class="field"><div class="fl">name</div><input class="fi" id="eu-name" value="${rsEsc(u.name||'')}"></div>
-    <div class="field"><div class="fl">role</div><select class="fi" id="eu-role" onchange="onEditUserRole()">${roleOpts}</select></div>
-    <div class="field" id="eu-op-field"><div class="fl">operator</div><select class="fi" id="eu-operator">${opOpts}</select></div>
-    <div id="eu-note" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+    <div class="field"><div class="fl">role</div><div id="eu-roles">${roleRadiosHtml('eu-role', role, 'onEditUserRole()')}</div></div>
+    <div id="eu-change"></div>
+    ${isAg ? `<div class="field" id="eu-op-field"><div class="fl">operator</div><select class="fi" id="eu-operator" onchange="onEditUserRole()">${opOpts}</select></div>` : ''}
+    <div class="field" id="eu-machines-field" style="display:none"><div class="fl">machines</div><div class="mach-list" id="eu-machines"></div></div>
     <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="btn btn-full" onclick="saveEditUser('${u.id}')"><span>save changes</span><span>→</span></button>
+      <button class="btn btn-full" onclick="saveEditUser('${rsEsc(u.id)}')"><span>save change</span><span>→</span></button>
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-dyn')">cancel</button>
     </div>
   </div>`;
+  modal.dataset.fromRole = role;
+  modal.dataset.userId = u.id;
   modal.classList.add('show');
   onEditUserRole();
 }
 
-function onEditUserRole() {
-  const role = document.getElementById('eu-role').value;
+// Before saving, say exactly what the change adds and takes away.
+async function onEditUserRole() {
+  const modal = document.getElementById('modal-dyn');
+  const from = modal.dataset.fromRole, to = checkedValue('eu-role');
+  const u = _usersList.find(x => x.id === modal.dataset.userId) || {};
+  const ch = document.getElementById('eu-change');
   const opField = document.getElementById('eu-op-field');
-  const note = document.getElementById('eu-note');
-  if (role === 'ag_admin') {
-    opField.style.display = 'none';
-    note.textContent = 'AG Vending admins have access to the whole fleet.';
-  } else {
-    opField.style.display = '';
-    note.textContent = '';
+  if (opField) opField.style.display = to === 'ag_admin' ? 'none' : '';
+  const c = to && from !== to && _roles && _roles.changes && _roles.changes[from] && _roles.changes[from][to];
+  ch.innerHTML = c ? `<div class="role-change">Changing to <b>${rsEsc(roleLabelOf(to))}</b>:
+      ${c.loses.length ? `<div>✗ <b>loses</b> ${rsEsc(c.loses.join(', '))}</div>` : ''}
+      ${c.gains.length ? `<div>✓ <b>gains</b> ${rsEsc(c.gains.join(', '))}</div>` : ''}
+      ${to === 'operator_restocker' ? '<div>➜ <b>needs</b> the machines chosen below</div>' : ''}
+      <div style="color:var(--muted);margin-top:3px">Takes effect immediately; they get an email.</div></div>` : '';
+  const mf = document.getElementById('eu-machines-field');
+  mf.style.display = to === 'operator_restocker' ? '' : 'none';
+  if (to === 'operator_restocker') {
+    const opSel = document.getElementById('eu-operator');
+    const opId = opSel && opSel.value ? opSel.value : u.operatorId;
+    const keep = checkedValues('eu-mach');
+    document.getElementById('eu-machines').innerHTML = await machineChecklistHtml('eu-mach', opId, keep.length ? keep : u.machineAccess);
   }
 }
 
 async function saveEditUser(userId) {
   const name = document.getElementById('eu-name').value.trim();
-  const role = document.getElementById('eu-role').value;
+  const role = checkedValue('eu-role');
   const opSel = document.getElementById('eu-operator');
   if (!name) { showToast('name required'); return; }
+  if (!role) { showToast('choose a role'); return; }
   if (!backendOnline) { showToast('backend offline'); return; }
   const body = { name, role };
   if (role !== 'ag_admin' && opSel && opSel.value) body.operatorId = opSel.value;
+  if (role === 'operator_restocker') {
+    body.machineAccess = checkedValues('eu-mach');
+    if (!body.machineAccess.length) { showToast('Choose at least one machine for a restocker'); return; }
+  }
   try {
     const result = await API.put('/api/v1/users/' + encodeURIComponent(userId), body);
     if (result.ok) { closeModal('modal-dyn'); showToast('user updated'); renderUsers(); }
-    else showToast(result.error || 'could not update user');
+    else showToast(apiErrText(result, 'could not update user'));
   } catch (e) { showToast('error: ' + e.message); }
 }
 
@@ -9943,21 +10017,21 @@ function openAddUser() {
   const opField = document.getElementById('u-operator-field');
   const isAg = currentUser && currentUser.role === 'ag_admin';
 
-  // Hide AG admin role option for non-AG users
-  document.querySelectorAll('.ag-only-option').forEach(el => {
-    el.style.display = isAg ? '' : 'none';
-  });
-
+  // Only the roles this user may give, each with what it allows.
+  document.getElementById('u-roles').innerHTML = roleRadiosHtml('u-role', 'operator_manager', 'onInviteRole()');
+  sel.onchange = onInviteRole;
   if (isAg && backendOnline) {
     opField.style.display = 'block';
     API.get('/api/v1/operators').then(result => {
       if (result.ok && result.data) {
-        sel.innerHTML = result.data.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+        sel.innerHTML = result.data.map(o => `<option value="${rsEsc(o.id)}">${rsEsc(o.name)}</option>`).join('');
+        onInviteRole();
       }
     });
   } else {
     opField.style.display = 'none';
   }
+  onInviteRole();
 
   // Clear fields
   document.getElementById('u-name').value = '';
@@ -9965,10 +10039,23 @@ function openAddUser() {
   document.getElementById('modal-user').classList.add('show');
 }
 
+// A restocker gets machines chosen for them; other roles see all of their operator's.
+async function onInviteRole() {
+  const role = checkedValue('u-role');
+  const field = document.getElementById('u-machines-field');
+  const restocker = role === 'operator_restocker';
+  field.style.display = restocker ? '' : 'none';
+  if (!restocker) return;
+  const opSel = document.getElementById('u-operator');
+  const opId = (currentUser && currentUser.role === 'ag_admin' && opSel && opSel.value) ? opSel.value : (currentUser && currentUser.operatorId);
+  document.getElementById('u-machines').innerHTML = await machineChecklistHtml('u-mach', opId, []);
+}
+
 async function saveUser() {
   const name  = document.getElementById('u-name').value.trim();
   const email = document.getElementById('u-email').value.trim();
-  const role  = document.getElementById('u-role').value;
+  const role  = checkedValue('u-role');
+  if (!role) { showToast('Choose a role'); return; }
   const operatorSel = document.getElementById('u-operator');
   const operatorId  = operatorSel && operatorSel.value ? operatorSel.value : undefined;
 
@@ -9978,6 +10065,10 @@ async function saveUser() {
   try {
     const body = { name, email, role };
     if (operatorId) body.operatorId = operatorId;
+    if (role === 'operator_restocker') {
+      body.machineAccess = checkedValues('u-mach');
+      if (!body.machineAccess.length) { showToast('Choose at least one machine for a restocker'); return; }
+    }
     const result = await API.post('/api/v1/users', body);
     if (result.ok) {
       closeModal('modal-user');
@@ -9986,7 +10077,7 @@ async function saveUser() {
       if (token) showInviteLink(email, token, !!(result.data && result.data.emailed));
       else showToast('Invitation created for ' + email);
     } else {
-      showToast(result.error || 'Failed to send invitation');
+      showToast(apiErrText(result, 'Failed to send invitation'));
     }
   } catch (e) {
     showToast('Error: ' + e.message);

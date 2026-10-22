@@ -1259,6 +1259,17 @@ function dealScopeMatches(sc, deviceCode) {
   return true;
 }
 
+function machineAccessToText(v) {
+  return Array.isArray(v) ? JSON.stringify(v.map(String)) : 'all';
+}
+function machineAccessFromText(t) {
+  if (typeof t === 'string' && t.startsWith('[')) { try { const a = JSON.parse(t); if (Array.isArray(a)) return a.map(String); } catch (e) {} }
+  return 'all';
+}
+function userFromRow(row) {
+  return row ? { ...row, machineAccess: machineAccessFromText(row.machineAccess) } : row;
+}
+
 function rowToInvitation(row) {
   if (!row) return null;
   return {
@@ -1268,7 +1279,7 @@ function rowToInvitation(row) {
     role:          row.role,
     operatorId:    row.operatorId,
     inviterId:     row.inviterId,
-    machineAccess: row.machineAccess,
+    machineAccess: machineAccessFromText(row.machineAccess),
     createdAt:     row.createdAt,
     expiresAt:     row.expiresAt,
     consumedAt:    row.consumedAt,
@@ -1337,14 +1348,15 @@ const storage = {
   upsertMachine(m)     { stmts.upsertMachine.run(machineToRow(m)); },
 
   // Users
-  getUser(id)              { return stmts.getUser.get(id); },
-  getUserByEmail(email)    { return stmts.getUserByEmail.get(email); },
-  listUsers()              { return stmts.listUsers.all(); },
-  listUsersByOperator(id)  { return stmts.listUsersByOp.all(id); },
-  insertUser(user)         { stmts.insertUser.run(user); },
+  // machineAccess is 'all' or a list of device codes (a restocker's assigned machines), stored as JSON.
+  getUser(id)              { return userFromRow(stmts.getUser.get(id)); },
+  getUserByEmail(email)    { return userFromRow(stmts.getUserByEmail.get(email)); },
+  listUsers()              { return stmts.listUsers.all().map(userFromRow); },
+  listUsersByOperator(id)  { return stmts.listUsersByOp.all(id).map(userFromRow); },
+  insertUser(user)         { stmts.insertUser.run({ ...user, machineAccess: machineAccessToText(user.machineAccess) }); },
   updateLastActive(id)     { stmts.updateLastActive.run(new Date().toISOString(), id); },
   updateUserPassword(id, p){ stmts.updateUserPassword.run(p, id); },
-  updateUser(u)            { stmts.updateUser.run({ id:u.id, name:u.name, role:u.role, operatorId:u.operatorId, machineAccess: u.machineAccess || 'all' }); },
+  updateUser(u)            { stmts.updateUser.run({ id:u.id, name:u.name, role:u.role, operatorId:u.operatorId, machineAccess: machineAccessToText(u.machineAccess) }); },
 
   // Invitations
   getInvitation(token) {
@@ -1365,7 +1377,7 @@ const storage = {
     stmts.insertInvitation.run({
       token: inv.token, email: inv.email, name: inv.name,
       role: inv.role, operatorId: inv.operatorId, inviterId: inv.inviterId,
-      machineAccess: inv.machineAccess || 'all',
+      machineAccess: machineAccessToText(inv.machineAccess),
       createdAt: inv.createdAt, expiresAt: inv.expiresAt,
       consumedAt: inv.consumedAt,
     });
