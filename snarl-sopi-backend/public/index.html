@@ -5670,8 +5670,9 @@ function showPairCode(d) {
   if (!el || !meta) return;
   el.textContent = String(d.code).replace(/(\d{3})(\d{3})/, '$1 $2');
   const exp = new Date(d.expiresAt);
-  const hrs = Math.max(0, Math.round((exp - Date.now()) / 3600000));
-  meta.textContent = 'Single use · expires ' + fmtDateTime(exp.getTime()) + (hrs ? ' (' + hrs + 'h)' : '');
+  const min = Math.max(0, Math.round((exp - Date.now()) / 60000));
+  const left = min >= 60 ? Math.floor(min / 60) + ' h ' + (min % 60) + ' min' : min + ' min';
+  meta.textContent = 'Single use · expires ' + fmtDateTime(exp.getTime()) + ' (' + left + ' left)';
 }
 
 async function issuePairingCode() {
