@@ -49,6 +49,33 @@ cohorts, Device Owner and machine commands stay with Siggi.
   rather than the app's. (Those `debug/weimi-*` routes have no auth middleware — worth fixing.)
 - Fridges do not resolve identity through Weimi and are unaffected.
 
+## Aisle dispensing modes (2026-10-22)
+
+Every Weimi aisle carries a `shippingMode`. The fleet digests tally it and used to say nothing
+about what the numbers mean:
+
+| value | mechanism |
+|---|---|
+| 1 | spiral / coil |
+| 2 | direct push |
+| 4 | gravity fridge |
+
+Mode 2 confirmed by looking at the machines: Stjarnan (`62160480`) and Laugardagshöll
+(`62160478`) each have 14 direct-push slots, 7 per layer across 2 layers, with the other 36
+aisles mode 1. It had been guessed at as a twin-spiral mode first.
+
+**Twin spirals are not a shippingMode.** Valur I (`62160043`) has three aisles on its top layer
+driven by two spirals each, and reports `modes: {1: 43}` — every aisle mode 1, with an odd total
+consistent with each pair being merged into a single aisle. So the board can already drive two
+spirals from one selection; how that is configured, and how it appears in device-info, is not yet
+established. Weimi said "the board needs work" when asked, which is hard to square with a machine
+of theirs already doing it.
+
+**Nothing on our side can configure this.** The Weimi writes in `src/weimi.js` cover stock,
+capacity, goods info and goods assignment only — no dispensing configuration. And the backend has
+no concept of two aisles being one product: a twin-spiral aisle would need the planogram to show
+one tile, price it once and decrement both.
+
 ## Setting up a new machine
 
 - **Check `auto_time` first.** `settings get global auto_time` must be `1`. A wrong clock fails TLS

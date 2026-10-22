@@ -7346,6 +7346,17 @@ async function handleWeimiDeviceDigest(req, res) {
     const info = await weimi.deviceInfo(cfg, deviceCode);
     const aisles = [];
     (info.cabinets || []).forEach(c => (c.layers || []).forEach(l => (l.aisles || []).forEach(a => aisles.push(a))));
+    // shippingMode values, confirmed against real machines 2026-10-22:
+    //   1 = spiral / coil
+    //   2 = direct push        (Stjarnan 62160480 and Laugardagshöll 62160478 each run 14 of
+    //                           these: 7 per layer across 2 layers, the rest mode 1)
+    //   4 = gravity fridge
+    // Recorded because this tally reported bare numbers and nothing said what they meant, so
+    // mode 2 got guessed at as a twin-spiral mode before someone walked up to Stjarnan and looked.
+    //
+    // NOTE: twin spirals are NOT a shippingMode. Valur I (62160043) has three aisles on its top
+    // layer driven by two spirals each, and reports modes: {1: 43} - all mode 1, with an odd total
+    // consistent with each pair merged into one aisle. How that is represented is not yet known.
     const byMode = {}, byMeas = {};
     aisles.forEach(a => {
       byMode[a.shippingMode] = (byMode[a.shippingMode] || 0) + 1;
