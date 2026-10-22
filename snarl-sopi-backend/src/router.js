@@ -473,7 +473,7 @@ function demoRateLimited(ip) {
 // history and chat more than once. Instead: an operator generates a six-digit code for one machine,
 // someone types it on the kiosk, and the app exchanges it for the identity over TLS. The key is
 // never read by a human.
-const PAIR_CODE_TTL_MS = 24 * 60 * 60 * 1000;
+const PAIR_CODE_TTL_MS = 2 * 60 * 60 * 1000;   // 2 h: long enough for one site visit (security review, 2026-10-22)
 const PAIR_WINDOW_MS   = 60 * 1000;
 const PAIR_PER_IP      = 5;      // a person typing six digits gets a handful of goes a minute
 const PAIR_TOTAL       = 60;     // and the endpoint as a whole is capped too
