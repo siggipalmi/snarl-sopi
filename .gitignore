@@ -5,3 +5,38 @@ node_modules/
 *.db
 *.db-shm
 *.db-wal
+
+# ─── Android: secrets ─────────────────────────────────────────────────────────
+# local.properties carries sdk.dir AND, in these projects, a machine key:
+# app/build.gradle.kts reads TEST_MACHINE_KEY from it to bake identity into a
+# build. A live mk_live_ key for 62160491 sat in coil-app/0.78.2/local.properties
+# at the tip of this PUBLIC repo from 2026-09-06 until today. It is per-developer
+# by definition and Android Studio regenerates sdk.dir on first sync.
+local.properties
+*.local.properties
+
+# Signing. CLAUDE.md: never paste the keystore anywhere, secrets live as GitHub
+# Actions secrets. These rules are so a stray copy cannot be committed by accident.
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+.env
+.env.*
+!.env.example
+
+# ─── Android: build output ────────────────────────────────────────────────────
+.gradle/
+build/
+captures/
+.cxx/
+*.apk
+*.aab
+*.aar.d
+
+# ─── IDE / OS ─────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
