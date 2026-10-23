@@ -2184,7 +2184,23 @@ function nextPaymentLinkRecord(prev, report, now) {
     // Who the reader says it is (app 0.69.1+): serial, Monyx ID, firmware… Kept when a report
     // lacks it, like decimalPlace.
     reader: readerInfo(report.reader) || (prev && prev.reader) || null,
+    ...readerSwap(prev, readerInfo(report.reader), now),
   };
+}
+// Which reader has been in this machine since when, and the ones before it (Siggi, 2026-10-23:
+// readers get swapped when faulty and nobody writes the number down). Read from the reader itself,
+// so it can't be mistyped.
+function readerSwap(prev, reader, now) {
+  const prevSerial = prev && prev.reader && prev.reader.serial;
+  const history = (prev && Array.isArray(prev.readerHistory)) ? prev.readerHistory : [];
+  const since = (prev && prev.readerSince) || null;
+  if (!reader || !reader.serial || reader.serial === prevSerial) {
+    return { readerSince: since, readerHistory: history };
+  }
+  // A different reader (or the first one seen): the old one goes into the history.
+  const nextHistory = prevSerial ? [{ serial: prevSerial, from: since, to: now }, ...history].slice(0, 10) : history;
+  if (prevSerial) console.warn(`[PAYLINK] reader changed: ${prevSerial} → ${reader.serial}`);
+  return { readerSince: now, readerHistory: nextHistory };
 }
 const READER_KEYS = ['serial', 'monyxId', 'merchantId', 'terminalId', 'mainFw', 'posFw', 'country', 'currency', 'location'];
 function readerInfo(r) {

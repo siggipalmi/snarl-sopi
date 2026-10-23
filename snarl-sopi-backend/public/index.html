@@ -5883,6 +5883,15 @@ async function openFridgeDoor(code, cabinet) {
 // Pairing codes. AG-admin only, so the panel stays hidden for everyone else rather than showing a
 // button that 403s. Generating supersedes any live code for this machine — a code read off a screen
 // an hour ago should not still work.
+// The Nayax serial in the header: read from the reader itself at every connection, so it is the
+// reader actually in this machine, also after a swap (Siggi, 2026-10-23).
+function mdNayaxHeader(p) {
+  const r = p && p.reader;
+  if (!r || !r.serial) return ' · <span style="color:var(--muted)" title="The reader reports its serial with fridge app 0.69.1 or newer">Nayax —</span>';
+  const since = p.readerSince ? ' since ' + fmtDateTime(p.readerSince) : '';
+  return ` · <span title="Read from the Nayax reader itself${rsEsc(since)}">Nayax <span style="font-family:var(--mono)">${rsEsc(r.serial)}</span></span>`;
+}
+
 // The card reader as it last described itself (app 0.66+ link and decimals; 0.69.1+ serial,
 // Monyx ID, firmware). Lets you name the reader to Nayax without opening the cabinet.
 function renderMdPayment(p) {
@@ -5901,6 +5910,9 @@ function renderMdPayment(p) {
     + row('firmware', [r.mainFw, r.posFw].filter(Boolean).join(' / '), true)
     + row('country / currency', [r.country, r.currency].filter(Boolean).join(' / '), true)
     + row('port', p.port, true)
+    + row('in this machine since', p.readerSince ? fmtDateTime(p.readerSince) : null)
+    + (Array.isArray(p.readerHistory) && p.readerHistory.length ? row('earlier readers',
+        p.readerHistory.map(h => h.serial + ' (until ' + fmtDateTime(h.to) + ')').join(', '), true) : '')
     + (r.serial ? '' : '<div style="font-size:11.5px;color:var(--muted);margin-top:6px">Serial number appears once the machine runs app 0.69.1 or newer.</div>');
 }
 
@@ -6070,7 +6082,7 @@ async function renderMachineDetail() {
       ' · <span title="app version running on this machine">app ' +
         (m.kioskVersion ? ('v' + rsEsc(m.kioskVersion)) : '<span style="color:var(--muted)">unknown</span>') +
         (m.lastAppVersionCode != null ? ' <span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '') +
-      '</span>';
+      '</span>' + mdNayaxHeader(dr.data.payment);
 
     renderMdLanguage(m);
     renderMdPairing();
