@@ -43,6 +43,24 @@ cohorts, Device Owner and machine commands stay with Siggi.
 - The lookup matters **only at first setup**. `62160491` is live and selling while invisible to our
   Weimi credentials. So to commission a sub-operator machine: move it back to the parent account,
   enter the vélarnúmer, then reassign it.
+
+- **…but entering the vélarnúmer does NOT give the machine a usable key.** Confirmed on
+  `62160479`, 2026-10-23: after pairing, the app sends its own **device code** as
+  `X-Machine-Key`, so every call 401s. The machine sells normally (Nayax and the control board
+  do not involve us) while reporting nothing, and reads as offline. Re-pairing cannot fix it and
+  a site visit is wasted — the app has to obtain a key from `/api/v1/machines/provision`, which
+  this build does not do. `OPEN-ISSUES.md` in the coil app flagged exactly this at ~v0.50.5
+  ("deviceCode used as a placeholder machine key") and it is still true at 0.78.2.
+
+- Coil machines that DO work appear to carry a key **baked into their APK** at build time
+  (`TEST_MACHINE_KEY` in `local.properties`). `62160492` connects to the proxy with a valid key,
+  and the proxy validates before accepting, so that machine holds a real one. That contradicts
+  "one APK for every machine" and is why a generically-built coil APK produces a keyless machine.
+  The fridge app made this transition at v0.46.2; the coil app has not.
+
+- **Diagnosing it costs nothing:** since 6.72.0 the log says which case a machine is in —
+  `[AUTH] <code> invalid key xN.` followed by whether it is sending its device code, a
+  real-shaped key, or nothing. Check that before sending anyone anywhere.
 - Nothing in `src/weimi.js` can register a device. The writes are aisle and goods only, against a
   device that already exists.
 - Check with `/api/v1/debug/weimi-device?deviceCode=X`, which uses the backend's own credentials
