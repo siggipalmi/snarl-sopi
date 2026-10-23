@@ -103,6 +103,27 @@ one tile, price it once and decrement both.
   dashboard: a command leaving `pending`, or the key going `active`.
 - Wireless-debugging uses a **new random port every reboot**, and reading it needs eyes on the
   screen. Front-load every adb step before the first reboot.
+
+- **While you still have adb, pin the port.** This costs nothing and has to be done before the
+  window closes, which is precisely when nobody thinks of it:
+
+      ~/Library/Android/sdk/platform-tools/adb -s <ip:port> shell setprop persist.adb.tcp.port 5555
+      ~/Library/Android/sdk/platform-tools/adb -s <ip:port> shell getprop persist.adb.tcp.port
+
+  Accepted on `62160484` (reads back `5555`) on 2026-10-23. **Unproven**: the board accepting the
+  write is not the same as adbd honouring it at boot, and that can only be tested by a reboot. Do
+  not spend a placed machine's reboot on the experiment — 62160484 will answer it for free the
+  next time it restarts for its own reasons. If it holds, it is the answer to the unattended
+  remote access problem the handovers open with.
+
+  Do NOT run `adb tcpip 5555` on a machine whose connection you cannot afford to lose: it restarts
+  adbd and drops the current session to come back on the new port. Save it for after the work is
+  done.
+
+- **A machine with no valid key cannot be updated over the air.** `app-update` is machine-key
+  gated, so it never learns an update exists; the APK route being open does not help. That is how
+  both Grótta machines ended up fixable only by adb — worth remembering before relying on OTA to
+  rescue anything.
 - Stop `com.weimi.monitor` before the other Weimi apps — it restarts them. Do **not** disable
   `com.weimi.launcher` until our app is Device Owner **and** set as home. On 62160479 no default
   home was set at all, so HOME resolved to Android's launcher picker.
