@@ -4892,10 +4892,21 @@ async function handleLatestBuild(req, res) {
     const headers = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'snarl-sopi-backend' };
     if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
     const r = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=50`, { headers, signal: ctrl.signal });
-    if (!r.ok) return json(res, 502, { ok: false, error: `GitHub answered HTTP ${r.status} listing releases` });
+    if (!r.ok) {
+      // *** NOT 502. A 502 from us was replaced by the proxy's own error page, so the dashboard showed
+      // "Backend may be restarting" instead of this (2026-10-23). 424: we're fine, GitHub said no.
+      const left = r.headers.get('x-ratelimit-remaining'), reset = Number(r.headers.get('x-ratelimit-reset')) || 0;
+      const limited = (r.status === 403 || r.status === 429) && left === '0';
+      console.warn(`[RELEASES] GitHub HTTP ${r.status} listing releases (rate limit left ${left}, token ${process.env.GITHUB_TOKEN ? 'set' : 'NOT set'})`);
+      return json(res, 424, { ok: false, error: limited
+        ? `GitHub's rate limit is used up${reset ? ' until ' + new Date(reset * 1000).toISOString().slice(11, 16) + ' UTC' : ''}`
+          + (process.env.GITHUB_TOKEN ? '.' : ': no GITHUB_TOKEN is set, so GitHub allows 60 lookups an hour, shared with other Railway customers. Set a read-only GITHUB_TOKEN in Railway.')
+        : `GitHub answered HTTP ${r.status} listing releases.` });
+    }
     list = await r.json();
   } catch (e) {
-    return json(res, 502, { ok: false, error: 'Could not reach GitHub: ' + e.message });
+    console.warn('[RELEASES] could not reach GitHub:', e.message);
+    return json(res, 424, { ok: false, error: 'Could not reach GitHub: ' + e.message });
   } finally { clearTimeout(to); }
   const build = latestFridgeBuild(list);
   if (!build) return notFound(res, `No fridge-v* release with an APK and a versionCode on ${RELEASES_REPO}`);
