@@ -433,6 +433,44 @@ function contractError(res, status, code, messageIs, messageEn) {
 // mistyped key at setup produces is silence, which looks exactly like a machine that's switched off.
 // The 401s themselves are the only evidence, so count them and raise an alarm.
 const _invalidKeyHits = {};   // deviceCode -> { n, firstMs, alertedMs }
+/**
+ * Classify the key a machine is presenting, WITHOUT logging any key material.
+ *
+ * *** THE ALERT USED TO COUNT ATTEMPTS AND THROW AWAY THE EVIDENCE.
+ *
+ * 62160479 spent two days presenting an invalid key. The alert said so, correctly, and advised
+ * reading the right one with "show key" and re-entering it at the machine - which on a coil kiosk
+ * is impossible: the only field on that screen is the numeric vélarnúmer. There is nowhere to type
+ * an mk_live_ key. So the advice would have sent an operator on a two-hour round trip to do
+ * something the app does not let him do.
+ *
+ * The two possibilities need completely different fixes and the alert could not tell them apart:
+ *   - the app is sending the DEVICE CODE as its key, because it never obtained a real one. No
+ *     amount of re-pairing helps; the app has to call /api/v1/machines/provision.
+ *   - the app is sending a real-shaped key that is wrong, revoked, or another machine's. Revoke
+ *     and pair again, and a visit fixes it.
+ *
+ * Shape and length only - never the value. A rejected key is not secret, but it may be a VALID key
+ * belonging to another machine, so nothing of it is written down.
+ */
+function describePresentedKey(deviceCode, req) {
+  const k = String((req && req.headers && req.headers['x-machine-key']) || '');
+  if (!k) {
+    return 'It is sending no X-Machine-Key header at all.';
+  }
+  if (k === String(deviceCode)) {
+    return 'It is sending its own device code as the key, which means it never received a real one. '
+         + 'Re-pairing at the machine will NOT fix this and a site visit would be wasted - the app '
+         + 'has to obtain a key from /api/v1/machines/provision.';
+  }
+  if (/^mk_live_/.test(k)) {
+    return `It is sending a key of the right shape (${k.length} characters), so the key is wrong, `
+         + 'revoked, or belongs to another machine. Revoke the current key and pair the machine again.';
+  }
+  return `It is sending something of an unexpected shape (${k.length} characters, not an mk_live_ key `
+       + 'and not the device code).';
+}
+
 function noteInvalidKey(deviceCode, req) {
   try {
     const now = Date.now();
@@ -444,12 +482,21 @@ function noteInvalidKey(deviceCode, req) {
     // A few failures could be a transient. A machine retrying every few seconds racks these up fast,
     // so five within the window means something is persistently presenting the wrong key.
     if (h.n < 5) return;
+    const presented = describePresentedKey(deviceCode, req);
+    // Logged before the alert throttle on purpose: a machine that already alerted is silent for six
+    // hours, and that is exactly the machine someone is standing in front of wanting an answer.
+    // Throttled to once every five minutes, because a kiosk retrying every few seconds would
+    // otherwise write hundreds of identical lines an hour.
+    if (now - (h.loggedMs || 0) > 5 * 60 * 1000) {
+      h.loggedMs = now;
+      console.warn(`[AUTH] ${deviceCode} invalid key x${h.n}. ${presented}`);
+    }
     if (now - h.alertedMs < 6 * 3600 * 1000) return;    // don't re-alert for 6h
     h.alertedMs = now;
     const m = machines[deviceCode];
     const known = !!m;
     const detail = known
-      ? `${deviceCode} is repeatedly presenting an invalid machine key (${h.n} attempts). It cannot report sales, poll config, or answer commands, so it will look offline rather than broken. If this machine was just set up, the key typed at setup is wrong — read the correct one with "show key" and re-enter it at the machine.`
+      ? `${deviceCode} is repeatedly presenting an invalid machine key (${h.n} attempts). It cannot report sales, poll config, or answer commands, so it will look offline rather than broken. ${presented}`
       : `Repeated invalid-key attempts for unknown device ${deviceCode} (${h.n} attempts). No such machine is registered. If this isn't a machine of yours being set up, something is probing the API.`;
     storage.insertAlert({
       id: 'alert_invalid_key_' + deviceCode + '_' + Math.floor(now / (6 * 3600 * 1000)),
