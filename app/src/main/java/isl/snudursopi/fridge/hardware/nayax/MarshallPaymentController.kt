@@ -141,6 +141,14 @@ class MarshallPaymentController(
      */
     @Volatile
     var decimalPlace: Int? = null
+
+    /**
+     * Who the reader says it is, from its last handshake: serial number, Monyx ID, merchant and
+     * terminal, firmware, country/currency. Reported to the backend so a reader can be identified
+     * without opening the cabinet (Siggi, 2026-10-23: a closed back, and Nayax needs the serial).
+     */
+    @Volatile
+    var readerInfo: Map<String, String>? = null
         private set
 
     /**
@@ -279,6 +287,8 @@ class MarshallPaymentController(
                     readyWatchdog?.interrupt()
                     readyWatchdog = null
                     decimalPlace = config.decimal_place.toInt()
+                    readerInfo = runCatching { readerInfoOf(config) }.getOrNull()
+                    emit("reader: " + (readerInfo?.entries?.joinToString(" ") { "${it.key}=${it.value}" } ?: "(no info)"))
                     emit("✅ link onReady on $portPath — host up. decimal_place=${config.decimal_place} default_credit=${config.default_credit}")
                     runCatching { onLinkUp?.invoke(portPath) }
                     onReaderStateChanged?.invoke(true)
@@ -736,4 +746,27 @@ class MarshallPaymentController(
         log(s)
         onLogLine?.invoke(s)
     }
+}
+
+
+/** The handshake's identity fields as text. Byte fields are ASCII on the readers seen so far; anything else is shown as hex. */
+internal fun readerInfoOf(c: com.bitmick.marshall.vmc.vmc_link.vpos_config_t): Map<String, String> = buildMap {
+    fun add(k: String, v: String?) { v?.trim()?.takeIf { it.isNotEmpty() }?.let { put(k, it.take(64)) } }
+    add("serial", bytesText(c.vpos_serial))
+    add("monyxId", c.monyx_id)
+    add("merchantId", bytesText(c.merchant_id))
+    add("terminalId", bytesText(c.acquirer_terminal_id))
+    add("mainFw", c.main_fw_ver)
+    add("posFw", c.pos_fw_ver)
+    add("country", bytesText(c.country_code))
+    add("currency", bytesText(c.currency_code))
+    add("location", bytesText(c.machine_location))
+}
+
+internal fun bytesText(b: ByteArray?): String? {
+    if (b == null || b.isEmpty()) return null
+    val trimmed = b.dropLastWhile { it.toInt() == 0 }.toByteArray()
+    if (trimmed.isEmpty()) return null
+    val printable = trimmed.all { it in 0x20..0x7e }
+    return if (printable) String(trimmed, Charsets.US_ASCII) else trimmed.joinToString("") { "%02x".format(it) }
 }

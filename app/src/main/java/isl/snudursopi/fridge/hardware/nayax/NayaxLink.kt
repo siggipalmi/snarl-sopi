@@ -44,6 +44,9 @@ object NayaxLink {
     /** The terminal's decimal_place from its last handshake (must be 0 for ISK). */
     val decimalPlace: Int? get() = controller.decimalPlace
 
+    /** The reader's serial number, Monyx ID, firmware… from its last handshake. */
+    val readerInfo: Map<String, String>? get() = controller.readerInfo
+
     /** True while the reader can take a card. */
     fun isUp(): Boolean = when (controller.state) {
         MarshallPaymentController.State.READY,

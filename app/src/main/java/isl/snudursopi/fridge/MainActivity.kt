@@ -481,6 +481,7 @@ class MainActivity : ComponentActivity() {
                     port = NayaxLink.portPath,
                     lastReadyAtMs = NayaxLink.lastReadyAtMs,
                     decimalPlace = NayaxLink.decimalPlace,
+                    reader = NayaxLink.readerInfo,
                 )
             },
             selfTest = {

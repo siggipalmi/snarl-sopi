@@ -17,6 +17,8 @@ data class PaymentLinkStatus(
     val lastReadyAtMs: Long?,
     /** Terminal decimal places from the last handshake; anything but 0 mis-charges ISK. */
     val decimalPlace: Int? = null,
+    /** Serial number, Monyx ID, firmware… from the last handshake (0.69.1). */
+    val reader: Map<String, String>? = null,
 )
 
 /**
@@ -67,6 +69,7 @@ class PaymentStatusReporter(
                 put("port", s.port)
                 put("lastReadyAt", s.lastReadyAtMs?.let { Instant.ofEpochMilli(it).toString() })
                 put("decimalPlace", s.decimalPlace)
+                put("reader", s.reader)
             },
         )
         http.postRawJson("/api/v1/machines/$deviceCode/payment-status", body)
@@ -87,6 +90,7 @@ class PaymentStatusReporter(
                 last.up != cur.up ||
                 last.port != cur.port ||
                 last.decimalPlace != cur.decimalPlace ||
+                last.reader != cur.reader ||
                 now - lastPostMs >= HEARTBEAT_MS
     }
 }
