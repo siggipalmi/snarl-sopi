@@ -2417,10 +2417,10 @@ const API = {
     }
     let _txt;
     try { _txt = await r.text(); }
-    catch (e) { return { ok:false, error:{ code:'no_response', message:'Ekkert svar frá bakenda (HTTP '+r.status+')', messageEn:'No response from backend (HTTP '+r.status+')' } }; }
-    if (!_txt) return { ok:false, error:{ code:'empty_response', message:'Tómt svar (HTTP '+r.status+')', messageEn:'Empty response (HTTP '+r.status+')' } };
-    try { return JSON.parse(_txt); }
-    catch (e) { return { ok:false, error:{ code:'bad_response', message:'Bakendinn er líklega að endurræsa (HTTP '+r.status+'). Reyndu aftur eftir smástund.', messageEn:'Backend may be restarting (HTTP '+r.status+'). Try again shortly.' } }; }
+    catch (e) { return apiErrorAsText({ ok:false, error:{ code:'no_response', message:'Ekkert svar frá bakenda (HTTP '+r.status+')', messageEn:'No response from backend (HTTP '+r.status+')' } }); }
+    if (!_txt) return apiErrorAsText({ ok:false, error:{ code:'empty_response', message:'Tómt svar (HTTP '+r.status+')', messageEn:'Empty response (HTTP '+r.status+')' } });
+    try { return apiErrorAsText(JSON.parse(_txt)); }
+    catch (e) { return apiErrorAsText({ ok:false, error:{ code:'bad_response', message:'Bakendinn er líklega að endurræsa (HTTP '+r.status+'). Reyndu aftur eftir smástund.', messageEn:'Backend may be restarting (HTTP '+r.status+'). Try again shortly.' } }); }
   },
   get:  (path)       => API.req('GET',  path),
   post: (path, body) => API.req('POST', path, body),
@@ -4127,6 +4127,17 @@ const ui = {
 // The text of a failed API reply. error is a string from most routes, but an object
 // ({code, message, messageEn}) from some (view-as read-only, contract errors, and the client's own
 // "no/empty/bad response" cases) — shown as "[object Object]" if printed directly.
+// *** EVERY REPLY'S error IS TEXT. Some errors arrive as {code, message, messageEn} (view-as
+// read-only, the machine contract, and the "no / empty / unreadable response" cases above), and
+// about seventy places print r.error directly, which showed "[object Object]". The text goes in
+// error; the object is kept as errorInfo for anything that wants the code.
+function apiErrorAsText(j) {
+  if (j && j.error && typeof j.error === 'object') {
+    const e = j.error;
+    return { ...j, errorInfo: e, error: e.messageEn || e.message || e.code || 'error' };
+  }
+  return j;
+}
 function apiErrText(r, fallback) {
   const e = r && (r.error || r.message);
   if (!e) return fallback;
@@ -8542,7 +8553,7 @@ async function rcptUpload(input) {
     const resp = await API.post('/api/v1/receipts/extract', { fileBase64: b64, mediaType });
     statusEl.style.display = 'none';
     if (!resp || !resp.ok || !resp.data) {
-      const msg = (resp && resp.error && (resp.error.messageEn || resp.error.message)) || 'Extraction failed';
+      const msg = apiErrText(resp, 'Extraction failed');
       showToast(msg);
       return;
     }
@@ -8696,7 +8707,7 @@ async function rcptConfirm() {
       _rcpt = null; _rcptPick = {}; _rcptDraft = {};
       renderReceipts();
     } else {
-      const msg = (r && r.error && (r.error.messageEn || r.error.message)) || 'Confirm failed';
+      const msg = apiErrText(r, 'Confirm failed');
       showToast(msg);
       btn.disabled = false; rcptTally();
     }
@@ -10678,7 +10689,7 @@ async function loadLatestFridgeBuild() {
   if (btn) { btn.disabled = true; btn.textContent = 'loading…'; }
   try {
     const r = await API.get('/api/v1/app-release/latest-build?app=fridge');
-    if (!r || !r.ok || !r.data) throw new Error((r && r.error) || 'no build found');
+    if (!r || !r.ok || !r.data) throw new Error(apiErrText(r, 'no build found'));
     const b = r.data;
     const radio = document.querySelector('input[name="ota-app"][value="fridge"]');
     if (radio) radio.checked = true;
