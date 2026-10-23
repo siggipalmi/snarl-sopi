@@ -4903,15 +4903,18 @@ async function handleLatestBuild(req, res) {
   ok(res, { ...build, currentVersionCode: current ? current.targetVersionCode : null });
 }
 
-// Pure, so the selection is checkable without GitHub: newest published fridge-v* release that has
-// an .apk asset and states its versionCode.
+// Pure, so the selection is checkable without GitHub: the published fridge-v* release with the
+// HIGHEST versionCode that has an .apk asset. Not GitHub's list order: that put the old
+// fridge-v0.53.1 first on 2026-10-23, and only its missing versionCode kept it from being chosen.
 function latestFridgeBuild(releases) {
+  let best = null;
   for (const rel of (Array.isArray(releases) ? releases : [])) {
     if (!rel || rel.draft || typeof rel.tag_name !== 'string' || !rel.tag_name.startsWith('fridge-v')) continue;
     const m = /^versionCode:\s*(\d+)\s*$/m.exec(rel.body || '');
     const asset = (rel.assets || []).find(a => /\.apk$/i.test(a.name || ''));
     if (!m || !asset) continue;
-    return {
+    if (best && Number(m[1]) <= best.versionCode) continue;
+    best = {
       app: 'fridge',
       versionCode: Number(m[1]),
       versionName: rel.tag_name.slice('fridge-v'.length),
@@ -4922,7 +4925,7 @@ function latestFridgeBuild(releases) {
       notes: String(rel.body || '').slice(0, 4000),
     };
   }
-  return null;
+  return best;
 }
 
 // ── PUT /api/v1/machines/:deviceCode/grid-order ───────────────────────────────
