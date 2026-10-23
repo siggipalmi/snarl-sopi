@@ -1038,6 +1038,11 @@ select.fi{cursor:pointer;}
           </div>
         </div>
 
+        <div class="panel" style="margin-bottom:16px;display:none" id="md-pay-panel">
+          <div class="ph"><div class="ph-title">Nayax reader.</div></div>
+          <div style="padding:12px 18px 14px" id="md-pay-body"></div>
+        </div>
+
         <div class="panel" style="margin-bottom:16px;display:none" id="md-pin-panel">
           <div class="ph"><div class="ph-title">admin PIN.</div></div>
           <div style="padding:14px 18px 16px">
@@ -5878,6 +5883,27 @@ async function openFridgeDoor(code, cabinet) {
 // Pairing codes. AG-admin only, so the panel stays hidden for everyone else rather than showing a
 // button that 403s. Generating supersedes any live code for this machine — a code read off a screen
 // an hour ago should not still work.
+// The card reader as it last described itself (app 0.66+ link and decimals; 0.69.1+ serial,
+// Monyx ID, firmware). Lets you name the reader to Nayax without opening the cabinet.
+function renderMdPayment(p) {
+  const panel = document.getElementById('md-pay-panel');
+  if (!panel) return;
+  if (!p) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const r = p.reader || {};
+  const row = (label, val, mono) => val == null || val === '' ? '' :
+    `<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-top:1px solid var(--line);font-size:12.5px"><span style="color:var(--muted)">${label}</span><span${mono ? ' style="font-family:var(--mono)"' : ''}>${rsEsc(String(val))}</span></div>`;
+  document.getElementById('md-pay-body').innerHTML =
+      row('link', p.up ? 'up' : 'down' + (p.downSince ? ' since ' + fmtDateTime(p.downSince) : ''))
+    + row('decimal places', p.decimalPlace != null ? p.decimalPlace + (p.decimalPlace === 0 ? ' ✓' : ' — must be 0 for ISK') : null)
+    + row('serial number', r.serial, true) + row('Monyx ID', r.monyxId, true)
+    + row('terminal ID', r.terminalId, true) + row('merchant ID', r.merchantId, true)
+    + row('firmware', [r.mainFw, r.posFw].filter(Boolean).join(' / '), true)
+    + row('country / currency', [r.country, r.currency].filter(Boolean).join(' / '), true)
+    + row('port', p.port, true)
+    + (r.serial ? '' : '<div style="font-size:11.5px;color:var(--muted);margin-top:6px">Serial number appears once the machine runs app 0.69.1 or newer.</div>');
+}
+
 // Per-machine admin PIN (AG only). The backend never returns the PIN again or its hash; a new one is
 // shown once. A fridge needs app 0.69.0+ to use it; older apps keep 123456.
 async function renderMdAdminPin() {
@@ -6034,6 +6060,7 @@ async function renderMachineDetail() {
     // hydrate, or empty on a fresh browser. When it was wrong the scale panel simply never
     // appeared, on a real fridge, with no hint as to why.
     _mdModel = String(m.model || '');
+    renderMdPayment(dr.data.payment);
     document.getElementById('md-name').textContent = m.deviceName;
     document.getElementById('md-meta').innerHTML =
       m.deviceCode + ' · ' + rsEsc(m.location || '—') + ' · ' + rsEsc(dr.data.operatorName || '—') +

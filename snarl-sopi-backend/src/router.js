@@ -2181,7 +2181,17 @@ function nextPaymentLinkRecord(prev, report, now) {
     // it, so keep the last known value rather than forgetting it.
     decimalPlace: Number.isInteger(report.decimalPlace) ? report.decimalPlace
       : (prev && Number.isInteger(prev.decimalPlace) ? prev.decimalPlace : null),
+    // Who the reader says it is (app 0.69.1+): serial, Monyx ID, firmware… Kept when a report
+    // lacks it, like decimalPlace.
+    reader: readerInfo(report.reader) || (prev && prev.reader) || null,
   };
+}
+const READER_KEYS = ['serial', 'monyxId', 'merchantId', 'terminalId', 'mainFw', 'posFw', 'country', 'currency', 'location'];
+function readerInfo(r) {
+  if (!r || typeof r !== 'object') return null;
+  const out = {};
+  for (const k of READER_KEYS) if (typeof r[k] === 'string' && r[k].trim()) out[k] = r[k].trim().slice(0, 64);
+  return Object.keys(out).length ? out : null;
 }
 
 // Pure: what to do with the decimal-places alert. ISK needs 0: the app sends whole krónur, so a
@@ -3163,6 +3173,8 @@ function handleGetMachine(req, res) {
     closure: closureFor(m, req.user),
     keyStatus: (() => { const k = storage.getMachineKey(m.deviceCode); return k ? (k.revokedAt ? 'revoked' : 'active') : 'not_provisioned'; })(),
     configPreview: buildConfigResponse(m),
+    // The Nayax reader as it last reported itself: link up?, decimals, serial, Monyx ID, firmware.
+    payment: (() => { try { return JSON.parse(storage.getMeta('paylink:' + m.deviceCode) || 'null'); } catch (e) { return null; } })(),
     // Last config_health snapshot, so the machine view can show whether the kiosk agrees with us
     // about which lanes are closed without anyone re-running the command.
     configHealth: (() => {
@@ -5652,6 +5664,7 @@ function handleMachineDetail(req, res) {
     })(),
     slotStock: storage.listSlotStockForDevice(m.deviceCode),
     emptySlots: storage.listEmptySlotsForDevice(m.deviceCode),
+    payment: (() => { try { return JSON.parse(storage.getMeta('paylink:' + m.deviceCode) || 'null'); } catch (e) { return null; } })(),
   });
 }
 
