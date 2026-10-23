@@ -509,17 +509,21 @@ function noteInvalidKey(deviceCode, req) {
       createdAt: new Date(now).toISOString(),
     });
     console.warn('[AUTH] ' + detail);
-    if (known) {
-      const { op, toEmail } = resolveOperatorEmail(m);
-      if (op && toEmail) {
-        email.sendOperatorAlert({
-          to: toEmail, operatorName: op.name,
-          title: `Wrong key — ${m.deviceName || deviceCode}`,
-          detail,
-          dashboardUrl: (process.env.APP_URL || 'https://admin.agvending.is') + '/?page=machines&code=' + deviceCode,
-        }).catch(err => console.error('[AUTH] invalid-key email failed:', err && err.message));
-      }
-    }
+    // *** DELIBERATELY NO OPERATOR EMAIL FOR THIS ONE.
+    //
+    // An invalid machine key is a provisioning fault: the machine was built or paired without a
+    // usable key. The operator cannot fix it, cannot see the key, has no control to press and no
+    // action to take. What they got instead was a critical-looking alarm every six hours about a
+    // machine that was, from their side, selling perfectly well. Grótta's operator asked for it to
+    // stop, which was fair.
+    //
+    // The alert still goes to the dashboard and the log - where AG looks - and its detail now
+    // names the actual remedy. If this should ever reach a mailbox it belongs in an AG one, not
+    // whoever happens to own the machine; there is no AG alert address configured today, only
+    // operator-facing senders in email.js.
+    //
+    // Scope: this suppresses the invalid-key email for EVERY operator, not just Grótta's, because
+    // no operator can act on it. Other alert types still email as before.
   } catch (e) { /* never let alerting break auth */ }
 }
 
