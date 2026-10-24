@@ -4885,17 +4885,21 @@ function handleSetAppCohort(req, res) {
   ok(res, { release: rel });
 }
 
-// GET /api/v1/app-release/latest-build?app=fridge (ag-admin)
+// GET /api/v1/app-release/latest-build?app=fridge|coil (ag-admin)
 //
-// The newest build CI has published, so the dashboard can fill the publish form instead of someone
-// copying a version code and an asset URL by hand — the step where a stale number or a wrong link
-// gets in. The snarl-fridge release workflow attaches each build to a `fridge-v<name>` release on
-// this repo with `versionCode: N` in its notes. This only READS: publishing, and choosing which
-// machines get it, stays a deliberate step in the form.
+// The newest build published for an app, so the dashboard can fill the publish form instead of
+// someone copying a version code and an asset URL by hand — the step where a stale number or a
+// wrong link gets in. Each build is attached to a `<app>-v<name>` release on this repo with
+// `versionCode: N` in its notes. This only READS: publishing, and choosing which machines get it,
+// stays a deliberate step in the form.
+//
+// Coil was refused here until now, so its releases had to be typed in by hand and the /downloads
+// page sat on 0.74.3 while a newer build existed. Nothing about the lookup was fridge-specific
+// except the tag prefix. Coil has no build workflow yet, so its releases are uploaded by hand -
+// but a hand-made `coil-v*` release with an APK and a versionCode reads exactly the same here.
 const RELEASES_REPO = process.env.RELEASES_REPO || 'siggipalmi/snarl-sopi';
 async function handleLatestBuild(req, res) {
   const appKey = (req.query && req.query.app) === 'coil' ? 'coil' : 'fridge';
-  if (appKey !== 'fridge') return badRequest(res, 'Only the fridge line is published by CI so far');
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 15000);
   let list;
@@ -4919,27 +4923,30 @@ async function handleLatestBuild(req, res) {
     console.warn('[RELEASES] could not reach GitHub:', e.message);
     return json(res, 424, { ok: false, error: 'Could not reach GitHub: ' + e.message });
   } finally { clearTimeout(to); }
-  const build = latestFridgeBuild(list);
-  if (!build) return notFound(res, `No fridge-v* release with an APK and a versionCode on ${RELEASES_REPO}`);
+  const build = latestAppBuild(list, appKey);
+  if (!build) return notFound(res, `No ${appKey}-v* release with an APK and a versionCode on ${RELEASES_REPO}`);
   const current = storage.getAppRelease(appKey);
   ok(res, { ...build, currentVersionCode: current ? current.targetVersionCode : null });
 }
 
-// Pure, so the selection is checkable without GitHub: the published fridge-v* release with the
+// Pure, so the selection is checkable without GitHub: the published <app>-v* release with the
 // HIGHEST versionCode that has an .apk asset. Not GitHub's list order: that put the old
 // fridge-v0.53.1 first on 2026-10-23, and only its missing versionCode kept it from being chosen.
-function latestFridgeBuild(releases) {
+// The prefix must stay anchored - coil's own early tags are bare `v0.74.3`, with no app in the
+// name, and must not be mistaken for either line.
+function latestAppBuild(releases, appKey) {
+  const prefix = (appKey === 'coil' ? 'coil' : 'fridge') + '-v';
   let best = null;
   for (const rel of (Array.isArray(releases) ? releases : [])) {
-    if (!rel || rel.draft || typeof rel.tag_name !== 'string' || !rel.tag_name.startsWith('fridge-v')) continue;
+    if (!rel || rel.draft || typeof rel.tag_name !== 'string' || !rel.tag_name.startsWith(prefix)) continue;
     const m = /^versionCode:\s*(\d+)\s*$/m.exec(rel.body || '');
     const asset = (rel.assets || []).find(a => /\.apk$/i.test(a.name || ''));
     if (!m || !asset) continue;
     if (best && Number(m[1]) <= best.versionCode) continue;
     best = {
-      app: 'fridge',
+      app: appKey,
       versionCode: Number(m[1]),
-      versionName: rel.tag_name.slice('fridge-v'.length),
+      versionName: rel.tag_name.slice(prefix.length),
       apkUrl: asset.browser_download_url,
       tag: rel.tag_name,
       releaseUrl: rel.html_url || null,
