@@ -48,6 +48,8 @@ import isl.snudursopi.vending.domain.MachineSettings
 import isl.snudursopi.vending.domain.Product
 import isl.snudursopi.vending.domain.ProductDetails
 import isl.snudursopi.vending.domain.forCustomerDisplay
+import isl.snudursopi.vending.data.backend.PairingClient
+import isl.snudursopi.vending.ui.screens.setup.PairResult
 import isl.snudursopi.vending.ui.screens.setup.CodeCheckResult
 import isl.snudursopi.vending.ui.screens.setup.KeyCheckResult
 import kotlinx.coroutines.Job
@@ -403,6 +405,58 @@ class VendingViewModel(
         } catch (e: Exception) {
             Log.w(TAG, "could not verify machineKey (${e.message}) — allowing")
             KeyCheckResult.Unverified
+        }
+    }
+
+    /**
+     * Exchange a 6-digit pairing code for this machine's identity, and STORE it.
+     *
+     * *** THIS COMMITS. It is not a check you can back out of.
+     *
+     * The server rotates the machine key as part of pairing — the moment it
+     * answers, the key it held a second ago is dead. If we showed a
+     * "is this the right machine?" card first and the operator walked away, the
+     * backend would hold a key the machine had never seen: precisely the state
+     * 62160479 was in for three days, sending its device code to a server that
+     * had something else on file.
+     *
+     * So the identity is persisted here, immediately, and the name is returned
+     * only so the screen can SAY which machine it just became. Paired the wrong
+     * one? Pair again with the right code — the endpoint rotates every time and
+     * does not care that a key already exists. That is the one thing
+     * /machines/provision could not do, and why it 409'd its way into this mess.
+     *
+     * No Weimi call anywhere in this path. The vélarnúmer lookup it replaces is
+     * what answers "Vél fannst ekki" on any machine assigned to a sub-operator.
+     */
+    suspend fun pairWithCode(code: String): PairResult {
+        if (_state.value.connectionState is ConnectionState.None) {
+            return PairResult.NoNetwork
+        }
+        return try {
+            // Empty key on purpose: /api/v1/provisioning/pair carries no
+            // machine-key middleware, which is what makes it reachable by a
+            // kiosk that has no key yet.
+            val http = AdminBackendHttp(AdminBackendConfig.BASE_URL, "")
+            val id = PairingClient(http).pair(code.trim())
+            deviceIdentity.setDeviceCode(id.deviceCode)
+            deviceIdentity.setMachineKey(id.machineKey)
+            storedMachineKey = id.machineKey
+            Log.i(TAG, "paired: deviceCode=${id.deviceCode} (${id.deviceName}), key stored (${id.machineKey.take(8)}…)")
+            PairResult.Ok(deviceCode = id.deviceCode, deviceName = id.deviceName, machineKey = id.machineKey)
+        } catch (e: BackendException) {
+            // Typed kind only, never the message text — see PairingClient.pair.
+            when (e.kind) {
+                BackendException.Kind.NetworkError -> PairResult.NoNetwork
+                BackendException.Kind.ClientError -> PairResult.Rejected
+                else -> {
+                    Log.w(TAG, "pairing failed (${e.kind}: ${e.message})")
+                    PairResult.ServerError
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "pairing failed (${e.message})")
+            PairResult.ServerError
         }
     }
 
