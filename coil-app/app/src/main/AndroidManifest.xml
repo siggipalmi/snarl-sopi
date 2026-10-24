@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- For cellular signal strength + generation (5G/4G/etc) when a SIM is installed.
+         Granted at runtime; missing permission falls back gracefully to bars=0/gen="?". -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <!-- Self-update: the app installs its own APK. Silent (no prompt) only when
+         the app is Device Owner; this permission is the baseline requirement. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Required for kiosk mode lock task -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"
+        tools:ignore="ProtectedPermissions" />
+
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="true" />
+
+    <application
+        android:name=".VendingApp"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="false"
+        android:theme="@style/Theme.SnudurSopi"
+        android:hardwareAccelerated="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden|locale|layoutDirection"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.SnudurSopi">
+
+            <!-- Standard launcher -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Home/launcher: lets the app be the device Home so a power-cycle
+                 boots straight in and Home does nothing. On a provisioned
+                 (Device Owner) machine, KioskManager pins this as the default
+                 Home automatically. On an UN-provisioned device (e.g. a dev
+                 phone) it only becomes Home if you manually pick it — so don't
+                 set it as default launcher on your phone. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Device-admin receiver. Lets the app be set as Device Owner
+             (one-time, per machine, over ADB):
+               adb shell dpm set-device-owner isl.snudursopi.vending/.KioskAdminReceiver
+             Device Owner is what enables escape-proof Lock Task Mode. -->
+        <receiver
+            android:name=".KioskAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_receiver" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Receives the PackageInstaller commit result for self-update. Not
+             exported; targeted explicitly by the installer PendingIntent. -->
+        <receiver
+            android:name=".update.UpdateResultReceiver"
+            android:exported="false" />
+
+        <!-- Self-healing watchdog tick. Manifest-registered so the alarm can wake
+             a fresh process if the app had died. Not exported. -->
+        <receiver
+            android:name=".WatchdogReceiver"
+            android:exported="false" />
+
+    </application>
+
+</manifest>

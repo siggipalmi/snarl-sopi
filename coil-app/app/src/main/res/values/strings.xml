@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Snarl og Sopi</string>
+
+    <!-- Greetings -->
+    <string name="greeting_day">góðan dag.</string>
+    <string name="greeting_evening">gott kvöld.</string>
+    <string name="greeting_sub_empty">%1$d góðgæti, öll tilbúin</string>
+    <string name="greeting_sub_with_basket">%1$s í körfu</string>
+
+    <!-- Action buttons -->
+    <string name="action_contact">hafðu samband</string>
+    <string name="action_basket">karfan</string>
+    <string name="action_language">tungumál</string>
+
+    <!-- Product card states -->
+    <string name="card_in_basket">í körfu</string>
+    <string name="card_sold_out">uppselt</string>
+
+    <!-- Product detail -->
+    <string name="detail_back">til baka</string>
+    <string name="detail_price_label">verð</string>
+    <string name="detail_slot_label">hólf %1$s</string>
+    <string name="detail_buy_now">kaupa núna</string>
+    <string name="detail_add_to_basket">bæta í körfu</string>
+
+    <!-- Basket -->
+    <string name="basket_back">halda áfram</string>
+    <string name="basket_title">karfan þín</string>
+    <string name="basket_count">%1$d af %2$d vörum</string>
+    <string name="basket_total_label">samtals</string>
+    <string name="basket_pay">greiða</string>
+    <string name="basket_add_more">bæta við vöru</string>
+    <string name="basket_empty">karfan er tóm</string>
+
+    <!-- Payment handoff -->
+    <string name="payment_cancel">hætta við</string>
+    <string name="payment_to_complete">til að klára</string>
+    <string name="payment_instruction">leggðu kort eða síma við posann hér til hægri</string>
+    <string name="payment_waiting">bíð eftir posanum</string>
+
+    <!-- Success -->
+    <string name="success_hero">takk.</string>
+    <string name="success_sub">vörurnar þínar eru á leiðinni</string>
+    <string name="success_farewell">verið velkomin aftur.</string>
+
+    <!-- Errors -->
+    <string name="error_generic">Afsakið en eitthvað er að klikka.</string>
+    <string name="error_sold_out">Uppselt.</string>
+    <string name="error_payment_failed">Ekki tókst að taka greiðslu.</string>
+    <string name="error_dispense_failed">Vörunni var ekki skilað. Þú hefur ekki verið rukkuð.</string>
+    <string name="error_offline">Vélin er ekki tengd. Reyndu aftur síðar.</string>
+
+    <!-- First-time setup -->
+    <string name="setup_title">vélin er óstillt</string>
+    <string name="setup_subtitle">sláðu inn vélarnúmer til að byrja</string>
+    <string name="setup_input_label">vélarnúmer</string>
+    <string name="setup_continue">áfram</string>
+    <string name="setup_invalid">vélarnúmer ætti að vera 8 tölustafir</string>
+
+    <!-- Admin access -->
+    <string name="admin_pin_prompt">aðgangskóði</string>
+    <string name="admin_pin_hint">sláðu inn 6 stafa kóða</string>
+    <string name="admin_use_recovery">nota endurheimtakóða</string>
+    <string name="admin_invalid">rangur kóði, reyndu aftur</string>
+    <string name="admin_too_many_attempts">of margar tilraunir, bíddu 5 mínútur</string>
+
+    <!-- Currency formatting placeholder -->
+    <string name="price_with_unit">%1$s kr</string>
+
+    <!-- Product detail: nutrition / ingredients / allergens -->
+    <string name="detail_allergens">ofnæmisvaldar</string>
+    <string name="detail_may_contain">getur innihaldið</string>
+    <string name="detail_nutrition">næringargildi</string>
+    <string name="detail_ingredients">innihald</string>
+    <string name="detail_nutrition_typical">dæmigerð gildi</string>
+    <string name="nutrition_energy">orka</string>
+    <string name="nutrition_fat">fita</string>
+    <string name="nutrition_saturates">þar af mettuð fita</string>
+    <string name="nutrition_carbs">kolvetni</string>
+    <string name="nutrition_sugars">þar af sykur</string>
+    <string name="nutrition_protein">prótein</string>
+    <string name="nutrition_fibre">trefjar</string>
+    <string name="nutrition_salt">salt</string>
+
+    <!-- Contact / info overlay -->
+    <string name="contact_title">hafðu samband.</string>
+    <string name="contact_operated_by">Þessi vél er rekin af %1$s. Hafðu samband ef eitthvað er að.</string>
+    <string name="contact_operated_by_generic">Hafðu samband ef eitthvað er að.</string>
+    <string name="contact_email_label">netfang</string>
+    <string name="contact_machine_label">vélnúmer</string>
+    <string name="contact_partner_divider">í samstarfi við</string>
+    <string name="contact_ad_pitch">Þetta tæki er leigt af AG Vending.</string>
+    <string name="contact_ad_sub">Hafðu samband ef þú vilt leigja sjálfsala.</string>
+    <string name="contact_ad_qr_caption">skannaðu fyrir nánari upplýsingar</string>
+    <string name="contact_close">loka</string>
+
+    <!-- Payment screen extra -->
+    <string name="payment_tap_card">leggðu kort eða síma á posann</string>
+    <string name="payment_waiting_dots">bíð eftir posanum…</string>
+    <string name="payment_items_count">%1$d vörur</string>
+    <string name="payment_items_count_cap">%1$d / %2$d vörur</string>
+    <string name="payment_basket_full">karfan er full</string>
+    <string name="payment_add_item">+ bæta við vöru</string>
+    <string name="combo_nudge_eyebrow">snarl combo</string>
+    <string name="combo_nudge_add_for">bættu við einni vöru fyrir</string>
+    <!-- Stage 3b: merged order/pay screen (PLACEHOLDER wording, polish later) -->
+    <string name="pay_reader_live">leggðu kort eða síma á posann</string>
+    <string name="pay_arming">uppfæri upphæð á posanum…</string>
+    <string name="pay_dispensing">afgreiði…</string>
+    <string name="pay_declined">greiðsla felld niður — reyndu aftur</string>
+    <string name="pay_reader_down_title">posinn er ekki tiltækur</string>
+    <string name="pay_reader_down_body">kortaposinn er að tengjast. augnablik…</string>
+    <string name="pay_reader_down_note">vélin sjálf er í lagi. hverfur sjálfkrafa um leið og posinn svarar.</string>
+    <string name="pay_charged_only">þú varst aðeins rukkuð fyrir það sem datt.</string>
+
+
+    <!-- Success screen -->
+    <string name="success_takk">takk</string>
+    <string name="success_in_bin">vörurnar þínar eru í afhendingarhólfinu.</string>
+    <string name="success_corner_advisory">vinsamlegast athugið að vörur geta fallið inn í hornin á afhendingarhólfinu.</string>
+    <string name="success_missing_item">vantar vöru?</string>
+
+    <!-- Complaint form + confirmation -->
+    <string name="complaint_title_single">vara vantar.</string>
+    <string name="complaint_title_multi">vörur vantar.</string>
+    <string name="complaint_subtitle">við hjálpum þér að fá þetta leyst.</string>
+    <string name="complaint_which_single">vara sem kom ekki út</string>
+    <string name="complaint_email_label">netfang fyrir svar</string>
+    <string name="complaint_which_multi">hvaða vörur komu ekki út?</string>
+    <string name="complaint_note_label">athugasemd — valfrjálst</string>
+    <string name="complaint_note_placeholder">eitthvað annað sem þú vilt láta vita?</string>
+    <string name="complaint_email_placeholder">þitt@netfang.is</string>
+    <string name="complaint_email_note">netfang aðeins notað til að svara þér.</string>
+    <string name="complaint_send_failed">tókst ekki að senda. reyndu aftur eftir smástund.</string>
+    <string name="complaint_cancel">hætta við</string>
+    <string name="complaint_send">senda kvörtun</string>
+    <string name="complaint_received">kvörtun móttekin.</string>
+    <string name="complaint_received_sub">við svörum þér sem fyrst með tölvupósti.</string>
+
+</resources>
