@@ -4581,7 +4581,7 @@ function handleDownloadsPage(req, res) {
 
   const html = `<!doctype html><html lang="is"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Downloads &middot; Snarl &amp; Sopi</title>
+<title>Downloads &middot; AG Vending</title>
 <style>
   :root{--cream:#FAF7F2;--shadow:#E8DFD0;--ink:#1A1A1A;--bronze:#8B6B3E;--line:#00000014;}
   *{box-sizing:border-box}
@@ -4604,7 +4604,7 @@ function handleDownloadsPage(req, res) {
   <h1>downloads.</h1>
   <div class="sub">Install packages for on-site machine setup. Tap to download.</div>
   ${sections || '<div class="empty">No packages published yet.</div>'}
-  <footer>Snarl &amp; Sopi &middot; AG Vending</footer>
+  <footer>AG Vending</footer>
 </div></body></html>`;
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
   res.end(html);
