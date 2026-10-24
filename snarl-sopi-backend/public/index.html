@@ -10599,7 +10599,7 @@ async function renderAppUpdates() {
     </label>`).join('');
   const form = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 10px">
       <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Publish update</div>
-      <button class="btn btn-sm btn-ghost" id="ota-load-latest" onclick="loadLatestFridgeBuild()">↓ load latest fridge build</button>
+      <button class="btn btn-sm btn-ghost" id="ota-load-latest" onclick="loadLatestBuild()">↓ load latest build</button>
     </div>
     <div id="ota-latest"></div>
     <div class="field"><div class="fl">app <span style="color:var(--muted);font-weight:400">· which build line</span></div>
@@ -10681,17 +10681,19 @@ async function publishAppUpdate() {
   } catch (e) { if (msg) msg.innerHTML = '<div class="rs-msg err">error: ' + rsEsc(e.message) + '</div>'; }
 }
 
-// Fill the publish form from the newest build CI attached to a fridge-v* release. Fills only —
-// publishing and the choice of machines stay with whoever presses publish.
-async function loadLatestFridgeBuild() {
+// Fill the publish form from the newest build attached to an <app>-v* release, for whichever app
+// the form has selected. Fills only — publishing and the choice of machines stay with whoever
+// presses publish. Was fridge-only, which is why coil releases were typed in by hand.
+async function loadLatestBuild() {
   const btn = document.getElementById('ota-load-latest');
   const box = document.getElementById('ota-latest');
+  const app = ((document.querySelector('input[name="ota-app"]:checked') || {}).value === 'fridge') ? 'fridge' : 'coil';
   if (btn) { btn.disabled = true; btn.textContent = 'loading…'; }
   try {
-    const r = await API.get('/api/v1/app-release/latest-build?app=fridge');
+    const r = await API.get('/api/v1/app-release/latest-build?app=' + app);
     if (!r || !r.ok || !r.data) throw new Error(apiErrText(r, 'no build found'));
     const b = r.data;
-    const radio = document.querySelector('input[name="ota-app"][value="fridge"]');
+    const radio = document.querySelector('input[name="ota-app"][value="' + app + '"]');
     if (radio) radio.checked = true;
     document.getElementById('ota-vc').value = b.versionCode;
     document.getElementById('ota-vname').value = b.versionName || '';
@@ -10702,15 +10704,15 @@ async function loadLatestFridgeBuild() {
     const same = b.currentVersionCode != null && b.versionCode === b.currentVersionCode;
     const stale = b.currentVersionCode != null && b.versionCode < b.currentVersionCode;
     if (box) box.innerHTML = `<div class="rs-msg ${stale ? 'err' : ''}" style="margin-bottom:10px">
-        <div><b>fridge v${rsEsc(b.versionName)}</b> · code ${b.versionCode}${b.publishedAt ? ' · built ' + fmtDateTime(b.publishedAt) : ''}${b.releaseUrl ? ` · <a href="${rsEsc(b.releaseUrl)}" target="_blank" rel="noopener">release</a>` : ''}</div>
-        ${same ? `<div style="margin-top:4px">This is already the current fridge release — nothing new to publish. Its rollout is on the release card above.</div>` : ''}
-        ${stale ? `<div style="margin-top:4px">Older than the current fridge release (code ${b.currentVersionCode}) — publishing would be refused.</div>` : ''}
+        <div><b>${rsEsc(app)} v${rsEsc(b.versionName)}</b> · code ${b.versionCode}${b.publishedAt ? ' · built ' + fmtDateTime(b.publishedAt) : ''}${b.releaseUrl ? ` · <a href="${rsEsc(b.releaseUrl)}" target="_blank" rel="noopener">release</a>` : ''}</div>
+        ${same ? `<div style="margin-top:4px">This is already the current ${rsEsc(app)} release — nothing new to publish. Its rollout is on the release card above.</div>` : ''}
+        ${stale ? `<div style="margin-top:4px">Older than the current ${rsEsc(app)} release (code ${b.currentVersionCode}) — publishing would be refused.</div>` : ''}
         <pre style="margin:6px 0 0;white-space:pre-wrap;font-size:11px;max-height:140px;overflow-y:auto">${rsEsc(b.notes || '')}</pre>
       </div>`;
   } catch (e) {
     if (box) box.innerHTML = '<div class="rs-msg err" style="margin-bottom:10px">' + rsEsc(e.message) + '</div>';
   }
-  if (btn) { btn.disabled = false; btn.textContent = '↓ load latest fridge build'; }
+  if (btn) { btn.disabled = false; btn.textContent = '↓ load latest build'; }
 }
 
 // Move the current release from its canary list to every machine. Same build — nothing is
