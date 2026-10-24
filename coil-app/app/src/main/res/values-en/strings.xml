@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Snarl og Sopi</string>
+
+    <string name="greeting_day">good day.</string>
+    <string name="greeting_evening">good evening.</string>
+    <string name="greeting_sub_empty">%1$d treats, all ready</string>
+    <string name="greeting_sub_with_basket">%1$s in basket</string>
+
+    <string name="action_contact">contact us</string>
+    <string name="action_basket">basket</string>
+    <string name="action_language">language</string>
+
+    <string name="card_in_basket">in basket</string>
+    <string name="card_sold_out">sold out</string>
+
+    <string name="detail_back">back</string>
+    <string name="detail_price_label">price</string>
+    <string name="detail_slot_label">slot %1$s</string>
+    <string name="detail_buy_now">buy now</string>
+    <string name="detail_add_to_basket">add to basket</string>
+
+    <string name="basket_back">keep going</string>
+    <string name="basket_title">your basket</string>
+    <string name="basket_count">%1$d of %2$d items</string>
+    <string name="basket_total_label">total</string>
+    <string name="basket_pay">pay</string>
+    <string name="basket_add_more">add another item</string>
+    <string name="basket_empty">your basket is empty</string>
+
+    <string name="payment_cancel">cancel</string>
+    <string name="payment_to_complete">to complete</string>
+    <string name="payment_instruction">tap your card or phone on the reader to your right</string>
+    <string name="payment_waiting">waiting for the reader</string>
+
+    <string name="success_hero">thanks.</string>
+    <string name="success_sub">your items are on the way</string>
+    <string name="success_farewell">see you again.</string>
+
+    <string name="error_generic">Sorry, something went wrong.</string>
+    <string name="error_sold_out">Sold out.</string>
+    <string name="error_payment_failed">Payment could not be processed.</string>
+    <string name="error_dispense_failed">The product could not be delivered. You have not been charged.</string>
+    <string name="error_offline">The machine is offline. Please try again later.</string>
+
+    <string name="setup_title">machine not set up</string>
+    <string name="setup_subtitle">enter the machine number to begin</string>
+    <string name="setup_input_label">machine number</string>
+    <string name="setup_continue">continue</string>
+    <string name="setup_invalid">machine number should be 8 digits</string>
+
+    <string name="admin_pin_prompt">access code</string>
+    <string name="admin_pin_hint">enter your 6-digit code</string>
+    <string name="admin_use_recovery">use recovery code</string>
+    <string name="admin_invalid">wrong code, try again</string>
+    <string name="admin_too_many_attempts">too many attempts, wait 5 minutes</string>
+
+    <string name="price_with_unit">%1$s kr</string>
+
+    <!-- Product detail: nutrition / ingredients / allergens -->
+    <string name="detail_allergens">allergens</string>
+    <string name="detail_may_contain">may contain</string>
+    <string name="detail_nutrition">nutrition</string>
+    <string name="detail_ingredients">ingredients</string>
+    <string name="detail_nutrition_typical">typical values</string>
+    <string name="nutrition_energy">energy</string>
+    <string name="nutrition_fat">fat</string>
+    <string name="nutrition_saturates">of which saturates</string>
+    <string name="nutrition_carbs">carbohydrate</string>
+    <string name="nutrition_sugars">of which sugars</string>
+    <string name="nutrition_protein">protein</string>
+    <string name="nutrition_fibre">fibre</string>
+    <string name="nutrition_salt">salt</string>
+
+    <!-- Contact / info overlay -->
+    <string name="contact_title">get in touch.</string>
+    <string name="contact_operated_by">This machine is operated by %1$s. Get in touch if anything is wrong.</string>
+    <string name="contact_operated_by_generic">Get in touch if anything is wrong.</string>
+    <string name="contact_email_label">email</string>
+    <string name="contact_machine_label">machine number</string>
+    <string name="contact_partner_divider">in partnership with</string>
+    <string name="contact_ad_pitch">This unit is leased from AG Vending.</string>
+    <string name="contact_ad_sub">Get in touch if you want to lease a vending machine.</string>
+    <string name="contact_ad_qr_caption">scan for more information</string>
+    <string name="contact_close">close</string>
+
+    <!-- Payment screen extra -->
+    <string name="payment_tap_card">tap your card or phone on the reader</string>
+    <string name="payment_waiting_dots">waiting for the reader…</string>
+    <string name="payment_items_count">%1$d items</string>
+    <string name="payment_items_count_cap">%1$d / %2$d items</string>
+    <string name="payment_basket_full">basket is full</string>
+    <string name="payment_add_item">+ add an item</string>
+    <string name="combo_nudge_eyebrow">snarl combo</string>
+    <string name="combo_nudge_add_for">add one item for</string>
+    <string name="pay_reader_live">tap your card or phone on the reader</string>
+    <string name="pay_arming">updating amount on the reader…</string>
+    <string name="pay_dispensing">dispensing…</string>
+    <string name="pay_declined">payment cancelled — please try again</string>
+    <string name="pay_reader_down_title">card reader unavailable</string>
+    <string name="pay_reader_down_body">the card reader is reconnecting. one moment…</string>
+    <string name="pay_reader_down_note">the machine itself is fine. this clears automatically when the reader responds.</string>
+    <string name="pay_charged_only">you were only charged for what was delivered.</string>
+
+
+    <!-- Success screen -->
+    <string name="success_takk">thanks</string>
+    <string name="success_in_bin">your items are in the collection bin.</string>
+    <string name="success_corner_advisory">please note that items can settle into the corners of the collection bin.</string>
+    <string name="success_missing_item">missing an item?</string>
+
+    <!-- Complaint form + confirmation -->
+    <string name="complaint_title_single">missing item.</string>
+    <string name="complaint_title_multi">missing items.</string>
+    <string name="complaint_subtitle">let us help you get this sorted.</string>
+    <string name="complaint_which_single">item that did not come out</string>
+    <string name="complaint_email_label">email for our reply</string>
+    <string name="complaint_which_multi">which items did not come out?</string>
+    <string name="complaint_note_label">note — optional</string>
+    <string name="complaint_note_placeholder">anything else we should know?</string>
+    <string name="complaint_email_placeholder">your@email.com</string>
+    <string name="complaint_email_note">email is only used to reply to you.</string>
+    <string name="complaint_send_failed">could not send. please try again in a moment.</string>
+    <string name="complaint_cancel">cancel</string>
+    <string name="complaint_send">send report</string>
+    <string name="complaint_received">report received.</string>
+    <string name="complaint_received_sub">we will get back to you by email as soon as possible.</string>
+
+</resources>
