@@ -58,6 +58,7 @@ fun NavGraph(viewModel: VendingViewModel) {
             },
             onTestCode = viewModel::testDeviceCode,
             onTestKey = viewModel::testMachineKey,
+            onPair = viewModel::pairWithCode,
         )
         Phase.Loading -> LoadingScreen(deviceCode = state.deviceCode)
         Phase.Error -> {

@@ -64,12 +64,18 @@ fun SetupScreen(
     onClockLongPress: () -> Unit = {},
     onTestCode: suspend (String) -> CodeCheckResult,
     onTestKey: suspend (code: String, key: String) -> KeyCheckResult,
+    onPair: suspend (code: String) -> PairResult,
 ) {
     var input by remember { mutableStateOf("") }
     var keyInput by remember { mutableStateOf("") }
-    var phase: SetupPhase by remember { mutableStateOf(SetupPhase.Idle) }
+    var pairInput by remember { mutableStateOf("") }
+    // Pairing is the way in. The vélarnúmer-plus-key flow below it still works
+    // and is reachable from the link, because a backend that cannot issue a
+    // code should not leave a machine unsetuppable.
+    var phase: SetupPhase by remember { mutableStateOf(SetupPhase.PairIdle) }
     val scope = rememberCoroutineScope()
     val isValid = input.length == 8 && input.all { it.isDigit() }
+    val isPairValid = pairInput.length == 6 && pairInput.all { it.isDigit() }
 
     // A machine key looks like mk_live_<hex>. We check the shape only — the
     // real test is the first backend call, and a typo there hard-fails the
@@ -78,6 +84,40 @@ fun SetupScreen(
     var keyChecking by remember { mutableStateOf(false) }
     val trimmedKey = keyInput.trim()
     val isKeyValid = trimmedKey.startsWith("mk_") && trimmedKey.length >= 20
+
+    fun runPair() {
+        if (!isPairValid) return
+        if (connectionState is ConnectionState.None) {
+            phase = SetupPhase.PairFailed(
+                title = "Engin internettenging",
+                description = "tækið nær ekki sambandi við netið. athugaðu wifi stillingar í android stillingum.",
+            )
+            return
+        }
+        phase = SetupPhase.PairChecking
+        scope.launch {
+            phase = when (val r = onPair(pairInput)) {
+                is PairResult.Ok ->
+                    SetupPhase.PairDone(deviceName = r.deviceName, code = r.deviceCode, machineKey = r.machineKey)
+                PairResult.Rejected ->
+                    SetupPhase.PairFailed(
+                        title = "Kóðinn gengur ekki",
+                        description = "kóðinn er útrunninn, þegar notaður eða rangt sleginn. " +
+                            "búðu til nýjan í stjórnborðinu. kóði gildir í tvo tíma.",
+                    )
+                PairResult.NoNetwork ->
+                    SetupPhase.PairFailed(
+                        title = "Engin internettenging",
+                        description = "tækið nær ekki sambandi við netið. athugaðu wifi stillingar í android stillingum.",
+                    )
+                PairResult.ServerError ->
+                    SetupPhase.PairFailed(
+                        title = "Tæknileg villa",
+                        description = "tókst ekki að ná sambandi við vefþjónustu. reyndu aftur eftir smástund.",
+                    )
+            }
+        }
+    }
 
     fun runCheck() {
         if (!isValid) return
@@ -125,7 +165,12 @@ fun SetupScreen(
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "sláðu inn vélarnúmer til að byrja.",
+                text = when (phase) {
+                    SetupPhase.PairIdle, SetupPhase.PairChecking,
+                    is SetupPhase.PairDone, is SetupPhase.PairFailed ->
+                        "sláðu inn pörunarkóða úr stjórnborðinu."
+                    else -> "sláðu inn vélarnúmer til að byrja."
+                },
                 fontSize = 14.sp,
                 color = AppColors.MutedSoft,
             )
@@ -133,6 +178,30 @@ fun SetupScreen(
 
             // Phase-dependent content
             when (val p = phase) {
+                SetupPhase.PairIdle, SetupPhase.PairChecking ->
+                    PairInputBlock(
+                        input = pairInput,
+                        onInputChange = { pairInput = it },
+                        locked = p == SetupPhase.PairChecking,
+                        onSubmit = { runPair() },
+                        onManual = { phase = SetupPhase.Idle },
+                    )
+
+                is SetupPhase.PairDone ->
+                    ConfirmCard(deviceName = p.deviceName, code = p.code, label = "vél tengd")
+
+                is SetupPhase.PairFailed -> {
+                    ErrorCard(icon = "!", title = p.title, description = p.description)
+                    Spacer(Modifier.height(14.dp))
+                    PairInputBlock(
+                        input = pairInput,
+                        onInputChange = { pairInput = it },
+                        locked = false,
+                        onSubmit = { runPair() },
+                        onManual = { phase = SetupPhase.Idle },
+                    )
+                }
+
                 SetupPhase.Idle, SetupPhase.Checking ->
                     InputBlock(
                         input = input,
@@ -207,6 +276,33 @@ fun SetupScreen(
 
             // Bottom action area — varies by phase
             when (val p = phase) {
+                SetupPhase.PairIdle -> {
+                    PrimaryButton(
+                        label = "áfram →",
+                        enabled = isPairValid,
+                        onClick = ::runPair,
+                    )
+                }
+                SetupPhase.PairChecking -> {
+                    LoadingButton(label = "parar vél…")
+                }
+                is SetupPhase.PairDone -> {
+                    // No "back" here on purpose. Pairing has already happened and
+                    // the key is already stored; there is nothing to cancel. Wrong
+                    // machine? Pair again with the right code and it rotates again.
+                    PrimaryButton(
+                        label = "áfram →",
+                        enabled = true,
+                        onClick = { onSetupCompleted(p.code, p.machineKey) },
+                    )
+                }
+                is SetupPhase.PairFailed -> {
+                    PrimaryButton(
+                        label = "reyna aftur",
+                        enabled = isPairValid,
+                        onClick = ::runPair,
+                    )
+                }
                 SetupPhase.Idle -> {
                     PrimaryButton(
                         label = "áfram →",
@@ -364,6 +460,84 @@ private fun KeyInputBlock(
     )
 }
 
+/**
+ * Pairing-code entry: six digits, generated in the dashboard against one
+ * machine, single-use, valid for two hours.
+ *
+ * A number keypad, and it accepts nothing but digits — which is the point.
+ * The machine-key field further down is a plain text field because a key is 56
+ * mixed characters; when someone tried to put one into a digits-only field on
+ * 62160479 every letter was silently dropped and the machine spent three days
+ * presenting nonsense. Six digits need no such compromise.
+ */
+@Composable
+private fun PairInputBlock(
+    input: String,
+    onInputChange: (String) -> Unit,
+    locked: Boolean,
+    onSubmit: () -> Unit = {},
+    onManual: () -> Unit = {},
+) {
+    Text(
+        text = "pörunarkóði",
+        style = AppTypography.LabelSmall,
+        color = AppColors.MutedSoft,
+    )
+    Spacer(Modifier.height(10.dp))
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = if (locked) AppColors.Cream else AppColors.White,
+                shape = RoundedCornerShape(12.dp),
+            )
+            .border(0.5.dp, AppColors.Line, RoundedCornerShape(12.dp))
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+    ) {
+        BasicTextField(
+            value = input,
+            onValueChange = { new ->
+                if (!locked && new.length <= 6 && new.all { it.isDigit() }) {
+                    onInputChange(new)
+                }
+            },
+            textStyle = TextStyle(
+                fontSize = 28.sp,
+                color = if (locked) AppColors.MutedSoft else AppColors.Ink,
+                letterSpacing = 8.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = AppFonts.Geist,
+            ),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+            enabled = !locked,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    if (locked) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "parar vél…",
+            fontSize = 12.sp,
+            color = AppColors.MutedSoft,
+            fontFamily = AppFonts.Geist,
+        )
+    }
+
+    Spacer(Modifier.height(18.dp))
+    Text(
+        text = "slá inn vélarnúmer og lykil handvirkt →",
+        fontSize = 12.sp,
+        color = AppColors.MutedSoft,
+        fontFamily = AppFonts.Geist,
+        modifier = Modifier.clickable(enabled = !locked, onClick = onManual),
+    )
+}
+
 @Composable
 private fun InputBlock(
     input: String,
@@ -424,7 +598,7 @@ private fun InputBlock(
 }
 
 @Composable
-private fun ConfirmCard(deviceName: String, code: String) {
+private fun ConfirmCard(deviceName: String, code: String, label: String = "vél fannst") {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -449,7 +623,7 @@ private fun ConfirmCard(deviceName: String, code: String) {
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                text = "vél fannst",
+                text = label,
                 style = AppTypography.LabelSmall,
                 color = AppColors.MutedSoft,
             )
@@ -613,6 +787,13 @@ private fun LoadingButton(label: String) {
 
 /** UI states for the setup flow. */
 sealed class SetupPhase {
+    /** Pairing-code entry. The default way in since v0.79.0. */
+    data object PairIdle : SetupPhase()
+    data object PairChecking : SetupPhase()
+    /** Paired AND stored. Shows which machine this became; cannot be undone. */
+    data class PairDone(val deviceName: String, val code: String, val machineKey: String) : SetupPhase()
+    data class PairFailed(val title: String, val description: String) : SetupPhase()
+
     data object Idle : SetupPhase()
     data object Checking : SetupPhase()
     data class Confirming(val deviceName: String, val code: String) : SetupPhase()
@@ -632,6 +813,19 @@ sealed class KeyCheckResult {
     data object Invalid : KeyCheckResult()
     /** Could not reach the backend. Stored anyway; see testMachineKey. */
     data object Unverified : KeyCheckResult()
+}
+
+/**
+ * Outcome of exchanging a pairing code. [Ok] means the identity is ALREADY
+ * STORED — see VendingViewModel.pairWithCode for why there is no uncommitted
+ * state to confirm.
+ */
+sealed class PairResult {
+    data class Ok(val deviceCode: String, val deviceName: String, val machineKey: String) : PairResult()
+    /** Unknown, expired, already used, mistyped, or too many attempts. */
+    data object Rejected : PairResult()
+    data object NoNetwork : PairResult()
+    data object ServerError : PairResult()
 }
 
 sealed class CodeCheckResult {
