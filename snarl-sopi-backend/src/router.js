@@ -665,7 +665,14 @@ function handlePairExchange(req, res) {
   const machineKey = generateMachineKey();
   storage.insertMachineKey(rec.deviceCode, machineKey);
   console.log(`[PAIR] ${rec.deviceCode} paired from ${ip} — key rotated`);
-  ok(res, { deviceCode: rec.deviceCode, machineKey });
+  // deviceName so the kiosk can ask "is this the right machine?" before committing. The coil app's
+  // two-step setup got that confirmation free, by resolving the vélarnúmer against Weimi and
+  // showing the name it came back with. Pairing replaces that lookup, and losing the confirmation
+  // with it would be a step back: a mistyped code that happened to be valid would silently set a
+  // machine up as its neighbour — and Grótta is two machines side by side. Not secret: whoever
+  // generates the code is looking at the name already, and the code is single-use, expiring and
+  // rate-limited.
+  ok(res, { deviceCode: rec.deviceCode, deviceName: m.deviceName || rec.deviceCode, machineKey });
 }
 
 function handleDemoRequest(req, res) {
