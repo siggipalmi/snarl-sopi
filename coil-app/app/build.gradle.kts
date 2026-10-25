@@ -44,6 +44,28 @@ android {
         buildConfigField("String", "TEST_MACHINE_DEVICE_CODE", "\"$testMachineDeviceCode\"")
     }
 
+    /*
+     * Every coil machine's APK is signed with the debug keystore from Siggi's Mac
+     * (SHA-256 c3d1dfdb…4a746f52, the same key as the fridge fleet), and Android
+     * refuses an update signed with anything else. CI writes that keystore to a
+     * file and points FLEET_DEBUG_KEYSTORE at it. Left to find "the" debug keystore
+     * by itself, the first CI build signed with a key of its own (7c42701d…) and
+     * the release workflow refused it — the trap snarl-fridge hit on 2026-10-01,
+     * fixed there the same way.
+     *
+     * Unset on the Mac, so local builds keep the default — which is the same key.
+     */
+    signingConfigs {
+        getByName("debug") {
+            System.getenv("FLEET_DEBUG_KEYSTORE")?.takeIf { it.isNotBlank() }?.let {
+                storeFile = file(it)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

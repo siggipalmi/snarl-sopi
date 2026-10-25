@@ -98,14 +98,17 @@ jobs:
             echo "::error::DEBUG_KEYSTORE_BASE64 is not set on this repository. Without the fleet's key the APK cannot update any machine."
             exit 1
           fi
-          # AGP signs debug builds with ~/.android/debug.keystore.
+          # Not ~/.android/debug.keystore: on the runner AGP ignored that file and
+          # signed with a key of its own (7c42701d…, first dry run, 2026-10-25).
+          # build.gradle.kts signs with whatever FLEET_DEBUG_KEYSTORE names.
           mkdir -p ~/.android
+          echo "FLEET_DEBUG_KEYSTORE=$HOME/.android/fleet-debug.keystore" >> "$GITHUB_ENV"
           # Strip whitespace first: a secret pasted from a terminal can carry
           # line breaks or a trailing newline that a strict decode rejects.
-          printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > ~/.android/debug.keystore
-          echo "keystore: $(wc -c < ~/.android/debug.keystore) bytes"
+          printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > ~/.android/fleet-debug.keystore
+          echo "keystore: $(wc -c < ~/.android/fleet-debug.keystore) bytes"
           # keytool prints its errors on stdout; show them when it fails.
-          if ! out=$(keytool -list -v -keystore ~/.android/debug.keystore \
+          if ! out=$(keytool -list -v -keystore ~/.android/fleet-debug.keystore \
                        -storepass android -alias androiddebugkey 2>&1); then
             echo "$out" | head -5
             echo "::error::keytool cannot read the keystore from DEBUG_KEYSTORE_BASE64 (see above)"
