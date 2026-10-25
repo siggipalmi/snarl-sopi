@@ -71,6 +71,15 @@ cohorts, Device Owner and machine commands stay with Siggi.
 - Check with `/api/v1/debug/weimi-device?deviceCode=X`, which uses the backend's own credentials
   rather than the app's. (Those `debug/weimi-*` routes have no auth middleware — worth fixing.)
 - Fridges do not resolve identity through Weimi and are unaffected.
+- **Restock on a kiosk-run coil machine: set stock source to Kiosk** (Display Settings → machine →
+  stock source). On Weimi stock, a restock is pushed through Weimi's cloud, which refuses it with
+  4003 "machine offline" unless Weimi's own app on the board holds its link — and during setup
+  `com.weimi` and `com.weimi.monitor` get disabled so they stop fighting our app for the screen.
+  Both Grótta machines hit exactly that on 2026-10-25; re-enabling `com.weimi` and rebooting did
+  not bring Weimi's link back within minutes. On Kiosk the backend owns stock, the coil app reads
+  it every config poll (2 min), and the Weimi sync keeps our counts while still taking names,
+  prices and slot layout from Weimi. Both Grótta machines were switched to Kiosk that day. New
+  coil machines already default to it.
 - **Nayax names are labels, not links.** The reader in Grótta vinstri (Nayax machine 227890869)
   is named "62160481-Grótta vinstri" in Nayax, but 62160481 is Klettatröð – IWO. The backend
   links readers by the numeric Nayax ID set by hand (`nayaxMachineId`), never by the name — check
@@ -132,11 +141,12 @@ one tile, price it once and decrement both.
       ~/Library/Android/sdk/platform-tools/adb -s <ip:port> shell setprop persist.adb.tcp.port 5555
       ~/Library/Android/sdk/platform-tools/adb -s <ip:port> shell getprop persist.adb.tcp.port
 
-  Set on `62160484` on 2026-10-23. **It holds:** on 2026-10-25, after the machine had restarted,
-  `adb connect 100.74.205.17:5555` connected with nobody at the screen — adbd can only listen on
-  5555 if it came back up honouring the property. So a pinned machine can be reached remotely,
-  which is the answer to the unattended-access problem the handovers open with. `62160479` was
-  pinned the same day (by `adb-onepass.sh`, which pins every machine it touches).
+  Set on `62160484` on 2026-10-23. On 2026-10-25 `adb connect 100.74.205.17:5555` connected with
+  nobody at the screen. But after a **deliberate reboot** the same day, adb was next reached on the
+  Wireless-debugging port (46843), and whether 5555 also answered then was not checked. So: it
+  worked once after an unwitnessed restart; it is **not yet proven across a witnessed reboot**.
+  Try 5555 first after the next one before relying on it. `62160479` was pinned the same day (by
+  `adb-onepass.sh`, which pins every machine it touches).
 
   Do NOT run `adb tcpip 5555` on a machine whose connection you cannot afford to lose: it restarts
   adbd and drops the current session to come back on the new port. Save it for after the work is
