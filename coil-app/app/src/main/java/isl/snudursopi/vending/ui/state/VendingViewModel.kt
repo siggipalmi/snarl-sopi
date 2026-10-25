@@ -3,6 +3,7 @@ package isl.snudursopi.vending.ui.state
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import isl.snudursopi.vending.ClockGuard
 import isl.snudursopi.vending.RestartManager
 import isl.snudursopi.vending.api.WeimiApiClient
 import isl.snudursopi.vending.api.WeimiCredentials
@@ -445,6 +446,12 @@ class VendingViewModel(
             Log.i(TAG, "paired: deviceCode=${id.deviceCode} (${id.deviceName}), key stored (${id.machineKey.take(8)}…)")
             PairResult.Ok(deviceCode = id.deviceCode, deviceName = id.deviceName, machineKey = id.machineKey)
         } catch (e: BackendException) {
+            // A wrong clock fails TLS before the request leaves, so it arrives here
+            // looking like a network or server fault. Name the real cause.
+            if (ClockGuard.isWrong() && e.kind != BackendException.Kind.ClientError) {
+                Log.w(TAG, "pairing failed with the clock at ${ClockGuard.shownAs()} (${e.kind})")
+                return PairResult.ClockWrong
+            }
             // Typed kind only, never the message text — see PairingClient.pair.
             when (e.kind) {
                 BackendException.Kind.NetworkError -> PairResult.NoNetwork
@@ -456,7 +463,7 @@ class VendingViewModel(
             }
         } catch (e: Exception) {
             Log.w(TAG, "pairing failed (${e.message})")
-            PairResult.ServerError
+            if (ClockGuard.isWrong()) PairResult.ClockWrong else PairResult.ServerError
         }
     }
 

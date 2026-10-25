@@ -99,6 +99,16 @@ one tile, price it once and decrement both.
 - **Check `auto_time` first.** `settings get global auto_time` must be `1`. A wrong clock fails TLS
   silently: the machine reaches nothing while the screen looks perfectly healthy. It was `0` on
   62160479, and that failure has cost days on three other machines.
+- **A power cut can put the clock back years.** 62160479 came back reading **19 May 2023** with
+  `auto_time` off (2026-10-24) and sold nothing for two days. What the screen showed was a Weimi
+  catalog failure, `SSLHandshakeException … Certum Trusted Network CA … insecure hash function` —
+  which reads like Weimi's certificate and is not a reason to contact Weimi until a correct clock
+  has been tried. (Not yet confirmed to clear once the clock is fixed.) Check the date in the
+  pull-down shade first; it is reachable from the setup screen, where the clock long-press is not.
+- From coil 0.80.0 the app says **"klukkan í vélinni er röng"** on the setup and error screens and
+  switches automatic time back on at every start — as Device Owner, or after a one-time
+  `pm grant isl.snudursopi.vending.debug android.permission.WRITE_SECURE_SETTINGS`.
+  `coil-app/tools/adb-onepass.sh IP:PORT` does every adb step in one re-runnable pass, grant included.
 - A device code **on the kiosk screen proves nothing** — it is cached local state. Confirm from the
   dashboard: a command leaving `pending`, or the key going `active`.
 - Wireless-debugging uses a **new random port every reboot**, and reading it needs eyes on the

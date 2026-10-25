@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import isl.snudursopi.vending.BuildConfig
+import isl.snudursopi.vending.ClockGuard
 import isl.snudursopi.vending.domain.ConnectionState
 import isl.snudursopi.vending.proxy.BackendConfig
 import isl.snudursopi.vending.proxy.ProxyState
@@ -210,6 +211,18 @@ fun DiagnosticsScreen(
             // if it reads "nei", provision it once over adb (see the rollout runbook).
             SectionLabel("uppfærsla (prófun)")
             InfoRow(label = "device owner", value = if (state.isDeviceOwner) "já" else "nei")
+            val clockWrong = ClockGuard.isWrong()
+            InfoRow(
+                label = "klukka",
+                value = ClockGuard.shownAs() + if (clockWrong) " · röng" else "",
+                status = if (clockWrong) DangerInk else OkInk,
+            )
+            val autoTimeOn = ClockGuard.isAutoTimeOn(context)
+            InfoRow(
+                label = "sjálfvirkur tími",
+                value = if (autoTimeOn) "já" else "nei",
+                status = if (autoTimeOn) OkInk else DangerInk,
+            )
             ActionRow(label = "leita að uppfærslu", trailing = "↻", onClick = onCheckUpdate)
             InfoRow(label = "staða", value = state.lastUpdateCheck ?: "—")
 

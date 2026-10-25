@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import isl.snudursopi.vending.domain.ConnectionState
+import isl.snudursopi.vending.ui.components.ClockWarning
 import isl.snudursopi.vending.ui.components.StatusBar
 import isl.snudursopi.vending.ui.theme.AppColors
 import isl.snudursopi.vending.ui.theme.AppFonts
@@ -115,6 +116,12 @@ fun SetupScreen(
                         title = "Tæknileg villa",
                         description = "tókst ekki að ná sambandi við vefþjónustu. reyndu aftur eftir smástund.",
                     )
+                PairResult.ClockWrong ->
+                    SetupPhase.PairFailed(
+                        title = "Klukkan í vélinni er röng",
+                        description = "örugg tenging næst ekki fyrr en klukkan er rétt. kóðinn er enn í gildi — " +
+                            "lagaðu klukkuna og reyndu aftur.",
+                    )
             }
         }
     }
@@ -174,6 +181,9 @@ fun SetupScreen(
                 fontSize = 14.sp,
                 color = AppColors.MutedSoft,
             )
+            // Ahead of everything else here: with the clock wrong, every path below
+            // fails as a "network" error, which sends people the wrong way.
+            ClockWarning(Modifier.padding(top = 18.dp))
             Spacer(Modifier.height(36.dp))
 
             // Phase-dependent content
@@ -826,6 +836,11 @@ sealed class PairResult {
     data object Rejected : PairResult()
     data object NoNetwork : PairResult()
     data object ServerError : PairResult()
+    /**
+     * Failed, and the clock reads before [isl.snudursopi.vending.ClockGuard.FLOOR_MILLIS].
+     * TLS fails before the request leaves the machine, so the code was never spent.
+     */
+    data object ClockWrong : PairResult()
 }
 
 sealed class CodeCheckResult {
