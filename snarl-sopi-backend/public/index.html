@@ -6090,9 +6090,13 @@ async function renderMachineDetail() {
       ' · ' + (m.isOnline ? '<span style="color:var(--success)">online</span>' : '<span style="color:var(--alert)">offline</span>') +
       // Always state the running app version — "unknown" is information too, and knowing what's on a
       // placed machine matters before you push an update or chase a bug.
-      ' · <span title="app version running on this machine">app ' +
-        (m.kioskVersion ? ('v' + rsEsc(m.kioskVersion)) : '<span style="color:var(--muted)">unknown</span>') +
-        (m.lastAppVersionCode != null ? ' <span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '') +
+      // From the build the app itself reports at each update check — not m.kioskVersion, which is
+      // seed data from db.js ('0.21' on most coil machines) that nothing has ever updated.
+      ' · <span title="build reported by the app at its last update check">app ' +
+        (m.lastAppVersionCode != null
+          ? (m.lastAppVersionName ? 'v' + rsEsc(m.lastAppVersionName) + ' ' : '') +
+            '<span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>'
+          : '<span style="color:var(--muted)">unknown</span>') +
       '</span>' + mdNayaxHeader(dr.data.payment);
 
     renderMdLanguage(m);
@@ -10672,10 +10676,16 @@ async function publishAppUpdate() {
   if (!Number.isInteger(vc) || vc <= 0) { if (msg) msg.innerHTML = '<div class="rs-msg err">Version code must be a positive integer.</div>'; return; }
   if (!/^https:\/\//.test(apk)) { if (msg) msg.innerHTML = '<div class="rs-msg err">APK url must be an https link.</div>'; return; }
   const who = cohort === 'all' ? 'ALL machines' : cohort.length + ' machine(s)';
-  if (!confirm('Publish ' + app + ' v' + (vname || vc) + ' to ' + who + '?\n\nMachines on a lower version will silently update on their next check (≤60 min).')) return;
+  // Coil builds carry no key of their own. A machine still relying on a key baked into its old APK
+  // would install one and 401 from then on, and could only be recovered by a visit. The backend
+  // withholds the build from any machine that hasn't reported keySource 'stored' — only if asked.
+  // The coil app reports keySource in its config_health result, so run that command first.
+  const requiresStoredKey = app === 'coil';
+  if (!confirm('Publish ' + app + ' v' + (vname || vc) + ' to ' + who + '?\n\nMachines on a lower version will silently update on their next check (≤60 min).' +
+      (requiresStoredKey ? '\n\nOnly machines that have reported a stored key get it — run config_health on a machine first.' : ''))) return;
   if (msg) msg.innerHTML = '<div style="font-size:12px;color:var(--muted)">publishing… (hashing the APK, can take a few seconds)</div>';
   try {
-    const r = await API.put('/api/v1/app-release', { app, targetVersionCode: vc, versionName: vname || null, apkUrl: apk, cohort });
+    const r = await API.put('/api/v1/app-release', { app, targetVersionCode: vc, versionName: vname || null, apkUrl: apk, cohort, requiresStoredKey });
     if (r && r.ok) { showToast('Update published'); if (r.data && r.data.note) showToast(r.data.note); renderAppUpdates(); }
     else { if (msg) msg.innerHTML = '<div class="rs-msg err">' + rsEsc((r && r.error) || 'failed') + '</div>'; }
   } catch (e) { if (msg) msg.innerHTML = '<div class="rs-msg err">error: ' + rsEsc(e.message) + '</div>'; }

@@ -9223,6 +9223,14 @@ function machineSummary(m) {
     lastTempAt: (telem && telem.atMs != null) ? telem.atMs : null,
     lastStatusOk: (telem && telem.statusOk != null) ? (telem.statusOk === 1 || telem.statusOk === true) : null,
     lastAppVersionCode: (() => { const v = storage.getAppVersion(m.deviceCode); return (v && v.vc != null) ? v.vc : null; })(),
+    // The name for that build when it is the current release of this machine's app line, so the
+    // header can say "v0.80.0 (156)". kioskVersion is seed data from db.js that nothing updates.
+    lastAppVersionName: (() => {
+      const v = storage.getAppVersion(m.deviceCode);
+      if (!v || v.vc == null) return null;
+      const rel = storage.getAppRelease(require('./db').fridgeSpec(m.model || '').isFridge ? 'fridge' : 'coil');
+      return (rel && Number(rel.targetVersionCode) === Number(v.vc) && rel.versionName) ? String(rel.versionName) : null;
+    })(),
     operatorName: m.profile.operatorName,
     operatorId: m.operatorId,
     lastVisitAt: lastVisitMs,
