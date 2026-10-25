@@ -147,3 +147,10 @@ one tile, price it once and decrement both.
   `public/index.html`.
 - Never ship real fleet data (machine names, codes, prices) inside `index.html`; the
   dashboard gets everything from the backend, scoped to the signed-in user.
+- **Coil releases build themselves**, like fridge: bump `versionCode` + `versionName` in
+  `coil-app/app/build.gradle.kts` and merge. `.github/workflows/coil-release.yml` builds, refuses a
+  build carrying a machine identity or signed with any key but the fleet's (cert `c3d1dfdb…`, the
+  same key as the fridge fleet), and attaches a `coil-v<name>` release here. It needs the
+  `DEBUG_KEYSTORE_BASE64` secret on *this* repo. Publishing it (Fleet → Releases → coil → load
+  latest build) stays with Siggi, as for fridge. Coil installs are the `isl.snudursopi.vending.debug`
+  package, signed with the debug keystore.
