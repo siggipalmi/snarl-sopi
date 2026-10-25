@@ -1,0 +1,182 @@
+# Build, sign and release every coil version that lands on main — the coil twin of
+# snarl-fridge's release.yml, which this copies step for step.
+#
+# Bump versionCode + versionName in coil-app/app/build.gradle.kts, merge to main,
+# and this attaches the APK to a `coil-v<versionName>` release here. The dashboard's
+# "load latest build" (coil selected) then fills the publish form from it; who gets
+# it is still chosen by hand there. Nothing here reaches a machine on its own.
+#
+# Secret (Settings → Secrets and variables → Actions):
+#   DEBUG_KEYSTORE_BASE64   base64 of the ~/.android/debug.keystore every machine's
+#                           APK was signed with — the same key the fridge fleet
+#                           uses (both carry certificate c3d1dfdb…, checked from
+#                           the coil-v0.79.0 and coil-v0.80.0 APKs). Android
+#                           refuses an update signed with any other key.
+# No token secret: the release lives in this repository, so the workflow's own
+# GITHUB_TOKEN with contents: write is enough.
+#
+# Run it by hand with dry_run (the default) to prove the secret and the build
+# without releasing anything.
+name: coil-release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'coil-app/**'
+      - '.github/workflows/coil-release.yml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and verify only — do not release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coil-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: coil-app
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # The certificate every machine's installed APK carries. The built APK is
+      # checked against this, not the keystore: on 2026-10-01 the fridge keystore
+      # was right and its APK was signed with another key anyway.
+      FLEET_CERT_SHA256: c3d1dfdb1cce516d5c4c983c4bfe50a5ef2a673c296696d4e18413974a746f52
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          code=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' app/build.gradle.kts)
+          name=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "tag=coil-v$name" >> "$GITHUB_OUTPUT"
+          echo "coil $name (versionCode $code)"
+
+      - name: Decide
+        id: plan
+        run: |
+          dry="${{ inputs.dry_run }}"
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then already=true; else already=false; fi
+          build=false; publish=false
+          if [ "$already" = false ] || [ "$dry" = true ]; then build=true; fi
+          if [ "$already" = false ] && [ "$dry" != true ]; then publish=true; fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          if [ "$already" = true ] && [ "$dry" != true ]; then
+            echo "::notice::${{ steps.version.outputs.tag }} is already released — bump versionCode and versionName to publish a new build."
+          fi
+          echo "already released: $already · dry run: ${dry:-false} · build: $build · publish: $publish"
+
+      - uses: actions/setup-java@v5
+        if: steps.plan.outputs.build == 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Install the fleet signing key
+        if: steps.plan.outputs.build == 'true'
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "::error::DEBUG_KEYSTORE_BASE64 is not set on this repository. Without the fleet's key the APK cannot update any machine."
+            exit 1
+          fi
+          # AGP signs debug builds with ~/.android/debug.keystore.
+          mkdir -p ~/.android
+          # Strip whitespace first: a secret pasted from a terminal can carry
+          # line breaks or a trailing newline that a strict decode rejects.
+          printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > ~/.android/debug.keystore
+          echo "keystore: $(wc -c < ~/.android/debug.keystore) bytes"
+          # keytool prints its errors on stdout; show them when it fails.
+          if ! out=$(keytool -list -v -keystore ~/.android/debug.keystore \
+                       -storepass android -alias androiddebugkey 2>&1); then
+            echo "$out" | head -5
+            echo "::error::keytool cannot read the keystore from DEBUG_KEYSTORE_BASE64 (see above)"
+            exit 1
+          fi
+          echo "$out" | grep -E "SHA256:"
+
+      - name: Build
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug
+          # One APK serves every machine. A build carrying a machine's identity
+          # provisions every machine it reaches as that machine. Coil reads these
+          # from local.properties, which a runner never has — prove it.
+          bc=$(find app/build/generated -name BuildConfig.java -path '*debug*' | head -1)
+          [ -n "$bc" ] || { echo "::error::generated BuildConfig.java not found — cannot prove the build carries no identity"; exit 1; }
+          grep -q 'TEST_MACHINE_KEY = "";' "$bc" && grep -q 'TEST_MACHINE_DEVICE_CODE = "";' "$bc" || {
+            echo "::error::build carries a machine identity — refusing to release"; exit 1; }
+          echo "no machine identity in $bc"
+
+      - name: Verify the APK carries the fleet's certificate
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          apksigner="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          [ -x "$apksigner" ] || apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          echo "using $apksigner"
+          out=$("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk 2>&1) || true
+          got=$(printf '%s\n' "$out" | grep -oP 'Signer #1 certificate SHA-256 digest: \K[0-9a-f]+' || true)
+          if [ -z "$got" ]; then
+            printf '%s\n' "$out" | head -20
+            echo "::error::Could not read the APK's signing certificate (apksigner output above). Not releasing."
+            exit 1
+          fi
+          echo "APK certificate: $got"
+          echo "fleet expects:   $FLEET_CERT_SHA256"
+          if [ "$got" != "$FLEET_CERT_SHA256" ]; then
+            echo "::error::The APK is not signed with the fleet's key. Every machine would refuse it (INSTALL_FAILED_UPDATE_INCOMPATIBLE). Not releasing."
+            exit 1
+          fi
+
+      - name: Publish release
+        if: steps.plan.outputs.publish == 'true'
+        run: |
+          apk="coil-${{ steps.version.outputs.name }}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$apk"
+          # Changes since the previous coil release, limited to the coil app — this
+          # repository also carries the backend. A release's notes record the
+          # commit it was built from; hand-made ones (0.79.0, 0.80.0) don't.
+          prev_tag=$(gh release list --limit 100 --json tagName \
+            --jq '[.[] | select(.tagName | startswith("coil-v"))][0].tagName // empty')
+          prev_sha=""
+          if [ -n "$prev_tag" ]; then
+            prev_sha=$(gh release view "$prev_tag" --json body --jq .body \
+              | grep -oP '^commit: \K[0-9a-f]{40}' || true)
+          fi
+          {
+            echo "versionCode: ${{ steps.version.outputs.code }}"
+            echo "versionName: ${{ steps.version.outputs.name }}"
+            echo "commit: ${{ github.sha }}"
+            echo "sha256: $(sha256sum "$apk" | cut -d' ' -f1)"
+            echo
+            if [ -n "$prev_sha" ] && git cat-file -e "$prev_sha" 2>/dev/null; then
+              echo "Changes since $prev_tag:"
+              git log --no-merges --format='- %s' "$prev_sha..${{ github.sha }}" -- .
+            else
+              echo "Recent coil changes:"
+              git log --no-merges --format='- %s' -n 15 -- .
+            fi
+          } > notes.md
+          gh release create "${{ steps.version.outputs.tag }}" "$apk" \
+            --target "${{ github.sha }}" \
+            --title "coil v${{ steps.version.outputs.name }}" \
+            --notes-file notes.md
+          echo "::notice::Released ${{ steps.version.outputs.tag }} — load it from Fleet → Releases (coil)."
