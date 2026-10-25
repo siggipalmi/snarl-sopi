@@ -32,11 +32,13 @@ else
   # From 0.80.0 the app switches automatic time back on at every start by itself,
   # Device Owner or not, once it holds this grant. It survives app updates.
   s pm grant $PKG_DEBUG android.permission.WRITE_SECURE_SETTINGS && echo "WRITE_SECURE_SETTINGS granted"
-  s monkey -p $PKG_DEBUG -c android.intent.category.LAUNCHER 1 >/dev/null
+  s monkey -p $PKG_DEBUG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
   echo "version: $(s dumpsys package $PKG_DEBUG | grep -m1 versionName)"
 fi
 
 sleep 10
 echo "== after: $(s date) · auto_time=$(s settings get global auto_time)"
-echo "device owner: $(s dpm list-owners | tail -n +2)"
+# Not `dpm list-owners`: Android 11 (the WM55) has no such subcommand.
+OWNER=$(s dumpsys device_policy | grep -i -A3 "device owner" | grep -o 'ComponentInfo{[^}]*}' | head -1)
+echo "device owner: ${OWNER:-none}"
 echo "Next: issue the pairing code in the dashboard; it is typed on the kiosk screen."
