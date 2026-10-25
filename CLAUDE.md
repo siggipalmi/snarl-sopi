@@ -52,6 +52,11 @@ cohorts, Device Owner and machine commands stay with Siggi.
   this build does not do. `OPEN-ISSUES.md` in the coil app flagged exactly this at ~v0.50.5
   ("deviceCode used as a placeholder machine key") and it is still true at 0.78.2.
 
+- **Fixed from coil 0.79.0: the app pairs with a six-digit code** from the dashboard
+  (`/api/v1/provisioning/pair`), which hands it its own key. Both Grótta machines (`62160479`,
+  `62160484`) were commissioned this way on 2026-10-25 and report with real keys. A machine still
+  holding an old identity gets to the pairing screen through PIN → "setja upp nýjan sjálfsala",
+  which keeps its local settings — prefer it to wiping app data.
 - Coil machines that DO work appear to carry a key **baked into their APK** at build time
   (`TEST_MACHINE_KEY` in `local.properties`). `62160492` connects to the proxy with a valid key,
   and the proxy validates before accepting, so that machine holds a real one. That contradicts
@@ -66,6 +71,12 @@ cohorts, Device Owner and machine commands stay with Siggi.
 - Check with `/api/v1/debug/weimi-device?deviceCode=X`, which uses the backend's own credentials
   rather than the app's. (Those `debug/weimi-*` routes have no auth middleware — worth fixing.)
 - Fridges do not resolve identity through Weimi and are unaffected.
+- **Nayax names are labels, not links.** The reader in Grótta vinstri (Nayax machine 227890869)
+  is named "62160481-Grótta vinstri" in Nayax, but 62160481 is Klettatröð – IWO. The backend
+  links readers by the numeric Nayax ID set by hand (`nayaxMachineId`), never by the name — check
+  the ID, not the label, before believing which machine a sale belongs to.
+- The dashboard header's **"app v0.21"** is seed data from `src/db.js` that nothing updates; the
+  real build is the number in brackets, filled in by the app's hourly update check.
 
 ## Aisle dispensing modes (2026-10-22)
 
@@ -103,8 +114,9 @@ one tile, price it once and decrement both.
   `auto_time` off (2026-10-24) and sold nothing for two days. What the screen showed was a Weimi
   catalog failure, `SSLHandshakeException … Certum Trusted Network CA … insecure hash function` —
   which reads like Weimi's certificate and is not a reason to contact Weimi until a correct clock
-  has been tried. (Not yet confirmed to clear once the clock is fixed.) Check the date in the
-  pull-down shade first; it is reachable from the setup screen, where the clock long-press is not.
+  has been tried. **Confirmed 2026-10-25:** with the clock right, 62160479 loaded its catalog from
+  Weimi at once — the certificate was never the problem. Check the date in the pull-down shade
+  first; it is reachable from the setup screen, where the clock long-press is not.
 - From coil 0.80.0 the app says **"klukkan í vélinni er röng"** on the setup and error screens and
   switches automatic time back on at every start — as Device Owner, or after a one-time
   `pm grant isl.snudursopi.vending.debug android.permission.WRITE_SECURE_SETTINGS`.
@@ -120,11 +132,11 @@ one tile, price it once and decrement both.
       ~/Library/Android/sdk/platform-tools/adb -s <ip:port> shell setprop persist.adb.tcp.port 5555
       ~/Library/Android/sdk/platform-tools/adb -s <ip:port> shell getprop persist.adb.tcp.port
 
-  Accepted on `62160484` (reads back `5555`) on 2026-10-23. **Unproven**: the board accepting the
-  write is not the same as adbd honouring it at boot, and that can only be tested by a reboot. Do
-  not spend a placed machine's reboot on the experiment — 62160484 will answer it for free the
-  next time it restarts for its own reasons. If it holds, it is the answer to the unattended
-  remote access problem the handovers open with.
+  Set on `62160484` on 2026-10-23. **It holds:** on 2026-10-25, after the machine had restarted,
+  `adb connect 100.74.205.17:5555` connected with nobody at the screen — adbd can only listen on
+  5555 if it came back up honouring the property. So a pinned machine can be reached remotely,
+  which is the answer to the unattended-access problem the handovers open with. `62160479` was
+  pinned the same day (by `adb-onepass.sh`, which pins every machine it touches).
 
   Do NOT run `adb tcpip 5555` on a machine whose connection you cannot afford to lose: it restarts
   adbd and drops the current session to come back on the new port. Save it for after the work is
