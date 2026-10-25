@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import isl.snudursopi.vending.domain.ConnectionState
+import isl.snudursopi.vending.ui.components.ClockWarning
 import isl.snudursopi.vending.ui.components.StatusBar
 import isl.snudursopi.vending.ui.theme.AppColors
 import isl.snudursopi.vending.ui.theme.AppFonts
@@ -186,6 +187,10 @@ private fun CustomerView(nextRetryAtMillis: Long) {
                 PulsingDots()
             }
         }
+
+        // Customers see it too, which is harmless; the point is that whoever comes
+        // to fix the machine reads the cause without needing the PIN.
+        ClockWarning(Modifier.padding(top = 32.dp))
     }
 }
 
@@ -274,6 +279,9 @@ private fun OperatorView(
             fontSize = 12.sp,
             color = AppColors.MutedSoft,
         )
+
+        // The likeliest cause of the trace below, in words, when it applies.
+        ClockWarning(Modifier.padding(top = 14.dp))
 
         Spacer(Modifier.height(18.dp))
 

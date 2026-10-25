@@ -72,6 +72,10 @@ class MainActivity : ComponentActivity() {
         // only). The PIN-gated Diagnostics flow drops/re-asserts this for
         // maintenance.
         KioskManager.enableLockTask(this)
+
+        // Automatic time back on at every start. The start after a power cut is
+        // exactly when it matters: see ClockGuard.
+        ClockGuard.enforceAutoTime(this)
     }
 
     override fun onResume() {
