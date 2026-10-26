@@ -2205,7 +2205,9 @@ function readerSwap(prev, reader, now) {
   const prevSerial = prev && prev.reader && prev.reader.serial;
   const history = (prev && Array.isArray(prev.readerHistory)) ? prev.readerHistory : [];
   const since = (prev && prev.readerSince) || null;
-  if (!reader || !reader.serial || reader.serial === prevSerial) {
+  // A serial stored backwards before the byte-order fix (6.73.9) is the same reader, not a swap.
+  const sameReader = prevSerial && reader && reader.serial && prevSerial.split('').reverse().join('') === reader.serial;
+  if (!reader || !reader.serial || reader.serial === prevSerial || sameReader) {
     return { readerSince: since, readerHistory: history };
   }
   // A different reader (or the first one seen): the old one goes into the history.
@@ -2218,6 +2220,19 @@ function readerInfo(r) {
   if (!r || typeof r !== 'object') return null;
   const out = {};
   for (const k of READER_KEYS) if (typeof r[k] === 'string' && r[k].trim()) out[k] = r[k].trim().slice(0, 64);
+  // *** THE READER SENDS NUMBERS LEAST-SIGNIFICANT BYTE FIRST. App 0.69.1-0.69.2 passed them on as
+  // they came: 8626020715 reported serial 6341825294334340 where Nayax Core lists 0434334925281436,
+  // and country/currency "6001" (bytes 60 01 = 352, Iceland/ISK). 0.69.3+ sends them in order and
+  // marks it with v "2"; correct the older reports here so the header is right before every machine
+  // has updated.
+  if (r.v !== '2') {
+    if (out.serial && /^[0-9]+$/.test(out.serial)) out.serial = out.serial.split('').reverse().join('');
+    for (const k of ['country', 'currency']) {
+      if (out[k] && /^([0-9a-f]{2})+$/i.test(out[k]) && out[k].length <= 8) {
+        out[k] = String(parseInt(out[k].match(/../g).reverse().join(''), 16));
+      }
+    }
+  }
   return Object.keys(out).length ? out : null;
 }
 
