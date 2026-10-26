@@ -671,10 +671,9 @@ class FridgeViewModel(
         unlockedAt = System.currentTimeMillis()
         android.util.Log.i(
             "FridgeDoor",
-            "UNLOCK issued for cabinets ${planogram.spec.lockIndices} " +
-                "(hold defaults to the SDK minimum of 6s)",
+            "UNLOCK issued for cabinets ${planogram.spec.lockIndices} (hold ${CUSTOMER_HOLD_S}s)",
         )
-        planogram.spec.lockIndices.forEach { hardware.openLock(it) }
+        planogram.spec.lockIndices.forEach { hardware.openLock(it, CUSTOMER_HOLD_S) }
         _ui.value = _ui.value.copy(
             phase = FridgePhase.UNLOCKED,
             cabinetsOpen = planogram.spec.cabinets.map { it.name },
@@ -1314,6 +1313,14 @@ private const val STABILITY_THRESHOLD_G = 15
 
 /** Quiet period after the last movement before we call shopping finished. */
 private const val STABLE_AFTER_CHANGE_MS = 10_000L
+
+/**
+ * How long each door's bolt stays released after a card is accepted (0.69.2). Both doors unlock
+ * together; a door nobody opens re-locks after this. It was the SDK minimum of 6 s, so a customer
+ * who opened the right door found the left one already locked (Siggi, 2026-10-26: 15 s). The
+ * purchase still ends 10 s after the last weight change, so this does not lengthen a sale.
+ */
+private const val CUSTOMER_HOLD_S = 15
 
 /** If nothing ever moves, end the session as "nothing taken" after this. */
 private const val NO_ACTIVITY_TIMEOUT_MS = 45_000L
