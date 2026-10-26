@@ -114,6 +114,22 @@ capacity, goods info and goods assignment only — no dispensing configuration. 
 no concept of two aisles being one product: a twin-spiral aisle would need the planogram to show
 one tile, price it once and decrement both.
 
+## Nayax readers: a guest can reset them (2026-10-26)
+
+Blue Hotel (`8626020716`) stopped taking cards at 01:21 UTC. The reader's own log showed
+`Def. Params. Set.` + `Power Down`, then `Roll Call V00`, no `Marshall:` traffic, DEX attempts, no
+MQTT and the server ping moving from 1000 s to 3000 s. That is a **factory reset done on the reader**:
+a guest guessed the technician code (Nayax default `123123`) and pressed everything. Nothing shows
+in Nayax Core's machine or queue history, because Core still holds the right settings; the reader
+lost its copy and stops receiving commands until its next check-in (~50 min), when it came back.
+
+- Both sides timing out (`Marshall: Mac,Err: Rx timeout` on the reader, `no onReady … 90s` in the
+  app) means reader config or cabling, never our port choice.
+- Technician codes are set in Nayax Core (VPOS Touch group attributes → Technician Code). Never
+  leave a reader on the default.
+- Our own admin sheet has the same exposure on apps older than 0.69.0 (shared `123456`, no
+  lockout). Give every placed machine 0.69.0+ and its own PIN.
+
 ## Setting up a new machine
 
 - **Check `auto_time` first.** `settings get global auto_time` must be `1`. A wrong clock fails TLS
