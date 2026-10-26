@@ -24,13 +24,17 @@ class ReaderInfoTest {
 
     @Test fun handshakeFieldsAreNamed() {
         val c = vmc_link.vpos_config_t()
-        c.vpos_serial = "0434123456".toByteArray()
+        // As 8626020715's reader sent them (2026-10-26); Nayax Core lists 0434334925281436.
+        c.vpos_serial = "6341825294334340".toByteArray()
         c.monyx_id = "M12345"
-        c.currency_code = "352".toByteArray()
+        c.country_code = byteArrayOf(0x60, 0x01)
+        c.currency_code = byteArrayOf(0x60, 0x01)
         val info = readerInfoOf(c)
-        assertEquals("0434123456", info["serial"])
+        assertEquals("0434334925281436", info["serial"])
         assertEquals("M12345", info["monyxId"])
+        assertEquals("352", info["country"])
         assertEquals("352", info["currency"])
+        assertEquals("2", info["v"])
         assertFalse(info.containsKey("merchantId"))
     }
 }

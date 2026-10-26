@@ -749,18 +749,36 @@ class MarshallPaymentController(
 }
 
 
-/** The handshake's identity fields as text. Byte fields are ASCII on the readers seen so far; anything else is shown as hex. */
+/**
+ * The handshake's identity fields as text.
+ *
+ * *** THE READER SENDS ITS NUMBERS LEAST-SIGNIFICANT BYTE FIRST. Confirmed on 8626020715
+ * (2026-10-26): the raw serial bytes read "6341825294334340" while Nayax Core lists the reader as
+ * 0434334925281436, and country/currency arrived as 60 01 = 0x0160 = 352, Iceland and ISK. So the
+ * serial is reversed and the two codes are little-endian numbers. merchantId/terminalId are left
+ * as raw hex until a known value confirms their order. "v" tells the backend this order is fixed
+ * (0.69.1-0.69.2 sent it reversed, and the backend corrects those).
+ */
 internal fun readerInfoOf(c: com.bitmick.marshall.vmc.vmc_link.vpos_config_t): Map<String, String> = buildMap {
     fun add(k: String, v: String?) { v?.trim()?.takeIf { it.isNotEmpty() }?.let { put(k, it.take(64)) } }
-    add("serial", bytesText(c.vpos_serial))
+    add("v", "2")
+    add("serial", bytesText(c.vpos_serial?.reversedArray()))
     add("monyxId", c.monyx_id)
     add("merchantId", bytesText(c.merchant_id))
     add("terminalId", bytesText(c.acquirer_terminal_id))
     add("mainFw", c.main_fw_ver)
     add("posFw", c.pos_fw_ver)
-    add("country", bytesText(c.country_code))
-    add("currency", bytesText(c.currency_code))
+    add("country", littleEndianNumber(c.country_code))
+    add("currency", littleEndianNumber(c.currency_code))
     add("location", bytesText(c.machine_location))
+}
+
+/** Little-endian unsigned number as decimal text: 60 01 -> "352". */
+internal fun littleEndianNumber(b: ByteArray?): String? {
+    if (b == null || b.isEmpty() || b.size > 7) return null
+    var n = 0L
+    for (i in b.indices.reversed()) n = (n shl 8) or (b[i].toLong() and 0xff)
+    return n.toString()
 }
 
 internal fun bytesText(b: ByteArray?): String? {
