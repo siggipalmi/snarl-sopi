@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.domain
 
+import isl.snudursopi.shared.AdminPinHash
+
 /**
  * One basket in the fridge planogram, as delivered in the `fridge.baskets[]`
  * block of the machine config (backend contract v5.67).
