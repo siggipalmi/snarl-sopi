@@ -28,7 +28,7 @@ class AdminBackendHttp(
     private val baseUrl: String,
     private val machineKey: String,
     httpClient: OkHttpClient? = null,
-) {
+) : isl.snudursopi.shared.backend.BackendPoster {
     private val mapper = jacksonObjectMapper()
     private val client: OkHttpClient = httpClient ?: OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -47,7 +47,7 @@ class AdminBackendHttp(
      * perspective. The backend includes the existing complaintId in the
      * response body.
      */
-    suspend fun postJson(path: String, body: Map<String, Any?>): JsonNode =
+    override suspend fun postJson(path: String, body: Map<String, Any?>): JsonNode =
         withContext(Dispatchers.IO) {
             val json = mapper.writeValueAsString(body)
             val req = Request.Builder()

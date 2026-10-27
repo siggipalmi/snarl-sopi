@@ -210,6 +210,16 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   the repo's own token. Anything that must behave the same on every machine (updater, log relay,
   clock guard, screen watchdog, Nayax link and status report, pairing) is to be built once and
   shared between the two, not ported by hand a second time.
+- **`shared/` is that place** (coil 0.80.5 / fridge 0.69.4): an Android library both app builds
+  include (`project(":shared")` with `projectDir = ../shared`). It holds self-healing (crash
+  recovery, watchdog, relaunch), the auto-revert `RecoveryGuard`, the APK installer, `ClockGuard`,
+  `ScreenWatchdog`, `AppVersion` (read from the package manager, never `BuildConfig`) and the
+  payment-status reporter. **The receiver classes stay in each app under their old names**
+  (`WatchdogReceiver`, `update.UpdateResultReceiver`, `KioskAdminReceiver`): alarms and installer
+  callbacks set by the build being replaced are explicit Intents for those names, and Device Owner
+  is recorded by that component name. Each app hands them to `Kiosk.init(...)` first thing in
+  `Application.onCreate`. Local builds: both apps need `local.properties` with `sdk.dir`;
+  `shared/build` is one directory, so build the two apps one after the other, not at once.
 
 - Bump `snarl-sopi-backend/package.json` version on every change; Health shows it.
 - Check: `node --check` on changed `src/*.js`, and parse the `<script>` blocks of

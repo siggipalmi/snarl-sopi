@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import isl.snudursopi.shared.backend.PaymentLinkStatus
+import isl.snudursopi.shared.backend.PaymentStatusReporter
 
 /**
  * The fridge's whole backend surface in one place: planogram in, settlements

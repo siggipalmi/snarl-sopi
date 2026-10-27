@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import isl.snudursopi.vending.ClockGuard
+import isl.snudursopi.shared.ClockGuard
 import isl.snudursopi.vending.ui.theme.AppColors
 import isl.snudursopi.vending.ui.theme.AppFonts
 import kotlinx.coroutines.delay

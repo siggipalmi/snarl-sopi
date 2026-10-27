@@ -2,7 +2,7 @@ package isl.snudursopi.fridge.update
 
 import android.content.Context
 import android.util.Log
-import isl.snudursopi.fridge.RecoveryGuard
+import isl.snudursopi.shared.RecoveryGuard
 import isl.snudursopi.fridge.data.FridgeIdentityStore
 import isl.snudursopi.fridge.data.backend.FridgeBackendConfig
 import isl.snudursopi.fridge.data.backend.FridgeBackendHttp

@@ -1,16 +1,12 @@
 package isl.snudursopi.fridge.update
 
-import android.app.PendingIntent
 import android.app.admin.DevicePolicyManager
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageInstaller
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.Build
 import android.util.Log
-import isl.snudursopi.fridge.AppVersion
-import isl.snudursopi.fridge.RecoveryGuard
+import isl.snudursopi.shared.AppVersion
+import isl.snudursopi.shared.RecoveryGuard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -215,44 +211,9 @@ class AppUpdater(private val context: Context) {
     companion object {
         const val TAG = "AppUpdater"
 
-        /**
-         * Hand an APK to PackageInstaller. As Device Owner this installs silently and
-         * the process is replaced on success; the outcome goes to [UpdateResultReceiver].
-         *
-         * [allowDowngrade] is for auto-revert, i.e. installing an OLDER known-good
-         * build. Android blocks downgrades by default; debuggable builds permit them,
-         * and we also set INSTALL_ALLOW_DOWNGRADE by reflection as belt and braces.
-         */
-        fun installApkFile(context: Context, apk: File, allowDowngrade: Boolean = false) {
-            val pi = context.packageManager.packageInstaller
-            val params = PackageInstaller.SessionParams(
-                PackageInstaller.SessionParams.MODE_FULL_INSTALL,
-            )
-            params.setAppPackageName(context.packageName)
-            if (allowDowngrade) {
-                try {
-                    val f = PackageInstaller.SessionParams::class.java
-                        .getDeclaredField("installFlags")
-                    f.isAccessible = true
-                    f.setInt(params, f.getInt(params) or 0x00000080) // INSTALL_ALLOW_DOWNGRADE
-                } catch (e: Exception) {
-                    Log.w(TAG, "allow-downgrade flag not set (debuggable build still permits it)", e)
-                }
-            }
-            val sessionId = pi.createSession(params)
-            pi.openSession(sessionId).use { s ->
-                s.openWrite("base.apk", 0, apk.length()).use { out ->
-                    apk.inputStream().use { it.copyTo(out) }
-                    s.fsync(out)
-                }
-                val intent = Intent(context, UpdateResultReceiver::class.java)
-                    .setAction(UpdateResultReceiver.ACTION)
-                val flags = if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
-                val pending = PendingIntent.getBroadcast(context, sessionId, intent, flags)
-                s.commit(pending.intentSender)
-            }
-            Log.i(TAG, "commit() called (session $sessionId, downgrade=$allowDowngrade)")
-        }
+        /** One copy for both apps now: see shared ApkInstaller. */
+        fun installApkFile(context: Context, apk: File, allowDowngrade: Boolean = false) =
+            isl.snudursopi.shared.ApkInstaller.installApkFile(context, apk, allowDowngrade)
 
         /**
          * Per-machine update manifest endpoint. The backend resolves rollout and

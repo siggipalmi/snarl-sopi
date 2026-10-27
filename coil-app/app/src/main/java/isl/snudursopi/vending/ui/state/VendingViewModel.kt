@@ -3,7 +3,7 @@ package isl.snudursopi.vending.ui.state
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import isl.snudursopi.vending.ClockGuard
+import isl.snudursopi.shared.ClockGuard
 import isl.snudursopi.vending.RestartManager
 import isl.snudursopi.vending.api.WeimiApiClient
 import isl.snudursopi.vending.api.WeimiCredentials
@@ -24,11 +24,11 @@ import isl.snudursopi.vending.data.backend.AdminBackendConfig
 import isl.snudursopi.vending.data.backend.AdminBackendHttp
 import isl.snudursopi.vending.data.ads.AdCache
 import isl.snudursopi.vending.data.backend.LogRelay
-import isl.snudursopi.vending.data.backend.PaymentLinkStatus
-import isl.snudursopi.vending.data.backend.PaymentStatusReporter
+import isl.snudursopi.shared.backend.PaymentLinkStatus
+import isl.snudursopi.shared.backend.PaymentStatusReporter
 import isl.snudursopi.vending.data.backend.RemoteAd
 import isl.snudursopi.vending.data.backend.BackendImage
-import isl.snudursopi.vending.RecoveryGuard
+import isl.snudursopi.shared.RecoveryGuard
 import isl.snudursopi.vending.data.backend.BackendException
 import isl.snudursopi.vending.data.backend.ConfigClient
 import isl.snudursopi.vending.data.backend.QuoteClient

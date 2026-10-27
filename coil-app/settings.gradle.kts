@@ -21,3 +21,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "Snudur Sopi"
 include(":app")
+// Code both kiosk apps share, one directory up. Each app build compiles it itself.
+include(":shared")
+project(":shared").projectDir = file("../shared")

@@ -32,8 +32,8 @@ android {
         applicationId = "isl.snudursopi.vending"
         minSdk = 24
         targetSdk = 34
-        versionCode = 160
-        versionName = "0.80.4"
+        versionCode = 161
+        versionName = "0.80.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -104,6 +104,8 @@ dependencies {
     // mismatches the 2.0.0 stdlib and causes "String != String" /
     // "cannot infer type" compile failures across the whole module.
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.0.0"))
+    // Self-healing, auto-revert, clock guard, payment-status report… — see ../shared.
+    implementation(project(":shared"))
 
     // ---- Compose BOM (manages versions) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.09.00")

@@ -837,7 +837,7 @@ sealed class PairResult {
     data object NoNetwork : PairResult()
     data object ServerError : PairResult()
     /**
-     * Failed, and the clock reads before [isl.snudursopi.vending.ClockGuard.FLOOR_MILLIS].
+     * Failed, and the clock reads before [isl.snudursopi.shared.ClockGuard.FLOOR_MILLIS].
      * TLS fails before the request leaves the machine, so the code was never spent.
      */
     data object ClockWrong : PairResult()

@@ -25,12 +25,14 @@ on:
     branches: [main]
     paths:
       - 'fridge-app/**'
+      - 'shared/**'
       - '.github/workflows/fridge-release.yml'
   # A pull request touching the app gets the same build and checks, never a release:
   # the Decide step forces dry_run on pull_request events.
   pull_request:
     paths:
       - 'fridge-app/**'
+      - 'shared/**'
       - '.github/workflows/fridge-release.yml'
   workflow_dispatch:
     inputs:

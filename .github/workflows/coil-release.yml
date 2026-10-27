@@ -24,12 +24,14 @@ on:
     branches: [main]
     paths:
       - 'coil-app/**'
+      - 'shared/**'
       - '.github/workflows/coil-release.yml'
   # A pull request touching the app gets the same build and checks, never a release:
   # the Decide step forces dry_run on pull_request events.
   pull_request:
     paths:
       - 'coil-app/**'
+      - 'shared/**'
       - '.github/workflows/coil-release.yml'
   workflow_dispatch:
     inputs:

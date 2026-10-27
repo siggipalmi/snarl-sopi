@@ -18,6 +18,10 @@ import isl.snudursopi.vending.ui.state.VendingViewModel
 import isl.snudursopi.vending.ui.state.VendingViewModelFactory
 import isl.snudursopi.vending.ui.theme.AppColors
 import isl.snudursopi.vending.ui.theme.SnudurSopiTheme
+import isl.snudursopi.shared.ClockGuard
+import isl.snudursopi.shared.Liveness
+import isl.snudursopi.shared.RecoveryGuard
+import isl.snudursopi.shared.ScreenWatchdog
 
 class MainActivity : ComponentActivity() {
 

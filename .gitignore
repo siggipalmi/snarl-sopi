@@ -40,3 +40,6 @@ captures/
 *.iml
 .DS_Store
 Thumbs.db
+
+# Kotlin compiler daemon session files, written beside any Gradle project built locally
+.kotlin/

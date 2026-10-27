@@ -29,7 +29,7 @@ class FridgeBackendHttp(
     private val baseUrl: String,
     private val machineKey: String,
     httpClient: OkHttpClient? = null,
-) {
+) : isl.snudursopi.shared.backend.BackendPoster {
     private val mapper = jacksonObjectMapper()
     private val client: OkHttpClient = httpClient ?: OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -51,7 +51,7 @@ class FridgeBackendHttp(
         }
 
     /** POST a JSON payload built from a Kotlin map. */
-    suspend fun postJson(path: String, body: Map<String, Any?>): JsonNode =
+    override suspend fun postJson(path: String, body: Map<String, Any?>): JsonNode =
         postRawJson(path, mapper.writeValueAsString(body))
 
     /** Plain GET returning parsed JSON on 2xx. */
