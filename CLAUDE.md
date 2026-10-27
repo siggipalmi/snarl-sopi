@@ -203,6 +203,14 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
 
 ## This repo
 
+- **Both apps live here since 2026-10-27:** `coil-app/` and `fridge-app/` (the former
+  `siggipalmi/snarl-fridge`, imported with its history by `git subtree add`; that repo is to be
+  archived). Each keeps its own Gradle project, version line, package and CLAUDE.md. Fridge
+  releases now build from `.github/workflows/fridge-release.yml` here, same shape as coil's, with
+  the repo's own token. Anything that must behave the same on every machine (updater, log relay,
+  clock guard, screen watchdog, Nayax link and status report, pairing) is to be built once and
+  shared between the two, not ported by hand a second time.
+
 - Bump `snarl-sopi-backend/package.json` version on every change; Health shows it.
 - Check: `node --check` on changed `src/*.js`, and parse the `<script>` blocks of
   `public/index.html`.
