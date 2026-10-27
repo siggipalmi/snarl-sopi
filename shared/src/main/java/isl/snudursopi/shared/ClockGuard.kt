@@ -1,8 +1,7 @@
-package isl.snudursopi.vending
+package isl.snudursopi.shared
 
 import android.Manifest
 import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -25,7 +24,7 @@ import java.util.Locale
  * pull-down shade to find out.
  *
  * Two jobs, so it can't happen silently again:
- *  - [isWrong] lets the screens say so in plain words ([ClockWarning]).
+ *  - [isWrong] lets the screens say so in plain words.
  *  - [enforceAutoTime] switches automatic time back on at every start, by
  *    whichever means this install has.
  */
@@ -53,6 +52,14 @@ object ClockGuard {
             false
         }
 
+    private fun isDeviceOwner(context: Context): Boolean =
+        try {
+            (context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager)
+                .isDeviceOwnerApp(context.packageName)
+        } catch (e: Exception) {
+            false
+        }
+
     /**
      * Turn automatic time on. Called from MainActivity.onCreate, so every start —
      * including the one after a power cut — puts it back.
@@ -63,14 +70,14 @@ object ClockGuard {
      *  2. Not Device Owner, but WRITE_SECURE_SETTINGS granted once over adb:
      *       pm grant <package> android.permission.WRITE_SECURE_SETTINGS
      *     The grant survives app updates. Write the setting directly.
-     *  3. Neither: nothing an app can do. Diagnostics shows the state, and
-     *     [ClockWarning] says how to fix it by hand.
+     *  3. Neither: nothing an app can do. Diagnostics shows the state, and the
+     *     clock warning says how to fix it by hand.
      */
     fun enforceAutoTime(context: Context): String {
         val result = when {
-            KioskManager.isDeviceOwner(context) -> try {
+            isDeviceOwner(context) -> try {
                 val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-                val admin = ComponentName(context, KioskAdminReceiver::class.java)
+                val admin = Kiosk.adminComponent(context)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     dpm.setAutoTimeEnabled(admin, true)
                 } else {

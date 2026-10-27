@@ -1,9 +1,8 @@
-package isl.snudursopi.fridge
+package isl.snudursopi.shared
 
 import android.app.Application
 import android.content.Context
 import android.util.Log
-import isl.snudursopi.fridge.update.AppUpdater
 import java.io.File
 
 /**
@@ -52,6 +51,7 @@ object RecoveryGuard {
      */
     fun check(app: Application) {
         try {
+            AppVersion.init(app)
             val p = prefs(app)
             val cur = AppVersion.code
             val pending = p.getInt(KEY_PENDING, 0)
@@ -98,7 +98,7 @@ object RecoveryGuard {
                 .putInt(KEY_REVERT_ATTEMPTS, attempts)
                 .commit()
             try {
-                AppUpdater.installApkFile(app, apk, allowDowngrade = true)
+                ApkInstaller.installApkFile(app, apk, allowDowngrade = true)
             } catch (e: Exception) {
                 Log.e(TAG, "revert install failed", e)
             }
@@ -114,6 +114,7 @@ object RecoveryGuard {
      */
     fun confirmHealthy(app: Application) {
         try {
+            AppVersion.init(app)
             val p = prefs(app)
             val cur = AppVersion.code
             val alreadyGood = p.getInt(KEY_KNOWN_GOOD, 0) == cur && knownGoodFile(app).exists()

@@ -46,7 +46,7 @@ import isl.snudursopi.fridge.DevBarPrefs
 import isl.snudursopi.fridge.KioskManager
 import isl.snudursopi.fridge.hardware.nayax.MarshallPaymentController
 import isl.snudursopi.fridge.hardware.nayax.NayaxLink
-import isl.snudursopi.fridge.scheduleAppRelaunch
+import isl.snudursopi.shared.scheduleAppRelaunch
 import isl.snudursopi.fridge.ui.theme.AppColors
 import isl.snudursopi.fridge.ui.theme.AppFonts
 import kotlinx.coroutines.delay
@@ -286,7 +286,7 @@ private fun Actions(
     )
     Spacer(Modifier.height(6.dp))
     Text(
-        "${isl.snudursopi.fridge.AppVersion.name} (${isl.snudursopi.fridge.AppVersion.code})",
+        "${isl.snudursopi.shared.AppVersion.name} (${isl.snudursopi.shared.AppVersion.code})",
         fontFamily = FontFamily.Monospace,
         fontSize = 14.sp,
         color = AppColors.MutedSoft,

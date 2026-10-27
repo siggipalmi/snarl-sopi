@@ -1,7 +1,7 @@
-package isl.snudursopi.fridge.data.backend
+package isl.snudursopi.shared.backend
 
-import isl.snudursopi.fridge.data.backend.PaymentStatusReporter.Companion.HEARTBEAT_MS
-import isl.snudursopi.fridge.data.backend.PaymentStatusReporter.Companion.shouldPost
+import isl.snudursopi.shared.backend.PaymentStatusReporter.Companion.HEARTBEAT_MS
+import isl.snudursopi.shared.backend.PaymentStatusReporter.Companion.shouldPost
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

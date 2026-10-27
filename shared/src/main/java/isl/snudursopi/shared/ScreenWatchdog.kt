@@ -1,4 +1,4 @@
-package isl.snudursopi.vending
+package isl.snudursopi.shared
 
 import android.app.Activity
 import android.content.Context

@@ -36,7 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import isl.snudursopi.vending.BuildConfig
-import isl.snudursopi.vending.ClockGuard
+import isl.snudursopi.shared.ClockGuard
 import isl.snudursopi.vending.domain.ConnectionState
 import isl.snudursopi.vending.proxy.BackendConfig
 import isl.snudursopi.vending.proxy.ProxyState

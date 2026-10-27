@@ -52,6 +52,11 @@ import isl.snudursopi.fridge.ui.theme.AppColors
 import isl.snudursopi.fridge.ui.theme.SnudurSopiTheme
 import androidx.core.view.WindowCompat
 import android.content.Intent
+import isl.snudursopi.shared.ClockGuard
+import isl.snudursopi.shared.Liveness
+import isl.snudursopi.shared.RecoveryGuard
+import isl.snudursopi.shared.Watchdog
+import isl.snudursopi.shared.scheduleAppRelaunch
 
 /**
  * Runs the whole purchase flow against real hardware and real payment, or
@@ -234,6 +239,13 @@ class MainActivity : ComponentActivity() {
         // BootReceiver, because a plain app restart never sees a boot broadcast.
         Watchdog.schedule(applicationContext)
         Liveness.markAlive(applicationContext)
+
+        // Automatic time back on at every start, as the coil app has done since
+        // 0.80.0. The start after a power cut is exactly when it matters: a clock
+        // years off fails every TLS connection while the screen looks healthy
+        // (Grótta 62160479, 2026-10-24, two days without a sale). Device Owner
+        // can set it; otherwise a one-time WRITE_SECURE_SETTINGS grant over adb.
+        ClockGuard.enforceAutoTime(this)
 
         // Demo planogram is only a bootstrap so the machine is usable before
         // the first config poll lands (or on an unprovisioned unit). The
@@ -476,7 +488,7 @@ class MainActivity : ComponentActivity() {
                 }
             },
             paymentStatus = {
-                isl.snudursopi.fridge.data.backend.PaymentLinkStatus(
+                isl.snudursopi.shared.backend.PaymentLinkStatus(
                     up = NayaxLink.isUp(),
                     port = NayaxLink.portPath,
                     lastReadyAtMs = NayaxLink.lastReadyAtMs,
@@ -496,7 +508,7 @@ class MainActivity : ComponentActivity() {
                     val processStartMs = now - (android.os.SystemClock.elapsedRealtime() -
                         android.os.Process.getStartElapsedRealtime())
                     mapOf(
-                        "app" to isl.snudursopi.fridge.AppVersion.name,
+                        "app" to isl.snudursopi.shared.AppVersion.name,
                         "deviceTime" to java.time.Instant.ofEpochMilli(now).toString(),
                         "processStart" to java.time.Instant.ofEpochMilli(processStartMs).toString(),
                         "scales" to scales,

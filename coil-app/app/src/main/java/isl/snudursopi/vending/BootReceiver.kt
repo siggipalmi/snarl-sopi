@@ -3,6 +3,7 @@ package isl.snudursopi.vending
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import isl.snudursopi.shared.Watchdog
 
 /**
  * Auto-launch the vending app when the tablet finishes booting. The

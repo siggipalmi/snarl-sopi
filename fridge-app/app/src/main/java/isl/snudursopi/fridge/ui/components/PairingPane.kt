@@ -33,7 +33,7 @@ import androidx.lifecycle.lifecycleScope
 import isl.snudursopi.fridge.data.FridgeIdentityStore
 import isl.snudursopi.fridge.data.backend.PairResult
 import isl.snudursopi.fridge.data.backend.PairingClient
-import isl.snudursopi.fridge.scheduleAppRelaunch
+import isl.snudursopi.shared.scheduleAppRelaunch
 import isl.snudursopi.fridge.ui.theme.AppColors
 import isl.snudursopi.fridge.ui.theme.AppFonts
 import kotlinx.coroutines.NonCancellable

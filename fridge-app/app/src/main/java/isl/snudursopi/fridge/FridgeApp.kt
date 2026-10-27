@@ -1,6 +1,10 @@
 package isl.snudursopi.fridge
 
 import android.app.Application
+import isl.snudursopi.fridge.update.UpdateResultReceiver
+import isl.snudursopi.shared.CrashRecovery
+import isl.snudursopi.shared.Kiosk
+import isl.snudursopi.shared.RecoveryGuard
 import java.io.File
 
 /**
@@ -22,9 +26,19 @@ import java.io.File
 class FridgeApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        // Before RecoveryGuard: it compares the running build with the one it
-        // is watching, and must use the installed version, not a constant.
-        AppVersion.init(this)
+        // Before RecoveryGuard: it compares the running build with the one it is
+        // watching, and must use the installed version, not a constant (Kiosk.init
+        // reads it). The receivers keep their names so alarms and installer
+        // callbacks from the previous build still resolve.
+        Kiosk.init(
+            this,
+            Kiosk.Config(
+                watchdogReceiver = WatchdogReceiver::class.java,
+                updateResultReceiver = UpdateResultReceiver::class.java,
+                updateResultAction = UpdateResultReceiver.ACTION,
+                adminReceiver = KioskAdminReceiver::class.java,
+            ),
+        )
         if (isMainProcess()) RecoveryGuard.check(this)
         CrashRecovery.install(this)
     }

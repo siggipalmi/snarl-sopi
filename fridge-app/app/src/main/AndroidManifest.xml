@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Lets ClockGuard switch automatic time back on where the app is NOT Device
+         Owner. Never granted at install; granted once over adb with
+           pm grant <package> android.permission.WRITE_SECURE_SETTINGS
+         and kept across updates. Harmless when not granted. -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"
         tools:ignore="ProtectedPermissions" />
 

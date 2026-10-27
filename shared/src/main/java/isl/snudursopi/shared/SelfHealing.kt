@@ -1,4 +1,4 @@
-package isl.snudursopi.vending
+package isl.snudursopi.shared
 
 import android.app.AlarmManager
 import android.app.Application
@@ -12,31 +12,46 @@ private const val TAG = "SelfHealing"
 private const val PREFS = "self_healing"
 
 /**
- * Relaunch the app via an AlarmManager activity PendingIntent — the same path
- * [RestartManager] uses for the operator restart command, which is confirmed to
- * relaunch on this hardware. Going through an alarm sidesteps Android's
- * background-activity-start restrictions (a plain startActivity from a receiver
- * can be silently blocked on API 29+).
+ * Self-healing, proven on the coil kiosks and ported to the fridge; now one copy. The
+ * whole point: an unattended machine must come back on its own from a crash, a wedge,
+ * or a power cut, because nobody is watching it.
+ *
+ * Three overlapping nets, deliberately redundant:
+ *  - [CrashRecovery] — fast path, ~2s after an uncaught exception
+ *  - [Watchdog]      — slow net, catches a wedged (not crashed) app
+ *  - each app's BootReceiver — power-cut recovery
+ *
+ * Both automatic paths have loop guards, so a build that crashes on startup stays DOWN
+ * AND STABLE rather than spinning — which keeps it reachable for an OTA fix instead of
+ * thrashing the machine.
  */
-internal fun scheduleAppRelaunch(ctx: Context, delayMs: Long, requestCode: Int) {
+
+/**
+ * Relaunch the app via an AlarmManager activity PendingIntent. Going through an alarm
+ * sidesteps Android's background-activity-start restrictions — a plain startActivity()
+ * from a receiver is silently blocked on API 29+, which is the kind of failure that looks
+ * like "the watchdog just doesn't work". The target is the app's launcher activity, which
+ * is the kiosk screen in both apps.
+ */
+fun scheduleAppRelaunch(ctx: Context, delayMs: Long, requestCode: Int) {
     val am = ctx.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+    val launch = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
+    if (launch == null) {
+        Log.e(TAG, "no launch intent for ${ctx.packageName} — cannot schedule relaunch")
+        return
+    }
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
     var flags = PendingIntent.FLAG_CANCEL_CURRENT
     if (Build.VERSION.SDK_INT >= 23) flags = flags or PendingIntent.FLAG_IMMUTABLE
-    val pi = PendingIntent.getActivity(
-        ctx,
-        requestCode,
-        Intent(ctx, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-        flags,
-    )
+    val pi = PendingIntent.getActivity(ctx, requestCode, launch, flags)
     runCatching {
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delayMs, pi)
     }.onFailure { Log.e(TAG, "relaunch schedule failed", it) }
 }
 
 /**
- * App liveness heartbeat. [MainActivity] stamps [markAlive] on resume and every
- * ~30s while foreground; the watchdog treats a stale stamp as "app dead/wedged".
+ * App liveness heartbeat. The activity stamps [markAlive] on resume and every ~30s while
+ * foreground; the watchdog treats a stale stamp as "app dead or wedged".
  */
 object Liveness {
     private const val KEY_ALIVE = "lastAliveMs"
@@ -53,14 +68,14 @@ object Liveness {
 }
 
 /**
- * Watchdog: a self-rescheduling alarm that relaunches the app when its heartbeat
- * has gone stale. Delivered to a manifest receiver via AlarmManager, so it runs
- * even if the app process is fully dead (Android starts a new process for it).
- * A loop-guard backs off if relaunches happen too often, so a build that crashes
- * on startup can't spin — it stays down but stable and reachable for an OTA fix.
+ * A self-rescheduling alarm that relaunches the app when its heartbeat goes stale.
+ * Delivered to the app's manifest-registered receiver ([Kiosk.watchdogReceiver]), so
+ * Android starts a fresh process to handle it even if the app is completely dead —
+ * which is precisely when it's needed. A loop guard backs off if relaunches happen too
+ * often, so a build that crashes on startup can't spin.
  */
 object Watchdog {
-    const val ACTION = "isl.snudursopi.vending.WATCHDOG_TICK"
+    const val ACTION = "isl.snudursopi.shared.WATCHDOG_TICK"
     private const val INTERVAL_MS = 2L * 60L * 1000L     // tick ~every 2 min
     private const val STALE_MS = 3L * 60L * 1000L        // dead if no heartbeat in 3 min
 
@@ -80,9 +95,9 @@ object Watchdog {
         }.onFailure { Log.e(TAG, "watchdog schedule failed", it) }
     }
 
-    /** Called by [WatchdogReceiver] each tick: reschedule, then relaunch if stale. */
+    /** Called by the app's WatchdogReceiver each tick: reschedule, then relaunch if stale. */
     fun onTick(ctx: Context) {
-        schedule(ctx) // keep the chain going first
+        schedule(ctx) // keep the chain going FIRST, before anything can throw
         if (!Liveness.isStale(ctx, STALE_MS)) return
         if (!allowRelaunch(ctx)) {
             Log.w(TAG, "app stale but relaunch backoff active — leaving down (reachable for OTA)")
@@ -105,7 +120,7 @@ object Watchdog {
     }
 
     private fun tickIntent(ctx: Context): PendingIntent {
-        val i = Intent(ctx, WatchdogReceiver::class.java).setAction(ACTION)
+        val i = Intent(ctx, Kiosk.watchdogReceiver).setAction(ACTION)
         var flags = PendingIntent.FLAG_UPDATE_CURRENT
         if (Build.VERSION.SDK_INT >= 23) flags = flags or PendingIntent.FLAG_IMMUTABLE
         return PendingIntent.getBroadcast(ctx, 8, i, flags)
@@ -113,9 +128,9 @@ object Watchdog {
 }
 
 /**
- * Crash recovery: an uncaught-exception handler relaunches the app in ~2s (fast
- * path, vs the watchdog's slower net). Rapid repeats grow the delay so a crash
- * loop doesn't spin. Install once from [VendingApp.onCreate].
+ * Crash recovery: an uncaught-exception handler relaunches in ~2s (fast path, vs the
+ * watchdog's slower net). Rapid repeats grow the delay so a crash loop can't spin.
+ * Installed once from Application.onCreate.
  */
 object CrashRecovery {
     private const val KEY_LAST_CRASH = "lastCrashMs"

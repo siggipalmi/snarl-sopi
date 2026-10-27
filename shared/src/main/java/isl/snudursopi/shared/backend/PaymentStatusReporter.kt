@@ -1,4 +1,4 @@
-package isl.snudursopi.vending.data.backend
+package isl.snudursopi.shared.backend
 
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
@@ -21,19 +21,19 @@ data class PaymentLinkStatus(
 )
 
 /**
- * A machine that cannot take cards must say so.
+ * *** A MACHINE THAT CANNOT TAKE CARDS MUST SAY SO.
  *
- * Copied from the fridge app (0.58.0, reader identity 0.69.1). Nothing on the
- * customer screen shows a dead payment link until someone tries to pay, and the
- * relayed log only shows it to someone already looking. This posts the link state
- * to the backend, which raises an alert when it stays down and shows the reader's
- * serial in the machine header (it read "Nayax —" for every coil machine until now).
+ * Nothing on the customer screen shows a dead payment link until someone tries
+ * to pay, and the relayed log only shows it to someone already looking. This
+ * posts the link state to the backend, which raises an alert and emails the AG
+ * admins when it stays down (backend v6.42.0, POST /payment-status), and shows
+ * the reader's serial in the machine header.
  *
- * Samples every 30 s; posts on any change and every 5 minutes regardless, so the
+ * Samples every 30s; posts on any change and every 5 minutes regardless, so the
  * backend can tell "still down" from "stopped reporting".
  */
 class PaymentStatusReporter(
-    private val http: AdminBackendHttp,
+    private val http: BackendPoster,
     private val deviceCode: String,
 ) {
     fun start(scope: CoroutineScope, current: () -> PaymentLinkStatus) {
@@ -76,6 +76,7 @@ class PaymentStatusReporter(
     companion object {
         const val SAMPLE_MS = 30_000L
         const val HEARTBEAT_MS = 5L * 60L * 1000L
+
         /** Pure, so the posting rule is testable without a network. */
         fun shouldPost(last: PaymentLinkStatus?, cur: PaymentLinkStatus, lastPostMs: Long, now: Long): Boolean =
             last == null ||

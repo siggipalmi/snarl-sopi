@@ -63,7 +63,7 @@ class LogRelay(
         if (lines.isEmpty()) return
         val body = mapper.writeValueAsString(
             mapOf(
-                "kioskAppVersion" to isl.snudursopi.fridge.AppVersion.name,
+                "kioskAppVersion" to isl.snudursopi.shared.AppVersion.name,
                 "at" to System.currentTimeMillis(),
                 "lines" to lines,
             ),
