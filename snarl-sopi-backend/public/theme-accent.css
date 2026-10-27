@@ -106,3 +106,57 @@ h1, h2, h3, h4 { font-style: normal; }
    109 class rules, and a class selector beats the universal one every time.
    Without it the pills and panels stay rounded and the look is half-applied. */
 *, *::before, *::after { border-radius: 0 !important; }
+
+/* ---------------------------------------------------------------------
+   4. Layout — referenced against moma.org
+   --------------------------------------------------------------------- */
+/* NO RULES. The reference separates almost nothing with a line: event rows, price rows and whole
+   sections sit on whitespace, and where a boundary is needed it is a change of BACKGROUND, not a
+   border. The dashboard draws 163 borders from --line; black made them cages, and grey would
+   still leave 163 lines. */
+:root { --line: transparent; --clay: transparent; }
+
+/* BANDS, NOT BOXES. --cream-shadow is the body background, not a border colour. Light grey field,
+   white panels, so a panel reads as a sheet on a surface. */
+:root { --cream-shadow: #F2F2F2; }
+
+/* HEADINGS CARRY THE STRUCTURE. The reference gets its hierarchy almost entirely from type: very
+   large, very heavy, tight leading and tracking. The page title was 21px italic, which is why the
+   layout had to lean on borders. */
+/* Weights are specified: Display 900 for headlines and totals, Heading 700 for band labels. */
+.tb-title {
+  font-size: 34px !important; font-weight: 900 !important;
+  letter-spacing: -1.1px !important; line-height: 1.05 !important;
+}
+.ph-title { font-size: 21px !important; font-weight: 700 !important; letter-spacing: -0.5px !important; }
+/* Totals are display type too, not body text. */
+.stat-val, .home-kpis b, .fh-kpi b { font-weight: 900 !important; letter-spacing: -0.5px !important; }
+
+/* NO SHADOWS. Focus rings are not decoration, so they survive. */
+*:not(:focus):not(:focus-visible) { box-shadow: none !important; }
+
+/* UPRIGHT. 20 rules set italic, every one inherited from the Cormorant display face. Listed
+   explicitly rather than reset globally, so a genuine <em> still works. */
+#page-billing .bl-state .big, #page-billing .bl-sum-acct .nm, #page-deals .dl-empty .big, #page-leases .lz-stat .big, .dlpv-big, .fh-kpi b, .hero-tag-input, .home-hello, .home-kpis b, .home-mh, .login-brand, .modal-title, .ph-title, .rl-qty, .rs-title, .sb-wordmark, .stat-val, .tb-title, .ui-card-h b, .ui-mcard-name { font-style: normal !important; }
+
+/* ---------------------------------------------------------------------
+   5. Where the palette earns its place
+   --------------------------------------------------------------------- */
+/* The revenue tile is the heaviest object on the dashboard and was filled with pure black and
+   bronze left over from the old scheme. --c-night is the one palette colour designed to take white
+   text, which is exactly this. The week reads in sky, today in the yellow accent, so the bar an
+   operator is actually looking for is the one that stands out. */
+#dash-today { background: var(--c-night) !important; }
+:root {
+  --hero-label:     rgba(255,255,255,.66);
+  --hero-rule:      rgba(255,255,255,.20);
+  --hero-dim:       rgba(255,255,255,.45);
+  --hero-bar:       var(--c-sky);
+  --hero-bar-today: var(--c-yellow);
+  --hero-up:        var(--c-green);
+  --hero-down:      var(--c-salmon);
+}
+
+/* Attention gets its own colour rather than sharing magenta with alerts: three states that mean
+   different things should not all read the same. */
+:root { --warn-ink: var(--c-orange); --warn-bg: #FDF1DC; }

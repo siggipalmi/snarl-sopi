@@ -19,6 +19,11 @@
   --alert:#B8471F; --alert-bg:#FAEEE9;
   --success:#4A6B2E; --success-bg:#EBF2E6;
   --warn-ink:#7A4E1A; --warn-bg:#F9F0E2;
+  /* Revenue tile. These were hardcoded hexes inside the renderer, which is why the tile could not
+     be themed with the rest of the dashboard. Values unchanged; they are tokens now. */
+  --hero-label:#A79E8E; --hero-rule:#332E28; --hero-dim:#6E675C;
+  --hero-bar:#4A443A; --hero-bar-today:var(--bronze-light);
+  --hero-up:#8FBF9B; --hero-down:#E08A6B;
   --serif:'Cormorant Garamond',Georgia,serif;
   --sans:'Geist',system-ui,sans-serif;
   --mono:'Geist Mono',monospace;
@@ -3383,15 +3388,15 @@ async function renderDashToday(d) {
   const attention = DB.alerts.filter(a => !a.resolved).length;
   const paint = function (spark, deltaHtml) {
     el.innerHTML =
-      '<div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#A79E8E;margin-bottom:7px">' + t('dash.stat.revenueToday') + '</div>' +
+      '<div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--hero-label);margin-bottom:7px">' + t('dash.stat.revenueToday') + '</div>' +
       '<div style="display:flex;align-items:baseline;gap:8px">' +
         '<span style="font-family:var(--serif);font-size:41px;font-weight:500;line-height:1;letter-spacing:-.015em">' + formatKr(d.todayRev) + '</span>' +
         deltaHtml +
       '</div>' + spark +
-      '<div style="display:flex;gap:14px;border-top:1px solid #332E28;margin-top:11px;padding-top:10px">' +
-        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px">' + d.orders + '</div><div style="font-family:var(--mono);font-size:8.5px;color:#A79E8E;text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('dash.stat.ordersToday') + '</div></div>' +
-        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px">' + d.online + '<span style="color:#6E675C">/' + d.total + '</span></div><div style="font-family:var(--mono);font-size:8.5px;color:#A79E8E;text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('common.online') + '</div></div>' +
-        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px;color:' + (attention ? '#E08A6B' : 'var(--cream)') + '">' + attention + '</div><div style="font-family:var(--mono);font-size:8.5px;color:#A79E8E;text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('dash.stat.needAttention') + '</div></div>' +
+      '<div style="display:flex;gap:14px;border-top:1px solid var(--hero-rule);margin-top:11px;padding-top:10px">' +
+        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px">' + d.orders + '</div><div style="font-family:var(--mono);font-size:8.5px;color:var(--hero-label);text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('dash.stat.ordersToday') + '</div></div>' +
+        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px">' + d.online + '<span style="color:var(--hero-dim)">/' + d.total + '</span></div><div style="font-family:var(--mono);font-size:8.5px;color:var(--hero-label);text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('common.online') + '</div></div>' +
+        '<div style="flex:1"><div style="font-family:var(--mono);font-size:14px;color:' + (attention ? 'var(--hero-down)' : 'var(--cream)') + '">' + attention + '</div><div style="font-family:var(--mono);font-size:8.5px;color:var(--hero-label);text-transform:uppercase;letter-spacing:.06em;margin-top:2px">' + t('dash.stat.needAttention') + '</div></div>' +
       '</div>';
   };
   paint('', '');   // paint immediately; sparkline fills in when the series lands
@@ -3405,14 +3410,14 @@ async function renderDashToday(d) {
     const bars = series.map((b, i) => {
       const h = b.revenueKr > 0 ? Math.max(3, Math.round((b.revenueKr / maxR) * 100)) : 2;
       const isToday = i === series.length - 1;
-      return '<div title="' + formatKr(b.revenueKr) + '" style="flex:1;height:' + h + '%;border-radius:2px 2px 0 0;background:' + (isToday ? 'var(--bronze-light)' : '#4A443A') + '"></div>';
+      return '<div title="' + formatKr(b.revenueKr) + '" style="flex:1;height:' + h + '%;border-radius:2px 2px 0 0;background:' + (isToday ? 'var(--hero-bar-today)' : 'var(--hero-bar)') + '"></div>';
     }).join('');
     const labels = series.map((b, i) => {
       const lbl = i === series.length - 1 ? t('common.today') : dayShort[new Date(b.dayUTC).getUTCDay()];
       return '<span style="flex:1;text-align:center">' + lbl + '</span>';
     }).join('');
     const spark = '<div style="display:flex;align-items:flex-end;gap:4px;height:34px;margin:13px 0 5px">' + bars + '</div>' +
-                  '<div style="display:flex;gap:4px;font-family:var(--mono);font-size:7.5px;color:#6E675C">' + labels + '</div>';
+                  '<div style="display:flex;gap:4px;font-family:var(--mono);font-size:7.5px;color:var(--hero-dim)">' + labels + '</div>';
     // Compare with yesterday so the number always has context.
     let deltaHtml = '';
     if (series.length >= 2) {
@@ -3420,7 +3425,7 @@ async function renderDashToday(d) {
       if (y > 0) {
         const pct = Math.round(((d.todayRev - y) / y) * 100);
         const up = pct >= 0;
-        deltaHtml = '<span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:' + (up ? '#8FBF9B' : '#E08A6B') + '">' + (up ? '+' : '') + pct + '% ' + t('dash.vsYesterday') + '</span>';
+        deltaHtml = '<span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:' + (up ? 'var(--hero-up)' : 'var(--hero-down)') + '">' + (up ? '+' : '') + pct + '% ' + t('dash.vsYesterday') + '</span>';
       }
     }
     paint(spark, deltaHtml);
