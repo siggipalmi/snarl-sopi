@@ -454,6 +454,7 @@ class MainActivity : ComponentActivity() {
             onClearDeviceOwner = {
                 KioskManager.clearDeviceOwner(applicationContext)
             },
+            onAdbWifi = { action -> AdbWifi.run(applicationContext, action) },
             onLaunchSupport = {
                 val pm = packageManager
                 val intent = pm.getLaunchIntentForPackage(TEAMVIEWER_QS_PKG)
