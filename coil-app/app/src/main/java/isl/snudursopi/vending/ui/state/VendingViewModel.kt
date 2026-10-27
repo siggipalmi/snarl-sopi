@@ -24,6 +24,8 @@ import isl.snudursopi.vending.data.backend.AdminBackendConfig
 import isl.snudursopi.vending.data.backend.AdminBackendHttp
 import isl.snudursopi.vending.data.ads.AdCache
 import isl.snudursopi.vending.data.backend.LogRelay
+import isl.snudursopi.vending.data.backend.PaymentLinkStatus
+import isl.snudursopi.vending.data.backend.PaymentStatusReporter
 import isl.snudursopi.vending.data.backend.RemoteAd
 import isl.snudursopi.vending.data.backend.BackendImage
 import isl.snudursopi.vending.RecoveryGuard
@@ -186,6 +188,7 @@ class VendingViewModel(
     private var configPollJob: Job? = null
     private var telemetryJob: Job? = null
     private var logRelayJob: Job? = null
+    private var paymentWatchStarted = false
     private val adCache = AdCache(appContext)
     private var lastAdsKey: String? = null
 
@@ -936,6 +939,7 @@ class VendingViewModel(
                 }
             }
             pc.connect()
+            startPaymentWatch(pc)
         } catch (t: Throwable) {
             Log.e(TAG, "startHardwareOnce failed: ${t.message}", t)
         }
@@ -2243,6 +2247,29 @@ class VendingViewModel(
             val playable = adCache.playable(config.ads)
             Log.i(TAG, "ads: $fetched downloaded, ${playable.size}/${config.ads.size} playable from disk")
             _state.update { it.copy(settings = it.settings.copy(ads = playable)) }
+        }
+    }
+
+    /**
+     * Report the card reader's link state and identity to the backend, as the fridge
+     * app does: a dead link raises an alert, and the reader's serial shows in the
+     * machine header instead of "Nayax —". See PaymentStatusReporter.
+     */
+    private fun startPaymentWatch(pc: isl.snudursopi.vending.hardware.nayax.MarshallPaymentController) {
+        if (paymentWatchStarted) return
+        val code = _state.value.deviceCode ?: return
+        paymentWatchStarted = true
+        viewModelScope.launch {
+            val http = AdminBackendHttp(AdminBackendConfig.BASE_URL, resolveMachineKey(code))
+            PaymentStatusReporter(http, code).start(this) {
+                PaymentLinkStatus(
+                    up = pc.isUp(),
+                    port = pc.portName,
+                    lastReadyAtMs = pc.lastReadyAtMs,
+                    decimalPlace = pc.decimalPlace,
+                    reader = pc.readerInfo,
+                )
+            }
         }
     }
 
