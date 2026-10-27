@@ -17,18 +17,21 @@ for D in "$@"; do
   $A connect "$D" | grep -q "connected" || { bad "adb cannot connect"; continue; }
   s() { $A -s "$D" shell "$@" | tr -d '\r'; }
 
-  now=$(s date +%s); year=$(s date +%Y)
-  [ "$year" -ge 2026 ] && ok "clock: $(s date)" || bad "clock WRONG: $(s date) — TLS will fail"
+  # BSD grep on a Mac has no -P, so everything below is plain grep/sed.
+  year=$(s date +%Y)
+  [ -n "$year" ] && [ "$year" -ge 2026 ] 2>/dev/null && ok "clock: $(s date)" || bad "clock WRONG: $(s date) — TLS will fail"
   [ "$(s settings get global auto_time)" = 1 ] && ok "automatic time on" || bad "automatic time OFF"
   [ "$(s getprop persist.adb.tcp.port)" = 5555 ] && ok "adb port pinned to 5555" || bad "adb port not pinned"
 
-  ver=$(s dumpsys package $PKG | grep -m1 -oP 'versionName=\K\S+'); vc=$(s dumpsys package $PKG | grep -m1 -oP 'versionCode=\K[0-9]+')
+  pkgdump=$(s dumpsys package $PKG)
+  ver=$(printf '%s\n' "$pkgdump" | sed -n 's/.*versionName=\([^ ]*\).*/\1/p' | head -1)
+  vc=$(printf '%s\n' "$pkgdump" | sed -n 's/.*versionCode=\([0-9]*\).*/\1/p' | head -1)
   [ -n "$ver" ] && ok "app $ver ($vc)" || { bad "$PKG not installed"; continue; }
-  s dumpsys package $PKG | grep -q "WRITE_SECURE_SETTINGS: granted=true" \
+  printf '%s\n' "$pkgdump" | grep -q "WRITE_SECURE_SETTINGS: granted=true" \
     && ok "clock grant held (app re-enables automatic time itself)" || bad "WRITE_SECURE_SETTINGS not granted"
   s pidof $PKG >/dev/null && ok "app running" || bad "app NOT running"
   s dumpsys activity activities | grep -m1 -E "mResumedActivity|topResumedActivity" | grep -q "$PKG" \
-    && ok "app is on screen" || bad "something else is on screen: $(s dumpsys activity activities | grep -m1 -E 'mResumedActivity|topResumedActivity' | grep -oP '\{[^}]*\}')"
+    && ok "app is on screen" || bad "something else is on screen: $(s dumpsys activity activities | grep -m1 -E 'mResumedActivity|topResumedActivity' | grep -o '{[^}]*}')"
 
   owner=$(s dumpsys device_policy | grep -i -A3 "device owner" | grep -o 'ComponentInfo{[^}]*}' | head -1)
   if echo "$owner" | grep -q "$PKG"; then ok "Device Owner — OTA installs silently"
