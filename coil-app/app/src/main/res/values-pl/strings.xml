@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Only the strings below are translated so far; everything else falls back to
+     Icelandic (res/values), as it did before this folder existed. -->
+<resources>
+    <!-- Admin PIN pad -->
+    <string name="admin_pin_title">kod dostępu</string>
+    <string name="admin_pin_subtitle">kod personelu · 6 cyfr</string>
+    <string name="admin_pin_wrong">zły kod · pozostało prób: %1$d</string>
+    <string name="admin_pin_locked">zablokowane · spróbuj za %1$d min</string>
+</resources>

@@ -1,4 +1,4 @@
-package isl.snudursopi.fridge.domain
+package isl.snudursopi.shared
 
 import java.security.MessageDigest
 import java.util.Base64
@@ -8,7 +8,7 @@ import javax.crypto.spec.PBEKeySpec
 /**
  * This machine's admin PIN, as the backend sends it (config.adminPin): a PBKDF2-SHA256 hash, never
  * the PIN. Checked here, offline, so the admin sheet opens with no network, which is exactly when
- * a technician needs it. The backend side is snarl-sopi-backend/src/adminPin.js.
+ * a technician needs it. The backend side is snarl-sopi-backend/src/adminPin.js. One copy for both apps (fridge 0.69.0, coil 0.80.6).
  *
  * No hash in the config (none set yet, or an older backend) means the shared code, 123456.
  */
@@ -76,4 +76,15 @@ class AdminPinGuard(private val store: Store, private val now: () -> Long = Syst
         const val MAX_TRIES = 5
         const val LOCK_MS = 5 * 60 * 1000L
     }
+}
+
+/** Where the PIN lockout lives, so a power cycle doesn't reset the count. */
+class AdminPinPrefs(context: android.content.Context) : AdminPinGuard.Store {
+    private val prefs = context.getSharedPreferences("admin_pin", android.content.Context.MODE_PRIVATE)
+    override var failures: Int
+        get() = prefs.getInt("failures", 0)
+        set(v) { prefs.edit().putInt("failures", v).apply() }
+    override var lockedUntilMs: Long
+        get() = prefs.getLong("locked_until", 0L)
+        set(v) { prefs.edit().putLong("locked_until", v).apply() }
 }

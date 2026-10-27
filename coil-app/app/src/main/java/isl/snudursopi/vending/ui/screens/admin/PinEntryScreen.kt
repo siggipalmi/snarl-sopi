@@ -37,52 +37,93 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
+import isl.snudursopi.shared.AdminPin
+import isl.snudursopi.shared.AdminPinGuard
+import isl.snudursopi.shared.AdminPinHash
+import isl.snudursopi.shared.AdminPinPrefs
+import isl.snudursopi.vending.R
+import isl.snudursopi.vending.domain.Language
 import isl.snudursopi.vending.ui.theme.AppColors
 import isl.snudursopi.vending.ui.theme.AppFonts
+import isl.snudursopi.vending.ui.util.localized
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val PIN_LENGTH = 6
 
 /**
  * Admin PIN entry. 6-digit code, numeric keypad, dot indicators.
  *
- * DEV: PIN is currently hardcoded in [DiagnosticsAuth]. When the admin
- * backend ships, replace constant-check with TOTP-from-backend verification.
+ * *** THE PIN IS THIS MACHINE'S OWN (0.80.6, as the fridge since 0.69.0). AG sets it in the
+ * dashboard; the config carries only a hash ([pinHash]), checked here offline by the shared
+ * AdminPin. No hash means the fleet's shared 123456, so a machine keeps working through the
+ * rollout. Five wrong PINs lock the pad for five minutes, kept across restarts, and the backend
+ * is told ([onPinEvent] "lockout") so AG gets an alert.
  */
 @Composable
 fun PinEntryScreen(
     onSuccess: () -> Unit,
     onCancel: () -> Unit,
+    pinHash: AdminPinHash? = null,
+    language: Language = Language.Icelandic,
+    onPinEvent: (String) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val guard = remember { AdminPinGuard(AdminPinPrefs(context)) }
     var entered by remember { mutableStateOf("") }
+    var wrong by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
+    var lockedMs by remember { mutableStateOf(guard.lockedForMs()) }
     val shake = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+    // Count a lock down on screen, then reopen the pad by itself.
+    LaunchedEffect(lockedMs > 0) {
+        while (lockedMs > 0) { delay(1_000); lockedMs = guard.lockedForMs() }
+    }
 
     fun verifyAndAdvance() {
-        if (DiagnosticsAuth.verify(entered)) {
-            onSuccess()
-        } else {
-            scope.launch {
-                shake.snapTo(0f)
-                shake.animateTo(14f, animationSpec = tween(50))
-                shake.animateTo(-14f, animationSpec = tween(50))
-                shake.animateTo(10f, animationSpec = tween(50))
-                shake.animateTo(-10f, animationSpec = tween(50))
-                shake.animateTo(0f, animationSpec = tween(50))
+        val pin = entered
+        checking = true
+        scope.launch {
+            // PBKDF2 takes a moment on the board: off the main thread.
+            val ok = withContext(Dispatchers.Default) { AdminPin.check(pinHash, pin) }
+            checking = false
+            if (ok) {
+                guard.succeeded()
+                onPinEvent("ok")
+                onSuccess()
+                return@launch
             }
+            wrong = true
+            if (guard.failed()) {
+                lockedMs = guard.lockedForMs()
+                onPinEvent("lockout")
+            }
+            shake.snapTo(0f)
+            shake.animateTo(14f, animationSpec = tween(50))
+            shake.animateTo(-14f, animationSpec = tween(50))
+            shake.animateTo(10f, animationSpec = tween(50))
+            shake.animateTo(-10f, animationSpec = tween(50))
+            shake.animateTo(0f, animationSpec = tween(50))
             entered = ""
-            // TODO: lockout after N consecutive failures (e.g. 3 wrong = 30s
-            // disabled). Not enforced today — single-user dev environment.
         }
     }
 
     LaunchedEffect(entered) {
-        if (entered.length == PIN_LENGTH) {
+        if (entered.length == PIN_LENGTH && !checking) {
             delay(120)   // brief pause so the last dot is visibly filled before shake/advance
             verifyAndAdvance()
         }
+    }
+
+    val title = when {
+        lockedMs > 0 -> localized(language, R.string.admin_pin_locked, ((lockedMs + 59_999) / 60_000).toInt())
+        wrong -> localized(language, R.string.admin_pin_wrong, guard.triesLeft())
+        else -> localized(language, R.string.admin_pin_title)
     }
 
     Column(
@@ -92,15 +133,15 @@ fun PinEntryScreen(
             .padding(horizontal = 32.dp, vertical = 40.dp),
     ) {
         Text(
-            text = "aðgangskóði",
+            text = title,
             fontFamily = AppFonts.Cormorant,
             fontStyle = FontStyle.Italic,
             fontSize = 36.sp,
-            color = AppColors.Cream,
+            color = if (wrong || lockedMs > 0) AppColors.Alert else AppColors.Cream,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "starfsmanna kóði · 6 stafir",
+            text = localized(language, R.string.admin_pin_subtitle),
             fontFamily = AppFonts.Cormorant,
             fontStyle = FontStyle.Italic,
             fontSize = 14.sp,
@@ -126,6 +167,9 @@ fun PinEntryScreen(
 
         Keypad(
             onDigit = { digit ->
+                // A locked pad takes no digits; it reopens by itself when the lock runs out.
+                if (lockedMs > 0 || checking) return@Keypad
+                wrong = false
                 if (entered.length < PIN_LENGTH) {
                     entered += digit
                 }

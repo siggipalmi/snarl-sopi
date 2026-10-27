@@ -12,6 +12,7 @@ import isl.snudursopi.vending.domain.ComboItem
 import isl.snudursopi.vending.domain.Offer
 import isl.snudursopi.vending.domain.OfferKind
 import isl.snudursopi.vending.domain.toOfferKind
+import isl.snudursopi.shared.AdminPinHash
 
 /**
  * Fetches the per-machine config from the admin backend and parses the
@@ -202,6 +203,15 @@ class ConfigClient(
         } ?: emptyList()
         // showAdRegion: the dashboard's switch for the poster area. Absent → on, as before.
         val showAdRegion = data.get("showAdRegion")?.takeIf { it.isBoolean }?.asBoolean() ?: true
+        // adminPin: this machine's own admin PIN as a PBKDF2 hash (never the PIN). Absent → the
+        // fleet's shared code still opens the admin screens, so a machine keeps working through
+        // the rollout. Checked offline by the shared AdminPin.
+        val adminPin = data.get("adminPin")?.takeIf { it.isObject }?.let {
+            AdminPinHash.fromConfig(
+                it.get("algo")?.asText(), it.get("iter")?.takeIf { n -> n.isNumber }?.asInt(),
+                it.get("salt")?.asText(), it.get("hash")?.asText(),
+            )
+        }
 
         return Result.Loaded(
             featured = featured,
@@ -220,6 +230,7 @@ class ConfigClient(
             restartMachine = restartMachine,
             ads = ads,
             showAdRegion = showAdRegion,
+            adminPin = adminPin,
         )
     }
 
@@ -320,6 +331,8 @@ class ConfigClient(
             val ads: List<RemoteAd> = emptyList(),
             /** The dashboard's poster-area switch. */
             val showAdRegion: Boolean = true,
+            /** This machine's admin PIN hash; null means the shared code (AdminPin.SHARED). */
+            val adminPin: AdminPinHash? = null,
         ) : Result()
     }
 }

@@ -97,6 +97,9 @@ fun NavGraph(viewModel: VendingViewModel) {
                         operatorUnlocked = true
                     },
                     onCancel = { pinPromptVisible = false },
+                    pinHash = state.adminPin,
+                    language = state.language,
+                    onPinEvent = viewModel::reportAdminPinEvent,
                 )
             }
         }
@@ -353,6 +356,9 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
                         }
                     },
                     onCancel = { navController.popBackStack() },
+                    pinHash = state.adminPin,
+                    language = state.language,
+                    onPinEvent = viewModel::reportAdminPinEvent,
                 )
             }
 

@@ -127,4 +127,10 @@
     <string name="complaint_received">report received.</string>
     <string name="complaint_received_sub">we will get back to you by email as soon as possible.</string>
 
+    <!-- Admin PIN pad -->
+    <string name="admin_pin_title">access code</string>
+    <string name="admin_pin_subtitle">staff code · 6 digits</string>
+    <string name="admin_pin_wrong">wrong code · %1$d tries left</string>
+    <string name="admin_pin_locked">locked · try again in %1$d min</string>
+
 </resources>

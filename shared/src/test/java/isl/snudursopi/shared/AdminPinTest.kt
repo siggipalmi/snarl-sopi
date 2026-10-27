@@ -1,4 +1,4 @@
-package isl.snudursopi.fridge.domain
+package isl.snudursopi.shared
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

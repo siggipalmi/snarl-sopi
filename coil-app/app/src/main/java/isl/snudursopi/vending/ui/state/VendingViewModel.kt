@@ -3,6 +3,7 @@ package isl.snudursopi.vending.ui.state
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import isl.snudursopi.shared.AdminPinHash
 import isl.snudursopi.shared.ClockGuard
 import isl.snudursopi.vending.RestartManager
 import isl.snudursopi.vending.api.WeimiApiClient
@@ -657,6 +658,7 @@ class VendingViewModel(
                     retryAttempts = 0,
                     nextRetryAtMillis = 0L,
                     fatalError = null,
+                    adminPin = config.adminPin,
                     settings = it.settings.copy(
                         operatorName = operatorName,
                         supportEmail = supportEmail,
@@ -2273,6 +2275,24 @@ class VendingViewModel(
         }
     }
 
+    /**
+     * An admin PIN result ('ok' or 'lockout') to the backend. Best effort: a lost 'ok' only
+     * dates "last used"; a lockout (five wrong PINs) is an alert for AG — someone is guessing,
+     * or a technician has the wrong one.
+     */
+    fun reportAdminPinEvent(type: String) {
+        val code = _state.value.deviceCode ?: return
+        viewModelScope.launch {
+            try {
+                AdminBackendHttp(AdminBackendConfig.BASE_URL, resolveMachineKey(code))
+                    .postJson("/api/v1/machines/$code/admin-pin-event", mapOf("type" to type))
+                Log.i(TAG, "admin PIN event reported ($type)")
+            } catch (e: Exception) {
+                Log.w(TAG, "admin PIN event not sent: ${e.message}")
+            }
+        }
+    }
+
     /** The app's own log to the backend every 5 minutes — see LogRelay for why. */
     private fun startLogRelay(deviceCode: String) {
         if (logRelayJob?.isActive == true) return
@@ -2349,6 +2369,7 @@ class VendingViewModel(
                             idleRotationSeconds = config.idle.rotationSeconds,
                             idleAttractTimeoutSeconds = config.idle.attractTimeoutSeconds,
                             offers = config.offers.associateBy { it.goodsId },
+                            adminPin = config.adminPin,
                             settings = it.settings.copy(
                                 featured = config.featured,
                                 operatorName = opName,
@@ -2395,6 +2416,7 @@ class VendingViewModel(
         val offers: List<Offer> = emptyList(),
         val ads: List<RemoteAd> = emptyList(),
         val showAdRegion: Boolean = true,
+        val adminPin: AdminPinHash? = null,
     ) {
         companion object {
             val EMPTY = ConfigResult(emptyList(), emptyList(), emptyMap(), null)
@@ -2460,6 +2482,7 @@ class VendingViewModel(
                         offers = result.offers,
                         ads = result.ads,
                         showAdRegion = result.showAdRegion,
+                        adminPin = result.adminPin,
                     )
                     lastConfig = cfg  // remember for the next 304
                     cfg
@@ -2738,6 +2761,8 @@ data class VendingState(
     val productDetails: Map<String, ProductDetails> = emptyMap(),
     val basket: Basket = Basket(),
     val settings: MachineSettings = MachineSettings(showAdRegion = true),
+    /** This machine's admin PIN hash from config; null means the shared code (AdminPin). */
+    val adminPin: AdminPinHash? = null,
     val language: Language = Language.Icelandic,
     val currentTime: String = "—:—",
     val isEvening: Boolean = false,

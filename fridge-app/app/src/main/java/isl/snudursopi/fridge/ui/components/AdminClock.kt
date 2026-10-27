@@ -55,9 +55,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.rememberCoroutineScope
 import isl.snudursopi.fridge.R
-import isl.snudursopi.fridge.domain.AdminPin
-import isl.snudursopi.fridge.domain.AdminPinGuard
-import isl.snudursopi.fridge.domain.AdminPinHash
+import isl.snudursopi.shared.AdminPin
+import isl.snudursopi.shared.AdminPinGuard
+import isl.snudursopi.shared.AdminPinHash
+import isl.snudursopi.shared.AdminPinPrefs
 import isl.snudursopi.fridge.domain.Language
 import isl.snudursopi.fridge.ui.util.localized
 import java.text.SimpleDateFormat
@@ -106,17 +107,6 @@ fun AdminClock(
 
 private fun clockText(): String =
     SimpleDateFormat("HH:mm", Locale.US).format(Date())
-
-/** Where the PIN lockout lives, so a power cycle doesn't reset the count. */
-private class AdminPinPrefs(context: Context) : AdminPinGuard.Store {
-    private val prefs = context.getSharedPreferences("admin_pin", Context.MODE_PRIVATE)
-    override var failures: Int
-        get() = prefs.getInt("failures", 0)
-        set(v) { prefs.edit().putInt("failures", v).apply() }
-    override var lockedUntilMs: Long
-        get() = prefs.getLong("locked_until", 0L)
-        set(v) { prefs.edit().putLong("locked_until", v).apply() }
-}
 
 /**
  * PIN gate, then the actions.
