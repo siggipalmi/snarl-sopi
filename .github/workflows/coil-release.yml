@@ -25,6 +25,12 @@ on:
     paths:
       - 'coil-app/**'
       - '.github/workflows/coil-release.yml'
+  # A pull request touching the app gets the same build and checks, never a release:
+  # the Decide step forces dry_run on pull_request events.
+  pull_request:
+    paths:
+      - 'coil-app/**'
+      - '.github/workflows/coil-release.yml'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -36,7 +42,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: coil-release
+  # One group per ref: a PR build must never queue behind, or cancel, a release on main.
+  group: coil-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -71,6 +78,7 @@ jobs:
         id: plan
         run: |
           dry="${{ inputs.dry_run }}"
+          [ "${{ github.event_name }}" = pull_request ] && dry=true
           if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then already=true; else already=false; fi
           build=false; publish=false
           if [ "$already" = false ] || [ "$dry" = true ]; then build=true; fi
