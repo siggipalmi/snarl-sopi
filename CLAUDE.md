@@ -192,6 +192,15 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   adbd and drops the current session to come back on the new port. Save it for after the work is
   done.
 
+- **Grant the fridge app WRITE_SECURE_SETTINGS while you have adb** (fridge 0.70.0+). It lets the
+  dashboard switch wireless debugging on and read its port (machine page → Controls → *adb on*,
+  AG only), so the next adb session needs nobody at the screen. Device Owner does not give it:
+
+      ~/Library/Android/sdk/platform-tools/adb -s <ip:port> shell pm grant isl.snudursopi.fridge.debug android.permission.WRITE_SECURE_SETTINGS
+
+  *adb status* reports whether a machine has it. Only computers already paired with the machine
+  can connect; switch it off (*adb off*) when done.
+
 - **A machine with no valid key cannot be updated over the air.** `app-update` is machine-key
   gated, so it never learns an update exists; the APK route being open does not help. That is how
   both Grótta machines ended up fixable only by adb — worth remembering before relying on OTA to

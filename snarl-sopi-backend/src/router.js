@@ -3700,9 +3700,9 @@ function validateLedPolicy(raw) {
   return { value: out };
 }
 
-const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update', 'set_basket_count'];
+const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update', 'set_basket_count', 'adb_wifi'];
 const CMD_TTL_MS = 5 * 60 * 1000;
-const CMD_AG_ONLY = new Set(['clear_device_owner', 'set_payment_port', 'set_machine_key']);
+const CMD_AG_ONLY = new Set(['clear_device_owner', 'set_payment_port', 'set_machine_key', 'adb_wifi']);
 // What a restocker may send: open a door, count, read the scales, clear a jam, test a vend.
 const CMD_RESTOCK = new Set(['fridge_open_door', 'set_basket_count', 'scale_read', 'read_all_trays', 'read_temp',
   'clear_aisle_fault', 'test_vend', 'sync_price_tags', 'query_channel_status', 'config_health']);
@@ -3830,6 +3830,11 @@ function handleEnqueueCommand(req, res) {
     if (busPort && busPort === port) {
       return badRequest(res, `${port} is already this machine's ${(mp.isKioskModel === false) ? 'weight' : 'motor'} bus. Opening a second reader on it would corrupt weights and payment at once — choose a different port.`);
     }
+  } else if (type === 'adb_wifi') {
+    // Wireless debugging from the dashboard (fridge 0.70.0+, after a one-time pm grant).
+    const action = String(params.action || 'status');
+    if (!['status', 'on', 'off'].includes(action)) return badRequest(res, 'adb_wifi params.action must be status, on or off');
+    params.action = action;
   } else if (type === 'clear_device_owner') {
     // One-way door on a placed machine: surrendering Device Owner ends silent OTA, so every future
     // build needs someone on site with adb. Deliberately console-only — no dashboard button — and
