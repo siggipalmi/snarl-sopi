@@ -203,6 +203,10 @@ class ConfigClient(
         } ?: emptyList()
         // showAdRegion: the dashboard's switch for the poster area. Absent → on, as before.
         val showAdRegion = data.get("showAdRegion")?.takeIf { it.isBoolean }?.asBoolean() ?: true
+        // outOfService: closed for sale — the operator's switch (with a reason the screen shows)
+        // or AG's master close (no reason). Absent → open, as before.
+        val outOfService = data.get("outOfService")?.takeIf { it.isBoolean }?.asBoolean() ?: false
+        val outOfServiceReason = data.get("outOfServiceReason")?.takeIf { it.isTextual }?.asText()?.trim()?.takeIf { it.isNotEmpty() }
         // adminPin: this machine's own admin PIN as a PBKDF2 hash (never the PIN). Absent → the
         // fleet's shared code still opens the admin screens, so a machine keeps working through
         // the rollout. Checked offline by the shared AdminPin.
@@ -231,6 +235,8 @@ class ConfigClient(
             ads = ads,
             showAdRegion = showAdRegion,
             adminPin = adminPin,
+            outOfService = outOfService,
+            outOfServiceReason = outOfServiceReason,
         )
     }
 
@@ -333,6 +339,9 @@ class ConfigClient(
             val showAdRegion: Boolean = true,
             /** This machine's admin PIN hash; null means the shared code (AdminPin.SHARED). */
             val adminPin: AdminPinHash? = null,
+            /** Closed for sale, by the operator or AG. The screen shows [outOfServiceReason] if any. */
+            val outOfService: Boolean = false,
+            val outOfServiceReason: String? = null,
         ) : Result()
     }
 }

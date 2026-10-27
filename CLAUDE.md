@@ -107,6 +107,10 @@ cohorts, Device Owner and machine commands stay with Siggi.
   is named "62160481-Grótta vinstri" in Nayax, but 62160481 is Klettatröð – IWO. The backend
   links readers by the numeric Nayax ID set by hand (`nayaxMachineId`), never by the name — check
   the ID, not the label, before believing which machine a sale belongs to.
+- **Out of service works on coil from 0.80.7** (fridge since 0.68.0): the dashboard switch (Controls →
+  close this machine, with a reason) and AG's master close cover every customer screen with
+  "Lokað tímabundið"; a payment already in flight finishes first, and the clock long-press → PIN
+  path stays open for a technician. Coil machines below 0.80.7 ignore the switch and keep selling.
 - The dashboard header's **"app v0.21"** is seed data from `src/db.js` that nothing updates; the
   real build is the number in brackets, filled in by the app's hourly update check.
 

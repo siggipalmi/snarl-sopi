@@ -659,6 +659,8 @@ class VendingViewModel(
                     nextRetryAtMillis = 0L,
                     fatalError = null,
                     adminPin = config.adminPin,
+                    outOfService = config.outOfService,
+                    outOfServiceReason = config.outOfServiceReason,
                     settings = it.settings.copy(
                         operatorName = operatorName,
                         supportEmail = supportEmail,
@@ -2370,6 +2372,8 @@ class VendingViewModel(
                             idleAttractTimeoutSeconds = config.idle.attractTimeoutSeconds,
                             offers = config.offers.associateBy { it.goodsId },
                             adminPin = config.adminPin,
+                            outOfService = config.outOfService,
+                            outOfServiceReason = config.outOfServiceReason,
                             settings = it.settings.copy(
                                 featured = config.featured,
                                 operatorName = opName,
@@ -2417,6 +2421,8 @@ class VendingViewModel(
         val ads: List<RemoteAd> = emptyList(),
         val showAdRegion: Boolean = true,
         val adminPin: AdminPinHash? = null,
+        val outOfService: Boolean = false,
+        val outOfServiceReason: String? = null,
     ) {
         companion object {
             val EMPTY = ConfigResult(emptyList(), emptyList(), emptyMap(), null)
@@ -2483,6 +2489,8 @@ class VendingViewModel(
                         ads = result.ads,
                         showAdRegion = result.showAdRegion,
                         adminPin = result.adminPin,
+                        outOfService = result.outOfService,
+                        outOfServiceReason = result.outOfServiceReason,
                     )
                     lastConfig = cfg  // remember for the next 304
                     cfg
@@ -2763,6 +2771,9 @@ data class VendingState(
     val settings: MachineSettings = MachineSettings(showAdRegion = true),
     /** This machine's admin PIN hash from config; null means the shared code (AdminPin). */
     val adminPin: AdminPinHash? = null,
+    /** Closed for sale (config.outOfService): the screen shows ClosedScreen and nothing sells. */
+    val outOfService: Boolean = false,
+    val outOfServiceReason: String? = null,
     val language: Language = Language.Icelandic,
     val currentTime: String = "—:—",
     val isEvening: Boolean = false,
