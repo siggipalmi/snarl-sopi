@@ -4438,7 +4438,7 @@ function copyText(t) {
   catch (e) { showToast('could not copy'); }
 }
 
-// Wireless debugging from the dashboard (AG, fridge 0.70.0+). The answer, with the adb connect line,
+// Wireless debugging from the dashboard (AG; fridge 0.70.0+, coil 0.80.8+). The answer, with the adb connect line,
 // lands in the command history once the machine has run it (within its command poll).
 async function adbWifiCmd(code, action) {
   if (action === 'on' && !confirm('Switch on wireless debugging on this machine?\n\nOnly computers already paired with it can connect. Switch it off when you are done.')) return;
@@ -5734,7 +5734,7 @@ function renderMachineControls(code) {
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="restartMachineCmd('${code}','app')">↻ restart app</button>
       <button class="btn btn-sm btn-ghost" onclick="launchSupport('${code}')">◉ open remote support</button>
-      ${currentUser?.role === 'ag_admin' && /^GR-/.test(_mdModel || m.model || '') ? `<button class="btn btn-sm btn-ghost" onclick="adbWifiCmd('${code}','status')">⌨ adb status</button>
+      ${currentUser?.role === 'ag_admin' ? `<button class="btn btn-sm btn-ghost" onclick="adbWifiCmd('${code}','status')">⌨ adb status</button>
       <button class="btn btn-sm btn-ghost" onclick="adbWifiCmd('${code}','on')">⌨ adb on</button>
       <button class="btn btn-sm btn-ghost" onclick="adbWifiCmd('${code}','off')">⌨ adb off</button>` : ''}
       <button class="btn btn-sm btn-ghost" onclick="restartMachineCmd('${code}','machine')">⏻ restart machine</button>
@@ -5742,7 +5742,7 @@ function renderMachineControls(code) {
     <div style="margin-top:9px;font-size:11px;color:var(--muted)">
       <b>Restart app</b> relaunches the kiosk — the fix when the machine looks fine but can't take payment, since the card terminal handshake only happens at startup. It is also the only way to restart the app on a locked-down machine.<br>
       <b>Open remote support</b> puts TeamViewer on the machine's screen; someone at the machine still has to accept.<br>
-      ${currentUser?.role === 'ag_admin' ? '<b>adb on</b> (AG, fridge 0.70.0+) switches on wireless debugging and answers with the <code>adb connect</code> line in the command history — no one at the screen. Needs a one-time <code>pm grant</code> on each machine; <b>adb status</b> says whether it has it. Switch it off when done.<br>' : ''}
+      ${currentUser?.role === 'ag_admin' ? '<b>adb on</b> (AG; fridge 0.70.0+, coil 0.80.8+) switches on wireless debugging and answers with the <code>adb connect</code> line in the command history — no one at the screen. Needs a one-time <code>pm grant</code> on each machine; <b>adb status</b> says whether it has it. Switch it off when done.<br>' : ''}
       <b>Restart machine</b> reboots the whole board and drops every remote connection while it comes back — prefer restart app.
     </div>
     <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">

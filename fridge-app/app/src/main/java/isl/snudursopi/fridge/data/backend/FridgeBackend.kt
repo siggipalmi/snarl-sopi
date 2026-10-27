@@ -218,6 +218,7 @@ class FridgeBackend(
         onSetPaymentPort: (suspend (String) -> String)? = null,
         onSetLights: ((Boolean) -> String)? = null,
         onLaunchSupport: (suspend () -> String)? = null,
+        onAdbWifi: (suspend (String) -> Pair<Boolean, String>)? = null,
         telemetry: ((TelemetryClient) -> TelemetryLoop)? = null,
         paymentStatus: (() -> PaymentLinkStatus)? = null,
         selfTest: (suspend () -> Map<String, Any?>?)? = null,
@@ -258,6 +259,7 @@ class FridgeBackend(
                 onSetPaymentPort = onSetPaymentPort,
                 onSetLights = onSetLights,
                 onLaunchSupport = onLaunchSupport,
+                onAdbWifi = onAdbWifi,
             ).start(scope)
             Log.i(TAG, "command poller started")
         }

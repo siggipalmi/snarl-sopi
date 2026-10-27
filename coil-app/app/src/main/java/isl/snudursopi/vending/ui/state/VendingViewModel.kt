@@ -3,6 +3,7 @@ package isl.snudursopi.vending.ui.state
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import isl.snudursopi.shared.AdbWifi
 import isl.snudursopi.shared.AdminPinHash
 import isl.snudursopi.shared.ClockGuard
 import isl.snudursopi.vending.RestartManager
@@ -2204,6 +2205,18 @@ class VendingViewModel(
                     "status" to if (r is UpdateResult.Error) "failed" else "ok",
                     "detail" to describe(r),
                     "installed" to isl.snudursopi.vending.BuildConfig.VERSION_CODE,
+                    "completedAt" to now,
+                )
+            }
+            "adb_wifi" -> {
+                // Wireless debugging from the dashboard (AG only; fridge 0.70.0, coil 0.80.8).
+                // The answer carries the adb connect line, so nobody has to read the screen.
+                val action = cmd.params?.get("action")?.asText()?.takeIf { it.isNotBlank() } ?: "status"
+                val (ok, detail) = withContext(Dispatchers.IO) { AdbWifi.run(appContext, action) }
+                Log.i(TAG, "adb_wifi $action: ${if (ok) "ok" else "failed"} — $detail")
+                mapOf(
+                    "status" to if (ok) "ok" else "failed",
+                    "detail" to detail,
                     "completedAt" to now,
                 )
             }
