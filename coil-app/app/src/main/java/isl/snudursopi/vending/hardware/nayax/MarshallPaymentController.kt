@@ -42,6 +42,17 @@ class MarshallPaymentController(
 
     @Volatile var state: State = State.IDLE
         private set
+    /** Terminal decimal places from the last handshake. Anything but 0 mis-charges ISK. */
+    @Volatile var decimalPlace: Int? = null
+        private set
+    /** Serial, Monyx ID, firmware… from the last handshake. Null until the first onReady. */
+    @Volatile var readerInfo: Map<String, String>? = null
+        private set
+    @Volatile var lastReadyAtMs: Long? = null
+        private set
+    val portName: String get() = portPath
+    /** Up means the reader has handshaken and not since reported a comm error. */
+    fun isUp(): Boolean = state == State.READY || state == State.AWAITING_CARD || state == State.VENDING
 
     private var vmc: vmc_framework? = null
     /** True once the vend layer is ready for a NEW vend. Reset on cancel() and
@@ -122,6 +133,10 @@ class MarshallPaymentController(
             m.link.set_events(object : vmc_link.vmc_link_events_t {
                 override fun onReady(config: vmc_link.vpos_config_t) {
                     state = State.READY
+                    lastReadyAtMs = System.currentTimeMillis()
+                    decimalPlace = config.decimal_place.toInt()
+                    readerInfo = runCatching { readerInfoOf(config) }.getOrNull()
+                    emit("reader: " + (readerInfo?.entries?.joinToString(" ") { "${it.key}=${it.value}" } ?: "(no info)"))
                     emit("✅ link onReady — host up. decimal_place=${config.decimal_place} default_credit=${config.default_credit}")
                     onReaderStateChanged?.invoke(true)
                     onReady()
@@ -456,4 +471,30 @@ class MarshallPaymentController(
         Log.i(TAG, s)
         log(s)
     }
+}
+
+/**
+ * The handshake's identity fields as text, as the fridge app reports them (0.69.1, byte order
+ * fixed 0.69.3 — this is the fixed form, not the reversed one MarshallProbe prints). Byte fields
+ * are ASCII on the readers seen so far; anything else is shown as hex.
+ */
+internal fun readerInfoOf(c: vmc_link.vpos_config_t): Map<String, String> = buildMap {
+    fun add(k: String, v: String?) { v?.trim()?.takeIf { it.isNotEmpty() }?.let { put(k, it.take(64)) } }
+    add("serial", bytesText(c.vpos_serial))
+    add("monyxId", c.monyx_id)
+    add("merchantId", bytesText(c.merchant_id))
+    add("terminalId", bytesText(c.acquirer_terminal_id))
+    add("mainFw", c.main_fw_ver)
+    add("posFw", c.pos_fw_ver)
+    add("country", bytesText(c.country_code))
+    add("currency", bytesText(c.currency_code))
+    add("location", bytesText(c.machine_location))
+}
+
+internal fun bytesText(b: ByteArray?): String? {
+    if (b == null || b.isEmpty()) return null
+    val trimmed = b.dropLastWhile { it.toInt() == 0 }.toByteArray()
+    if (trimmed.isEmpty()) return null
+    val printable = trimmed.all { it in 0x20..0x7e }
+    return if (printable) String(trimmed, Charsets.US_ASCII) else trimmed.joinToString("") { "%02x".format(it) }
 }

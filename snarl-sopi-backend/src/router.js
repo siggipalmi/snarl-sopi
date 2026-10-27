@@ -4458,6 +4458,7 @@ function handleKioskLogs(req, res) {
     return serverError(res, e);
   }
   // Keep the reported app version fresh from this too — it's a free signal about what's running.
+  if (version) storage.recordAppVersionName(code, version);
   if (version && m.kioskVersion !== version) {
     m.kioskVersion = version;
     // A fridge's config depends on its app version (per-kg baskets are only served enabled to
@@ -4771,7 +4772,7 @@ function handleGetAppRelease(req, res) {
     const rv = storage.getAppRevert(m.deviceCode);
     return { deviceCode: m.deviceCode, deviceName: m.deviceName, operatorId: m.operatorId,
       app: fridgeSpec(m.model).isFridge ? 'fridge' : 'coil',
-      versionCode: (v && v.vc != null) ? v.vc : null, lastCheck: (v && v.at) ? v.at : null,
+      versionCode: (v && v.vc != null) ? v.vc : null, versionName: (v && v.vn) ? String(v.vn) : null, lastCheck: (v && v.at) ? v.at : null,
       rejectedVersionCode: (rv && rv.rejected != null) ? rv.rejected : null };
   });
   ok(res, { release: relCoil || null, releaseCoil: relCoil || null, releaseFridge: relFridge || null, machines: list });
@@ -9238,11 +9239,15 @@ function machineSummary(m) {
     lastTempAt: (telem && telem.atMs != null) ? telem.atMs : null,
     lastStatusOk: (telem && telem.statusOk != null) ? (telem.statusOk === 1 || telem.statusOk === true) : null,
     lastAppVersionCode: (() => { const v = storage.getAppVersion(m.deviceCode); return (v && v.vc != null) ? v.vc : null; })(),
-    // The name for that build when it is the current release of this machine's app line, so the
-    // header can say "v0.80.0 (156)". kioskVersion is seed data from db.js that nothing updates.
+    // The name for that build: what the app relayed with its logs (both apps send it), else the
+    // release's name when the code matches the current release of this machine's app line. So the
+    // header reads "v0.80.4 (160)" for any build the app has told us about. kioskVersion itself is
+    // seed data from db.js on machines that have never relayed.
     lastAppVersionName: (() => {
       const v = storage.getAppVersion(m.deviceCode);
-      if (!v || v.vc == null) return null;
+      if (!v) return null;
+      if (v.vn) return String(v.vn);
+      if (v.vc == null) return null;
       const rel = storage.getAppRelease(require('./db').fridgeSpec(m.model || '').isFridge ? 'fridge' : 'coil');
       return (rel && Number(rel.targetVersionCode) === Number(v.vc) && rel.versionName) ? String(rel.versionName) : null;
     })(),

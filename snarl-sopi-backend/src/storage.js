@@ -2445,7 +2445,21 @@ const storage = {
   recordAppVersion(deviceCode, versionCode) {
     if (!deviceCode || versionCode == null || versionCode === '') return;
     const vc = Math.round(Number(versionCode));
-    this.setMeta('appver:' + deviceCode, JSON.stringify({ vc: Number.isFinite(vc) ? vc : null, at: Date.now() }));
+    const prev = this.getAppVersion(deviceCode);
+    // The update check carries only the build code. Keep the name the log relay reported, unless
+    // the code moved — then the old name is for a build no longer running.
+    const vn = (prev && prev.vn && (prev.vc == null || prev.vc === vc)) ? prev.vn : null;
+    this.setMeta('appver:' + deviceCode, JSON.stringify({ vc: Number.isFinite(vc) ? vc : null, vn, at: Date.now() }));
+  },
+  // The version NAME the app relays with its logs ("0.80.4"), which the update check never sends.
+  // Kept beside the code so the header can read "v0.80.4 (160)" for any build, not just the one
+  // matching the current release. A relay is also a check-in, so this creates the record.
+  recordAppVersionName(deviceCode, versionName) {
+    const vn = String(versionName || '').trim().slice(0, 40);
+    if (!deviceCode || !vn) return;
+    const prev = this.getAppVersion(deviceCode) || {};
+    if (prev.vn === vn) return;
+    this.setMeta('appver:' + deviceCode, JSON.stringify({ vc: prev.vc != null ? prev.vc : null, vn, at: prev.at || Date.now() }));
   },
   // ── Remote kiosk logs ───────────────────────────────────────────────────────
   // A placed machine has no durable shell: adb needs the local network, adb tcpip doesn't survive a

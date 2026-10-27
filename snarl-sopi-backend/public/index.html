@@ -6092,10 +6092,10 @@ async function renderMachineDetail() {
       // placed machine matters before you push an update or chase a bug.
       // From the build the app itself reports at each update check — not m.kioskVersion, which is
       // seed data from db.js ('0.21' on most coil machines) that nothing has ever updated.
-      ' · <span title="build reported by the app at its last update check">app ' +
-        (m.lastAppVersionCode != null
+      ' · <span title="version the app reported with its logs, build code from its last update check">app ' +
+        (m.lastAppVersionCode != null || m.lastAppVersionName
           ? (m.lastAppVersionName ? 'v' + rsEsc(m.lastAppVersionName) + ' ' : '') +
-            '<span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>'
+            (m.lastAppVersionCode != null ? '<span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '')
           : '<span style="color:var(--muted)">unknown</span>') +
       '</span>' + mdNayaxHeader(dr.data.payment);
 
@@ -10636,10 +10636,12 @@ async function renderAppUpdates() {
     const healthyTarget = (rel && rel.rolloutEnabled) ? rel.targetVersionCode : null; // "behind" only counts a healthy, rolling build
     let st;
     const rejectedHealthy = m.rejectedVersionCode != null && healthyTarget != null && m.rejectedVersionCode === healthyTarget;
+    // Name + code when the app has relayed its name ("v0.80.3 (159)"), bare code otherwise.
+    const build = m.versionCode == null ? null : (m.versionName ? 'v' + rsEsc(m.versionName) + ' (' + m.versionCode + ')' : 'code ' + m.versionCode);
     if (m.versionCode == null) st = '<span class="pill pill-out">unknown</span>';
-    else if (!rel) st = '<span class="pill pill-out">code ' + m.versionCode + '</span>';
-    else if (healthyTarget != null && m.versionCode < healthyTarget && !rejectedHealthy) st = '<span class="pill pill-dn">behind (' + m.versionCode + ')</span>';
-    else st = '<span class="pill pill-up">up to date</span>';
+    else if (!rel) st = '<span class="pill pill-out">' + build + '</span>';
+    else if (healthyTarget != null && m.versionCode < healthyTarget && !rejectedHealthy) st = '<span class="pill pill-dn">behind · ' + build + '</span>';
+    else st = '<span class="pill pill-up" title="' + build + '">up to date · ' + build + '</span>';
     if (m.rejectedVersionCode != null && m.rejectedVersionCode === target) st += ' <span class="pill pill-warn" title="auto-reverted this build">rejected ' + m.rejectedVersionCode + '</span>';
     return `<tr>
       <td style="padding:6px 8px;font-size:12px">${rsEsc(m.deviceName || m.deviceCode)}</td>
