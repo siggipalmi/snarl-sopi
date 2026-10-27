@@ -1728,13 +1728,29 @@ class VendingViewModel(
         updateJob = viewModelScope.launch {
             val url = AppUpdater.manifestUrl(AdminBackendConfig.BASE_URL, deviceCode)
             val key = resolveMachineKey(deviceCode)
+            // First check soon after start, then hourly. An hour's silence after every
+            // restart made a rollout a guessing game; five minutes is enough for the
+            // catalog and the proxy to settle.
+            var wait = FIRST_UPDATE_CHECK_MS
             while (isActive) {
-                delay(UPDATE_CHECK_INTERVAL_MS)
-                if (_state.value.paymentPhase != PaymentPhase.Idle) continue
-                if (!appUpdater.isUnmetered()) continue
-                withContext(Dispatchers.IO) {
+                delay(wait)
+                wait = UPDATE_CHECK_INTERVAL_MS
+                if (_state.value.paymentPhase != PaymentPhase.Idle) {
+                    Log.i(TAG, "update check skipped: payment in progress")
+                    continue
+                }
+                // No metered gate. Grótta's Wi-Fi comes from a SIM router that Android
+                // flags metered (its capabilities carry no NOT_METERED), so from
+                // 0.72 to 0.80.2 the check was skipped every hour on both machines,
+                // silently, and OTA never happened there. The SIM is the operator's,
+                // and an update is ~25 MB a few times a month. Logged either way, so
+                // a machine that never checks can no longer be mistaken for one that
+                // has nothing to fetch.
+                if (!appUpdater.isUnmetered()) Log.i(TAG, "update check on a metered network — proceeding")
+                val r = withContext(Dispatchers.IO) {
                     appUpdater.checkAndUpdate(url, key, deviceCode, manual = false)
                 }
+                Log.i(TAG, "update check: ${describe(r)}")
             }
         }
     }
@@ -2162,12 +2178,43 @@ class VendingViewModel(
                     "completedAt" to now,
                 )
             }
+            "check_update" -> {
+                // The dashboard's "check for update" button, until now fridge-only. A
+                // manual check bypasses the updater's attempted-set, so a build that was
+                // tried once can be tried again on request.
+                val code = _state.value.deviceCode ?: return mapOf(
+                    "status" to "failed", "detail" to "no device code", "completedAt" to now,
+                )
+                val r = withContext(Dispatchers.IO) {
+                    appUpdater.checkAndUpdate(
+                        AppUpdater.manifestUrl(AdminBackendConfig.BASE_URL, code),
+                        resolveMachineKey(code), code, manual = true,
+                    )
+                }
+                Log.i(TAG, "update check (dashboard): ${describe(r)}")
+                mapOf(
+                    "status" to if (r is UpdateResult.Error) "failed" else "ok",
+                    "detail" to describe(r),
+                    "installed" to isl.snudursopi.vending.BuildConfig.VERSION_CODE,
+                    "completedAt" to now,
+                )
+            }
             else -> mapOf(
                 "status" to "unsupported",
                 "detail" to "kiosk does not implement command type '${cmd.type}' yet",
                 "completedAt" to now,
             )
         }
+    }
+
+    /** One line per update outcome, for the log and the dashboard's command result. */
+    private fun describe(r: UpdateResult): String = when (r) {
+        is UpdateResult.UpToDate -> "up to date (${isl.snudursopi.vending.BuildConfig.VERSION_NAME})"
+        is UpdateResult.Halted -> "no release for this machine, or rollout halted"
+        is UpdateResult.NotTargeted -> "not in this rollout"
+        is UpdateResult.Installing -> "installing ${r.versionName}"
+        is UpdateResult.NotDeviceOwner -> "update available but not Device Owner: ${r.detail}"
+        is UpdateResult.Error -> "failed: ${r.detail}"
     }
 
     /**
@@ -2582,6 +2629,7 @@ class VendingViewModel(
         private const val CONFIG_POLL_INTERVAL_MS = 2L * 60L * 1000L  // 2 minutes
         private const val TELEMETRY_INTERVAL_MS = 5L * 60L * 1000L  // 5 minutes
         private const val UPDATE_CHECK_INTERVAL_MS = 60L * 60L * 1000L  // 60 minutes
+        private const val FIRST_UPDATE_CHECK_MS = 5L * 60L * 1000L  // 5 minutes after start
         /** How often to force a non-304 config fetch so date-based expiry idle
          *  deals appear/disappear without an operator edit. */
         private const val IDLE_FULL_REFRESH_MS = 20L * 60L * 1000L  // 20 minutes
