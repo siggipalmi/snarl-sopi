@@ -5728,6 +5728,17 @@ function livePresence(m) {
     lastSeenAt: isoOrNull(Number(seenRaw)),
     kioskVersion: everCheckedIn ? (m.kioskVersion || null) : null,
     lastAppVersionCode: (appVer && appVer.vc != null) ? appVer.vc : null,
+    // The name beside the code, as machineSummary gives it: what the app sent (relay or, from
+    // coil 0.80.9 / fridge 0.70.2, the update check itself), else the release's name when the
+    // code is the current release. The machine page reads this object, not machineSummary, and
+    // showed a bare "(164)" without it.
+    lastAppVersionName: (() => {
+      if (!appVer) return null;
+      if (appVer.vn) return String(appVer.vn);
+      if (appVer.vc == null) return null;
+      const rel = storage.getAppRelease(fridgeSpec(m.model || '').isFridge ? 'fridge' : 'coil');
+      return (rel && Number(rel.targetVersionCode) === Number(appVer.vc) && rel.versionName) ? String(rel.versionName) : null;
+    })(),
   };
 }
 
@@ -5737,6 +5748,13 @@ function handleMachineDetail(req, res) {
   ok(res, {
     machine: Object.assign({}, m, livePresence(m)),
     operatorName: operators[m.operatorId]?.name || null,
+    // Last config_health snapshot: the health banner and the header's key state read it from here.
+    // It was only on GET /machines/:code, which the machine page does not call — so the banner
+    // never showed and the header said "key unknown" for a machine that had just reported "stored".
+    configHealth: (() => {
+      try { const raw = storage.getMeta('confighealth:' + m.deviceCode); return raw ? JSON.parse(raw) : null; }
+      catch (e) { return null; }
+    })(),
     keyStatus: (() => {
       const k = storage.getMachineKey(m.deviceCode);
       return k ? (k.revokedAt ? 'revoked' : 'active') : 'not_provisioned';
