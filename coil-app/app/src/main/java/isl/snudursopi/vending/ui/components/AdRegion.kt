@@ -1,5 +1,6 @@
 package isl.snudursopi.vending.ui.components
 
+import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -46,6 +47,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import isl.snudursopi.vending.domain.AdOverlay
+import isl.snudursopi.vending.R
 import isl.snudursopi.vending.domain.AdRotationConfig
 import isl.snudursopi.vending.domain.AdSlot
 import isl.snudursopi.vending.ui.theme.AppColors
@@ -78,7 +80,7 @@ fun AdRegion(
             val current = ads[currentIndex]
             val seconds = when (current) {
                 is AdSlot.Video -> current.maxDurationSeconds ?: config.intervalSeconds
-                is AdSlot.Image -> config.intervalSeconds
+                is AdSlot.Image -> current.durationSeconds ?: config.intervalSeconds
             }
             delay(seconds * 1000L)
             currentIndex = (currentIndex + 1) % ads.size
@@ -250,10 +252,10 @@ private fun VideoAd(ad: AdSlot.Video) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                PlayerView(ctx).apply {
+                // Inflated, not constructed: surface_type=texture_view is XML-only. See the
+                // layout file for why the video must not live on its own SurfaceView.
+                (LayoutInflater.from(ctx).inflate(R.layout.ad_player_view, null) as PlayerView).apply {
                     player = exoPlayer
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,

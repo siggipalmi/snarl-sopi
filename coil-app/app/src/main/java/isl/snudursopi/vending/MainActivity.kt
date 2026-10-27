@@ -40,6 +40,14 @@ class MainActivity : ComponentActivity() {
     private val healthConfirm = Runnable {
         RecoveryGuard.confirmHealthy(application)
     }
+    // Watches what is on the glass, not just that the process lives — see ScreenWatchdog.
+    // On a dead screen it does what the dashboard's "restart app" does.
+    private val screenWatchdog by lazy {
+        ScreenWatchdog(this) { reason ->
+            android.util.Log.e("MainActivity", "screen watchdog: $reason")
+            RestartManager(applicationContext).performProcessRestart()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,12 +90,14 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         heartbeatHandler.post(heartbeat) // marks alive now + every 30s while foreground
         heartbeatHandler.postDelayed(healthConfirm, 25_000L) // confirm build healthy after 25s up
+        screenWatchdog.start()
     }
 
     override fun onPause() {
         super.onPause()
         heartbeatHandler.removeCallbacks(heartbeat)
         heartbeatHandler.removeCallbacks(healthConfirm)
+        screenWatchdog.stop()
     }
 
     /**

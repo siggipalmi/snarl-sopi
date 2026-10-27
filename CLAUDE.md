@@ -80,6 +80,22 @@ cohorts, Device Owner and machine commands stay with Siggi.
   it every config poll (2 min), and the Weimi sync keeps our counts while still taking names,
   prices and slot layout from Weimi. Both Grótta machines were switched to Kiosk that day. New
   coil machines already default to it.
+- **A black, deaf screen with the app alive underneath (Grótta, 2026-10-26/27).** Both machines went
+  dark within hours of each other and stayed so for three days while the dashboard said online and
+  `config_health` answered. System logs showed no crash, no ANR, no kill; the app died as `fg TOP`
+  when "restart app" finally fixed it. What the logs did show: **power dips at the site** resetting USB
+  on both machines at the same moments (touch screens Sun 12:06–12:13, the Huawei Wi-Fi stick — which
+  is powered from hægri's USB port — and a second USB device on both Mon 08:54), with hægri's last sale
+  inside that Sunday window. Both machines are on one wall branch. The app's own log lines had been
+  pushed out of the on-device buffer, so the exact mechanism is unproven. From 0.80.2: a screen
+  watchdog (`ScreenWatchdog.kt`) restarts the app when its window stays black or stops drawing; the ad
+  video draws as a TextureView, not a SurfaceView; the app relays its log to the backend (`LogRelay.kt`,
+  dashboard → machine → logs) so the next incident leaves a record.
+- **The coil ad region played a hard-coded playlist until 0.80.2**, including a Big Buck Bunny clip
+  streamed from Google on every rotation — a download every few minutes, around the clock, over the
+  SIM. From 0.80.2 it plays the backend's per-machine list (the machine's own, else its operator's,
+  set in the dashboard) and only from a local copy (`AdCache`): each file is downloaded once, played
+  from disk, and removed when unlisted. A machine with no ads configured shows no ad region.
 - **Nayax names are labels, not links.** The reader in Grótta vinstri (Nayax machine 227890869)
   is named "62160481-Grótta vinstri" in Nayax, but 62160481 is Klettatröð – IWO. The backend
   links readers by the numeric Nayax ID set by hand (`nayaxMachineId`), never by the name — check
