@@ -98,7 +98,7 @@ class OtaScheduler(
      */
     suspend fun checkOnce(manual: Boolean): UpdateResult {
         val deviceCode = identity.deviceCode()?.takeIf { it.isNotBlank() }
-            ?: return UpdateResult.Halted.also {
+            ?: return UpdateResult.Halted().also {
                 Log.i(TAG, "not provisioned — skipping update check")
             }
         val machineKey = identity.machineKey()?.takeIf { it.isNotBlank() }

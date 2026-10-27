@@ -21,7 +21,17 @@ sealed class UpdateResult {
     // prints as "UpdateResult$UpToDate@ca96045" — an identity hash tells an
     // operator nothing.
     object UpToDate : UpdateResult() { override fun toString() = "up to date" }
-    object Halted : UpdateResult() { override fun toString() = "halted (no release for this machine)" }
+    /** Nothing to install; [reason] is the backend's word for why, when it gives one (6.76.4+). */
+    data class Halted(val reason: String? = null) : UpdateResult() {
+        override fun toString() = when (reason) {
+            "not_in_cohort" -> "withheld: not in the release's cohort"
+            "halted" -> "withheld: rollout halted"
+            "key_not_stored" -> "withheld: key not stored on this machine — pair it first"
+            "no_release" -> "no release for this app"
+            "blocked_build" -> "withheld: this build was auto-reverted here before"
+            else -> "halted (no release for this machine)"
+        }
+    }
     object NotTargeted : UpdateResult() { override fun toString() = "not in this rollout" }
     data class Installing(val versionName: String) : UpdateResult()
     data class NotDeviceOwner(val detail: String) : UpdateResult()
@@ -92,7 +102,7 @@ class AppUpdater(private val context: Context) {
             // The backend returns rolloutEnabled:false when there's no release for
             // this machine, so treat it as "nothing to do" BEFORE validating the
             // target — a no-release reply isn't an error.
-            if (!m.optBoolean("rolloutEnabled", true)) return@withContext UpdateResult.Halted
+            if (!m.optBoolean("rolloutEnabled", true)) return@withContext UpdateResult.Halted(m.optString("reason", "").ifBlank { null })
 
             val target = m.optInt("targetVersionCode", m.optInt("versionCode", -1))
             val name = m.optString("versionName", target.toString())
@@ -126,7 +136,7 @@ class AppUpdater(private val context: Context) {
             if (target <= AppVersion.code) return@withContext UpdateResult.UpToDate
             if (RecoveryGuard.isBlocked(context, target)) {
                 Log.w(TAG, "target $target is blocked (previously auto-reverted) — refusing")
-                return@withContext UpdateResult.Halted
+                return@withContext UpdateResult.Halted("blocked_build")
             }
             if (allow.isNotEmpty() && deviceCode != null && deviceCode !in allow) {
                 return@withContext UpdateResult.NotTargeted
@@ -168,6 +178,7 @@ class AppUpdater(private val context: Context) {
             // Doubles as a heartbeat: lets the backend record this machine's
             // installed version and last check time.
             setRequestProperty("X-App-Version-Code", AppVersion.code.toString())
+            setRequestProperty("X-App-Version-Name", AppVersion.name)
         }
         try {
             if (conn.responseCode !in 200..299) {

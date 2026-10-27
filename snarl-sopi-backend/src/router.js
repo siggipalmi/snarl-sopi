@@ -4696,13 +4696,17 @@ function handleAppUpdate(req, res) {
   if (!m) return notFound(res, `Machine ${code} not found`);
   const vc = req.headers['x-app-version-code'] || (req.query && req.query.vc);
   if (vc != null && vc !== '') storage.recordAppVersion(code, vc);
+  // The name too (coil 0.80.9 / fridge 0.70.2 send it), so the header reads "v0.80.9 (165)" from
+  // the first check after a start instead of waiting for a log line to be relayed.
+  const vn = req.headers['x-app-version-name'];
+  if (vn) storage.recordAppVersionName(code, String(vn).slice(0, 40));
   // Fridge and coil are different apps with separate version lines and APKs. Pick the release
   // line from the machine's model so a fridge never receives the coil APK (or vice versa).
   const appKey = fridgeSpec(m.model).isFridge ? 'fridge' : 'coil';
   const rel = storage.getAppRelease(appKey);
   // Served BARE (no {ok,data} envelope): the kiosk updater reads manifest fields off the
   // top level, and pre-0.72 field builds can ONLY self-heal if this endpoint is unwrapped.
-  if (!rel || !rel.targetVersionCode) return json(res, 200, { rolloutEnabled: false });
+  if (!rel || !rel.targetVersionCode) return json(res, 200, { rolloutEnabled: false, reason: 'no_release' });
   const inCohort = rel.cohort === 'all' || (Array.isArray(rel.cohort) && rel.cohort.includes(code));
   // Refuse a keyless build to a machine that still depends on a key baked into its own binary.
   // The dashboard warns about this, but a warning is only as good as the person reading it and the
@@ -4710,8 +4714,8 @@ function handleAppUpdate(req, res) {
   // Unknown counts as not-migrated: a machine that has never reported keySource is exactly the one
   // that was offline during the migration.
   let keyBlocked = false;
+  let keySource = null;
   if (rel.requiresStoredKey) {
-    let keySource = null;
     try { const raw = storage.getMeta('confighealth:' + code); const h = raw ? JSON.parse(raw) : null; keySource = (h && h.keySource) || null; }
     catch (e) { keySource = null; }
     if (keySource !== 'stored') {
@@ -4740,12 +4744,18 @@ function handleAppUpdate(req, res) {
       if (host) apkUrl = proto + '://' + host + APK_ROUTE;
     }
   }
+  const enabled = !!rel.rolloutEnabled && inCohort && !keyBlocked;
+  // Why not, in one word the machine can show. Until now every "no" read as "rollout off" on the
+  // kiosk (Valhúsaskóli, 2026-10-27: it was the key guard, and it took three round trips to tell).
+  const reason = enabled ? null : (keyBlocked ? 'key_not_stored' : !rel.rolloutEnabled ? 'halted' : 'not_in_cohort');
   json(res, 200, {
     targetVersionCode: rel.targetVersionCode,
     versionName: rel.versionName || null,
     apkUrl,
     sha256: rel.sha256 || null,
-    rolloutEnabled: !!rel.rolloutEnabled && inCohort && !keyBlocked,
+    rolloutEnabled: enabled,
+    reason,
+    keySource: keySource || null,
   });
 }
 

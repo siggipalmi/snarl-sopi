@@ -1691,7 +1691,14 @@ class VendingViewModel(
             }
             val text = when (result) {
                 is UpdateResult.UpToDate -> "engin ný útgáfa (device owner: ${if (owner) "já" else "nei"})"
-                is UpdateResult.Halted -> "útgáfa í bið (rollout slökkt)"
+                is UpdateResult.Halted -> when (result.reason) {
+                    "not_in_cohort" -> "útgáfa í bið (vélin er ekki í útgáfuhópi)"
+                    "halted" -> "útgáfa í bið (útgáfu haldið í stjórnborði)"
+                    "key_not_stored" -> "útgáfa í bið (vantar geymdan lykil — para vélina fyrst)"
+                    "no_release" -> "engin útgáfa skráð fyrir þessa gerð"
+                    "blocked_build" -> "útgáfa í bið (þessi útgáfa var áður tekin til baka hér)"
+                    else -> "útgáfa í bið (rollout slökkt)"
+                }
                 is UpdateResult.NotTargeted -> "þessi vél er ekki á uppfærslulista"
                 is UpdateResult.Installing -> "sæki + set upp ${result.versionName}…"
                 is UpdateResult.NotDeviceOwner -> "EKKI device owner — getur ekki uppfært sjálfkrafa"
@@ -2231,7 +2238,14 @@ class VendingViewModel(
     /** One line per update outcome, for the log and the dashboard's command result. */
     private fun describe(r: UpdateResult): String = when (r) {
         is UpdateResult.UpToDate -> "up to date (${isl.snudursopi.vending.BuildConfig.VERSION_NAME})"
-        is UpdateResult.Halted -> "no release for this machine, or rollout halted"
+        is UpdateResult.Halted -> when (r.reason) {
+            "not_in_cohort" -> "withheld: not in the release's cohort"
+            "halted" -> "withheld: rollout halted"
+            "key_not_stored" -> "withheld: key not stored on this machine — pair it first"
+            "no_release" -> "no release for this app"
+            "blocked_build" -> "withheld: this build was auto-reverted here before"
+            else -> "no release for this machine, or rollout halted"
+        }
         is UpdateResult.NotTargeted -> "not in this rollout"
         is UpdateResult.Installing -> "installing ${r.versionName}"
         is UpdateResult.NotDeviceOwner -> "update available but not Device Owner: ${r.detail}"

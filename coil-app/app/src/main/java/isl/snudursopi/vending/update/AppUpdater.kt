@@ -16,7 +16,8 @@ import java.security.MessageDigest
 /** Outcome of a self-update check, surfaced in Diagnostics / logs. */
 sealed class UpdateResult {
     object UpToDate : UpdateResult()
-    object Halted : UpdateResult()              // rollout disabled in the manifest
+    /** Nothing to install: [reason] is the backend's word for why (no_release, not_in_cohort, halted, key_not_stored) or blocked_build. */
+    data class Halted(val reason: String? = null) : UpdateResult()
     object NotTargeted : UpdateResult()         // this machine isn't in the allowlist
     data class Installing(val versionName: String) : UpdateResult()
     data class NotDeviceOwner(val detail: String) : UpdateResult()
@@ -70,7 +71,7 @@ class AppUpdater(private val context: Context) {
             // The backend returns {"rolloutEnabled": false} when there's no release for
             // this machine (or rollout is halted). Treat that as "nothing to do" before
             // any target/apkUrl validation, so a no-release reply isn't an error.
-            if (!rolloutEnabled) return UpdateResult.Halted
+            if (!rolloutEnabled) return UpdateResult.Halted(m.optString("reason", "").ifBlank { null })
 
             val target = m.optInt("targetVersionCode", m.optInt("versionCode", -1))
             val name = m.optString("versionName", target.toString())
@@ -86,7 +87,7 @@ class AppUpdater(private val context: Context) {
             if (target <= BuildConfig.VERSION_CODE) return UpdateResult.UpToDate
             if (RecoveryGuard.isBlocked(context, target)) {
                 Log.w(TAG, "target $target is blocked (previously auto-reverted bad build) — refusing")
-                return UpdateResult.Halted
+                return UpdateResult.Halted("blocked_build")
             }
             if (allow.isNotEmpty() && deviceCode != null && deviceCode !in allow) return UpdateResult.NotTargeted
             if (!isDeviceOwner()) return UpdateResult.NotDeviceOwner("not Device Owner; cannot install silently")
@@ -123,6 +124,7 @@ class AppUpdater(private val context: Context) {
             if (machineKey != null) setRequestProperty("X-Machine-Key", machineKey)
             // Heartbeat: lets the backend record this machine's installed version + last check.
             setRequestProperty("X-App-Version-Code", BuildConfig.VERSION_CODE.toString())
+            setRequestProperty("X-App-Version-Name", BuildConfig.VERSION_NAME)
         }
         try {
             if (conn.responseCode !in 200..299) throw RuntimeException("manifest GET ${conn.responseCode}")

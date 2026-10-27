@@ -4362,6 +4362,16 @@ async function clearRsFault(code) {
 // the operator closed those lanes, the kiosk couldn't decode them, and they are STILL SELLING —
 // a machine quietly taking money from lanes we think are shut. That belongs at the top of the page,
 // not behind a command panel someone has to think of opening.
+// How the machine holds its key, from its last config_health: 'stored' can take a generic build;
+// 'build' (key baked into its own APK) and 'none' cannot — the backend withholds updates from
+// them, and the header is where someone looks when an update "doesn't arrive".
+function mdKeyHeader(h) {
+  const k = h && h.keySource ? String(h.keySource) : null;
+  if (!k) return ' · <span style="color:var(--muted)" title="run config_health to learn how this machine holds its key">key unknown</span>';
+  if (k === 'stored') return ' · <span style="color:var(--muted)" title="key stored on the machine; generic builds install">key stored</span>';
+  return ' · <span style="color:var(--alert)" title="key comes from this machine\'s own build (' + rsEsc(k) + '); a generic update is withheld until it is paired">key ' + rsEsc(k) + ' — pair first</span>';
+}
+
 function renderHealthBanner(h) {
   const el = document.getElementById('md-health-banner');
   if (!el) return;
@@ -6126,7 +6136,7 @@ async function renderMachineDetail() {
           ? (m.lastAppVersionName ? 'v' + rsEsc(m.lastAppVersionName) + ' ' : '') +
             (m.lastAppVersionCode != null ? '<span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '')
           : '<span style="color:var(--muted)">unknown</span>') +
-      '</span>' + mdNayaxHeader(dr.data.payment);
+      '</span>' + mdKeyHeader(dr.data.configHealth) + mdNayaxHeader(dr.data.payment);
 
     renderMdLanguage(m);
     renderMdPairing();
