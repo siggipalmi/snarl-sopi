@@ -38,6 +38,7 @@ import isl.snudursopi.vending.ui.screens.setup.SetupScreen
 import isl.snudursopi.vending.ui.screens.success.SuccessScreen
 import isl.snudursopi.vending.ui.state.Phase
 import isl.snudursopi.vending.ui.state.VendingViewModel
+import isl.snudursopi.vending.ui.screens.closed.ClosedScreen
 
 
 @Composable
@@ -134,6 +135,14 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
         viewModel.resetForAttract()
         navController.navigate(Routes.Attract) { launchSingleTop = true }
     }
+
+    // Closed for sale: ClosedScreen covers every customer screen (drawn after the NavHost, so it
+    // is on top and takes the touches). Not while a payment is in flight — the customer who
+    // already tapped pay gets their item, and the machine closes behind them — and not over the
+    // admin routes, so the clock long-press → PIN → Diagnostics path still works while closed.
+    val adminRoute = currentRoute == Routes.PinEntry || currentRoute == Routes.Diagnostics || currentRoute == Routes.HardwareTest
+    val showClosed = state.outOfService && !adminRoute &&
+        state.paymentPhase == isl.snudursopi.vending.ui.state.PaymentPhase.Idle
 
     Box(
         modifier = Modifier
@@ -418,6 +427,16 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
                     onSaveDropSensorOverride = viewModel::setDropSensorOverride,
                 )
             }
+        }
+
+        if (showClosed) {
+            ClosedScreen(
+                reason = state.outOfServiceReason,
+                brand = state.brandLine,
+                currentTime = state.currentTime,
+                connectionState = state.connectionState,
+                onClockLongPress = onClockLongPress,
+            )
         }
 
         if (state.showContact) {
