@@ -5945,12 +5945,11 @@ function renderMdPayment(p) {
 }
 
 // Per-machine admin PIN (AG only). The backend never returns the PIN again or its hash; a new one is
-// shown once. A fridge needs app 0.69.0+ to use it; older apps keep 123456.
+// shown once. A fridge needs app 0.69.0+, a coil machine 0.80.6+; older apps keep 123456.
 async function renderMdAdminPin() {
   const panel = document.getElementById('md-pin-panel');
   if (!panel) return;
-  const model = (typeof _mdModel !== 'undefined' && _mdModel) || String((DB.machines[_mdDeviceCode] || {}).model || '');
-  if (currentUser?.role !== 'ag_admin' || !/^GR-/.test(model)) { panel.style.display = 'none'; return; }   // fridges only
+  if (currentUser?.role !== 'ag_admin') { panel.style.display = 'none'; return; }   // AG only; any machine type since coil 0.80.6
   panel.style.display = '';
   document.getElementById('md-pin-new').style.display = 'none';
   const st = document.getElementById('md-pin-status');
@@ -5964,7 +5963,7 @@ function showAdminPinStatus(d) {
   document.getElementById('md-pin-status').innerHTML = d.set
     ? `Own PIN set ${rsEsc(day(d.setAt))}${d.setBy ? ' by ' + rsEsc(d.setBy) : ''}.<br>Last used: ${rsEsc(day(d.lastUsedAt) || 'not yet')}`
       + (d.lastLockoutAt ? `<br><span style="color:var(--alert)">Locked out after 5 wrong tries ${rsEsc(day(d.lastLockoutAt))}.</span>` : '')
-    : 'Still on the shared PIN (123456). Generate one for this machine; needs fridge app 0.69.0 or newer.';
+    : 'Still on the shared PIN (123456). Generate one for this machine; needs fridge app 0.69.0 or coil app 0.80.6 or newer.';
 }
 async function newAdminPin() {
   if (!confirm('Make a new admin PIN for this machine?\n\nThe old PIN stops working within a minute. The new one is shown once.')) return;

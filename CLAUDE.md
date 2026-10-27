@@ -150,8 +150,9 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   app) means reader config or cabling, never our port choice.
 - Technician codes are set in Nayax Core (VPOS Touch group attributes → Technician Code). Never
   leave a reader on the default.
-- Our own admin sheet has the same exposure on apps older than 0.69.0 (shared `123456`, no
-  lockout). Give every placed machine 0.69.0+ and its own PIN.
+- Our own admin sheet has the same exposure on fridge apps older than 0.69.0 and coil apps older
+  than 0.80.6 (shared `123456`, no lockout). Give every placed machine a newer app and its own PIN
+  (machine → admin PIN → new PIN; the hash reaches the machine with its next config poll).
 
 ## Setting up a new machine
 

@@ -139,4 +139,10 @@
     <string name="complaint_received">kvörtun móttekin.</string>
     <string name="complaint_received_sub">við svörum þér sem fyrst með tölvupósti.</string>
 
+    <!-- Admin PIN pad (per-machine PIN with lockout, 0.80.6) -->
+    <string name="admin_pin_title">aðgangskóði</string>
+    <string name="admin_pin_subtitle">starfsmanna kóði · 6 stafir</string>
+    <string name="admin_pin_wrong">rangur kóði · %1$d tilraunir eftir</string>
+    <string name="admin_pin_locked">læst · reyndu aftur eftir %1$d mín</string>
+
 </resources>
