@@ -103,6 +103,17 @@ cohorts, Device Owner and machine commands stay with Siggi.
   runs regardless, five minutes after start and hourly after, logs its outcome every time, and the
   dashboard's `check_update` command works on coil too. Any coil machine still below 0.80.3 can
   only be updated over adb.
+- **Coil OTA is proven end to end (2026-10-27):** Valhúsaskóli `62160492` went 0.80.8 → 0.80.9 from
+  a dashboard publish to canary, installed silently as Device Owner and came back selling with
+  nobody at the machine. What it took: an app of 0.80.3+ (check runs on metered networks), a
+  **stored key** (`config_health` → `keySource=stored`; the backend withholds generic builds from a
+  machine whose key is baked into its APK, and from 6.76.4 the manifest and the kiosk say so:
+  "vantar geymdan lykil — para vélina fyrst"), and Device Owner. 62160492 had run build 137 with a
+  baked key; it was brought to 0.80.8 over adb once, paired, and has updated itself since.
+- **The key state is in the machine header** from 6.76.5: `key stored`, `key build — pair first`
+  or `key unknown` (never asked; run `config_health`). The machine page reads `/machines/:code/detail`,
+  which until 6.76.5 carried neither the health snapshot nor the version name — hence a bare
+  `app (164)` and a health banner that had never shown.
 - **Nayax names are labels, not links.** The reader in Grótta vinstri (Nayax machine 227890869)
   is named "62160481-Grótta vinstri" in Nayax, but 62160481 is Klettatröð – IWO. The backend
   links readers by the numeric Nayax ID set by hand (`nayaxMachineId`), never by the name — check
