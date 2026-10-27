@@ -54,6 +54,8 @@ class LogRelay(
             "/api/v1/machines/$deviceCode/logs",
             mapOf(
                 "kioskAppVersion" to BuildConfig.VERSION_NAME,
+                // The code too, so the header never pairs a new name with the old build's code.
+                "kioskAppVersionCode" to BuildConfig.VERSION_CODE,
                 "at" to System.currentTimeMillis(),
                 "lines" to lines,
             ),
