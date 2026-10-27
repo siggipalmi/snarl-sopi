@@ -17,7 +17,7 @@ import isl.snudursopi.vending.data.backend.SalePayload
 import isl.snudursopi.vending.data.backend.TelemetryClient
 import isl.snudursopi.vending.data.backend.TelemetryPayload
 import isl.snudursopi.vending.update.AppUpdater
-import UpdateResult
+import isl.snudursopi.vending.update.UpdateResult
 import isl.snudursopi.vending.data.backend.SalesRepository
 import isl.snudursopi.vending.domain.Offer
 import isl.snudursopi.vending.data.backend.AdminBackendConfig
