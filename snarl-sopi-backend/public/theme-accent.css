@@ -1,0 +1,108 @@
+/* =====================================================================
+   AG Vending — backend theme, step 1: tokens, aliases and type
+   ---------------------------------------------------------------------
+   From the "colour as accent" design (Oct 2026). This is the SAFE SUBSET
+   of agvending-backend.css: everything that can be dropped on top of the
+   existing dashboard without touching its markup.
+
+   WHAT IS HERE
+     - the palette and the type tokens
+     - aliases pointing the old cream/bronze variable names at the new
+       values, so the dashboard recolours with no markup change
+     - the same for the three FONT variables, which the original alias
+       block missed: without them every heading and KPI number stays
+       Cormorant Garamond and "one typeface" never happens
+     - square corners, forced
+
+   WHAT IS DELIBERATELY NOT HERE
+     Sections 4-13 of the original — .site-header, .nav, .list, .row,
+     .stats, .status, .notice and the rest. They are written for simpler
+     server-rendered markup that this dashboard does not have, and six of
+     their selectors collide with classes it already uses heavily:
+
+         .btn  149 elements      .mono   53
+         .field 111              .stat   37
+         .panel  84              .page   19
+
+     .page is the worst: here it is the routed page container, there it is
+     a centred 1440px flex column. Loading the whole file takes the fleet
+     page apart — tabs, KPI tiles, search and the machine table all go.
+     Those sections wait for a markup migration; they are not a drop-in.
+
+   Loaded from index.html AFTER the inline <style>, which is the only
+   position where these overrides win. Reverting this commit restores the
+   previous look exactly; nothing else in the dashboard was changed.
+   ===================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500&display=swap");
+
+/* ---------------------------------------------------------------------
+   1. Tokens
+   --------------------------------------------------------------------- */
+:root {
+  /* Neutrals */
+  --ink:        #111111;   /* all text, rules, primary buttons */
+  --ink-soft:   #555555;   /* secondary text (passes 4.5:1 on white and wall) */
+  --paper:      #FFFFFF;   /* page background */
+  --wall:       #F3F0EB;   /* inputs, placeholders, recessed areas */
+  --wall-deep:  #E2DED7;   /* inactive bars */
+
+  /* Palette — accents only */
+  --c-yellow:   #FFC72C;   /* default UI accent: active nav, highlights */
+  --c-pink:     #F48FB8;
+  --c-sky:      #3FC3E6;
+  --c-green:    #22B05A;   /* online / success / paid */
+  --c-salmon:   #F7AE94;
+  --c-coral:    #F05A3C;
+  --c-orange:   #F7A21B;   /* in progress / restocking / attention */
+  --c-teal:     #8DCFC7;
+  --c-magenta:  #EC4F8C;   /* warnings / alerts */
+  --c-night:    #2C3A68;   /* only colour that takes white text */
+
+  /* Roles */
+  --accent:         var(--c-yellow);
+  --status-ok:      var(--c-green);
+  --status-busy:    var(--c-orange);
+  --status-alert:   var(--c-magenta);
+  --status-info:    var(--c-sky);
+
+  /* Type */
+  --font:       "Libre Franklin", system-ui, sans-serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ---------------------------------------------------------------------
+   2. Aliases — old names onto the new values. Delete once the markup
+      uses the new names directly.
+   --------------------------------------------------------------------- */
+:root {
+  --cream:         var(--paper);
+  --cream-deep:    var(--wall);
+  --cream-shadow:  var(--paper);
+  --bronze:        var(--ink);
+  --bronze-light:  var(--ink-soft);
+  --bronze-bg:     var(--wall);
+  --clay:          var(--wall-deep);
+  --line:          var(--ink);
+  --muted:         var(--ink-soft);
+  --alert:         var(--c-magenta);
+  --success:       var(--c-green);
+
+  /* Missing from the original alias block. The dashboard sets
+     font-family from these three on headings, numbers and every mono
+     field, so without them the old typefaces survive the recolour. */
+  --serif:         var(--font);
+  --sans:          var(--font);
+  --mono:          var(--font-mono);
+}
+
+/* ---------------------------------------------------------------------
+   3. Type and corners
+   --------------------------------------------------------------------- */
+body, input, select, textarea, button, h1, h2, h3, h4 { font-family: var(--font); }
+h1, h2, h3, h4 { font-style: normal; }
+
+/* !important is load-bearing here: the dashboard sets an explicit radius on
+   109 class rules, and a class selector beats the universal one every time.
+   Without it the pills and panels stay rounded and the look is half-applied. */
+*, *::before, *::after { border-radius: 0 !important; }

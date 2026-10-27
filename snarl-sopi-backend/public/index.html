@@ -638,6 +638,11 @@ select.fi{cursor:pointer;}
 
 </style>
 
+<!-- Backend theme, step 1: palette, type and square corners. Loaded AFTER the inline
+     <style> above, which is the only position where its overrides win. Revert the commit
+     that added it to restore the previous look exactly. -->
+<link rel="stylesheet" href="/theme-accent.css">
+
 </head>
 <body>
 
