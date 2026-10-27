@@ -186,6 +186,22 @@ class ConfigClient(
         val commandsNode = data.get("commands")?.takeIf { it.isObject }
         val restartApp = commandsNode?.get("restartApp")?.takeIf { !it.isNull }?.asLong()
         val restartMachine = commandsNode?.get("restartMachine")?.takeIf { !it.isNull }?.asLong()
+        // ads: this machine's posters and clips — its own list, else its operator's; the
+        // backend chooses and says which in adsSource. Played only from a local copy
+        // (AdCache), so a URL here never means a stream.
+        val ads = data.get("ads")?.takeIf { it.isArray }?.mapNotNull { n ->
+            val type = n.get("type")?.asText()?.lowercase() ?: return@mapNotNull null
+            if (type != "image" && type != "video") return@mapNotNull null
+            val url = n.get("url")?.asText()?.takeIf { it.startsWith("https://") } ?: return@mapNotNull null
+            RemoteAd(
+                type = type,
+                url = url,
+                durationSec = n.get("durationSec")?.takeIf { it.isNumber }?.asInt()?.takeIf { it > 0 },
+                overlayText = n.get("overlayText")?.takeIf { it.isTextual }?.asText()?.takeIf { it.isNotBlank() },
+            )
+        } ?: emptyList()
+        // showAdRegion: the dashboard's switch for the poster area. Absent → on, as before.
+        val showAdRegion = data.get("showAdRegion")?.takeIf { it.isBoolean }?.asBoolean() ?: true
 
         return Result.Loaded(
             featured = featured,
@@ -202,6 +218,8 @@ class ConfigClient(
             images = images,
             restartApp = restartApp,
             restartMachine = restartMachine,
+            ads = ads,
+            showAdRegion = showAdRegion,
         )
     }
 
@@ -298,6 +316,10 @@ class ConfigClient(
             val restartApp: Long? = null,
             /** commands.restartMachine epoch-ms (or null). Parsed; reboot path TBD. */
             val restartMachine: Long? = null,
+            /** The ad list as the backend sent it; AdCache turns it into playable slots. */
+            val ads: List<RemoteAd> = emptyList(),
+            /** The dashboard's poster-area switch. */
+            val showAdRegion: Boolean = true,
         ) : Result()
     }
 }
@@ -322,4 +344,12 @@ data class ConfigProfile(
     val machineLabel: String,
     val supportEmail: String?,
     val supportPhone: String?,
+)
+
+/** One ad as the backend lists it: `{ type: "image"|"video", url, durationSec?, overlayText? }`. */
+data class RemoteAd(
+    val type: String,
+    val url: String,
+    val durationSec: Int? = null,
+    val overlayText: String? = null,
 )

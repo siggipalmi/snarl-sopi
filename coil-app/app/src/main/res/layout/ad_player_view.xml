@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ad region's video surface. surface_type=texture_view draws the video INSIDE the
+     app's window instead of on a separate SurfaceView layer. A SurfaceView can go black on
+     its own and swallow touches while the process runs on — both Grótta machines were found
+     like that on 2026-10-27, black and deaf with the app alive underneath. A TextureView
+     cannot fail separately from the window it is part of. The attribute exists only in XML,
+     which is why this file exists. -->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="texture_view"
+    app:use_controller="false"
+    app:resize_mode="zoom" />

@@ -11,8 +11,8 @@ import kotlinx.serialization.Serializable
  * Videos play muted at all times. There is no way to unmute. A vending
  * machine in a public space must not produce sound on its own.
  *
- * TODO: populated from admin backend per-machine. For now stubbed in
- * VendingViewModel.defaultAdPlaylist() so we can test rotation.
+ * Populated from the backend's per-machine ad list (ConfigClient.RemoteAd), each
+ * entry pointing at a local copy kept by AdCache — never a remote URL.
  */
 @Serializable
 sealed class AdSlot {
@@ -30,6 +30,8 @@ sealed class AdSlot {
         val imageUrl: String?,
         /** Optional editorial overlay; if null, image renders full-bleed. */
         val overlay: AdOverlay? = null,
+        /** How long to show it, from the backend's durationSec; null → the global interval. */
+        val durationSeconds: Int? = null,
     ) : AdSlot()
 
     /**

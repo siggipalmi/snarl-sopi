@@ -22,6 +22,9 @@ import isl.snudursopi.vending.data.backend.SalesRepository
 import isl.snudursopi.vending.domain.Offer
 import isl.snudursopi.vending.data.backend.AdminBackendConfig
 import isl.snudursopi.vending.data.backend.AdminBackendHttp
+import isl.snudursopi.vending.data.ads.AdCache
+import isl.snudursopi.vending.data.backend.LogRelay
+import isl.snudursopi.vending.data.backend.RemoteAd
 import isl.snudursopi.vending.data.backend.BackendImage
 import isl.snudursopi.vending.RecoveryGuard
 import isl.snudursopi.vending.data.backend.BackendException
@@ -182,6 +185,9 @@ class VendingViewModel(
     /** Recurring 2-min config poll (also the presence heartbeat). */
     private var configPollJob: Job? = null
     private var telemetryJob: Job? = null
+    private var logRelayJob: Job? = null
+    private val adCache = AdCache(appContext)
+    private var lastAdsKey: String? = null
 
     /** Backend machine-command queue: ids we've already executed (idempotency). */
     private val executedCommandIds = java.util.Collections.synchronizedSet(HashSet<String>())
@@ -626,9 +632,10 @@ class VendingViewModel(
                 if (profileEmail.isNotBlank()) profileEmail else _state.value.settings.supportEmail
             val machineName = profile?.deviceName ?: ""
 
-            // TODO: replace defaultAdPlaylist() with per-machine playlist from
-            //   admin backend. For now, stub ads so we can see rotation.
-            val ads = defaultAdPlaylist()
+            // Ads come from the backend (the machine's list, else its operator's) and play
+            // only from a local copy — see AdCache. Whatever is on disk shows at once;
+            // syncAds downloads the rest and swaps it in when it lands.
+            val ads = adCache.playable(config.ads)
 
             _state.update {
                 it.copy(
@@ -652,11 +659,12 @@ class VendingViewModel(
                         supportEmail = supportEmail,
                         featured = featured,
                         ads = ads,
-                        showAdRegion = true,
+                        showAdRegion = config.showAdRegion,
                     ),
                 )
             }
             cancelPendingRetry()
+            syncAds(config)
             // Bring up the card reader + motor controllers once; the reader
             // stays connected for the session so payment is instant.
             startHardwareOnce()
@@ -667,6 +675,7 @@ class VendingViewModel(
             startConfigPoll(deviceCode)
             startTelemetryLoop(deviceCode)
             startUpdateLoop(deviceCode)
+            startLogRelay(deviceCode)
         } catch (e: Exception) {
             Log.e(TAG, "Catalog load failed", e)
             transitionToError(e)
@@ -2168,6 +2177,37 @@ class VendingViewModel(
      * during a live payment, so a telemetry read never collides with a vend on
      * the shared serial line. Thresholds/alerting live backend-side.
      */
+    /**
+     * Download any listed ad that isn't on disk, drop files for ads no longer listed,
+     * then swap the playable set into state. Skipped when the list is unchanged and
+     * everything is cached, so the 2-minute poll costs nothing in the normal case.
+     */
+    private fun syncAds(config: ConfigResult) {
+        val key = config.ads.joinToString("|") { it.url }
+        if (key == lastAdsKey && adCache.playable(config.ads).size == config.ads.size) return
+        lastAdsKey = key
+        viewModelScope.launch {
+            val fetched = try {
+                adCache.sync(config.ads)
+            } catch (e: Exception) {
+                Log.w(TAG, "ad sync failed: ${e.message}")
+                0
+            }
+            val playable = adCache.playable(config.ads)
+            Log.i(TAG, "ads: $fetched downloaded, ${playable.size}/${config.ads.size} playable from disk")
+            _state.update { it.copy(settings = it.settings.copy(ads = playable)) }
+        }
+    }
+
+    /** The app's own log to the backend every 5 minutes — see LogRelay for why. */
+    private fun startLogRelay(deviceCode: String) {
+        if (logRelayJob?.isActive == true) return
+        logRelayJob = viewModelScope.launch {
+            val http = AdminBackendHttp(AdminBackendConfig.BASE_URL, resolveMachineKey(deviceCode))
+            LogRelay(http, deviceCode).run()
+        }
+    }
+
     private fun startTelemetryLoop(deviceCode: String) {
         telemetryJob?.cancel()
         telemetryJob = viewModelScope.launch {
@@ -2239,9 +2279,12 @@ class VendingViewModel(
                                 featured = config.featured,
                                 operatorName = opName,
                                 supportEmail = opEmail,
+                                ads = adCache.playable(config.ads),
+                                showAdRegion = config.showAdRegion,
                             ),
                         )
                     }
+                    syncAds(config)
                     // A successful poll means the network is reachable — a good
                     // moment to drain any queued sales from an offline spell.
                     salesRepo?.let { repo -> launch { repo.flushQueue() } }
@@ -2276,6 +2319,8 @@ class VendingViewModel(
         val profile: ConfigProfile? = null,
         val idle: IdleConfig = IdleConfig.EMPTY,
         val offers: List<Offer> = emptyList(),
+        val ads: List<RemoteAd> = emptyList(),
+        val showAdRegion: Boolean = true,
     ) {
         companion object {
             val EMPTY = ConfigResult(emptyList(), emptyList(), emptyMap(), null)
@@ -2339,6 +2384,8 @@ class VendingViewModel(
                         profile = result.profile,
                         idle = result.idle,
                         offers = result.offers,
+                        ads = result.ads,
+                        showAdRegion = result.showAdRegion,
                     )
                     lastConfig = cfg  // remember for the next 304
                     cfg
@@ -2558,40 +2605,6 @@ class VendingViewModel(
             "62160043",  // non-standard layout
         )
 
-        /**
-         * Stub ad playlist. Three slots: two image ads with overlay copy
-         * (preserves the "fylkir / ískalt / orkugefandi" feel we had) and
-         * one video ad to verify the player works. Replace with admin
-         * backend playlist when ready.
-         */
-        private fun defaultAdPlaylist(): List<AdSlot> = listOf(
-            AdSlot.Image(
-                id = "ad-fylkir-isport",
-                imageUrl = null,  // null → fall back to gradient backdrop
-                overlay = AdOverlay(
-                    eyebrow = "fylkir · íþróttadrykkur",
-                    titleLines = listOf("ískalt.", "orkugefandi."),
-                    ctaLabel = "prófaðu · 425 kr →",
-                ),
-            ),
-            AdSlot.Image(
-                id = "ad-corny-nyr",
-                imageUrl = null,
-                overlay = AdOverlay(
-                    eyebrow = "corny big · nýr bragð",
-                    titleLines = listOf("súkkulaði.", "fyrir milli mála."),
-                    ctaLabel = "smakkaðu · 249 kr →",
-                ),
-            ),
-            AdSlot.Video(
-                id = "ad-test-video",
-                // Official ExoPlayer test bucket — small (320x180) Big Buck
-                // Bunny clip. Loads quickly, works without authentication.
-                // The gtv-videos-bucket we previously used returns 403 now.
-                videoUrl = "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4",
-                maxDurationSeconds = 12,
-            ),
-        )
     }
 }
 
