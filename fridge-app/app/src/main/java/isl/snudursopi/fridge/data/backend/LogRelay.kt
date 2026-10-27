@@ -64,6 +64,8 @@ class LogRelay(
         val body = mapper.writeValueAsString(
             mapOf(
                 "kioskAppVersion" to isl.snudursopi.shared.AppVersion.name,
+                // The code too, so the header never pairs a new name with the old build's code.
+                "kioskAppVersionCode" to isl.snudursopi.shared.AppVersion.code,
                 "at" to System.currentTimeMillis(),
                 "lines" to lines,
             ),

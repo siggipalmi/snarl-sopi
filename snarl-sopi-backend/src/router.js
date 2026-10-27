@@ -4463,6 +4463,11 @@ function handleKioskLogs(req, res) {
     return serverError(res, e);
   }
   // Keep the reported app version fresh from this too — it's a free signal about what's running.
+  // Code first (coil 0.80.10 / fridge 0.70.3 send it), then the name: a relay from a freshly
+  // installed build used to set the new name beside the OLD code for up to five minutes, until
+  // the new build's first update check — "v0.80.9 (159)" on 62160479, 2026-10-27.
+  const vcode = Number(b.kioskAppVersionCode);
+  if (Number.isFinite(vcode) && vcode > 0) storage.recordAppVersion(code, vcode);
   if (version) storage.recordAppVersionName(code, version);
   if (version && m.kioskVersion !== version) {
     m.kioskVersion = version;
