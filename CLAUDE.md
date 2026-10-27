@@ -96,6 +96,13 @@ cohorts, Device Owner and machine commands stay with Siggi.
   SIM. From 0.80.2 it plays the backend's per-machine list (the machine's own, else its operator's,
   set in the dashboard) and only from a local copy (`AdCache`): each file is downloaded once, played
   from disk, and removed when unlisted. A machine with no ads configured shows no ad region.
+- **OTA never ran on its own at Grótta before coil 0.80.3.** The app skipped its hourly update check
+  whenever Android called the network metered, and the SIM router's Wi-Fi is flagged metered (its
+  capabilities carry no `NOT_METERED`; read with `dumpsys connectivity` on 62160484, 2026-10-27).
+  Two days online, no check, header "app unknown", and no log line to say why. From 0.80.3 the check
+  runs regardless, five minutes after start and hourly after, logs its outcome every time, and the
+  dashboard's `check_update` command works on coil too. Any coil machine still below 0.80.3 can
+  only be updated over adb.
 - **Nayax names are labels, not links.** The reader in Grótta vinstri (Nayax machine 227890869)
   is named "62160481-Grótta vinstri" in Nayax, but 62160481 is Klettatröð – IWO. The backend
   links readers by the numeric Nayax ID set by hand (`nayaxMachineId`), never by the name — check
