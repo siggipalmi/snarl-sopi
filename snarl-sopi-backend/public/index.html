@@ -2746,7 +2746,11 @@ async function bootApp(user) {
   // Show/hide AG-only menu items
   const isAg = user.role === 'ag_admin';
   document.querySelectorAll('.ag-only').forEach(el => {
-    el.style.display = isAg ? 'flex' : 'none';
+    // '' restores whatever the element's own CSS says, instead of forcing
+    // flex on everything. Written for .nav-item (which is display:flex in
+    // CSS anyway); .panel.ag-only is a block, and forcing flex laid its
+    // header, body and file picker out in a row.
+    el.style.display = isAg ? '' : 'none';
   });
   // Role gating decides which items exist for this user, so group visibility and badge rollup have
   // to be recomputed after it — a group whose every item is AG-only should disappear entirely.

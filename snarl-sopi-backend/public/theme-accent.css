@@ -160,3 +160,119 @@ h1, h2, h3, h4 { font-style: normal; }
 /* Attention gets its own colour rather than sharing magenta with alerts: three states that mean
    different things should not all read the same. */
 :root { --warn-ink: var(--c-orange); --warn-bg: #FDF1DC; }
+
+/* ---------------------------------------------------------------------
+   6. The ticket — the one component
+   ---------------------------------------------------------------------
+   A header band over a body block, two colours. Square corners, no
+   shadows, no gradients, no borders: the colour change is the edge.
+
+   EACH SCREEN GETS ITS OWN PAIR. The band colour is a property of the
+   PAGE, not of the panel, so everything on one screen bands in one
+   colour and the colour itself tells you where you are. Six colours do
+   all twenty pages, grouped by what the page is for. Bodies stay paper
+   everywhere: a palette body is fine under four rows and heavy under
+   forty, and these panels hold tables.
+
+   --band-ink is the type colour for that band. Night is the only palette
+   colour that takes white, so it is the only pair that sets it.
+   --------------------------------------------------------------------- */
+:root { --band: var(--c-yellow); --band-ink: var(--ink); }
+
+#page-dashboard, #page-billing, #page-leases, #page-deals   { --band: var(--c-yellow);  }  /* money */
+#page-machines, #page-machinedetail, #page-hero, #page-display { --band: var(--c-sky);  }  /* machines + kiosk */
+#page-alerts, #page-complaints                              { --band: var(--c-magenta); }  /* something is wrong */
+#page-orders, #page-receipts                                { --band: var(--c-green);   }  /* sales that went through */
+#page-catalog, #page-expiry, #page-operators, #page-users   { --band: var(--c-teal);    }  /* stock and people */
+#page-reports, #page-settings, #page-help {
+  --band: var(--c-night); --band-ink: #FFFFFF;
+}
+
+/* The band. .ph was a white header row separated by a hairline; now the
+   colour change does that job and the hairline goes. */
+.ph {
+  background: var(--band) !important;
+  color: var(--band-ink) !important;
+  border-bottom: 0 !important;
+  padding: 13px 20px !important;
+}
+.ph-title {
+  font-size: 17px !important; font-weight: 800 !important;
+  letter-spacing: -0.3px !important; color: var(--band-ink) !important;
+}
+.ph-action { color: var(--band-ink) !important; opacity: .72; }
+
+/* Tabs sitting inside a band borrow the band's own two colours rather
+   than bringing a third. */
+.ph .tabs { background: rgba(0,0,0,.12) !important; border: 0 !important; }
+.ph .tab  { color: var(--band-ink) !important; opacity: .68; }
+.ph .tab.active {
+  background: var(--band-ink) !important; color: var(--band) !important; opacity: 1;
+}
+
+/* A stat tile is the ticket at its smallest: the label IS the band. The
+   padding moves off .stat and onto its children so the band can reach
+   the edges — written for any number of children, not just two. */
+.stat { padding: 0 !important; background: var(--paper) !important; overflow: hidden; }
+.stat > *            { padding-left: 16px; padding-right: 16px; }
+.stat > .stat-lbl    { padding: 11px 16px !important; }
+.stat > .stat-val    { padding-top: 15px; }
+.stat > *:last-child { padding-bottom: 16px; }
+.stat-lbl {
+  background: var(--band); color: var(--band-ink);
+  font-family: var(--font) !important; font-weight: 800 !important;
+  font-size: 10.5px !important; letter-spacing: .11em !important;
+  margin-bottom: 0 !important;
+}
+.stat-val { font-size: 30px !important; }
+
+/* Same component, mobile card version. */
+.ui-card-h { background: var(--band); color: var(--band-ink); padding: 11px 14px !important; }
+.ui-card-h b { font-size: 15px !important; font-weight: 800 !important; }
+.ui-card-h span, .ui-card-h a { color: var(--band-ink) !important; opacity: .75; }
+
+/* ---------------------------------------------------------------------
+   7. One typeface where it is brand, mono where it is figures
+   ---------------------------------------------------------------------
+   "Operator portal" was 9px Geist Mono and became 9px JetBrains Mono —
+   a change nobody can see, because at that size in caps the two are the
+   same drawing. If the system is colour and type and nothing else, a
+   brand label should be carrying the type rather than introducing a
+   second face. Figures keep mono, where fixed-width digits earn it, and
+   so does the version string next to this label.
+   --------------------------------------------------------------------- */
+.sb-sub:not(#sb-version), .sb-section {
+  font-family: var(--font) !important;
+  font-weight: 800 !important;
+  letter-spacing: .13em !important;
+}
+.sb-sub:not(#sb-version) { font-size: 10px !important; color: var(--ink) !important; }
+.sb-section { font-size: 9.5px !important; color: var(--ink-soft) !important; }
+
+/* .stat-val carries a 7px bottom margin for the line that usually follows
+   it. When it is the last child that margin stacks on the tile's own
+   padding and the number sits visibly off-centre. */
+.stat > .stat-val:last-child { margin-bottom: 0 !important; }
+
+/* Secondary text in a band is usually inline-styled var(--muted), which
+   is grey on a colour. It belongs to the band, so it takes the band's
+   own ink. .tabs is excluded — it sets its own pair above. */
+.ph > *:not(.ph-title):not(.tabs), .ph-action {
+  color: var(--band-ink) !important; opacity: .72;
+}
+
+/* The fleet filter tiles are the ticket too: label band over a number.
+   Selection was a 1px black outline — a border, and the only one left on
+   the page. Selecting now changes the band's colour instead, which is
+   the same move the rest of the system makes. */
+.fh-kpi { border: 0 !important; padding: 0 !important; background: var(--wall) !important; }
+.fh-kpi small {
+  background: var(--wall-deep); color: var(--ink-soft);
+  font-family: var(--font) !important; font-weight: 800 !important;
+  font-size: 10px !important; letter-spacing: .11em !important;
+  padding: 9px 14px !important;
+}
+.fh-kpi b { display: block; padding: 12px 14px 14px; font-size: 28px !important; }
+.fh-kpi.on small { background: var(--band); color: var(--band-ink); }
+.fh-kpi:hover small { background: var(--ink-soft); color: var(--paper); }
+.fh-kpi.on:hover small { background: var(--band); }
