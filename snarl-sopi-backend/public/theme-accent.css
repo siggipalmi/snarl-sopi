@@ -276,3 +276,37 @@ h1, h2, h3, h4 { font-style: normal; }
 .fh-kpi.on small { background: var(--band); color: var(--band-ink); }
 .fh-kpi:hover small { background: var(--ink-soft); color: var(--paper); }
 .fh-kpi.on:hover small { background: var(--band); }
+
+/* The two dashboard charts were still drawn in the bronze and black left
+   over from the old scheme, which is why the revenue week read grey with
+   one black bar. They now use the same pair as the revenue tile above
+   them: the week in sky, today in the yellow accent. */
+:root {
+  --chart-bar:       var(--c-sky);
+  --chart-bar-today: var(--c-yellow);
+  --chart-fill:      var(--c-sky);
+}
+
+/* .stat-lbl is the band only when it IS one. #rev-summary uses the class
+   for three plain captions under the chart, and they were coming out as
+   yellow highlighter blocks. The type change still applies everywhere. */
+.stat-lbl { background: none; color: inherit; }
+.stat > .stat-lbl { background: var(--band); color: var(--band-ink); }
+
+/* ---------------------------------------------------------------------
+   8. The page title on a phone
+   ---------------------------------------------------------------------
+   Step 2 took .tb-title from 21px to 34px/900, which is right on a
+   desktop and too wide for a 390px header: with a back arrow in the row,
+   "orders." pushed the live badge off the right edge. Operators work
+   mostly on a phone, so the title scales back there and truncates rather
+   than shoving the controls out.
+   --------------------------------------------------------------------- */
+@media (max-width: 759px) {
+  .topbar { gap: 9px; padding-left: 15px; padding-right: 15px; }
+  .tb-title {
+    font-size: 25px !important; letter-spacing: -0.8px !important;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tb-right { gap: 7px; flex-shrink: 0; }
+}
