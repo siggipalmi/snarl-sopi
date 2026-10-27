@@ -52,6 +52,8 @@ class CommandRunner(
     private val onSetLights: ((Boolean) -> String)? = null,
     /** Open TeamViewer QuickSupport on the machine's screen. */
     private val onLaunchSupport: (suspend () -> String)? = null,
+    /** adb_wifi { action }: wireless debugging status / on / off. (ok, detail). Null if not wired. */
+    private val onAdbWifi: (suspend (action: String) -> Pair<Boolean, String>)? = null,
 ) {
     fun start(scope: CoroutineScope) {
         scope.launch {
@@ -106,6 +108,7 @@ class CommandRunner(
         "clear_device_owner" -> clearDeviceOwner(cmd)
         "set_payment_port" -> setPaymentPort(cmd)
         "launch_support" -> launchSupport()
+        "adb_wifi" -> adbWifi(cmd)
         "read_all_trays" -> readAllTrays()
         "set_led" -> setLed(cmd)
         // probe_addresses REMOVED in v0.49.1 — it reported "answered=0, NO
@@ -356,6 +359,12 @@ class CommandRunner(
      * the hard part: talking someone through finding an app on a kiosk with no
      * navigation bar. They press one button that is already on screen.
      */
+    private suspend fun adbWifi(cmd: MachineCommand): CommandOutcome {
+        val run = onAdbWifi ?: return CommandOutcome.Unsupported("this build cannot control wireless debugging")
+        val (ok, detail) = run(cmd.str("action") ?: "status")
+        return if (ok) CommandOutcome.Ok(detail) else CommandOutcome.Failed(detail)
+    }
+
     private suspend fun launchSupport(): CommandOutcome {
         val launch = onLaunchSupport
             ?: return CommandOutcome.Unsupported("this build cannot launch support")

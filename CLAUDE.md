@@ -107,6 +107,11 @@ cohorts, Device Owner and machine commands stay with Siggi.
   is named "62160481-Grótta vinstri" in Nayax, but 62160481 is Klettatröð – IWO. The backend
   links readers by the numeric Nayax ID set by hand (`nayaxMachineId`), never by the name — check
   the ID, not the label, before believing which machine a sale belongs to.
+- **Wireless debugging from the dashboard (AG only): `adb on` / `adb status` / `adb off`** on the
+  machine page, fridge 0.70.0+ and coil 0.80.8+. The answer in the command history carries the
+  `adb connect <tailscale-ip>:<port>` line, so nobody has to read the port off the screen. It needs
+  the one-time `pm grant … WRITE_SECURE_SETTINGS` on the machine (the same grant ClockGuard uses;
+  `adb-onepass.sh` does it); `adb status` says whether it has it. Switch it off when done.
 - **Out of service works on coil from 0.80.7** (fridge since 0.68.0): the dashboard switch (Controls →
   close this machine, with a reason) and AG's master close cover every customer screen with
   "Lokað tímabundið"; a payment already in flight finishes first, and the clock long-press → PIN
