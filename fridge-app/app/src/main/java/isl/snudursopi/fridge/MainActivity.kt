@@ -52,6 +52,7 @@ import isl.snudursopi.fridge.ui.theme.AppColors
 import isl.snudursopi.fridge.ui.theme.SnudurSopiTheme
 import androidx.core.view.WindowCompat
 import android.content.Intent
+import isl.snudursopi.shared.AppVersion
 import isl.snudursopi.shared.ClockGuard
 import isl.snudursopi.shared.Liveness
 import isl.snudursopi.shared.RecoveryGuard
