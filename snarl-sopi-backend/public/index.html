@@ -995,24 +995,24 @@ select.fi{cursor:pointer;}
     <div class="page" id="page-machinedetail">
       <div class="shd">
         <div>
-          <div class="shd-sub" id="md-back" style="cursor:pointer;color:var(--bronze)">← back to machines</div>
+          <div class="shd-sub" id="md-back" style="cursor:pointer;color:var(--bronze)" data-i18n="md.back">← back to machines</div>
           <div id="md-name" style="font-family:var(--serif);font-style:italic;font-size:22px;font-weight:500;margin-top:2px"></div>
           <div id="md-meta" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px"></div>
           <div id="md-operator" style="margin-top:6px"></div>
         </div>
-        <button class="btn btn-sm btn-ghost" onclick="openEditMachine(_mdDeviceCode)" style="flex-shrink:0">edit</button>
+        <button class="btn btn-sm btn-ghost" onclick="openEditMachine(_mdDeviceCode)" style="flex-shrink:0" data-i18n="md.edit">edit</button>
       </div>
 
       <!-- tab bar -->
       <div id="md-health-banner" style="display:none;margin-bottom:12px"></div>
 
       <div class="tabs" id="md-tabbar" style="margin:14px 0 16px;justify-content:space-between">
-        <div class="tab active" data-mdtab="overview" onclick="showMdTab('overview',this)">Overview</div>
-        <div class="tab" data-mdtab="layout" onclick="showMdTab('layout',this)" id="md-tab-layout">Planogram</div>
-        <div class="tab" data-mdtab="kiosk" onclick="openKioskDesigner(_mdDeviceCode)" id="md-tab-kiosk" style="display:none">Kiosk</div>
-        <div class="tab" data-mdtab="activity" onclick="showMdTab('activity',this)">Activity</div>
-        <div class="tab" data-mdtab="controls" onclick="showMdTab('controls',this)">Controls</div>
-        <div class="tab" data-mdtab="notifications" onclick="showMdTab('notifications',this)">Notifications</div>
+        <div class="tab active" data-mdtab="overview" onclick="showMdTab('overview',this)" data-i18n="md.tab.overview">Overview</div>
+        <div class="tab" data-mdtab="layout" onclick="showMdTab('layout',this)" id="md-tab-layout" data-i18n="md.tab.planogram">Planogram</div>
+        <div class="tab" data-mdtab="kiosk" onclick="openKioskDesigner(_mdDeviceCode)" id="md-tab-kiosk" style="display:none" data-i18n="md.tab.kiosk">Kiosk</div>
+        <div class="tab" data-mdtab="activity" onclick="showMdTab('activity',this)" data-i18n="md.tab.activity">Activity</div>
+        <div class="tab" data-mdtab="controls" onclick="showMdTab('controls',this)" data-i18n="md.tab.controls">Controls</div>
+        <div class="tab" data-mdtab="notifications" onclick="showMdTab('notifications',this)" data-i18n="md.tab.notifications">Notifications</div>
       </div>
 
       <!-- ── OVERVIEW ── -->
@@ -1021,57 +1021,57 @@ select.fi{cursor:pointer;}
 
         <div class="panel" id="md-ads-panel" style="margin-bottom:16px">
           <div class="ph">
-            <div class="ph-title">screen poster.</div>
-            <div class="ph-action" onclick="addAdSlot()">+ add</div>
+            <div class="ph-title" data-i18n="md.screenPoster">screen poster.</div>
+            <div class="ph-action" onclick="addAdSlot()" data-i18n="md.add">+ add</div>
           </div>
           <div id="md-ads" style="padding:14px 18px 16px"></div>
         </div>
 
         <div class="panel" id="md-attention-panel" style="margin-bottom:16px;display:none">
-          <div class="ph"><div class="ph-title">needs attention.</div><div class="ph-action" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])">all alerts →</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="dash.alerts">needs attention.</div><div class="ph-action" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])" data-i18n="common.viewAll">all alerts →</div></div>
           <div id="md-attention" style="padding:0 4px"></div>
         </div>
 
         <div class="panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title">quick actions.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.quickActions">quick actions.</div></div>
           <div id="md-actions" style="padding:4px 14px 16px"></div>
         </div>
 
         <div class="panel" style="margin-bottom:16px;display:none" id="md-pair-panel">
-          <div class="ph"><div class="ph-title">pairing code.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.pairingCode">pairing code.</div></div>
           <div style="padding:14px 18px 16px">
-            <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:11px">
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:11px" data-i18n="md.pairingHelp">
               Install the app on the machine, open the pairing screen behind the admin PIN, and type this code.
               The app fetches its own identity — no cable, and the machine key is never shown to anyone.
             </div>
             <div id="md-pair-code" style="font-family:var(--mono);font-size:30px;letter-spacing:6px;font-weight:500;margin-bottom:4px">—</div>
             <div id="md-pair-meta" style="font-size:11.5px;color:var(--muted);margin-bottom:11px"></div>
-            <button class="btn btn-ghost btn-sm" onclick="issuePairingCode()" id="md-pair-btn" style="width:100%">generate code &rarr;</button>
+            <button class="btn btn-ghost btn-sm" onclick="issuePairingCode()" id="md-pair-btn" style="width:100%" data-i18n="md.generateCode">generate code &rarr;</button>
             <div id="md-pair-msg" style="font-size:11.5px;line-height:1.45;margin-top:8px"></div>
           </div>
         </div>
 
         <div class="panel" style="margin-bottom:16px;display:none" id="md-pay-panel">
-          <div class="ph"><div class="ph-title">Nayax reader.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.nayaxReader">Nayax reader.</div></div>
           <div style="padding:12px 18px 14px" id="md-pay-body"></div>
         </div>
 
         <div class="panel" style="margin-bottom:16px;display:none" id="md-pin-panel">
-          <div class="ph"><div class="ph-title">admin PIN.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.adminPin">admin PIN.</div></div>
           <div style="padding:14px 18px 16px">
             <div id="md-pin-status" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:11px"></div>
             <div id="md-pin-new" style="display:none;margin-bottom:11px">
               <div id="md-pin-digits" style="font-family:var(--mono);font-size:30px;letter-spacing:6px;font-weight:500"></div>
-              <div style="font-size:11.5px;color:var(--muted);line-height:1.45">Shown once — write it down now. Works on the machine within a minute; the old PIN stops then.</div>
+              <div style="font-size:11.5px;color:var(--muted);line-height:1.45" data-i18n="md.pinHelp">Shown once — write it down now. Works on the machine within a minute; the old PIN stops then.</div>
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="newAdminPin()" id="md-pin-btn" style="width:100%">generate new PIN &rarr;</button>
+            <button class="btn btn-ghost btn-sm" onclick="newAdminPin()" id="md-pin-btn" style="width:100%" data-i18n="md.generatePin">generate new PIN &rarr;</button>
           </div>
         </div>
 
         <div class="panel" style="margin-bottom:16px" id="md-lang-panel">
-          <div class="ph"><div class="ph-title">kiosk language.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.kioskLanguage">kiosk language.</div></div>
           <div style="padding:14px 18px 16px">
-            <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:10px">
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:10px" data-i18n="md.languageHelp">
               Which language this machine's screen starts in. Customers can still switch on the kiosk.
             </div>
             <div class="tabs" id="md-lang-tabs" style="width:fit-content"></div>
@@ -1080,12 +1080,12 @@ select.fi{cursor:pointer;}
         </div>
 
         <div class="panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title">empty slots.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.emptySlots">empty slots.</div></div>
           <div id="md-empty-slots" style="max-height:300px;overflow:auto"></div>
         </div>
 
         <div class="panel">
-          <div class="ph"><div class="ph-title">recently sold out.</div><div class="ph-action" style="font-size:11px;color:var(--muted)">30d</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="dash.soldOutRecent">recently sold out.</div><div class="ph-action" style="font-size:11px;color:var(--muted)">30d</div></div>
           <div id="md-sold-out" style="max-height:300px;overflow:auto;padding:0 4px"></div>
         </div>
       </div>
@@ -1093,7 +1093,7 @@ select.fi{cursor:pointer;}
       <!-- ── PLANOGRAM / BAYS ── -->
       <div class="md-tabpanel" data-panel="layout" style="display:none">
         <div class="panel">
-          <div class="ph"><div class="ph-title" id="md-layout-title">bays &amp; layout.</div><div class="ph-action" id="md-layout-hint" style="font-size:11px;color:var(--muted)"></div></div>
+          <div class="ph"><div class="ph-title" id="md-layout-title" data-i18n="md.baysLayout">bays &amp; layout.</div><div class="ph-action" id="md-layout-hint" style="font-size:11px;color:var(--muted)"></div></div>
           <div id="md-layout" style="padding:18px"></div>
         </div>
       </div>
@@ -1108,35 +1108,35 @@ select.fi{cursor:pointer;}
         </div>
 
         <div class="panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title" id="md-rev-title">revenue, last 30 days.</div></div>
+          <div class="ph"><div class="ph-title" id="md-rev-title" data-i18n="md.revenue30">revenue, last 30 days.</div></div>
           <div style="padding:18px 18px 8px"><div class="bars" id="md-rev-bars"></div></div>
         </div>
 
         <div class="panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title">recent orders.</div><div class="ph-action" onclick="viewMachineOrders(_mdDeviceCode)">view all orders →</div></div>
-          <div class="tw"><table class="rtable"><thead><tr><th>order</th><th>items</th><th>amount</th><th>status</th><th>time</th></tr></thead><tbody id="md-recent-orders"></tbody></table></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.recentOrders">recent orders.</div><div class="ph-action" onclick="viewMachineOrders(_mdDeviceCode)" data-i18n="md.viewAllOrders">view all orders →</div></div>
+          <div class="tw"><table class="rtable"><thead><tr><th data-i18n="md.th.order">order</th><th data-i18n="md.th.items">items</th><th data-i18n="md.th.amount">amount</th><th data-i18n="md.th.status">status</th><th data-i18n="md.th.time">time</th></tr></thead><tbody id="md-recent-orders"></tbody></table></div>
         </div>
 
         <div class="panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title">transactions in a window.</div><div class="ph-action" onclick="txCsv()">download CSV &rarr;</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.txWindow">transactions in a window.</div><div class="ph-action" onclick="txCsv()" data-i18n="md.downloadCsv">download CSV &rarr;</div></div>
           <div style="padding:16px 18px">
-            <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;line-height:1.45">For reconciling against a card processor or a log. Times are ISO and read as UTC when they end in Z — Iceland runs on UTC year round, so local time and UTC are the same here.</div>
+            <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;line-height:1.45" data-i18n="md.txHelp">For reconciling against a card processor or a log. Times are ISO and read as UTC when they end in Z — Iceland runs on UTC year round, so local time and UTC are the same here.</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl">from</div><input class="fi mono" id="tx-from" placeholder="2026-09-16T02:56:32.654Z"></div>
-              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl">to</div><input class="fi mono" id="tx-to" placeholder="2026-09-18T13:31:04.793Z"></div>
+              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl" data-i18n="md.from">from</div><input class="fi mono" id="tx-from" placeholder="2026-09-16T02:56:32.654Z"></div>
+              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl" data-i18n="md.to">to</div><input class="fi mono" id="tx-to" placeholder="2026-09-18T13:31:04.793Z"></div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:9px">
-              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl">match on</div>
+              <div class="field" style="flex:1;min-width:190px;margin:0"><div class="fl" data-i18n="md.matchOn">match on</div>
                 <select class="fi" id="tx-basis">
-                  <option value="closed">when the session happened (closedAt)</option>
-                  <option value="received">when we received it (receivedAt)</option>
+                  <option value="closed" data-i18n="md.matchClosed">when the session happened (closedAt)</option>
+                  <option value="received" data-i18n="md.matchReceived">when we received it (receivedAt)</option>
                 </select>
               </div>
-              <button class="btn btn-sm" style="flex:0 0 auto" onclick="txFind()"><span>find</span></button>
+              <button class="btn btn-sm" style="flex:0 0 auto" onclick="txFind()"><span data-i18n="md.find">find</span></button>
             </div>
             <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;cursor:pointer">
               <input type="checkbox" id="tx-suspect" onchange="txRender()">
-              <span>only sales stamped by a wrong clock</span>
+              <span data-i18n="md.onlyWrongClock">only sales stamped by a wrong clock</span>
             </label>
             <div style="font-size:11px;color:var(--warn-ink);background:var(--warn-bg);border-radius:6px;padding:8px 10px;margin-top:9px;line-height:1.45">
               If a machine kept selling with a wrong clock, its <code>closedAt</code> is fiction — those sales are filed under whatever date the board invented. Search on <strong>received</strong>, not on when the session happened, or you will not find them.
@@ -1146,13 +1146,13 @@ select.fi{cursor:pointer;}
         </div>
 
         <div class="panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title" id="md-heat-title">hourly heatmap (30d).</div></div>
+          <div class="ph"><div class="ph-title" id="md-heat-title" data-i18n="md.heatmap">hourly heatmap (30d).</div></div>
           <div id="md-heatmap" style="padding:18px"></div>
         </div>
 
         <div class="panel">
-          <div class="ph"><div class="ph-title" id="md-top-title">top products (30d).</div></div>
-          <div class="tw"><table class="rtable"><thead><tr><th>product</th><th>units</th><th>revenue</th></tr></thead><tbody id="md-top-products"></tbody></table></div>
+          <div class="ph"><div class="ph-title" id="md-top-title" data-i18n="md.topProducts">top products (30d).</div></div>
+          <div class="tw"><table class="rtable"><thead><tr><th data-i18n="md.th.product">product</th><th data-i18n="md.th.units">units</th><th data-i18n="md.th.revenue">revenue</th></tr></thead><tbody id="md-top-products"></tbody></table></div>
         </div>
       </div>
 
@@ -1160,7 +1160,7 @@ select.fi{cursor:pointer;}
       <div class="md-tabpanel" data-panel="controls" style="display:none">
         <div class="panel" id="md-temp-panel" style="margin-bottom:16px">
           <div class="ph">
-            <div class="ph-title">cabinet temperature.</div>
+            <div class="ph-title" data-i18n="md.cabinetTemp">cabinet temperature.</div>
             <div style="display:flex;align-items:center;gap:10px">
               <div class="tabs" id="md-temp-tabs">
                 <div class="tab active" data-h="24"  onclick="setTempPeriod(24, this)">1D</div>
@@ -1172,33 +1172,33 @@ select.fi{cursor:pointer;}
         </div>
 
         <div class="panel" id="md-tags-panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title">shelf price tags.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.priceTags">shelf price tags.</div></div>
           <div style="padding:14px 18px 16px">
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:11px">Pushes current prices to the LED shelf tags. Use force if a tag is showing the wrong price — it bypasses the machine's record of what it believes is already on each tag.</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:11px" data-i18n="md.priceTagsHelp">Pushes current prices to the LED shelf tags. Use force if a tag is showing the wrong price — it bypasses the machine's record of what it believes is already on each tag.</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-sm" onclick="syncPriceTags(_mdDeviceCode,false)">sync price tags</button>
-              <button class="btn btn-sm btn-ghost" onclick="syncPriceTags(_mdDeviceCode,true)">force re-push all</button>
+              <button class="btn btn-sm" onclick="syncPriceTags(_mdDeviceCode,false)" data-i18n="md.syncTags">sync price tags</button>
+              <button class="btn btn-sm btn-ghost" onclick="syncPriceTags(_mdDeviceCode,true)" data-i18n="md.forceRepush">force re-push all</button>
             </div>
           </div>
         </div>
 
         <div class="panel" id="md-controls-panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title">controls.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.controls">controls.</div></div>
           <div id="md-controls" style="padding:14px 18px 16px"></div>
         </div>
 
         <div class="panel" style="margin-bottom:16px">
           <div class="ph">
-            <div class="ph-title">config health.</div>
+            <div class="ph-title" data-i18n="md.configHealth">config health.</div>
             <div style="display:flex;gap:12px">
-              <div class="ph-action" onclick="showMachineKey(_mdDeviceCode)">show key</div>
-              <div class="ph-action" onclick="migrateMachineKey(_mdDeviceCode)">migrate key</div>
-              <div class="ph-action" onclick="revokeMachineKeyUi(_mdDeviceCode)" style="color:var(--alert)">revoke key</div>
-              <div class="ph-action" onclick="checkConfigHealth(_mdDeviceCode)">↻ ask the machine</div>
+              <div class="ph-action" onclick="showMachineKey(_mdDeviceCode)" data-i18n="md.showKey">show key</div>
+              <div class="ph-action" onclick="migrateMachineKey(_mdDeviceCode)" data-i18n="md.migrateKey">migrate key</div>
+              <div class="ph-action" onclick="revokeMachineKeyUi(_mdDeviceCode)" style="color:var(--alert)" data-i18n="md.revokeKey">revoke key</div>
+              <div class="ph-action" onclick="checkConfigHealth(_mdDeviceCode)" data-i18n="md.askMachine">↻ ask the machine</div>
             </div>
           </div>
           <div id="md-key-box" style="display:none;padding:0 18px 14px"></div>
-          <div style="padding:14px 18px 16px;font-size:12.5px;color:var(--muted)">Asks the kiosk which lanes it believes are closed, and whether it failed to decode any. Run this after closing lanes and before the machine takes money — the result appears as a banner at the top of this page.</div>
+          <div style="padding:14px 18px 16px;font-size:12.5px;color:var(--muted)" data-i18n="md.configHealthHelp">Asks the kiosk which lanes it believes are closed, and whether it failed to decode any. Run this after closing lanes and before the machine takes money — the result appears as a banner at the top of this page.</div>
         </div>
 
         <!-- Fridge lighting. Hidden on coil machines; filled by renderMachineLight(). -->
@@ -1208,29 +1208,29 @@ select.fi{cursor:pointer;}
         </div>
 
         <div class="panel" id="md-scale-panel" style="margin-bottom:16px;display:none">
-          <div class="ph"><div class="ph-title">scales &amp; sensors.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.scales">scales &amp; sensors.</div></div>
           <div style="padding:14px 18px 16px">
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:11px">Zero the baskets after moving or reassembling the machine. Offsets of &plusmn;200&nbsp;g are normal on an untared cabinet.</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:11px" data-i18n="md.scalesHelp">Zero the baskets after moving or reassembling the machine. Offsets of &plusmn;200&nbsp;g are normal on an untared cabinet.</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-sm" onclick="tareAllBaskets(_mdDeviceCode)">tare all baskets</button>
-              <button class="btn btn-sm btn-ghost" onclick="sendFridgeDiag(_mdDeviceCode,'read_all_trays','Tray read')">read all trays</button>
-              <button class="btn btn-sm btn-ghost" onclick="sendFridgeDiag(_mdDeviceCode,'read_temp','Temperature read')">read temperature</button>
+              <button class="btn btn-sm" onclick="tareAllBaskets(_mdDeviceCode)" data-i18n="md.tareAll">tare all baskets</button>
+              <button class="btn btn-sm btn-ghost" onclick="sendFridgeDiag(_mdDeviceCode,'read_all_trays','Tray read')" data-i18n="md.readTrays">read all trays</button>
+              <button class="btn btn-sm btn-ghost" onclick="sendFridgeDiag(_mdDeviceCode,'read_temp','Temperature read')" data-i18n="md.readTemp">read temperature</button>
             </div>
           </div>
         </div>
 
         <div class="panel" id="md-dispense-panel" style="margin-bottom:16px">
           <div class="ph">
-            <div class="ph-title">dispense log.</div>
-            <div class="ph-action" onclick="fetchDispenseLog(_mdDeviceCode)">↻ fetch from machine</div>
+            <div class="ph-title" data-i18n="md.dispenseLog">dispense log.</div>
+            <div class="ph-action" onclick="fetchDispenseLog(_mdDeviceCode)" data-i18n="md.fetchFromMachine">↻ fetch from machine</div>
           </div>
-          <div id="md-dispense" style="padding:14px 18px 16px"><div style="font-size:12.5px;color:var(--muted)">The last 50 dispenses held in the machine\'s memory, with the raw board code for each. Fetch to see which lanes are reporting what.</div></div>
+          <div id="md-dispense" style="padding:14px 18px 16px"><div style="font-size:12.5px;color:var(--muted)" data-i18n="md.dispenseHelp">The last 50 dispenses held in the machine's memory, with the raw board code for each. Fetch to see which lanes are reporting what.</div></div>
         </div>
 
         <div class="panel" style="margin-bottom:16px">
           <div class="ph">
-            <div class="ph-title">machine log.</div>
-            <div class="ph-action" onclick="loadMachineLogs(_mdDeviceCode)">↻ refresh</div>
+            <div class="ph-title" data-i18n="md.machineLog">machine log.</div>
+            <div class="ph-action" onclick="loadMachineLogs(_mdDeviceCode)" data-i18n="md.refresh">↻ refresh</div>
           </div>
           <div id="md-logs-meta" style="padding:10px 18px 0;font-family:var(--mono);font-size:10px;color:var(--muted)"></div>
           <div id="md-logs" style="padding:10px 18px 16px"></div>
@@ -1239,13 +1239,13 @@ select.fi{cursor:pointer;}
 
       <div class="md-tabpanel" data-panel="notifications" style="display:none">
         <div class="panel" style="margin-bottom:16px">
-          <div class="ph"><div class="ph-title">daily email.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="md.dailyEmail">daily email.</div></div>
           <div id="md-notif-settings" style="padding:14px 18px 16px"></div>
         </div>
         <div class="panel">
           <div class="ph">
-            <div class="ph-title">low stock thresholds.</div>
-            <div class="ph-action" onclick="saveNotifThresholds()">save</div>
+            <div class="ph-title" data-i18n="md.lowStock">low stock thresholds.</div>
+            <div class="ph-action" onclick="saveNotifThresholds()" data-i18n="md.save">save</div>
           </div>
           <div id="md-notif-products" style="padding:6px 18px 16px"></div>
         </div>
@@ -2162,6 +2162,76 @@ const I18N = {
     'mch.keyMigration':'App key migration','mch.keyReady':'{n} ready','mch.keyNotMigrated':'{n} not migrated',
     'mch.keyUnknown':'{n} unknown',
     'mch.keyNote':'Only machines showing ready can safely take a generic app update. Unknown means the machine has not been asked yet.',
+    'md.back':'← back to machines',
+    'md.edit':'edit',
+    'md.tab.overview':'Overview',
+    'md.tab.planogram':'Planogram','md.tab.bays':'Bays',
+    'md.tab.kiosk':'Kiosk',
+    'md.tab.activity':'Activity',
+    'md.tab.controls':'Controls',
+    'md.tab.notifications':'Notifications',
+    'md.screenPoster':'screen poster.',
+    'md.add':'+ add',
+    'md.quickActions':'quick actions.',
+    'md.pairingCode':'pairing code.',
+    'md.pairingHelp':'Install the app on the machine, open the pairing screen behind the admin PIN, and type this code. The app fetches its own identity — no cable, and the machine key is never shown to anyone.',
+    'md.generateCode':'generate code →',
+    'md.nayaxReader':'Nayax reader.',
+    'md.adminPin':'admin PIN.',
+    'md.pinHelp':'Shown once — write it down now. Works on the machine within a minute; the old PIN stops then.',
+    'md.generatePin':'generate new PIN →',
+    'md.kioskLanguage':'kiosk language.',
+    'md.languageHelp':'Which language this machine\'s screen starts in. Customers can still switch on the kiosk.',
+    'md.emptySlots':'empty slots.',
+    'md.baysLayout':'bays & layout.',
+    'md.revenue30':'revenue, last 30 days.',
+    'md.recentOrders':'recent orders.',
+    'md.viewAllOrders':'view all orders →',
+    'md.th.order':'order',
+    'md.th.items':'items',
+    'md.th.amount':'amount',
+    'md.th.status':'status',
+    'md.th.time':'time',
+    'md.txWindow':'transactions in a window.',
+    'md.downloadCsv':'download CSV →',
+    'md.txHelp':'For reconciling against a card processor or a log. Times are ISO and read as UTC when they end in Z — Iceland runs on UTC year round, so local time and UTC are the same here.',
+    'md.from':'from',
+    'md.to':'to',
+    'md.matchOn':'match on',
+    'md.matchClosed':'when the session happened (closedAt)',
+    'md.matchReceived':'when we received it (receivedAt)',
+    'md.find':'find',
+    'md.onlyWrongClock':'only sales stamped by a wrong clock',
+    'md.heatmap':'hourly heatmap (30d).',
+    'md.topProducts':'top products (30d).',
+    'md.th.product':'product',
+    'md.th.units':'units',
+    'md.th.revenue':'revenue',
+    'md.cabinetTemp':'cabinet temperature.',
+    'md.priceTags':'shelf price tags.',
+    'md.priceTagsHelp':'Pushes current prices to the LED shelf tags. Use force if a tag is showing the wrong price — it bypasses the machine\'s record of what it believes is already on each tag.',
+    'md.syncTags':'sync price tags',
+    'md.forceRepush':'force re-push all',
+    'md.controls':'controls.',
+    'md.configHealth':'config health.',
+    'md.showKey':'show key',
+    'md.migrateKey':'migrate key',
+    'md.revokeKey':'revoke key',
+    'md.askMachine':'↻ ask the machine',
+    'md.configHealthHelp':'Asks the kiosk which lanes it believes are closed, and whether it failed to decode any. Run this after closing lanes and before the machine takes money — the result appears as a banner at the top of this page.',
+    'md.scales':'scales & sensors.',
+    'md.scalesHelp':'Zero the baskets after moving or reassembling the machine. Offsets of ±200 g are normal on an untared cabinet.',
+    'md.tareAll':'tare all baskets',
+    'md.readTrays':'read all trays',
+    'md.readTemp':'read temperature',
+    'md.dispenseLog':'dispense log.',
+    'md.fetchFromMachine':'↻ fetch from machine',
+    'md.dispenseHelp':'The last 50 dispenses held in the machine\'s memory, with the raw board code for each. Fetch to see which lanes are reporting what.',
+    'md.machineLog':'machine log.',
+    'md.refresh':'↻ refresh',
+    'md.dailyEmail':'daily email.',
+    'md.lowStock':'low stock thresholds.',
+    'md.save':'save',
     'cell.noData':'no data','cell.yesterday':'yesterday','cell.daysAgo':'days ago',
     'lt.capNo':'This machine\u2019s app cannot control the lights. Anything set here is saved, and takes effect only once the machine is updated.',
     'lt.capUnknown':'Lighting has not been confirmed on this machine yet \u2014 press a test button below to find out.',
@@ -2260,6 +2330,76 @@ const I18N = {
     'mch.keyMigration':'Lyklaflutningur','mch.keyReady':'{n} tilbúnar','mch.keyNotMigrated':'{n} ófluttar',
     'mch.keyUnknown':'{n} óþekktar',
     'mch.keyNote':'Aðeins vélar merktar tilbúnar geta tekið við almennri uppfærslu. Óþekkt þýðir að vélin hefur ekki verið spurð enn.',
+    'md.back':'← til baka í vélar',
+    'md.edit':'breyta',
+    'md.tab.overview':'Yfirlit',
+    'md.tab.planogram':'Uppröðun','md.tab.bays':'Hólf',
+    'md.tab.kiosk':'Skjár',
+    'md.tab.activity':'Virkni',
+    'md.tab.controls':'Stýringar',
+    'md.tab.notifications':'Tilkynningar',
+    'md.screenPoster':'skjáauglýsing.',
+    'md.add':'+ bæta við',
+    'md.quickActions':'flýtiaðgerðir.',
+    'md.pairingCode':'pörunarkóði.',
+    'md.pairingHelp':'Settu forritið upp í vélinni, opnaðu pörunarskjáinn á bak við admin PIN og sláðu inn þennan kóða. Forritið sækir sín eigin auðkenni — engin snúra, og vélarlykillinn er aldrei sýndur neinum.',
+    'md.generateCode':'búa til kóða →',
+    'md.nayaxReader':'Nayax lesari.',
+    'md.adminPin':'admin PIN.',
+    'md.pinHelp':'Birtist einu sinni — skrifaðu hann niður strax. Virkar í vélinni innan mínútu og gamli PIN-inn hættir þá að virka.',
+    'md.generatePin':'búa til nýjan PIN →',
+    'md.kioskLanguage':'tungumál skjásins.',
+    'md.languageHelp':'Á hvaða tungumáli skjár vélarinnar byrjar. Viðskiptavinir geta áfram skipt um tungumál í vélinni.',
+    'md.emptySlots':'tóm hólf.',
+    'md.baysLayout':'hólf og uppröðun.',
+    'md.revenue30':'tekjur, síðustu 30 daga.',
+    'md.recentOrders':'nýlegar pantanir.',
+    'md.viewAllOrders':'sjá allar pantanir →',
+    'md.th.order':'pöntun',
+    'md.th.items':'vörur',
+    'md.th.amount':'upphæð',
+    'md.th.status':'staða',
+    'md.th.time':'tími',
+    'md.txWindow':'færslur á tímabili.',
+    'md.downloadCsv':'sækja CSV →',
+    'md.txHelp':'Til að stemma af við færsluhirði eða annála. Tímar eru á ISO-sniði og lesast sem UTC þegar þeir enda á Z — Ísland er á UTC allt árið, svo staðartími og UTC eru það sama hér.',
+    'md.from':'frá',
+    'md.to':'til',
+    'md.matchOn':'miða við',
+    'md.matchClosed':'hvenær salan varð (closedAt)',
+    'md.matchReceived':'hvenær við tókum við henni (receivedAt)',
+    'md.find':'leita',
+    'md.onlyWrongClock':'aðeins sölur með ranga klukku',
+    'md.heatmap':'álagskort eftir klukkustund (30d).',
+    'md.topProducts':'söluhæstu vörur (30d).',
+    'md.th.product':'vara',
+    'md.th.units':'stk',
+    'md.th.revenue':'tekjur',
+    'md.cabinetTemp':'hitastig skáps.',
+    'md.priceTags':'verðmerkingar í hillum.',
+    'md.priceTagsHelp':'Sendir núverandi verð á LED-verðmerkingarnar. Notaðu þvingun ef merking sýnir rangt verð — þá er litið fram hjá því sem vélin telur sig þegar hafa sent á hverja merkingu.',
+    'md.syncTags':'samstilla verðmerkingar',
+    'md.forceRepush':'þvinga allar aftur',
+    'md.controls':'stýringar.',
+    'md.configHealth':'staða uppsetningar.',
+    'md.showKey':'sýna lykil',
+    'md.migrateKey':'flytja lykil',
+    'md.revokeKey':'afturkalla lykil',
+    'md.askMachine':'↻ spyrja vélina',
+    'md.configHealthHelp':'Spyr skjáinn hvaða raðir hann telur lokaðar og hvort einhverjar hafi ekki lesist. Keyrðu þetta eftir að raðir eru lokaðar og áður en vélin tekur við greiðslu — niðurstaðan birtist sem borði efst á þessari síðu.',
+    'md.scales':'vogir og skynjarar.',
+    'md.scalesHelp':'Núllstilltu körfurnar eftir að vélin er færð eða sett saman aftur. Frávik upp á ±200 g eru eðlileg í skáp sem ekki hefur verið núllstilltur.',
+    'md.tareAll':'núllstilla allar körfur',
+    'md.readTrays':'lesa allar hillur',
+    'md.readTemp':'lesa hitastig',
+    'md.dispenseLog':'afgreiðsluskrá.',
+    'md.fetchFromMachine':'↻ sækja úr vélinni',
+    'md.dispenseHelp':'Síðustu 50 afgreiðslur sem vélin geymir, með hráum borðkóða fyrir hverja. Sæktu til að sjá hvað hver röð er að tilkynna.',
+    'md.machineLog':'vélarskrá.',
+    'md.refresh':'↻ endurnýja',
+    'md.dailyEmail':'daglegur póstur.',
+    'md.lowStock':'mörk fyrir lágar birgðir.',
+    'md.save':'vista',
     'cell.noData':'engin gögn','cell.yesterday':'í gær','cell.daysAgo':'dögum síðan',
     'lt.capNo':'Forriti\u00f0 \u00ed \u00feessari v\u00e9l r\u00e6\u00f0ur ekki vi\u00f0 l\u00fdsingarst\u00fdringu. \u00dea\u00f0 sem er stillt h\u00e9r vistast en tekur ekki gildi fyrr en v\u00e9lin er uppf\u00e6r\u00f0.',
     'lt.capUnknown':'L\u00fdsing hefur ekki veri\u00f0 sta\u00f0fest \u00e1 \u00feessari v\u00e9l enn \u2014 \u00fdttu \u00e1 pr\u00f3funarhnapp h\u00e9r a\u00f0 ne\u00f0an.',
@@ -6630,7 +6770,7 @@ async function renderMachineSoldOut(code) {
 function renderMachineLayoutOrFridge(code, machine) {
   const isFridge = /^GR-/.test(String((machine && machine.model) || ''));
   const tabLabel = document.getElementById('md-tab-layout');
-  if (tabLabel) tabLabel.textContent = isFridge ? 'Planogram' : 'Bays';
+  if (tabLabel) tabLabel.textContent = t(isFridge ? 'md.tab.planogram' : 'md.tab.bays');
   // Kiosk screen designer is a coil-only feature (fridges show the basket display, no hero tiles).
   const kioskTab = document.getElementById('md-tab-kiosk');
   if (kioskTab) kioskTab.style.display = isFridge ? 'none' : '';
