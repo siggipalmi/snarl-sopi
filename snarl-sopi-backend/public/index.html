@@ -1257,9 +1257,9 @@ select.fi{cursor:pointer;}
     <div class="page" id="page-alerts">
       <div class="shd">
         <div class="shd-sub" id="alerts-sub"></div>
-        <div class="tabs"><div class="tab active" onclick="filterAlerts('all',this)">all</div><div class="tab" onclick="filterAlerts('offline',this)">offline</div><div class="tab" onclick="filterAlerts('stock',this)">stock</div><div class="tab" onclick="filterAlerts('payment',this)">payment</div><div class="tab" onclick="filterAlerts('kiosk',this)">kiosk</div></div>
+        <div class="tabs"><div class="tab active" onclick="filterAlerts('all',this)" data-i18n="common.all">all</div><div class="tab" onclick="filterAlerts('offline',this)" data-i18n="alr.f.offline">offline</div><div class="tab" onclick="filterAlerts('stock',this)" data-i18n="alr.f.stock">stock</div><div class="tab" onclick="filterAlerts('payment',this)" data-i18n="alr.f.payment">payment</div><div class="tab" onclick="filterAlerts('kiosk',this)" data-i18n="alr.f.kiosk">kiosk</div></div>
       </div>
-      <div class="panel"><div class="ph"><div class="ph-title">all alerts.</div></div><div id="alerts-list"></div></div>
+      <div class="panel"><div class="ph"><div class="ph-title" data-i18n="alr.title">all alerts.</div></div><div id="alerts-list"></div></div>
     </div>
 
     <!-- ═══ CATALOG & SLOTS ═══ -->
@@ -1449,14 +1449,14 @@ select.fi{cursor:pointer;}
       <div class="shd">
         <div class="shd-sub" id="orders-sub"></div>
         <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
-          <div class="tabs"><div class="tab active" onclick="filterOrders('all',this)">all</div><div class="tab" onclick="filterOrders('success',this)">success</div><div class="tab" onclick="filterOrders('failed',this)">failed</div><div class="tab" onclick="filterOrders('refunded',this)">refunded</div></div>
+          <div class="tabs"><div class="tab active" onclick="filterOrders('all',this)" data-i18n="common.all">all</div><div class="tab" onclick="filterOrders('success',this)" data-i18n="ord.f.success">success</div><div class="tab" onclick="filterOrders('failed',this)" data-i18n="ord.f.failed">failed</div><div class="tab" onclick="filterOrders('refunded',this)" data-i18n="ord.f.refunded">refunded</div></div>
           <select id="orders-machine-filter" class="fi" style="max-width:220px" onchange="filterOrdersMachine(this.value)"></select>
 
         </div>
       </div>
       <div class="panel">
-        <div class="ph"><div class="ph-title">transactions.</div><div class="ph-action" onclick="exportOrders()">export CSV →</div></div>
-        <div class="tw"><table class="rtable"><thead><tr><th>tradeNo</th><th>device</th><th>amount</th><th>payment</th><th>status</th><th>time</th></tr></thead><tbody id="orders-table"></tbody></table></div>
+        <div class="ph"><div class="ph-title" data-i18n="ord.transactions">transactions.</div><div class="ph-action" onclick="exportOrders()" data-i18n="ord.exportCsv">export CSV →</div></div>
+        <div class="tw"><table class="rtable"><thead><tr><th data-i18n="ord.th.tradeNo">tradeNo</th><th data-i18n="ord.th.device">device</th><th data-i18n="md.th.amount">amount</th><th data-i18n="ord.th.payment">payment</th><th data-i18n="md.th.status">status</th><th data-i18n="md.th.time">time</th></tr></thead><tbody id="orders-table"></tbody></table></div>
       </div>
     </div>
 
@@ -2176,6 +2176,13 @@ const I18N = {
     'md.pinShared':'Still on the shared PIN (123456). Generate one for this machine; needs fridge app 0.69.0 or coil app 0.80.6 or newer.',
     'md.resolve':'resolve','md.alertsFailed':'Could not load alerts.',
     'md.connected':'online','md.appUnknown':'app unknown','md.appPrefix':'app','md.keyUnknown':'key unknown',
+    'ord.transactions':'transactions.','ord.exportCsv':'export CSV →',
+    'ord.f.success':'success','ord.f.failed':'failed','ord.f.refunded':'refunded',
+    'ord.th.tradeNo':'tradeNo','ord.th.device':'device','ord.th.payment':'payment',
+    'ord.allMachines':'all machines','ord.summary':'{n} orders','ord.revenue':'{kr} kr revenue',
+    'ord.none':'No orders recorded yet',
+    'alr.title':'all alerts.','alr.f.offline':'offline','alr.f.stock':'stock','alr.f.payment':'payment','alr.f.kiosk':'kiosk',
+    'alr.summary':'{unread} unread · {total} total','alr.none':'No alerts','alr.resolved':'resolved',
     'sev.critical':'critical','sev.warning':'warning','sev.info':'info',
     'md.tab.kiosk':'Kiosk',
     'md.tab.activity':'Activity',
@@ -2355,6 +2362,13 @@ const I18N = {
     'md.pinShared':'Enn á sameiginlega PIN-inum (123456). Búðu til einn fyrir þessa vél; krefst kæliforrits 0.69.0 eða sjálfsalaforrits 0.80.6 eða nýrra.',
     'md.resolve':'leysa','md.alertsFailed':'Tókst ekki að sækja viðvaranir.',
     'md.connected':'nettengt','md.appUnknown':'Óþekkt útgáfa','md.appPrefix':'útgáfa','md.keyUnknown':'lykill óþekktur',
+    'ord.transactions':'færslur.','ord.exportCsv':'sækja CSV →',
+    'ord.f.success':'tókst','ord.f.failed':'mistókst','ord.f.refunded':'endurgreitt',
+    'ord.th.tradeNo':'færslunúmer','ord.th.device':'vél','ord.th.payment':'greiðsla',
+    'ord.allMachines':'allar vélar','ord.summary':'{n} afgreiðslur','ord.revenue':'{kr} kr í tekjur',
+    'ord.none':'Engar afgreiðslur skráðar enn',
+    'alr.title':'allar viðvaranir.','alr.f.offline':'ótengt','alr.f.stock':'birgðir','alr.f.payment':'greiðslur','alr.f.kiosk':'skjár',
+    'alr.summary':'{unread} ólesnar · {total} alls','alr.none':'Engar viðvaranir','alr.resolved':'leyst',
     'sev.critical':'alvarlegt','sev.warning':'viðvörun','sev.info':'upplýsingar',
     'md.tab.kiosk':'Skjár',
     'md.tab.activity':'Virkni',
@@ -3803,7 +3817,7 @@ function setMachinesRevenuePeriod(days, el) {
 async function renderMachinesRevenue() {
   const chart = document.getElementById('machines-revenue-chart');
   if (!chart || !DB.orders || !DB.orders.length) {
-    if (chart) chart.innerHTML = '<div style="color:var(--muted);font-size:13px">No orders recorded yet</div>';
+    if (chart) chart.innerHTML = '<div style="color:var(--muted);font-size:13px">' + rsEsc(t('ord.none')) + '</div>';
     return;
   }
   const cutoff = Date.now() - _mchRevenueDays * 86400000;
@@ -4081,7 +4095,8 @@ function machineRowCard(m) {
   if (m.isKioskModel === false) revTxt = '<span style="color:var(--muted)">' + rsEsc(t('mch.notApplicable')) + '</span>';
   else if (!m.isOnline) revTxt = '<span style="color:var(--muted)">—</span>';
   else revTxt = `${(salesTodayKr(m.deviceCode)||0).toLocaleString('is-IS')}<small style="color:var(--muted)"> kr</small>`;
-  const flag = !m.isOnline ? t('mch.offlineFlag') : '';
+  const flag = !m.isOnline
+    ? '<span style="text-decoration:line-through">' + rsEsc(t('md.connected')) + '</span>' : '';
   return `<div onclick="openMachineDetail('${m.deviceCode}')" style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--cream);border:1px solid var(--line);border-radius:12px;cursor:pointer">
     <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;${dotStyle}"></div>
     <div style="flex:1;min-width:0">
@@ -5410,7 +5425,7 @@ async function renderMachineRecentOrders(code) {
     const rows = (r && r.ok && Array.isArray(r.data)) ? r.data : [];
     const groups = groupOrders(rows).slice(0, 10);
     if (!groups.length) {
-      el.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:12.5px">No orders recorded yet</td></tr>';
+      el.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:12.5px">' + rsEsc(t('ord.none')) + '</td></tr>';
       return;
     }
     el.innerHTML = groups.map(g => {
@@ -7814,16 +7829,16 @@ async function renderAlerts() {
   let list = [...DB.alerts];
   if(alertFilter!=='all') list = list.filter(a=>a.type===alertFilter);
   const unread = DB.alerts.filter(a=>!a.resolved).length;
-  document.getElementById('alerts-sub').textContent = `${unread} unread · ${DB.alerts.length} total`;
+  document.getElementById('alerts-sub').textContent = tv('alr.summary', { unread: unread, total: DB.alerts.length });
   const pipColor = {critical:'var(--alert)',warning:'#B8860B',info:'var(--bronze-light)',undefined:'var(--clay)'};
   document.getElementById('alerts-list').innerHTML = list.map(a=>`
     <div class="al-item" style="${a.resolved?'opacity:.5':''}">
       <div class="al-pip" style="background:${pipColor[a.severity]||'var(--clay)'}"></div>
       <div class="al-body"><div class="al-title">${rsEsc(alertText(a).title)}</div><div class="al-meta">${rsEsc(alertText(a).detail)}</div></div>
-      ${!a.resolved?`<span class="pill pill-out btn-sm" style="cursor:pointer;margin-right:8px" onclick="resolveAlert('${a.id}')">resolve</span>`:'<span class="pill pill-up btn-sm" style="margin-right:8px">resolved</span>'}
+      ${!a.resolved?`<span class="pill pill-out btn-sm" style="cursor:pointer;margin-right:8px" onclick="resolveAlert('${a.id}')">${rsEsc(t('md.resolve'))}</span>`:`<span class="pill pill-up btn-sm" style="margin-right:8px">${rsEsc(t('alr.resolved'))}</span>`}
       <div class="al-time">${timeAgo(a.createdAt)}</div>
     </div>
-  `).join('') || '<div style="padding:20px;text-align:center;color:var(--muted)">No alerts</div>';
+  `).join('') || `<div style="padding:20px;text-align:center;color:var(--muted)">${rsEsc(t('alr.none'))}</div>`;
 }
 
 async function resolveAlert(id) {
@@ -8708,11 +8723,16 @@ function groupOrders(rows) {
 function renderOrders() {
   // Populate the machine filter once
   const sel = document.getElementById('orders-machine-filter');
-  if (sel && !sel._populated && Object.keys(DB.machines).length) {
-    sel.innerHTML = '<option value="">all machines</option>' +
+  // Built once per LANGUAGE, not once ever: it used to be populated on first
+  // render and never again, so its "all machines" option kept whichever
+  // language was on at the time and never followed the switch.
+  if (sel && sel._populatedLang !== LANG && Object.keys(DB.machines).length) {
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">' + rsEsc(t('ord.allMachines')) + '</option>' +
       Object.values(DB.machines).sort((a,b)=>String(a.deviceName||a.deviceCode).localeCompare(String(b.deviceName||b.deviceCode)))
         .map(m => `<option value="${m.deviceCode}">${rsEsc(m.deviceName || m.deviceCode)}</option>`).join('');
-    sel._populated = true;
+    if (keep) sel.value = keep;
+    sel._populatedLang = LANG;
   }
   if (sel) sel.value = orderMachineFilter;
 
@@ -8722,7 +8742,7 @@ function renderOrders() {
   if (orderFilter !== 'all') groups = groups.filter(g => g.statusLabel === orderFilter);
 
   const total = groups.filter(g => g.status === 1).reduce((s, g) => s + g.totalKr, 0);
-  document.getElementById('orders-sub').innerHTML = `${groups.length} orders · <span style="color:var(--bronze)">${total.toLocaleString('is-IS')} kr revenue</span>`;
+  document.getElementById('orders-sub').innerHTML = `${rsEsc(tv('ord.summary', { n: groups.length }))} · <span style="color:var(--bronze)">${rsEsc(tv('ord.revenue', { kr: total.toLocaleString('is-IS') }))}</span>`;
   document.getElementById('orders-table').innerHTML = groups.slice(0, 100).map(g => {
     const mname = DB.machines[g.deviceCode]?.deviceName || g.deviceCode;
     const items = g.lines.map(l =>
