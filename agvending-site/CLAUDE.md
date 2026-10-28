@@ -49,14 +49,14 @@ Worker — a different name deploys to a second, separate Worker.
 1. **Photos — done (28 Oct).** All 7 in `public/assets/img/`, downloaded from the Squarespace
    CDN. The hero is the old site's Orkan station photo; `portrait-stefan.jpg` is the Hagaskóli
    crest, because the old site never had a photo of him.
-2. **Logos — 16 of 17 (28 Oct).** The zip never reached the repo, so they were rebuilt from the
-   Squarespace originals (16 files, 159 kB). Orkan and Macron are white marks on transparent
-   for their `ag-inv` tiles, so Macron is now `macron.png` (a JPEG can't be transparent).
-   **`nordic-hostel.gif` is still missing:** it is on no Squarespace page. The names are
-   load-bearing: the markup references them literally, with per-logo `mul`/`inv` flags.
-3. **Once both folders are full:** delete `logos/.gitkeep` and the temporary
-   missing-image script in `<head>` (it swaps a failed image for its alt text; nothing else
-   depends on it).
+2. **Logos — done with 16 (28 Oct).** The zip never reached the repo, so they were rebuilt from
+   the Squarespace originals (159 kB). Orkan and Macron are white marks on transparent for their
+   `ag-inv` tiles, so Macron is `macron.png` (a JPEG can't be transparent). Nordic Hostel was on
+   no Squarespace page, so its tile was dropped; Siggi will add it and more logos once there is a
+   staging site. The names are load-bearing: the markup references them literally, with
+   per-logo `mul`/`inv` flags.
+3. **Folders full — done (28 Oct).** Both `.gitkeep` files and the temporary missing-image
+   script are gone, so a missing image now shows as a broken icon.
 4. **Contact form endpoint.** The form POSTs to `https://admin.agvending.is/api/tilbod`. As of
    25 Aug it did not exist and a code search on 28 Oct found no `tilbod` route. Confirm before DNS
    cutover, or every enquiry is silently lost. It must accept `nafn`, `netfang`, `simi`,
@@ -143,8 +143,8 @@ at 2×; a higher-resolution crest is worth asking for.
 
 - `ir.gif` has palette transparency; composite onto white (its `mul` flag expects that) — a naive
   RGB convert renders a solid grey tile.
-- `nordic-hostel.gif` was a 100-frame 13.3 MB animation; frame 0 ships. A moving logo inside a
-  moving marquee is noise.
+- `nordic-hostel.gif` (not on the rail yet) was a 100-frame 13.3 MB animation; ship frame 0 only.
+  A moving logo inside a moving marquee is noise.
 - Cap at 600px longest edge; the tile content box is ~124×58 CSS px.
 
 ## Config
