@@ -860,7 +860,7 @@ select.fi{cursor:pointer;}
     <!-- ═══ DASHBOARD ═══ -->
     <div class="page active" id="page-dashboard">
       <div id="home-v3"></div>
-      <div id="home-try-new" style="display:none;text-align:right;margin-bottom:8px"><a onclick="setHomeLayout(false)" style="font-size:12.5px;color:var(--bronze);cursor:pointer">Prófa nýja útlitið →</a></div>
+      <div id="home-try-new" style="display:none;text-align:right;margin-bottom:8px"><a onclick="setHomeLayout(false)" style="font-size:12.5px;color:var(--bronze);cursor:pointer" data-i18n="dash.tryNewLayout">Prófa nýja útlitið →</a></div>
       <div id="dash-opfilter" style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px"></div>
 
       <!-- 1 ── today: the number checked many times a day -->
@@ -869,7 +869,7 @@ select.fi{cursor:pointer;}
       <!-- 2 ── restock due -->
       <div class="panel" style="margin-bottom:10px">
         <div class="ph">
-          <div class="ph-title">restock due.</div>
+          <div class="ph-title" data-i18n="dash.restockDue">restock due.</div>
           <div class="ph-action" data-i18n="common.viewAll" onclick="go('machines',document.querySelectorAll('.nav-item')[1])">view all →</div>
         </div>
         <div id="dash-restock"></div>
@@ -883,10 +883,10 @@ select.fi{cursor:pointer;}
 
       <!-- 4 ── analysis, collapsed -->
       <details style="margin-bottom:10px">
-        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ revenue &amp; trends</summary>
+        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ <span data-i18n="dash.sum.revenueTrends">revenue &amp; trends</span></summary>
         <div class="panel" style="margin-top:8px">
           <div class="ph">
-            <div class="ph-title" id="rev-chart-title">revenue, last 7 days.</div>
+            <div class="ph-title" id="rev-chart-title" data-i18n="dash.revenueLast">revenue, last 7 days.</div>
             <div class="tabs" id="rev-period-tabs">
               <div class="tab active" data-days="7"  onclick="setRevenuePeriod(7,  this)">7D</div>
               <div class="tab"        data-days="30" onclick="setRevenuePeriod(30, this)">30D</div>
@@ -901,7 +901,7 @@ select.fi{cursor:pointer;}
       </details>
 
       <details style="margin-bottom:10px">
-        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ machine performance</summary>
+        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ <span data-i18n="dash.sum.machinePerformance">machine performance</span></summary>
         <div class="panel" style="margin-top:8px">
           <div class="ph">
             <div class="ph-title" data-i18n="dash.machinePerformance">machine performance.</div>
@@ -916,10 +916,10 @@ select.fi{cursor:pointer;}
       </details>
 
       <details style="margin-bottom:10px">
-        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ currently sold out</summary>
+        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ <span data-i18n="dash.sum.soldOut">currently sold out</span></summary>
         <div class="panel" style="margin-top:8px">
           <div class="ph">
-            <div class="ph-title" id="soldout-title">currently sold out.</div>
+            <div class="ph-title" id="soldout-title" data-i18n="dash.soldOutNow">currently sold out.</div>
             <div class="tabs" id="soldout-tabs">
               <div class="tab active" data-scope="fleet"   onclick="setSoldOutScope('fleet', this)" data-i18n="common.fleet">fleet</div>
               <div class="tab"        data-scope="recent"  onclick="setSoldOutScope('recent', this)" data-i18n="common.recent">recent</div>
@@ -2129,6 +2129,14 @@ const I18N = {
     'dash.stat.needAttention':'need attention','dash.stat.ordersToday':'orders today','dash.stat.completedToday':'completed today',
     'dash.stat.lowStockSlots':'low stock slots','dash.stat.requireRestock':'require restock',
     'dash.noAlerts':'No active alerts','dash.justNow':'just now','dash.more':'more',
+    'dash.restockDue':'restock due.','dash.tryNewLayout':'Try the new layout →',
+    'dash.sum.revenueTrends':'revenue & trends','dash.sum.machinePerformance':'machine performance',
+    'dash.sum.soldOut':'currently sold out',
+    'dash.neverRestocked':'never restocked','dash.pctFull':'{n}% full','dash.soldOutN':'{n} sold out',
+    'dash.nothingDue':'Nothing due — the fleet is stocked.',
+    'dash.peakDay':'peak day','dash.avgPerDay':'avg / day','dash.totalOrders':'total · {n} orders',
+    'dash.dowShort':'Sun,Mon,Tue,Wed,Thu,Fri,Sat','dash.dowLetter':'S,M,T,W,T,F,S',
+    'time.minutes':'{n}m ago','time.hours':'{n}h ago','time.days':'{n}d ago',
     'dash.allOperators':'All operators','dash.operatorLabel':'operator:',
     'mch.addMachine':'+ add machine','mch.locations':'locations.','mch.mapCaption':'machine locations — Reykjavík area',
     'mch.allMachines':'all machines.','mch.populateWeimi':'＋ populate from Weimi','mch.syncWeimi':'⟳ sync all from Weimi',
@@ -2178,7 +2186,7 @@ const I18N = {
     'group.overview':'yfirlit','group.daily':'Daglegt','group.kioskControl':'Skjár og vörur','group.commerce':'Rekstur','group.system':'Stjórnun',
     'nav.dashboard':'Mælaborð','nav.machines':'Vélar','nav.alerts':'Viðvaranir','nav.operators':'Rekstraraðilar',
     'nav.catalog':'Vörur & hólf','nav.hero':'Áberandi vörur','nav.display':'Skjástillingar',
-    'nav.orders':'Pantanir','nav.complaints':'Kvartanir','nav.reports':'Skýrslur','nav.receipts':'Kvittanir','nav.users':'Notendur','nav.settings':'Fleet','nav.help':'Hjálp',
+    'nav.orders':'Pantanir','nav.complaints':'Kvartanir','nav.reports':'Skýrslur','nav.receipts':'Kvittanir','nav.users':'Notendur','nav.settings':'Floti','nav.help':'Hjálp',
     'nav.deals':'Tilboð','title.deals':'Afslættir og tilboð','nav.billing':'Reikningar','title.billing':'Reikningar','nav.leases':'Leigutæki','title.leases':'Leigutæki','billing.sub':'leigureikningar og hreyfingayfirlit','billing.operator':'Rekstraraðili',
     'billing.invoices':'reikningar','billing.ledger':'hreyfingar','billing.outstanding':'Staða í dag','billing.settled':'Engin skuld',
     'billing.invUnpaid':'{n} ógreiddir','billing.invOverdue':'· {n} í vanskilum','billing.noUnpaid':'ekkert ógreitt','billing.machines':'vélar',
@@ -2207,6 +2215,14 @@ const I18N = {
     'dash.stat.needAttention':'þarfnast athygli','dash.stat.ordersToday':'pantanir í dag','dash.stat.completedToday':'lokið í dag',
     'dash.stat.lowStockSlots':'hólf við að klárast','dash.stat.requireRestock':'þarf áfyllingu',
     'dash.noAlerts':'Engar virkar viðvaranir','dash.justNow':'rétt í þessu','dash.more':'til viðbótar',
+    'dash.restockDue':'áfylling.','dash.tryNewLayout':'Prófa nýja útlitið →',
+    'dash.sum.revenueTrends':'tekjur og þróun','dash.sum.machinePerformance':'frammistaða véla',
+    'dash.sum.soldOut':'uppselt núna',
+    'dash.neverRestocked':'aldrei fyllt á','dash.pctFull':'{n}% fullt','dash.soldOutN':'{n} uppseld',
+    'dash.nothingDue':'Ekkert í bið — flotinn er fullur.',
+    'dash.peakDay':'besti dagur','dash.avgPerDay':'meðaltal á dag','dash.totalOrders':'samtals · {n} pantanir',
+    'dash.dowShort':'su,má,þr,mi,fi,fö,la','dash.dowLetter':'S,M,Þ,M,F,F,L',
+    'time.minutes':'fyrir {n} mín','time.hours':'fyrir {n} klst','time.days':'fyrir {n} d',
     'dash.allOperators':'Allir aðilar','dash.operatorLabel':'aðili:',
     'mch.addMachine':'+ bæta við vél','mch.locations':'staðsetningar.','mch.mapCaption':'staðsetningar véla — Reykjavíkursvæðið',
     'mch.allMachines':'allar vélar.','mch.populateWeimi':'＋ sækja frá Weimi','mch.syncWeimi':'⟳ samstilla allt frá Weimi',
@@ -2254,6 +2270,10 @@ const I18N = {
   },
 };
 function t(key){ const l=I18N[LANG]||I18N.en; return (l[key]!=null?l[key]:(I18N.en[key]!=null?I18N.en[key]:key)); }
+// Strings that carry a number. Icelandic puts it elsewhere in the sentence
+// ("fyrir 5 mín" vs "5m ago"), so the number has to be a placeholder in the
+// string rather than concatenated around it.
+function tn(key, n){ return String(t(key)).replace('{n}', n); }
 function applyI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.getAttribute('data-i18n')); });
   // Attributes. textContent alone covers a label but not the hint inside an
@@ -3153,8 +3173,10 @@ function fmtDateTime(ts) { return fmtDateTimeParts(ts, false); }
 function timeAgo(ts) {
   const _t=new Date(ts).getTime(); if(isNaN(_t)) return '';
   const d=(Date.now()-_t)/1000;
-  if(d<120) return 'just now'; if(d<3600) return Math.round(d/60)+'m ago';
-  if(d<86400) return Math.round(d/3600)+'h ago'; return Math.round(d/86400)+'d ago';
+  if(d<120) return t('dash.justNow');
+  if(d<3600) return tn('time.minutes', Math.round(d/60));
+  if(d<86400) return tn('time.hours', Math.round(d/3600));
+  return tn('time.days', Math.round(d/86400));
 }
 function stockColor(pct) { if(pct<20) return 'var(--alert)'; if(pct<40) return '#B8860B'; return 'var(--success)'; }
 function statusDot(m) {
@@ -3249,7 +3271,7 @@ async function refreshRevenueChart() {
 function renderRevenueBars(data) {
   const series = data.series || [];
   const maxR = Math.max(1, ...series.map(b => b.revenueKr));
-  const dayShort = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dayShort = t('dash.dowShort').split(',');
 
   // For 90D we show too many bars; only label every Nth
   const everyNth = series.length > 60 ? 14 : series.length > 14 ? 7 : 1;
@@ -3274,9 +3296,9 @@ function renderRevenueBars(data) {
   const peakDay = peak ? (function() { const d = new Date(peak.dayUTC); return String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0'); })() : '—';
 
   document.getElementById('rev-summary').innerHTML =
-    '<div><div class="stat-lbl" style="margin-bottom:3px">peak day</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500">' + peakDay + (peak ? ' · ' + formatKr(peak.revenueKr) : '') + '</div></div>' +
-    '<div><div class="stat-lbl" style="margin-bottom:3px">avg / day</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500">' + formatKr(avg) + '</div></div>' +
-    '<div><div class="stat-lbl" style="margin-bottom:3px">total · ' + data.total.orders + ' orders</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--bronze)">' + formatKr(total) + '</div></div>';
+    '<div><div class="stat-lbl" style="margin-bottom:3px">' + rsEsc(t('dash.peakDay')) + '</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500">' + peakDay + (peak ? ' · ' + formatKr(peak.revenueKr) : '') + '</div></div>' +
+    '<div><div class="stat-lbl" style="margin-bottom:3px">' + rsEsc(t('dash.avgPerDay')) + '</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500">' + formatKr(avg) + '</div></div>' +
+    '<div><div class="stat-lbl" style="margin-bottom:3px">' + rsEsc(tn('dash.totalOrders', data.total.orders)) + '</div><div style="font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--bronze)">' + formatKr(total) + '</div></div>';
 }
 
 // ─── Machine comparison panel ────────────────────────────────────────────────
@@ -3424,7 +3446,7 @@ async function renderDashToday(d) {
     const series = (r && r.data && r.data.series) || [];
     if (!series.length) return;
     const maxR = Math.max(1, ...series.map(b => b.revenueKr || 0));
-    const dayShort = ['S','M','T','W','T','F','S'];
+    const dayShort = t('dash.dowLetter').split(',');
     const bars = series.map((b, i) => {
       const h = b.revenueKr > 0 ? Math.max(3, Math.round((b.revenueKr / maxR) * 100)) : 2;
       const isToday = i === series.length - 1;
@@ -3466,14 +3488,16 @@ function renderDashRestock(ms) {
   scored.sort((a, b) => (b.out - a.out) || (b.ageMs - a.ageMs));
   const shown = scored.slice(0, 5);
   if (!shown.length) {
-    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Nothing due — the fleet is stocked.</div>';
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">' + rsEsc(t('dash.nothingDue')) + '</div>';
     return;
   }
   el.innerHTML = shown.map(function (x) {
     const m = x.m;
     const hot = x.out >= 3 || x.ageMs > 6 * 86400000;
-    const age = m.lastVisitAt ? timeAgo(m.lastVisitAt) : 'never restocked';
-    const meta = [age, x.out ? ('<b style="color:var(--alert);font-weight:400">' + x.out + ' sold out</b>') : null, x.fill !== null ? (x.fill + '% full') : null].filter(Boolean).join(' · ');
+    const age = m.lastVisitAt ? timeAgo(m.lastVisitAt) : t('dash.neverRestocked');
+    const meta = [age,
+      x.out ? ('<b style="color:var(--alert);font-weight:400">' + rsEsc(tn('dash.soldOutN', x.out)) + '</b>') : null,
+      x.fill !== null ? rsEsc(tn('dash.pctFull', x.fill)) : null].filter(Boolean).join(' · ');
     return '<div style="display:flex;align-items:center;gap:11px;padding:10px 16px;border-top:1px solid var(--line)">' +
       '<div style="width:3px;align-self:stretch;border-radius:2px;flex-shrink:0;background:' + (hot ? 'var(--alert)' : 'var(--bronze-light)') + '"></div>' +
       '<div style="flex:1;min-width:0;cursor:pointer" onclick="openMachineDetail(\'' + m.deviceCode + '\')">' +
