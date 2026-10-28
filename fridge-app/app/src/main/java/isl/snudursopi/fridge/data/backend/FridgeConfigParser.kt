@@ -128,6 +128,9 @@ object FridgeConfigParser {
                 )
             },
             idleTimeoutSeconds = (data.field("idleTimeoutSeconds")?.asInt() ?: 60).coerceIn(10, 3600),
+            idleGuard = data.field("idleGuard")?.asBoolean() ?: false,
+            idleGuardThreads = data.field("idleGuardThreads")?.takeIf { it.isNumber }?.asInt() ?: 1,
+            idleGuardUs = data.field("idleGuardUs")?.takeIf { it.isNumber }?.asInt() ?: 500,
             led = parseLed(fridge.field("led")),
             receiptsEnabled = data.field("receipts")?.field("enabled")?.asBoolean() ?: false,
         )

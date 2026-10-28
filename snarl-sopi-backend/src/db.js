@@ -597,6 +597,12 @@ function buildConfigResponse(machine) {
     showRightHero:      cfg.showRightHero  !== false,
     showIdleScreen:     cfg.showIdleScreen === true,
     idleTimeoutSeconds: Number.isFinite(Number(cfg.idleTimeoutSeconds)) ? Number(cfg.idleTimeoutSeconds) : 60,
+    // Idle guard: a thread keeping a CPU core out of the board's deep idle state, which on Grótta
+    // vinstri stopped the whole board for 44 minutes twice in one night (shared/IdleGuard.kt).
+    // Off unless AG switched it on for this machine; the app clamps the numbers again.
+    idleGuard: cfg.idleGuard === true,
+    idleGuardThreads: Number.isFinite(Number(cfg.idleGuardThreads)) ? Number(cfg.idleGuardThreads) : 1,
+    idleGuardUs: Number.isFinite(Number(cfg.idleGuardUs)) ? Number(cfg.idleGuardUs) : 500,
     deals: storage.activeDealsForMachine(machine.deviceCode) || [],
     idle: storage.resolveIdleForMachine(machine.deviceCode) || { rotationSeconds: 6, attractTimeoutSeconds: 30, cards: [] },
     offers: storage.offersForMachine(machine.deviceCode) || [],

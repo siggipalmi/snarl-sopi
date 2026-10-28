@@ -91,6 +91,19 @@ cohorts, Device Owner and machine commands stay with Siggi.
   watchdog (`ScreenWatchdog.kt`) restarts the app when its window stays black or stops drawing; the ad
   video draws as a TextureView, not a SurfaceView; the app relays its log to the backend (`LogRelay.kt`,
   dashboard → machine → logs) so the next incident leaves a record.
+- **A board can stop executing for 44 minutes with nothing wrong in the app (Grótta vinstri,
+  2026-10-27 19:31 and 2026-10-28 04:44).** Every process went silent for exactly 2,681 s each time,
+  the kernel's own 60-second heartbeat included; the kernel never suspended (`suspend_stats` 0),
+  its clock kept counting, and the board came back on an interrupt from outside the CPU — the
+  router dropping the silent client after its inactivity timeout. Hægri, same board, same wall
+  branch, same router, never stalled; it has a USB device (the Huawei stick) interrupting all the
+  time. Reading: all four cores in `cpu-sleep` (residency 1 ms) and the timer wake lost. Power was
+  ruled out: the sockets are behind bolted machines, and a mains dip would have hit both.
+  Detector: `dmesg | grep healthd` gaps (one line a minute while the kernel runs) and the payment
+  SDK's `starved for Nms` line in the relayed log. Workaround under test: the **idle guard**
+  (machine page → Controls → idle guard, AG only; coil 0.80.12+, fridge 0.70.5+), a thread waking
+  every 500 µs that keeps one core in the light idle state. Canary vinstri; compare heartbeat gaps
+  over 24 h before switching it on anywhere else.
 - **The coil ad region played a hard-coded playlist until 0.80.2**, including a Big Buck Bunny clip
   streamed from Google on every rotation — a download every few minutes, around the clock, over the
   SIM. From 0.80.2 it plays the backend's per-machine list (the machine's own, else its operator's,

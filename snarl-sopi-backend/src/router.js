@@ -5017,7 +5017,8 @@ function handleUpdateSettings(req, res) {
   const { valid, errors } = validateSettings(req.body);
   if (!valid) return badRequest(res, 'Validation failed', errors);
   const allowed = ['showAdRegion','showLeftHero','showRightHero','showIdleScreen','idleTimeoutSeconds','defaultLanguage','availableLanguages','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','motorSerialPort','controlBoardAddress',
-                   'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort','led','basketsPerCabinet'];
+                   'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort','led','basketsPerCabinet',
+                   'idleGuard','idleGuardThreads','idleGuardUs'];
   // Refuse a payment port that collides with this machine's bus — same reasoning as the
   // set_payment_port command guard: a second reader on the bus corrupts both at once.
   // Hardware wiring is AG-only, on the same reasoning as the set_payment_port command: these three
@@ -5028,6 +5029,23 @@ function handleUpdateSettings(req, res) {
   if (touchedWiring.length && req.user?.role !== 'ag_admin') {
     return json(res, 403, { ok: false,
       error: `Forbidden \u2014 ${touchedWiring.join(', ')} ${touchedWiring.length > 1 ? 'are' : 'is'} hardware wiring and requires AG Vending admin access.` });
+  }
+  // The idle guard (a thread keeping a CPU core out of the board's deep idle; see shared
+  // IdleGuard.kt) is a board-level workaround under measurement — AG only, like wiring.
+  const IDLE_KEYS = ['idleGuard', 'idleGuardThreads', 'idleGuardUs'];
+  if (IDLE_KEYS.some(k => req.body[k] !== undefined) && req.user?.role !== 'ag_admin') {
+    return json(res, 403, { ok: false, error: 'Forbidden \u2014 the idle guard is an AG Vending admin setting.' });
+  }
+  if (req.body.idleGuard !== undefined) req.body.idleGuard = req.body.idleGuard === true;
+  if (req.body.idleGuardThreads !== undefined) {
+    const n = Math.round(Number(req.body.idleGuardThreads));
+    if (!(n >= 1 && n <= 8)) return badRequest(res, 'idleGuardThreads must be 1–8');
+    req.body.idleGuardThreads = n;
+  }
+  if (req.body.idleGuardUs !== undefined) {
+    const us = Math.round(Number(req.body.idleGuardUs));
+    if (!(us >= 100 && us <= 10000)) return badRequest(res, 'idleGuardUs must be 100–10000');
+    req.body.idleGuardUs = us;
   }
   if (req.body.motorSerialPort !== undefined) {
     const mp = String(req.body.motorSerialPort).trim();

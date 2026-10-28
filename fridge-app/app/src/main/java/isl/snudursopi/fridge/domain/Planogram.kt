@@ -118,6 +118,10 @@ data class Planogram(
     val adminPin: AdminPinHash? = null,
     /** Seconds idle before posters join the rotation (config.idleTimeoutSeconds). */
     val idleTimeoutSeconds: Int = 60,
+    /** Keep a core out of deep idle (shared IdleGuard); off unless the dashboard says so. */
+    val idleGuard: Boolean = false,
+    val idleGuardThreads: Int = 1,
+    val idleGuardUs: Int = 500,
     /** Cabinet lighting (fridge.led). On/off only on this hardware — see [LightPolicy]. */
     val led: LightPolicy = LightPolicy(),
     /**

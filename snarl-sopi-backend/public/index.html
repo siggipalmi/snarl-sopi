@@ -5660,6 +5660,17 @@ async function saveAds() {
   } catch (e) { showToast('error: ' + e.message); }
 }
 
+async function saveIdleGuard(code) {
+  const on = document.getElementById('ig-on').checked;
+  const threads = Number(document.getElementById('ig-threads').value) || 1;
+  const us = Number(document.getElementById('ig-us').value) || 500;
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/settings', { idleGuard: on, idleGuardThreads: threads, idleGuardUs: us });
+    if (r && r.ok) { showToast(on ? 'Idle guard on — the machine applies it within two minutes' : 'Idle guard off'); if (DB.machines[code]) DB.machines[code].settings = Object.assign({}, DB.machines[code].settings, { idleGuard: on, idleGuardThreads: threads, idleGuardUs: us }); }
+    else showToast((r && r.error) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
 async function saveAdRegion() {
   const on = document.getElementById('ads-region').checked;
   try {
@@ -5754,6 +5765,21 @@ function renderMachineControls(code) {
       <b>Open remote support</b> puts TeamViewer on the machine's screen; someone at the machine still has to accept.<br>
       ${currentUser?.role === 'ag_admin' ? '<b>adb on</b> (AG; fridge 0.70.0+, coil 0.80.8+) switches on wireless debugging and answers with the <code>adb connect</code> line in the command history — no one at the screen. Needs a one-time <code>pm grant</code> on each machine; <b>adb status</b> says whether it has it. Switch it off when done.<br>' : ''}
       <b>Restart machine</b> reboots the whole board and drops every remote connection while it comes back — prefer restart app.
+    </div>
+    ${currentUser?.role === 'ag_admin' ? `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;margin-bottom:8px">IDLE GUARD · AG</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label class="tgl"><input type="checkbox" id="ig-on" ${m.settings && m.settings.idleGuard === true ? 'checked' : ''}><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+        <span style="font-size:12px">keep a CPU core out of deep idle</span>
+        <input id="ig-threads" type="number" min="1" max="8" value="${Number(m.settings && m.settings.idleGuardThreads) || 1}" style="width:54px" title="threads (cores kept awake)">
+        <span style="font-size:11px;color:var(--muted)">thread(s) ×</span>
+        <input id="ig-us" type="number" min="100" max="10000" step="100" value="${Number(m.settings && m.settings.idleGuardUs) || 500}" style="width:72px" title="wake interval, microseconds">
+        <span style="font-size:11px;color:var(--muted)">µs</span>
+        <button class="btn btn-sm" onclick="saveIdleGuard('${code}')">save</button>
+      </div>
+      <div style="margin-top:7px;font-size:11px;color:var(--muted)">Workaround for a board that stops executing in deep idle until an outside interrupt wakes it (Grótta vinstri, 2026-10-27/28: twice 44 minutes). A thread waking every 500 µs keeps its core in the light idle state, whose timer works. Coil 0.80.12+, fridge 0.70.5+; applies within two minutes. Measure with the kernel heartbeat gaps before and after.</div>
+    </div>` : ''}
+    <div style="display:none">
     </div>
     <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
       <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;margin-bottom:10px">COOLING</div>
