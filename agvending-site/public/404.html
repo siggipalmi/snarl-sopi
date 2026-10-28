@@ -5,28 +5,134 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
 <title>Síða fannst ekki — AG Vending</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231A1A1A'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-style='italic' font-size='30' fill='%23FAF7F2' text-anchor='middle'%3EAG%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23111111'/%3E%3Crect x='44' y='8' width='12' height='12' fill='%23FFC72C'/%3E%3Ctext x='29' y='46' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='30' fill='%23FFFFFF' text-anchor='middle'%3EAG%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500&family=Geist:wght@400;500&family=Geist+Mono:wght@500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
 <style>
-  *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#E8DFD0;color:#1A1A1A;font-family:'Geist',system-ui,sans-serif;text-align:center;padding:32px}
-  a{color:#8B6B3E;text-decoration:none}a:hover{color:#1A1A1A}
-  .lbl{font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;font-weight:500;letter-spacing:1.2px;text-transform:uppercase;color:#8A8275}
-  h1{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:46px;line-height:1.1;letter-spacing:-1.2px;margin:0 0 16px;text-wrap:balance}
-  .links{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;padding-top:26px;margin-top:34px;border-top:.5px solid #D4CCBE;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase}
-  .links a{color:#8A8275}.links a:hover{color:#1A1A1A}
-  @media (max-width:600px){h1{font-size:34px;letter-spacing:-.8px}}
+/* Subset of the site theme (index.html, sections 1, 3, 5, 7, 16), so this
+   page stands on its own. */
+/* ---------------------------------------------------------------------
+   1. Tokens
+   --------------------------------------------------------------------- */
+:root {
+  /* Neutrals */
+  --ink:        #111111;   /* all text, rules, primary buttons, dark bands */
+  --ink-soft:   #555555;   /* secondary text (4.5:1+ on white and wall) */
+  --on-dark-soft: #D0D0D0; /* secondary text on the black bands */
+  --paper:      #FFFFFF;   /* page background */
+  --wall:       #F3F0EB;   /* pricing band, image wells, form fields */
+
+  /* Palette — accents only */
+  --c-yellow:   #FFC72C;   /* THE accent: headline highlight, kicker square, link underline */
+  --c-pink:     #F48FB8;
+  --c-sky:      #3FC3E6;
+  --c-green:    #22B05A;   /* "included" ticks */
+  --c-salmon:   #F7AE94;
+  --c-teal:     #8DCFC7;
+  --c-magenta:  #EC4F8C;   /* form errors */
+
+  --accent:     var(--c-yellow);
+
+  /* Type */
+  --font: "Libre Franklin", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs-h1:      clamp(48px, 6.4vw, 88px);
+  --fs-h2:      56px;
+  --fs-h3:      28px;
+  --fs-stat:    52px;
+  --fs-quote:   clamp(30px, 3.6vw, 48px);
+  --fs-lead:    20px;
+  --fs-body:    17px;
+  --fs-small:   15px;
+
+  /* Spacing */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 24px;
+  --s-6: 32px; --s-7: 48px; --s-8: 80px;
+
+  --rule:       1px solid var(--ink);
+  --rule-heavy: 3px solid var(--ink);
+  --bar:        6px;    /* colour bar over hero stats */
+  --bar-card:   10px;   /* colour bar over product cards */
+  --mark:       14px;
+
+  --page-max:   1280px;
+  --gutter:     32px;
+}
+/* ---------------------------------------------------------------------
+   3. Base
+   --------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+h1, h2, h3, h4 { margin: 0; font-family: var(--font); font-style: normal; color: inherit; }
+h1 { font-size: var(--fs-h1); font-weight: 900; line-height: 0.95; letter-spacing: -3px; }
+h2 { font-size: var(--fs-h2); font-weight: 900; line-height: 1; letter-spacing: -2px; }
+h3 { font-size: var(--fs-h3); font-weight: 800; line-height: 1.1; letter-spacing: -0.6px; }
+p  { margin: 0; }
+
+a { color: var(--ink); text-underline-offset: 5px; text-decoration-thickness: 2px; }
+a:hover { color: var(--ink-soft); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+img { max-width: 100%; display: block; }
+/* ---------------------------------------------------------------------
+   5. Accent pieces — the only places colour appears
+   --------------------------------------------------------------------- */
+.kicker { display: flex; align-items: center; gap: var(--s-3); font-size: 17px; font-weight: 700; }
+.kicker::before { content: ""; width: var(--mark); height: var(--mark); background: var(--accent); flex-shrink: 0; }
+
+.highlight { background: var(--accent); padding: 0 .1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+/* Rule: one highlighted word per page. */
+
+.link-accent { font-weight: 700; text-decoration-color: var(--accent); text-decoration-thickness: 4px; text-underline-offset: 4px; }
+/* ---------------------------------------------------------------------
+   7. Buttons
+   --------------------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  min-height: 44px; padding: 12px 20px;
+  font-family: var(--font); font-size: var(--fs-small); font-weight: 800;
+  background: var(--ink); color: var(--paper);
+  border: 2px solid var(--ink); text-decoration: none; cursor: pointer;
+}
+.btn:hover { background: #333333; border-color: #333333; color: var(--paper); }
+.btn--lg { padding: 16px 26px; font-size: var(--fs-body); }
+.btn--text { background: none; border: 0; padding: 0; min-height: 0; color: var(--ink); font-size: var(--fs-body); font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.btn--text:hover { background: none; color: var(--ink-soft); }
+/* ---------------------------------------------------------------------
+   16. takk / 404 / 500 — one big line and a way back
+   --------------------------------------------------------------------- */
+.status-page { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; gap: var(--s-5); padding-block: var(--s-8); }
+.status-page .code { font-size: var(--fs-small); font-weight: 700; display: flex; align-items: center; gap: var(--s-3); }
+.status-page .code::before { content: ""; width: var(--mark); height: var(--mark); background: var(--accent); }
+.status-page { max-width: 640px; margin: 0 auto; padding-inline: var(--gutter); }
+.status-page p { font-size: var(--fs-lead); }
+.status-links { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); padding-top: var(--s-5); border-top: var(--rule); font-size: var(--fs-small); font-weight: 700; }
+.status-links a { text-decoration: none; }
+.status-links a:hover { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 4px; }
+@media (max-width: 680px) { :root { --gutter: 16px; } }
 </style>
 </head>
 <body>
-<main style="max-width:520px">
-  <div class="lbl" style="margin-bottom:18px">404</div>
+<main class="status-page">
+  <div class="code">404</div>
   <h1>Þessi síða er ekki til.</h1>
-  <p style="font-size:16px;color:#3A3A3A;margin:0 0 28px;text-wrap:pretty">Hún hefur líklega verið færð. Allt sem máli skiptir — tækin, verðskráin og svörin — er á forsíðunni.</p>
-  <a href="/" style="background:#1A1A1A;color:#FAF7F2;font-size:15px;font-weight:500;padding:14px 28px;border-radius:999px;display:inline-block">Til baka á forsíðu</a>
-  <nav class="links">
+  <p>Hún hefur líklega verið færð. Allt sem máli skiptir — tækin, verðskráin og svörin — er á forsíðunni.</p>
+  <div><a class="btn btn--lg" href="/">Til baka á forsíðu</a></div>
+  <nav class="status-links" aria-label="Tenglar">
     <a href="/#vorur">Sjálfsalar</a>
     <a href="/#verd">Verðskrá</a>
     <a href="/#faq">Spurt og svarað</a>

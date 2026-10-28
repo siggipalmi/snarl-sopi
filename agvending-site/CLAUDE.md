@@ -50,11 +50,11 @@ Worker — a different name deploys to a second, separate Worker.
    CDN. The hero is the old site's Orkan station photo; `portrait-stefan.jpg` is the Hagaskóli
    crest, because the old site never had a photo of him.
 2. **Logos — done with 16 (28 Oct).** The zip never reached the repo, so they were rebuilt from
-   the Squarespace originals (159 kB). Orkan and Macron are white marks on transparent for their
-   `ag-inv` tiles, so Macron is `macron.png` (a JPEG can't be transparent). Nordic Hostel was on
+   the Squarespace originals (159 kB). Orkan and Macron are coloured marks on transparent
+   (`orkan-mark.png`, `macron-mark.png`) so they show on the white page. Nordic Hostel was on
    no Squarespace page, so its tile was dropped; Siggi will add it and more logos once there is a
    staging site. The names are load-bearing: the markup references them literally, with
-   per-logo `mul`/`inv` flags.
+   the per-logo `ag-mul` flag.
 3. **Folders full — done (28 Oct).** Both `.gitkeep` files and the temporary missing-image
    script are gone, so a missing image now shows as a broken icon.
 4. **Contact form endpoint.** The form POSTs to `https://admin.agvending.is/api/tilbod`. As of
@@ -85,35 +85,27 @@ makes any of those three harder to find, it's wrong.
   purpose — operators care about dimensions and weight. He asked for focus, not minimalism.
 - **No CMS.** Deliberate. He edits copy rarely and is happy to have changes made for him.
 
-### Restyle direction (Oct 2026)
+### Theme: "colour as accent" (Oct 2026)
 
-After a MoMA visit Siggi wants the shared look (site, dashboard, kiosks) less boring: flat
-saturated colour blocks and bold grotesque type. **For this site the full-colour version is too
-heavy — colour is used as accents.** He approved the accent-style website mockup. Check whether it
-has been implemented before assuming the tokens below are current, and show a mockup before any
-restyle work.
+After a MoMA visit Siggi wanted the shared look (site, dashboard, kiosks) less boring: flat
+saturated colour and bold grotesque type. **For this site colour is an accent only**, never a
+filled area. Siggi supplied the theme CSS; it is the inline `<style>` in `index.html`, sections
+1–17 as delivered (minus its legacy-alias block) plus **section 18, the site addendum**, for
+things the page has that the theme didn't cover. `takk`/`404`/`500` carry a subset (1, 3, 5, 7, 16).
 
-### Tokens (as built, pre-restyle)
-
-```css
---cream:#FAF7F2; --cream-deep:#F0E8DA; --cream-shadow:#E8DFD0;
---ink:#1A1A1A; --ink-soft:#3A3A3A;
---bronze:#8B6B3E; --bronze-light:#B8946B; --bronze-bg:#F7F0E6;
---clay:#D4CCBE; --line:#E8E2D8; --muted:#8A8275; --muted-2:#6B6B6B;
---alert:#B8471F; --alert-bg:#FAEEE9; --success:#4A6B2E; --success-bg:#EBF2E6;
---serif:'Cormorant Garamond',Georgia,serif; --sans:'Geist',system-ui,sans-serif;
---mono:'Geist Mono',monospace; --r:10px; --rlg:16px; --rsm:6px;
-```
-
-Sand `#E8DFD0` page, cream `#FAF7F2` cards — warm paper, never white. Borders always
-`0.5px solid #E8E2D8`; don't thicken the hairline. Shadow `0 1px 3px rgba(0,0,0,.04)`, cards only.
-Flex/grid with `gap`, never margin-spaced siblings. Cormorant Garamond italic 500 for h1–h3 and
-prices only; Geist body; Geist Mono uppercase 9–12px for labels/specs.
-Breakpoints: 1120 · 1000 · 960 · 760 · 680.
-
-**Three deliberate deviations from the dashboard CSS — keep them.** Italic serif only on h1–h3 and
-prices; type sizes raised; bronze (or its successor accent) only as a signal — links, FAQ toggle,
-price pills.
+- White page, `#111` type and 1px black rules; `--wall #F3F0EB` for the pricing band, image wells
+  and form fields. The only dark areas are the testimonial band and the footer.
+- One typeface, Libre Franklin (500–900). No serif, no italics. Square corners, no shadows, no
+  gradients. Black text on every colour.
+- Palette, accents only: yellow `--accent` (kicker squares, the one highlighted word, link
+  underlines, open FAQ sign), plus pink/sky/teal/salmon bars on stats, product cards and the
+  testimonial band, green for "included" ticks, magenta for form errors.
+- **One `.highlight` word per page** ("restina" in the hero).
+- Partner rail: logos sit straight on white, mono at rest, colour on hover of the single tile.
+  `ag-mul` goes on the **tile** for logos on a white rectangle. White marks vanish here, so
+  Orkan and Macron ship as coloured marks: `orkan-mark.png` (Orkan magenta), `macron-mark.png`.
+- Breakpoints: 1000 · 760 · 680.
+- Show a mockup (screenshots of the branch's preview) before any further restyle work.
 
 ## Content facts (load-bearing)
 
