@@ -86,6 +86,8 @@ class FridgeViewModel(
      * baskets yet but still needs its logo, posters and cabinet count.
      */
     fun setMachineSettings(p: Planogram) {
+        // Keep a core out of the board's deep idle when the dashboard says so (shared IdleGuard).
+        isl.snudursopi.shared.IdleGuard.apply(p.idleGuard, p.idleGuardThreads, p.idleGuardUs)
         // The idle animation draws a single or a double from this, so it must
         // follow the config rather than a build flag.
         _ui.value = _ui.value.copy(

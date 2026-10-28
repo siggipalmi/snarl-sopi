@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import isl.snudursopi.shared.AdbWifi
 import isl.snudursopi.shared.AdminPinHash
 import isl.snudursopi.shared.ClockGuard
+import isl.snudursopi.shared.IdleGuard
 import isl.snudursopi.vending.RestartManager
 import isl.snudursopi.vending.api.WeimiApiClient
 import isl.snudursopi.vending.api.WeimiCredentials
@@ -673,6 +674,7 @@ class VendingViewModel(
             }
             cancelPendingRetry()
             syncAds(config)
+            IdleGuard.apply(config.idleGuard, config.idleGuardThreads, config.idleGuardUs)
             // Bring up the card reader + motor controllers once; the reader
             // stays connected for the session so payment is instant.
             startHardwareOnce()
@@ -2411,6 +2413,7 @@ class VendingViewModel(
                         )
                     }
                     syncAds(config)
+                    IdleGuard.apply(config.idleGuard, config.idleGuardThreads, config.idleGuardUs)
                     // A successful poll means the network is reachable — a good
                     // moment to drain any queued sales from an offline spell.
                     salesRepo?.let { repo -> launch { repo.flushQueue() } }
@@ -2450,6 +2453,9 @@ class VendingViewModel(
         val adminPin: AdminPinHash? = null,
         val outOfService: Boolean = false,
         val outOfServiceReason: String? = null,
+        val idleGuard: Boolean = false,
+        val idleGuardThreads: Int = 1,
+        val idleGuardUs: Int = 500,
     ) {
         companion object {
             val EMPTY = ConfigResult(emptyList(), emptyList(), emptyMap(), null)
@@ -2518,6 +2524,9 @@ class VendingViewModel(
                         adminPin = result.adminPin,
                         outOfService = result.outOfService,
                         outOfServiceReason = result.outOfServiceReason,
+                        idleGuard = result.idleGuard,
+                        idleGuardThreads = result.idleGuardThreads,
+                        idleGuardUs = result.idleGuardUs,
                     )
                     lastConfig = cfg  // remember for the next 304
                     cfg

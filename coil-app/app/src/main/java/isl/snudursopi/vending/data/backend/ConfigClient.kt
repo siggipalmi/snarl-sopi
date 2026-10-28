@@ -207,6 +207,10 @@ class ConfigClient(
         // or AG's master close (no reason). Absent → open, as before.
         val outOfService = data.get("outOfService")?.takeIf { it.isBoolean }?.asBoolean() ?: false
         val outOfServiceReason = data.get("outOfServiceReason")?.takeIf { it.isTextual }?.asText()?.trim()?.takeIf { it.isNotEmpty() }
+        // idleGuard: keep a CPU core out of the board's deep idle state — see shared IdleGuard.
+        val idleGuard = data.get("idleGuard")?.takeIf { it.isBoolean }?.asBoolean() ?: false
+        val idleGuardThreads = data.get("idleGuardThreads")?.takeIf { it.isNumber }?.asInt() ?: 1
+        val idleGuardUs = data.get("idleGuardUs")?.takeIf { it.isNumber }?.asInt() ?: 500
         // adminPin: this machine's own admin PIN as a PBKDF2 hash (never the PIN). Absent → the
         // fleet's shared code still opens the admin screens, so a machine keeps working through
         // the rollout. Checked offline by the shared AdminPin.
@@ -237,6 +241,9 @@ class ConfigClient(
             adminPin = adminPin,
             outOfService = outOfService,
             outOfServiceReason = outOfServiceReason,
+            idleGuard = idleGuard,
+            idleGuardThreads = idleGuardThreads,
+            idleGuardUs = idleGuardUs,
         )
     }
 
@@ -342,6 +349,10 @@ class ConfigClient(
             /** Closed for sale, by the operator or AG. The screen shows [outOfServiceReason] if any. */
             val outOfService: Boolean = false,
             val outOfServiceReason: String? = null,
+            /** Keep a core out of deep idle (shared IdleGuard); off unless the dashboard says so. */
+            val idleGuard: Boolean = false,
+            val idleGuardThreads: Int = 1,
+            val idleGuardUs: Int = 500,
         ) : Result()
     }
 }
