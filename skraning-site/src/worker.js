@@ -338,17 +338,27 @@ async function provisionAccount(env, id, form, company, claim) {
 
 // Emails AG Vending through the backend (/api/v1/leases/notify, recipient set there).
 // Best effort: a failed notification is logged and never affects the registration.
+// Returns {ok, status, error} rather than only logging. It still never throws:
+// a lost notification must not fail the registration it is reporting on. The
+// pipeline callers ignore the result; the admin resend endpoint shows it, so a
+// silent 401 cannot look like a delivered mail.
 async function notify(env, subject, text) {
   try {
-    if (!env.LEASE_CLAIM_SECRET) return;
+    if (!env.LEASE_CLAIM_SECRET) return { ok: false, error: 'LEASE_CLAIM_SECRET is not set' };
     const res = await fetch(env.BACKEND_URL.replace(/\/$/, '') + '/api/v1/leases/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Lease-Key': env.LEASE_CLAIM_SECRET },
       body: JSON.stringify({ subject, text }),
     });
-    if (!res.ok) console.warn('[notify]', res.status, (await res.text()).slice(0, 200));
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 200);
+      console.warn('[notify]', res.status, body);
+      return { ok: false, status: res.status, error: body };
+    }
+    return { ok: true, status: res.status };
   } catch (e) {
     console.warn('[notify]', e.message);
+    return { ok: false, error: e.message };
   }
 }
 
@@ -441,6 +451,19 @@ async function handleAdmin(request, url, env, ctx) {
     if (!row) return json({ error: 'not_found' }, 404);
     const prov = await env.DB.prepare('SELECT value FROM kv WHERE k = ?').bind('provision:' + row.id).first();
     return json({ ...row, provision: prov ? JSON.parse(prov.value) : null });
+  }
+
+  // POST /api/admin/submissions/:id/notify — send the "Ný skráning" mail again,
+  // rebuilt from the stored form and fyrirtækjaskrá snapshot. Changes nothing
+  // about the registration; it is for when the original never arrived.
+  // Note this goes to the backend with X-Lease-Key, the same credential the
+  // claim uses — so while that key is mismatched, no mail gets through either.
+  const renotify = url.pathname.match(/^\/api\/admin\/submissions\/([\w-]+)\/notify$/);
+  if (renotify && request.method === 'POST') {
+    const row = await loadRow(env, renotify[1]);
+    if (!row) return json({ error: 'not_found' }, 404);
+    const result = await notifyNew(env, row.id, JSON.parse(row.form_json), JSON.parse(row.company_json));
+    return json({ id: row.id, resent: result.ok === true, delivery: result }, result.ok ? 200 : 502);
   }
 
   // POST /api/admin/submissions/:id/retry — re-run from the step it stopped at.
