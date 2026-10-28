@@ -6,86 +6,163 @@
 <meta name="robots" content="noindex" />
 <title>Skráning — AG Vending</title>
 <meta name="description" content="Skráðu leigu á sjálfsala frá AG Vending. Leigusamningur er útbúinn sjálfkrafa." />
-<meta name="theme-color" content="#E8DFD0" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231A1A1A'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-style='italic' font-size='30' fill='%23FAF7F2' text-anchor='middle'%3EAG%3C/text%3E%3C/svg%3E" />
+<meta name="theme-color" content="#FFC72C" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23111111'/%3E%3Ctext x='32' y='44' font-family='Helvetica,Arial,sans-serif' font-weight='900' font-size='30' fill='%23FFFFFF' text-anchor='middle'%3EAG%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500&family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
 <style>
-  :root{--bg:#E8DFD0;--card:#FAF7F2;--line:#E8E2D8;--line2:#D4CCBE;--ink:#1A1A1A;--ink2:#3A3A3A;--mute:#8A8275;--accent:#8B6B3E;--chip:#F7F0E6;--err:#A3261B}
-  *{box-sizing:border-box}
+  /* AG Vending — "Colour. Type. Nothing else."
+     One component, the ticket: a header band over a body block, two
+     colours. Square corners, no shadows, no gradients, no borders — the
+     colour change is the edge. Black type on every colour except Night.
+
+     One band colour for the whole screen, as on admin.agvending.is,
+     where sky means machines. Six saturated bands down one narrow
+     column was too much to fill in. The palette is kept for the four
+     moments that mean something: the company found in fyrirtækjaskrá,
+     the monthly total, the send button and the thank-you. */
+  :root{
+    --ink:#111111;--ink2:#444444;--mute:#5F5A52;--paper:#FFFFFF;--wall:#F3F0EB;--wall2:#E4E0D8;
+    --yellow:#FFC72C;--pink:#F48FB8;--sky:#3FC3E6;--green:#22B05A;--salmon:#F7AE94;
+    --coral:#F05A3C;--orange:#F7A21B;--teal:#8DCFC7;--magenta:#EC4F8C;--night:#2C3A68;
+    --band:var(--sky);--err:#C0341F;
+    --font:'Libre Franklin',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;border-radius:0}
   [hidden]{display:none !important}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Geist',system-ui,sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
-  a{color:var(--accent);text-decoration:none}a:hover{color:var(--ink)}
-  h1,h2{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;margin:0}
-  .wrap{max-width:760px;margin:0 auto;padding:0 20px}
-  header{display:flex;justify-content:space-between;align-items:center;padding:26px 0}
-  .brand{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:26px;color:var(--ink)}
-  .lbl{font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;font-weight:500;letter-spacing:1.2px;text-transform:uppercase;color:var(--mute)}
-  .intro{padding:18px 0 30px}
-  .intro h1{font-size:48px;line-height:1.08;letter-spacing:-1.2px;margin:12px 0 12px;text-wrap:balance}
-  .intro p{margin:0;color:var(--ink2);max-width:36em}
-  .card{background:var(--card);border:.5px solid var(--line);border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);padding:32px}
-  section.step{padding:4px 0 26px;margin-bottom:26px;border-bottom:.5px solid var(--line)}
-  section.step:last-of-type{border-bottom:0;margin-bottom:0}
-  section.step h2{font-size:26px;letter-spacing:-.4px;margin:6px 0 16px}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  body{margin:0;background:var(--wall);color:var(--ink);font-family:var(--font);font-weight:500;
+       font-size:15.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+  a:hover{text-decoration-thickness:2px}
+  h1,h2{font-family:var(--font);font-style:normal;margin:0}
+  .wrap{max-width:760px;margin:0 auto;padding:0}
+
+  /* brand bar — the only black on the page */
+  header{display:flex;justify-content:space-between;align-items:center;
+         padding:14px 24px;background:var(--ink)}
+  .brand{font-family:var(--font);font-style:normal;font-weight:700;font-size:16px;
+         letter-spacing:-.3px;color:var(--paper);text-decoration:none}
+  .lbl{font-family:var(--font);font-weight:800;font-size:10.5px;letter-spacing:.13em;
+       text-transform:uppercase;color:var(--mute)}
+  header .lbl{color:var(--paper);opacity:.8;text-decoration:none}
+
+  /* hero — the brand moment, not a step */
+  .intro{background:var(--yellow);padding:40px 24px 36px}
+  .intro .lbl{color:var(--ink)}
+  .intro h1{font-size:50px;font-weight:900;line-height:.98;letter-spacing:-2.1px;
+            margin:12px 0 14px;text-wrap:balance}
+  .intro p{margin:0;max-width:40ch;font-size:15.5px}
+
+  /* the ticket */
+  .card{background:transparent;padding:0}
+  section.step{padding:0 0 28px;margin:0;background:var(--paper)}
+  .band{background:var(--band);padding:13px 24px 14px}
+  .band .lbl{color:var(--ink);opacity:.72;font-size:10px}
+  .band h2{font-size:22px;font-weight:900;letter-spacing:-.7px;margin-top:3px}
+  .step>:not(.band){background:var(--paper);padding-left:24px;padding-right:24px}
+  .step>.band+*{padding-top:24px}
+  .step>.err:empty{padding:0}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .fld{display:flex;flex-direction:column;gap:7px;position:relative}
-  .fld>label,.fld .flabel{font-family:'Geist Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--mute)}
-  input,textarea,select{font-family:inherit;font-size:16px;color:var(--ink);background:#FFF;border:.5px solid var(--line2);border-radius:8px;padding:12px 14px;width:100%}
+  .fld>label,.fld .flabel{font-family:var(--font);font-weight:800;font-size:10.5px;
+       letter-spacing:.11em;text-transform:uppercase;color:var(--ink)}
+
+  /* fields are wells, not boxes: the tone change is the edge */
+  input,textarea,select{font-family:inherit;font-size:16px;font-weight:500;color:var(--ink);
+    background:var(--wall);border:0;padding:13px 14px;width:100%}
   select{appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238A8275' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23111111' stroke-width='1.6'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:right 14px center}
-  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,107,62,.12)}
-  input[aria-invalid="true"],select[aria-invalid="true"]{border-color:var(--err)}
-  .hint{font-size:13px;color:var(--mute)}
-  .err{font-size:13px;color:var(--err)}
+  input:focus,textarea:focus,select:focus{outline:3px solid var(--ink);outline-offset:0}
+  input[aria-invalid="true"],select[aria-invalid="true"]{background:#FBE4DF}
+  .hint{font-family:var(--mono);font-size:11.5px;color:var(--mute);line-height:1.5}
+  p.hint{font-family:var(--font);font-size:13.5px;font-weight:500;line-height:1.5}
+  .err{font-size:13px;font-weight:600;color:var(--err)}
   .err:empty{display:none}
-  .company{margin-top:12px;background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:14px 16px;display:none}
-  .company.on{display:block}
-  .company .name{font-weight:500;font-size:16px}
-  .company dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:8px 0 0;font-size:14px}
-  .company dt{color:var(--mute)}.company dd{margin:0}
-  .sign-box{background:#FFFDF9;border:.5px solid var(--accent);border-left:3px solid var(--accent);border-radius:10px;padding:18px 18px 16px}
-  .signer{background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:12px 16px;margin-bottom:14px}
-  .signer dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 6px;font-size:15px}
-  .signer dt{color:var(--mute)}.signer dd{margin:0;font-weight:500}
-  .check{display:flex;align-items:center;gap:10px;font-size:15px;cursor:pointer}
-  .check input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+
+  /* MOMENT 1 — the company, found */
+  .step>.company{background:var(--green);padding:15px 24px;margin-top:20px;display:none}
+  .step>.company.on{display:block}
+  .company .name{font-weight:900;font-size:17px;letter-spacing:-.4px}
+  .company dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:5px 0 0;font-size:13.5px}
+  .company dt{font-weight:800}.company dd{margin:0}
+
+  .sign-box{background:var(--wall);padding:18px}
+  .sign-box input,.sign-box textarea,.sign-box select,.signer{background:var(--paper)}
+  .signer{padding:12px 16px;margin-bottom:14px}
+  .signer dl{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:0 0 6px;font-size:14.5px}
+  .signer dt{color:var(--mute);font-weight:600}.signer dd{margin:0;font-weight:700}
+  .check{display:flex;align-items:center;gap:10px;font-size:15px;cursor:pointer;font-weight:600}
+  .check input{width:18px;height:18px;accent-color:var(--ink);margin:0;flex-shrink:0}
   .start{margin:0;font-size:17px}
-  .start strong{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:24px}
-  .machines{display:flex;flex-direction:column;gap:10px}
-  .machine{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:#FFF;border:.5px solid var(--line2);border-radius:10px;padding:14px 16px}
-  .machine.sel{border-color:var(--accent);background:#FFFDF9}
-  .machine .mname{font-weight:500}
-  .machine .mprice{font-size:13px;color:var(--mute)}
-  .stepper{display:flex;align-items:center;gap:4px}
-  .stepper button{width:36px;height:36px;border-radius:999px;border:.5px solid var(--line2);background:var(--card);font-size:18px;line-height:1;cursor:pointer;color:var(--ink)}
-  .stepper button:hover:not(:disabled){border-color:var(--ink)}
-  .stepper button:disabled{opacity:.35;cursor:default}
-  .stepper output{min-width:28px;text-align:center;font-family:'Geist Mono',monospace;font-size:15px}
-  .total{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:14px;border-top:.5px dashed var(--line2)}
-  .total strong{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:30px;letter-spacing:-.6px}
-  .suggest{position:absolute;top:100%;left:0;right:0;margin:4px 0 0;padding:4px;list-style:none;background:#FFF;border:.5px solid var(--line2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.10);max-height:260px;overflow-y:auto;z-index:10}
+  .start strong{font-family:var(--font);font-style:normal;font-weight:900;font-size:20px;
+                letter-spacing:-.5px}
+
+  .machines{display:flex;flex-direction:column}
+  .machine{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+           background:var(--paper);padding:13px 0}
+  .machine.sel{background:var(--paper)}
+  .machine .mname{font-weight:800;font-size:15.5px}
+  .machine.sel .mname{font-weight:900}
+  .machine .mprice{font-family:var(--mono);font-size:11.5px;color:var(--mute);margin-top:2px}
+  .stepper{display:flex;align-items:center}
+  .stepper button{width:38px;height:38px;border:0;background:var(--ink);color:var(--paper);
+    font-size:19px;font-weight:700;line-height:1;cursor:pointer;font-family:inherit}
+  .stepper button:disabled{background:var(--wall2);color:var(--mute);cursor:default}
+  .stepper output{min-width:44px;text-align:center;font-weight:900;font-size:18px;
+                  font-variant-numeric:tabular-nums}
+
+  /* MOMENT 2 — what it costs. Full bleed, so it is not a row in a form. */
+  .step>.total{display:flex;justify-content:space-between;align-items:baseline;
+    background:var(--yellow);padding:17px 24px;margin-top:16px}
+  .total .lbl{color:var(--ink);opacity:.8}
+  .total strong{font-family:var(--font);font-style:normal;font-weight:900;font-size:30px;
+                letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  .total .hint{font-family:var(--font);font-size:13px;font-weight:600;color:var(--ink);opacity:.65}
+
+  .suggest{position:absolute;top:100%;left:0;right:0;margin:3px 0 0;padding:0;list-style:none;
+    background:var(--paper);box-shadow:0 10px 28px rgba(0,0,0,.16);max-height:260px;
+    overflow-y:auto;z-index:10}
   .suggest[hidden]{display:none}
-  .suggest li{padding:9px 12px;border-radius:6px;cursor:pointer;font-size:15px}
-  .suggest li[aria-selected="true"],.suggest li:hover{background:var(--chip)}
-  .ok-mark{color:#2F6B3A;font-size:13px}
-  .btn{background:var(--ink);color:#FAF7F2;font-size:15px;font-weight:500;padding:15px 30px;border-radius:999px;border:0;cursor:pointer;font-family:inherit}
-  .btn:hover:not(:disabled){background:var(--accent)}
-  .btn:disabled{opacity:.55;cursor:progress}
-  .submit-row{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:24px}
-  .form-err{background:#FBEDEB;border:.5px solid #E7C3BE;color:var(--err);border-radius:10px;padding:12px 14px;font-size:14px;margin-top:18px}
+  .suggest li{padding:11px 14px;cursor:pointer;font-size:15px}
+  .suggest li[aria-selected="true"],.suggest li:hover{background:var(--sky)}
+  .ok-mark{font-family:var(--mono);font-size:11.5px;font-weight:600}
+
+  /* MOMENT 3 — send */
+  .submit-row{display:block;margin:0}
+  .btn{display:block;width:100%;background:var(--coral);color:var(--ink);font-size:19px;
+       font-weight:900;letter-spacing:-.4px;padding:22px;border:0;cursor:pointer;font-family:inherit}
+  .btn:disabled{background:var(--wall2);color:var(--mute);cursor:progress}
+  #turnstile:not(:empty){background:var(--paper);padding:16px 24px}
+  .form-err{background:var(--magenta);color:var(--ink);padding:14px 24px;font-size:14.5px;
+            font-weight:600;margin:0}
   .form-err[hidden]{display:none}
   .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-  .done{text-align:center;padding:52px 32px}
-  .done h1{font-size:42px;letter-spacing:-1px;margin:14px 0 12px}
-  .done p{color:var(--ink2);max-width:30em;margin:0 auto 10px}
-  footer{padding:30px 0 50px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--mute);display:flex;gap:18px;flex-wrap:wrap}
+
+  /* MOMENT 4 — done. Its own pair. */
+  .done{text-align:left;padding:0}
+  .done .band{background:var(--green);padding:18px 24px}
+  .done .band .lbl{opacity:1;font-size:10.5px}
+  .done-body{background:var(--yellow);padding:36px 24px 40px}
+  .done h1{font-size:44px;font-weight:900;letter-spacing:-1.8px;line-height:1;margin-bottom:16px}
+  .done p{max-width:44ch;margin:0 0 10px}
+  .done .hint{color:var(--ink);opacity:.7}
+
+  footer{padding:26px 24px 46px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--mute);display:flex;gap:18px;flex-wrap:wrap}
   footer a{color:var(--mute)}
+
   @media (max-width:640px){
-    .intro h1{font-size:36px}
-    .card{padding:22px 18px;border-radius:14px}
+    .intro{padding:32px 20px 30px}
+    .intro h1{font-size:38px;letter-spacing:-1.5px}
+    header{padding:13px 20px}
+    .band{padding:12px 20px 13px}
+    .band h2{font-size:20px}
+    .step>:not(.band){padding-left:20px;padding-right:20px}
+    .step>.total{padding:16px 20px}
+    .done-body,.form-err,#turnstile:not(:empty),footer{padding-left:20px;padding-right:20px}
     .grid2{grid-template-columns:1fr}
   }
 </style>
@@ -108,8 +185,10 @@
       <div class="hp" aria-hidden="true"><label>Ekki fylla út <input name="vefsida" tabindex="-1" autocomplete="off" /></label></div>
 
       <section class="step">
-        <div class="lbl">1 · Leigutaki</div>
-        <h2>Fyrirtækið</h2>
+        <div class="band">
+          <div class="lbl">1 · Leigutaki</div>
+          <h2>Fyrirtækið</h2>
+        </div>
         <div class="fld">
           <label for="kennitala">Kennitala leigutaka</label>
           <input id="kennitala" name="kennitala" inputmode="numeric" autocomplete="off" placeholder="000000-0000" maxlength="11" required aria-describedby="kennitala-err kennitala-hint" />
@@ -125,8 +204,10 @@
       </section>
 
       <section class="step">
-        <div class="lbl">2 · Fyrir undirritun samnings</div>
-        <h2>Undirritandi</h2>
+        <div class="band">
+          <div class="lbl">2 · Fyrir undirritun samnings</div>
+          <h2>Undirritandi</h2>
+        </div>
         <div class="sign-box">
           <p class="hint" style="margin:0 0 14px">Framkvæmdastjóri eða prókúruhafi undirritar leigusamninginn rafrænt með rafrænum skilríkjum. Beiðni um undirritun er send á netfangið og farsímanúmerið hér að neðan.</p>
           <div class="fld" id="signer-pick" hidden style="margin-bottom:14px">
@@ -174,8 +255,10 @@
       </section>
 
       <section class="step">
-        <div class="lbl">3 · Samskipti</div>
-        <h2>Tengiliður vegna reksturs</h2>
+        <div class="band">
+          <div class="lbl">3 · Samskipti</div>
+          <h2>Tengiliður vegna reksturs</h2>
+        </div>
         <p class="hint" style="margin:-6px 0 14px">Sá sem sér um sjálfsalana dags daglega. Hann fær aðgang að stjórnborði sjálfsalanna á admin.agvending.is og getur bætt öðrum notendum við.</p>
         <label class="check"><input type="checkbox" id="same-as-signer" /> Sami tengiliður og undirritandi</label>
         <div id="contact-fields" style="margin-top:14px">
@@ -207,16 +290,20 @@
       </section>
 
       <section class="step">
-        <div class="lbl">4 · Tæki</div>
-        <h2>Hvað viltu leigja?</h2>
+        <div class="band">
+          <div class="lbl">4 · Tæki</div>
+          <h2>Hvað viltu leigja?</h2>
+        </div>
         <div class="machines" id="machines"></div>
         <div class="total"><span class="lbl">Mánaðarleiga</span><span><strong id="total">0</strong> <span class="hint">kr. + vsk</span></span></div>
         <span class="err" id="taeki-err" role="alert"></span>
       </section>
 
       <section class="step">
-        <div class="lbl">5 · Staðsetning</div>
-        <h2>Hvar verður sjálfsalinn?</h2>
+        <div class="band">
+          <div class="lbl">5 · Staðsetning</div>
+          <h2>Hvar verður sjálfsalinn?</h2>
+        </div>
         <div class="fld">
           <label for="heimilisfang">Heimilisfang</label>
           <input id="heimilisfang" name="heimilisfang" autocomplete="off" placeholder="t.d. Fiskislóð 73" required
@@ -228,8 +315,10 @@
       </section>
 
       <section class="step">
-        <div class="lbl">6 · Leigutími</div>
-        <h2>Upphaf leigutíma</h2>
+        <div class="band">
+          <div class="lbl">6 · Leigutími</div>
+          <h2>Upphaf leigutíma</h2>
+        </div>
         <p class="start">Leigan hefst <strong id="start-label">1. næsta mánaðar</strong>.</p>
         <p class="hint" style="margin:4px 0 0">Leigutími hefst alltaf fyrsta dag næsta mánaðar. Hann er ótímabundinn, með eins mánaðar uppsögn fyrstu þrjá mánuðina og þriggja mánaða uppsögn eftir það.</p>
         <div class="fld" style="margin-top:18px">
@@ -247,12 +336,14 @@
   </div>
 
   <div id="done-view" class="card done" hidden tabindex="-1">
-    <div class="lbl">Skráning móttekin</div>
+    <div class="band"><div class="lbl">Skráning móttekin</div></div>
+    <div class="done-body">
     <h1>Takk fyrir!</h1>
     <p>Leigusamningurinn verður sendur á <strong id="done-email"></strong> til rafrænnar undirritunar.</p>
     <p><strong id="done-account"></strong> fær boð um aðgang að stjórnborði sjálfsalanna, nema fyrirtækið sé þegar með aðgang.</p>
     <p class="hint">Tilvísun: <span id="done-id"></span></p>
     <p style="margin-top:22px"><a href="https://agvending.is">Til baka á agvending.is</a></p>
+    </div>
   </div>
 
   <footer>
