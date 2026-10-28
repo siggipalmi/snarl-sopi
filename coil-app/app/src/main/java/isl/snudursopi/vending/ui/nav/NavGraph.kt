@@ -121,12 +121,42 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
         navController.navigate(Routes.PinEntry) { launchSingleTop = true }
     }
 
+    // *** NEVER POP THE LAST ENTRY. A plain popBackStack() on a stack of one empties the
+    // NavHost, and an empty NavHost composes NOTHING: the activity stays resumed, every poll
+    // and command keeps answering, and the glass shows the bare window colour with nothing to
+    // touch. Both Grótta machines were found like that on 2026-10-28 (six accessibility nodes,
+    // no text), and it is the likely shape of the "black, deaf screen" of 10-26 too. The way
+    // it happens: a second tap on back/cancel while the screen being left is still animating
+    // out pops Browse as well. So every back goes through here, and a stack with nowhere to
+    // go navigates home instead.
+    fun popOrHome() {
+        if (navController.previousBackStackEntry != null) {
+            navController.popBackStack()
+        } else if (navController.currentDestination?.route != Routes.Browse) {
+            navController.navigate(Routes.Browse) { popUpTo(0) }
+        }
+    }
+
     // Inactivity → attract loop. We reset [lastTouchMs] on every pointer event
     // (observed in the Initial pass so children still receive the touch), and
     // after the backend-configured idle timeout with no activity on a customer
     // browse/detail screen — and only if the backend gave us deal cards — we
     // clear any abandoned cart and drop into the attract loop.
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    // Belt to the braces above: should the stack ever end up empty, go home instead of showing
+    // nothing. (null is also what the first composition sees before the graph is set, hence
+    // the short wait.) And log every route change, so the relayed log shows the path next time.
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == null) {
+            kotlinx.coroutines.delay(1_500)
+            if (navController.currentBackStackEntry == null) {
+                android.util.Log.e("Nav", "back stack empty — the screen would be blank; going home")
+                navController.navigate(Routes.Browse)
+            }
+        } else {
+            android.util.Log.i("Nav", "→ $currentRoute")
+        }
+    }
     var lastTouchMs by remember { mutableStateOf(System.currentTimeMillis()) }
     val attractEligible = currentRoute == Routes.Browse || currentRoute == Routes.Detail
     LaunchedEffect(lastTouchMs, attractEligible, state.idleCards.size, state.idleAttractTimeoutSeconds) {
@@ -225,7 +255,7 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
                         brand = state.brandLine,
                         currentTime = state.currentTime,
                         connectionState = state.connectionState,
-                        onBack = { navController.popBackStack() },
+                        onBack = { popOrHome() },
                         onClockLongPress = onClockLongPress,
                     )
                 }
@@ -364,7 +394,7 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
                             popUpTo(Routes.PinEntry) { inclusive = true }
                         }
                     },
-                    onCancel = { navController.popBackStack() },
+                    onCancel = { popOrHome() },
                     pinHash = state.adminPin,
                     language = state.language,
                     onPinEvent = viewModel::reportAdminPinEvent,
@@ -413,14 +443,16 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
                         // Re-assert lockdown on the way back to the customer UI
                         // (no-op if it was never dropped / not device owner).
                         activity?.let { KioskManager.enableLockTask(it) }
-                        navController.popBackStack(Routes.Browse, inclusive = false)
+                        // Back to the customer screen whatever the stack holds: a pop that finds
+                        // no Browse underneath would leave nothing on the glass.
+                        navController.navigate(Routes.Browse) { popUpTo(0) }
                     },
                 )
             }
 
             composable(Routes.HardwareTest) {
                 HardwareTestScreen(
-                    onExit = { navController.popBackStack() },
+                    onExit = { popOrHome() },
                     directPushRows = viewModel.directPushRowsCsv(),
                     onSaveDirectPushRows = viewModel::setDirectPushRows,
                     dropSensorOverride = viewModel.dropSensorOverrideValue(),

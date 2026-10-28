@@ -91,6 +91,16 @@ cohorts, Device Owner and machine commands stay with Siggi.
   watchdog (`ScreenWatchdog.kt`) restarts the app when its window stays black or stops drawing; the ad
   video draws as a TextureView, not a SurfaceView; the app relays its log to the backend (`LogRelay.kt`,
   dashboard → machine → logs) so the next incident leaves a record.
+- **A blank cream screen with the app alive underneath (both Grótta machines, 2026-10-28)** is an
+  EMPTY NAVIGATION STACK: `uiautomator dump` showed six nodes and no text, the activity resumed,
+  the main thread idle and answering polls. A plain `popBackStack()` on a stack of one (a second
+  tap on back/cancel during the exit animation of the screen being left) empties the NavHost,
+  which then composes nothing. From coil 0.80.13 every back goes through `popOrHome()`, an empty
+  stack navigates home by itself, route changes are logged (`Nav:` in the relayed log), and the
+  screen watchdog restarts on a flat window of any colour, not only black. The "black, deaf
+  screen" of 10-26 very likely was the same thing. Diagnose with:
+  `adb shell uiautomator dump /data/local/tmp/ui.xml; grep -c '<node' /data/local/tmp/ui.xml`
+  (a healthy screen has dozens of nodes), and `restart app` from the dashboard recovers it.
 - **A board can stop executing for 44 minutes with nothing wrong in the app (Grótta vinstri,
   2026-10-27 19:31 and 2026-10-28 04:44).** Every process went silent for exactly 2,681 s each time,
   the kernel's own 60-second heartbeat included; the kernel never suspended (`suspend_stats` 0),
