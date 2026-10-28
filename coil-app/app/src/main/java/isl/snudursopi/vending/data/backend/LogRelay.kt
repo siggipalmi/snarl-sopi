@@ -73,7 +73,7 @@ class LogRelay(
             listOf(
                 "logcat", "-d", "-v", "time", "-t", MAX_LINES.toString(),
                 "VendingViewModel:I", "ProxyClient:I", "AppUpdater:I", "SelfHealing:I",
-                "ClockGuard:I", "ScreenWatchdog:I", "AdCache:I", "AdRegion:W",
+                "ClockGuard:I", "ScreenWatchdog:I", "AdCache:I", "AdRegion:W", "Nav:I",
                 "KioskManager:I", "RecoveryGuard:I", "RestartManager:I",
                 "MarshallPay:I", "MarshallSerial:I", "WeimiHardware:W",
                 "LogRelay:W", "AndroidRuntime:E", "*:S",

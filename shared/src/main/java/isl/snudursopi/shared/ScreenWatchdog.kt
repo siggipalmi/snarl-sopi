@@ -92,15 +92,20 @@ class ScreenWatchdog(
             sum += l; if (l < min) min = l; if (l > max) max = l
         }
         val mean = (sum / px.size).toInt()
-        val black = mean < BLACK_MEAN_MAX && (max - min) < BLACK_SPREAD_MAX
-        if (!black) {
-            if (blackStrikes > 0) Log.i(TAG, "screen drawing again (mean luma $mean) after $blackStrikes black sample(s)")
+        // Flat at ANY brightness, not only black. On 2026-10-28 both Grótta machines showed the
+        // bare cream window for hours — an empty Compose tree behind a live app — and this check
+        // passed it because cream is not dark. Every real screen carries at least the status bar,
+        // so a near-uniform window is never right, whatever its colour.
+        val flat = (max - min) < BLACK_SPREAD_MAX
+        if (!flat) {
+            if (blackStrikes > 0) Log.i(TAG, "screen drawing again (mean luma $mean) after $blackStrikes flat sample(s)")
             blackStrikes = 0
             return
         }
         blackStrikes++
-        Log.w(TAG, "window is black (mean luma $mean, spread ${max - min}) — sample $blackStrikes/$BLACK_STRIKES")
-        if (blackStrikes >= BLACK_STRIKES) fire("window black for ~${PERIOD_MS * BLACK_STRIKES / 1000}s")
+        val shade = if (mean < BLACK_MEAN_MAX) "black" else "flat (mean luma $mean)"
+        Log.w(TAG, "window is $shade, spread ${max - min} — sample $blackStrikes/$BLACK_STRIKES")
+        if (blackStrikes >= BLACK_STRIKES) fire("window $shade for ~${PERIOD_MS * BLACK_STRIKES / 1000}s")
     }
 
     private fun fire(reason: String) {
