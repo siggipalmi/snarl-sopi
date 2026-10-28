@@ -2137,6 +2137,7 @@ const I18N = {
     'dash.peakDay':'peak day','dash.avgPerDay':'avg / day','dash.totalOrders':'total · {n} orders',
     'dash.dowShort':'Sun,Mon,Tue,Wed,Thu,Fri,Sat','dash.dowLetter':'S,M,T,W,T,F,S',
     'time.minutes':'{n}m ago','time.hours':'{n}h ago','time.days':'{n}d ago',
+    'time.shortMinutes':'{n}m','time.shortHours':'{n}h','time.shortDays':'{n}d','time.shortNow':'now',
     'alert.offline.title':'Machine offline — {machine}',
     'alert.offline.detail':'{code} · offline since {since}',
     'dash.allOperators':'All operators','dash.operatorLabel':'operator:',
@@ -2155,7 +2156,7 @@ const I18N = {
     'mch.sort':'sort','mch.sort.restockAge':'restock age','mch.sort.errors':'errors','mch.sort.revenue':'revenue',
     'mch.mapToggle':'locations map & revenue overview','mch.loading':'loading…',
     'mch.find':'find a machine — name or machine ID','mch.noMatch':'No machines match.',
-    'mch.restockedAgo':'restocked {ago}','mch.offlineFlag':'offline','mch.notApplicable':'n/a',
+    'mch.restockedAgo':'restocked {ago} ago','mch.offlineFlag':'offline','mch.notApplicable':'n/a',
     'mch.keyFlag':'key: not migrated',
     'mch.keyFlagTitle':"Key still comes from this machine's own build — a generic update would lock it out",
     'mch.keyMigration':'App key migration','mch.keyReady':'{n} ready','mch.keyNotMigrated':'{n} not migrated',
@@ -2234,6 +2235,7 @@ const I18N = {
     'dash.peakDay':'besti dagur','dash.avgPerDay':'meðaltal á dag','dash.totalOrders':'samtals · {n} pantanir',
     'dash.dowShort':'su,má,þr,mi,fi,fö,la','dash.dowLetter':'S,M,Þ,M,F,F,L',
     'time.minutes':'fyrir {n} mín','time.hours':'fyrir {n} klst','time.days':'fyrir {n} d',
+    'time.shortMinutes':'{n}m','time.shortHours':'{n}klst','time.shortDays':'{n}d','time.shortNow':'núna',
     'alert.offline.title':'Tæki ekki nettengt — {machine}',
     'alert.offline.detail':'{code} · sambandslaust síðan {since}',
     'dash.allOperators':'Allir rekstraraðilar','dash.operatorLabel':'rekstraraðili:',
@@ -2248,11 +2250,11 @@ const I18N = {
     'exp.nowTracked':'Fylgist nú með.','exp.stopTracked':'Hætti eftirliti.',
     'exp.link':'dagsetning','exp.modalTitle':'síðasti söludagur.','exp.back':'til baka','exp.slmRow':'Síðasti söludagur','exp.slmSub':'dagsetningar á lotur',
     'mch.th.deviceCode':'vélakóði','mch.th.nameLocation':'nafn / staðsetning','mch.th.machine':'vél','mch.th.lastVisit':'síðasta heimsókn','mch.th.operatorName':'nafn aðila',
-    'mch.unsupported':'óstutt','mch.unsupportedLayout':'óstutt uppsetning','mch.link':'tengja →',
-    'mch.sort':'röðun','mch.sort.restockAge':'áfyllingaraldur','mch.sort.errors':'villur','mch.sort.revenue':'tekjur',
+    'mch.unsupported':'óstutt','mch.unsupportedLayout':'óstudd uppsetning','mch.link':'tengja →',
+    'mch.sort':'röðun','mch.sort.restockAge':'síðasta áfylling','mch.sort.errors':'villur','mch.sort.revenue':'tekjur',
     'mch.mapToggle':'kort og tekjuyfirlit','mch.loading':'hleð…',
     'mch.find':'finndu vél — nafn eða vélarnúmer','mch.noMatch':'Engin vél passar.',
-    'mch.restockedAgo':'áfyllt {ago}','mch.offlineFlag':'ótengd','mch.notApplicable':'á ekki við',
+    'mch.restockedAgo':'{ago} frá áfyllingu','mch.offlineFlag':'ótengd','mch.notApplicable':'á ekki við',
     'mch.keyFlag':'lykill: ófluttur',
     'mch.keyFlagTitle':'Lykillinn kemur enn úr eigin útgáfu vélarinnar — almenn uppfærsla myndi loka á hana',
     'mch.keyMigration':'Lyklaflutningur','mch.keyReady':'{n} tilbúnar','mch.keyNotMigrated':'{n} ófluttar',
@@ -2304,6 +2306,17 @@ function tv(key, vals){ return String(t(key)).replace(/\{(\w+)\}/g, (m, k) => (v
 // which code, since when — the sentence is composed here instead, in whatever
 // language is on. Rows without parts keep the text they were stored with;
 // there is nothing better to show, and it is still true.
+// A bare duration — "12d", "3klst" — for sentences that put the number first
+// and supply their own preposition. timeAgo() returns a whole phrase ("fyrir
+// 12 d"), which cannot be dropped into one of those without reading twice.
+function timeSince(ts) {
+  const _t = new Date(ts).getTime(); if (isNaN(_t)) return '';
+  const d = (Date.now() - _t) / 1000;
+  if (d < 120)   return t('time.shortNow');
+  if (d < 3600)  return tn('time.shortMinutes', Math.round(d / 60));
+  if (d < 86400) return tn('time.shortHours', Math.round(d / 3600));
+  return tn('time.shortDays', Math.round(d / 86400));
+}
 function alertText(a) {
   const key = 'alert.' + String(a && a.type || '') + '.';
   const hasKey = I18N.en[key + 'title'] != null;
@@ -3898,7 +3911,7 @@ function machineRowCard(m) {
   const dotColor = !m.isOnline ? 'var(--muted)' : (m.openAlertCount ? 'var(--alert)' : (m.isRunning ? 'var(--success)' : 'var(--alert)'));
   const dotStyle = (m.isOnline && m.openAlertCount) ? `background:${dotColor};box-shadow:0 0 0 3px var(--alert-bg)` : `background:${dotColor}`;
   const badge = m.openAlertCount ? ` <span style="display:inline-block;min-width:17px;height:17px;line-height:17px;text-align:center;padding:0 4px;border-radius:9px;background:var(--alert);color:#fff;font-family:var(--mono);font-size:10px;vertical-align:middle">${m.openAlertCount}</span>` : '';
-  const restock = m.lastVisitAt ? tv('mch.restockedAgo', { ago: timeAgo(m.lastVisitAt) }) : t('dash.neverRestocked');
+  const restock = m.lastVisitAt ? tv('mch.restockedAgo', { ago: timeSince(m.lastVisitAt) }) : t('dash.neverRestocked');
   const keyFlag = (m.keySource === 'build' || m.keySource === 'none')
     ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--alert)" title="' + rsEsc(t('mch.keyFlagTitle')) + '">' + rsEsc(t('mch.keyFlag')) + '</span>' : '';
   const meta = rsEsc([m.deviceCode, m.location, restock].filter(Boolean).join(' · ')) + keyFlag;
