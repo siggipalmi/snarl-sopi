@@ -40,6 +40,7 @@ const {
   invitations, createInvitation, getInvitation, consumeInvitation,
 } = require('./db');
 const alertAudience = require('./alertAudience');
+const machineModels = require('./machineModels');
 const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
         revokeToken, revokeAllForUser, requireCap } = require('./auth');
@@ -4730,7 +4731,13 @@ function handleAppUpdate(req, res) {
   if (vn) storage.recordAppVersionName(code, String(vn).slice(0, 40));
   // Fridge and coil are different apps with separate version lines and APKs. Pick the release
   // line from the machine's model so a fridge never receives the coil APK (or vice versa).
-  const appKey = fridgeSpec(m.model).isFridge ? 'fridge' : 'coil';
+  // A model we cannot identify gets NO app, not the coil one by default: "not a fridge" and
+  // "we don't know what this is" are different answers, and only one of them is safe to act on.
+  const appKey = machineModels.appLineFor(m.model);
+  if (!appKey) {
+    console.warn(`[APP-UPDATE] ${code} withheld: model ${JSON.stringify(m.model || '')} is not recognised`);
+    return json(res, 200, { rolloutEnabled: false, reason: 'unknown_model' });
+  }
   const rel = storage.getAppRelease(appKey);
   // Served BARE (no {ok,data} envelope): the kiosk updater reads manifest fields off the
   // top level, and pre-0.72 field builds can ONLY self-heal if this endpoint is unwrapped.
@@ -4830,8 +4837,46 @@ async function handlePublishAppRelease(req, res) {
   let cohort = 'all';
   if (Array.isArray(b.cohort)) cohort = b.cohort.map(String);
   else if (b.cohort && b.cohort !== 'all') return badRequest(res, "cohort must be 'all' or an array of device codes");
-  // Which app line: 'fridge' or 'coil' (default). Keeps the two APKs from overwriting each other.
-  const appKey = (b.app === 'fridge') ? 'fridge' : 'coil';
+  // Which app line: 'fridge' or 'coil'. This used to be
+  //     (b.app === 'fridge') ? 'fridge' : 'coil'
+  // so a typo, or the field going missing, silently published to the coil line.
+  // Say it explicitly or not at all.
+  if (b.app != null && b.app !== 'fridge' && b.app !== 'coil') {
+    return badRequest(res, `app must be 'fridge' or 'coil' (got ${JSON.stringify(b.app)})`);
+  }
+  const appKey = b.app || 'coil';
+
+  // The artifact has to agree with the line. The release workflows name their
+  // assets coil-<version>.apk and snarl-fridge-<version>.apk, so the filename
+  // is a reliable second opinion — and the one mistake worth refusing outright
+  // is publishing one app's APK onto the other's line, because every machine
+  // on that line then downloads it.
+  const apkName = (() => {
+    try { return decodeURIComponent(new URL(b.apkUrl).pathname.split('/').pop() || '').toLowerCase(); }
+    catch (e) { return ''; }
+  })();
+  if (apkName) {
+    const looksFridge = apkName.includes('fridge');
+    const looksCoil = apkName.includes('coil');
+    if (appKey === 'fridge' && looksCoil && !looksFridge) {
+      return badRequest(res, `Refusing to publish "${apkName}" to the fridge line — that filename says coil. ` +
+        `Every fridge would download the coil app. Check the release you picked.`);
+    }
+    if (appKey === 'coil' && looksFridge) {
+      return badRequest(res, `Refusing to publish "${apkName}" to the coil line — that filename says fridge. ` +
+        `Every coil machine would download the fridge app. Check the release you picked.`);
+    }
+  }
+
+  // Publishing to a line no machine is on is almost always the wrong line
+  // picked rather than a deliberate act.
+  const onLine = Object.values(machines).filter(mm => machineModels.appLineFor(mm.model) === appKey).length;
+  if (onLine === 0) {
+    const unknown = Object.values(machines).filter(mm => machineModels.isUnknownModel(mm.model)).length;
+    return badRequest(res, `No machine in the fleet is on the ${appKey} line, so this release would reach nobody.` +
+      (unknown ? ` ${unknown} machine${unknown === 1 ? '' : 's'} in the fleet ${unknown === 1 ? 'has' : 'have'} an unrecognised` +
+        ` model and so count${unknown === 1 ? 's' : ''} for neither line — set the model first.` : ''));
+  }
   // Forward-only guard: a new release must have a strictly higher targetVersionCode than the
   // current one for this app — catches the "APK changed but version left stale" mistake.
   const prev = storage.getAppRelease(appKey);
