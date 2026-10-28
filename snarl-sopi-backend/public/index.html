@@ -2166,6 +2166,16 @@ const I18N = {
     'md.edit':'edit',
     'md.tab.overview':'Overview',
     'md.tab.planogram':'Planogram','md.tab.bays':'Bays',
+    'md.stat.revenue':'revenue ({n}d)','md.stat.orders':'orders ({n}d)',
+    'md.stat.avgOrder':'avg order','md.stat.avgDay':'avg / day',
+    'md.qa.openDoor':'Open door','md.qa.openDoorCab':'Open door {cab}','md.qa.readScale':'Read scale',
+    'md.qa.editPlanogram':'Edit planogram','md.qa.editBays':'Edit bays','md.qa.restock':'Restock',
+    'md.qa.clearFault':'Clear fault','md.qa.checkUpdate':'Check update','md.qa.syncWeimi':'⟳ Sync from Weimi',
+    'md.posterToggle':"Show the poster area on this machine's screen",
+    'md.posterNone':'No poster set for this machine. Add one — 1920×1080 (16:9) is the size the screen expects.',
+    'md.pinShared':'Still on the shared PIN (123456). Generate one for this machine; needs fridge app 0.69.0 or coil app 0.80.6 or newer.',
+    'md.resolve':'resolve','md.alertsFailed':'Could not load alerts.',
+    'sev.critical':'critical','sev.warning':'warning','sev.info':'info',
     'md.tab.kiosk':'Kiosk',
     'md.tab.activity':'Activity',
     'md.tab.controls':'Controls',
@@ -2334,6 +2344,16 @@ const I18N = {
     'md.edit':'breyta',
     'md.tab.overview':'Yfirlit',
     'md.tab.planogram':'Uppröðun','md.tab.bays':'Hólf',
+    'md.stat.revenue':'tekjur ({n}d)','md.stat.orders':'afgreiðslur ({n}d)',
+    'md.stat.avgOrder':'meðalafgreiðsla','md.stat.avgDay':'meðal dagssala',
+    'md.qa.openDoor':'Opna hurð','md.qa.openDoorCab':'Opna hurð {cab}','md.qa.readScale':'Lesa vog',
+    'md.qa.editPlanogram':'Breyta uppröðun','md.qa.editBays':'Breyta hólfum','md.qa.restock':'Fylla á',
+    'md.qa.clearFault':'Hreinsa villu','md.qa.checkUpdate':'Athuga uppfærslu','md.qa.syncWeimi':'⟳ Samstilla frá Weimi',
+    'md.posterToggle':'Sýna auglýsingasvæðið á skjá þessarar vélar',
+    'md.posterNone':'Engin auglýsing valin fyrir þessa vél. Bættu við einni — 1920×1080 (16:9) er stærðin sem skjárinn gerir ráð fyrir.',
+    'md.pinShared':'Enn á sameiginlega PIN-inum (123456). Búðu til einn fyrir þessa vél; krefst kæliforrits 0.69.0 eða sjálfsalaforrits 0.80.6 eða nýrra.',
+    'md.resolve':'leysa','md.alertsFailed':'Tókst ekki að sækja viðvaranir.',
+    'sev.critical':'alvarlegt','sev.warning':'viðvörun','sev.info':'upplýsingar',
     'md.tab.kiosk':'Skjár',
     'md.tab.activity':'Virkni',
     'md.tab.controls':'Stýringar',
@@ -5733,12 +5753,12 @@ async function renderMachineAds(code, machine) {
   const regionOn = !(machine && machine.settings && machine.settings.showAdRegion === false);
   let h = '<label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:13px">' +
     '<input type="checkbox" id="ads-region"' + (regionOn ? ' checked' : '') + ' onchange="saveAdRegion()">' +
-    '<span style="font-size:13.5px">Show the poster area on this machine\'s screen</span></label>';
+    '<span style="font-size:13.5px">' + rsEsc(t('md.posterToggle')) + '</span></label>';
   if (!regionOn) {
     h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">The area is hidden, so posters below won\'t appear until it\'s switched on.</div>';
   }
   if (!_mdAds.length) {
-    h += '<div id="ads-inherit" style="font-size:12.5px;color:var(--muted)">No poster set for this machine. Add one — 1920&times;1080 (16:9) is the size the screen expects.</div>';
+    h += '<div id="ads-inherit" style="font-size:12.5px;color:var(--muted)">' + rsEsc(t('md.posterNone')) + '</div>';
   } else {
     h += _mdAds.map(function (ad, i) { return adRow(ad, i); }).join('');
     h += '<div style="margin-top:12px"><button class="btn btn-sm" onclick="saveAds()">save posters</button></div>';
@@ -6245,7 +6265,7 @@ function showAdminPinStatus(d) {
   document.getElementById('md-pin-status').innerHTML = d.set
     ? `Own PIN set ${rsEsc(day(d.setAt))}${d.setBy ? ' by ' + rsEsc(d.setBy) : ''}.<br>Last used: ${rsEsc(day(d.lastUsedAt) || 'not yet')}`
       + (d.lastLockoutAt ? `<br><span style="color:var(--alert)">Locked out after 5 wrong tries ${rsEsc(day(d.lastLockoutAt))}.</span>` : '')
-    : 'Still on the shared PIN (123456). Generate one for this machine; needs fridge app 0.69.0 or coil app 0.80.6 or newer.';
+    : t('md.pinShared');
 }
 async function newAdminPin() {
   if (!confirm('Make a new admin PIN for this machine?\n\nThe old PIN stops working within a minute. The new one is shown once.')) return;
@@ -6463,10 +6483,10 @@ async function renderMachineDetail() {
       const totalOrd = data.total.orders;
       const avg = totalOrd ? totalRev / totalOrd : 0;
       document.getElementById('md-stats').innerHTML =
-        '<div class="stat"><div class="stat-lbl">revenue (' + _mdDays + 'd)</div><div class="stat-val">' + formatKr(totalRev) + '</div></div>' +
-        '<div class="stat"><div class="stat-lbl">orders (' + _mdDays + 'd)</div><div class="stat-val">' + totalOrd + '</div></div>' +
-        '<div class="stat"><div class="stat-lbl">avg order</div><div class="stat-val">' + formatKr(avg) + '</div></div>' +
-        '<div class="stat"><div class="stat-lbl">avg / day</div><div class="stat-val">' + formatKr(totalRev / _mdDays) + '</div></div>';
+        '<div class="stat"><div class="stat-lbl">' + rsEsc(tn('md.stat.revenue', _mdDays)) + '</div><div class="stat-val">' + formatKr(totalRev) + '</div></div>' +
+        '<div class="stat"><div class="stat-lbl">' + rsEsc(tn('md.stat.orders', _mdDays)) + '</div><div class="stat-val">' + totalOrd + '</div></div>' +
+        '<div class="stat"><div class="stat-lbl">' + rsEsc(t('md.stat.avgOrder')) + '</div><div class="stat-val">' + formatKr(avg) + '</div></div>' +
+        '<div class="stat"><div class="stat-lbl">' + rsEsc(t('md.stat.avgDay')) + '</div><div class="stat-val">' + formatKr(totalRev / _mdDays) + '</div></div>';
     }
   } catch (e) {
     document.getElementById('md-rev-bars').innerHTML = '<div style="color:var(--alert);font-size:12px">' + e.message + '</div>';
@@ -6673,17 +6693,17 @@ function renderMachineActions(code, machine) {
     var model = String((machine && machine.model) || '');
     var cabinets = /1260/.test(model) ? ['A', 'B'] : ['A'];
     cabinets.forEach(function(cab, idx){
-      a.push({ t: cabinets.length > 1 ? ('Open door ' + cab) : 'Open door', i: '⬚',
+      a.push({ t: cabinets.length > 1 ? tv('md.qa.openDoorCab', { cab: cab }) : t('md.qa.openDoor'), i: '⬚',
                on: "openFridgeDoor(_mdDeviceCode,'" + cab + "')", primary: idx === 0 });
     });
-    a.push({ t: 'Read scale', i: '⚖', on: "showMdTab('controls',document.querySelector('#md-tabbar [data-mdtab=controls]'))" });
-    a.push({ t: 'Edit planogram', i: '▤', on: toLayout });
-    a.push({ t: 'Check update', i: '↻', on: 'checkMachineUpdate(_mdDeviceCode)' });
+    a.push({ t: t('md.qa.readScale'), i: '⚖', on: "showMdTab('controls',document.querySelector('#md-tabbar [data-mdtab=controls]'))" });
+    a.push({ t: t('md.qa.editPlanogram'), i: '▤', on: toLayout });
+    a.push({ t: t('md.qa.checkUpdate'), i: '↻', on: 'checkMachineUpdate(_mdDeviceCode)' });
   } else {
-    a.push({ t: 'Edit bays', i: '▦', on: toLayout, primary: true });
-    a.push({ t: 'Restock', i: '⚑', on: 'openRestock(_mdDeviceCode)' });
-    a.push({ t: 'Clear fault', i: '⚠', on: "showMdTab('controls',document.querySelector('#md-tabbar [data-mdtab=controls]'))" });
-    a.push({ t: 'Check update', i: '↻', on: 'checkMachineUpdate(_mdDeviceCode)' });
+    a.push({ t: t('md.qa.editBays'), i: '▦', on: toLayout, primary: true });
+    a.push({ t: t('md.qa.restock'), i: '⚑', on: 'openRestock(_mdDeviceCode)' });
+    a.push({ t: t('md.qa.clearFault'), i: '⚠', on: "showMdTab('controls',document.querySelector('#md-tabbar [data-mdtab=controls]'))" });
+    a.push({ t: t('md.qa.checkUpdate'), i: '↻', on: 'checkMachineUpdate(_mdDeviceCode)' });
   }
   var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
   a.forEach(function(x){
@@ -6694,7 +6714,7 @@ function renderMachineActions(code, machine) {
   });
   // Weimi sync — coil + admin only
   if (!isFridge && isAdmin) {
-    html += '<div onclick="syncMachineWeimi(_mdDeviceCode)" style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 12px;border:1px dashed var(--bronze);border-radius:6px;font-size:13px;font-weight:500;color:var(--bronze);cursor:pointer">⟳ Sync from Weimi <span style="font-size:10px;color:var(--muted)">· admin</span></div>';
+    html += '<div onclick="syncMachineWeimi(_mdDeviceCode)" style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 12px;border:1px dashed var(--bronze);border-radius:6px;font-size:13px;font-weight:500;color:var(--bronze);cursor:pointer">' + rsEsc(t('md.qa.syncWeimi')) + ' <span style="font-size:10px;color:var(--muted)">· admin</span></div>';
   }
   html += '</div>';
   el.innerHTML = html;
@@ -6720,18 +6740,19 @@ async function renderMachineAlerts(code) {
       var dot = isCrit ? 'var(--alert)' : (al.severity === 'warning' ? 'var(--bronze-light)' : 'var(--muted)');
       var bg = isCrit ? 'var(--alert-bg)' : 'var(--cream-deep)';
       var when = al.createdAt ? timeAgo(al.createdAt) : '';
+      var txt = alertText(al);
       return '<div style="display:flex;gap:10px;align-items:flex-start;padding:11px;background:' + bg + ';border-radius:6px;margin-bottom:8px">' +
         '<div style="width:7px;height:7px;border-radius:50%;background:' + dot + ';margin-top:5px;flex-shrink:0"></div>' +
         '<div style="flex:1;min-width:0">' +
-          '<div style="font-size:13px;color:var(--ink-soft)">' + (al.title ? '<b style="color:' + (isCrit?'var(--alert)':'var(--ink)') + '">' + rsEsc(al.title) + '</b>' : '') + (al.detail ? ' — ' + rsEsc(al.detail) : '') + '</div>' +
-          '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px">' + [al.severity, when].filter(Boolean).join(' · ') + '</div>' +
+          '<div style="font-size:13px;color:var(--ink-soft)">' + (txt.title ? '<b style="color:' + (isCrit?'var(--alert)':'var(--ink)') + '">' + rsEsc(txt.title) + '</b>' : '') + (txt.detail ? ' — ' + rsEsc(txt.detail) : '') + '</div>' +
+          '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px">' + [t('sev.' + al.severity), when].filter(Boolean).join(' · ') + '</div>' +
         '</div>' +
-        '<span style="cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--bronze);flex-shrink:0;padding-top:2px" onclick="resolveMachineAlert(\'' + al.id + '\',\'' + code + '\')">resolve</span>' +
+        '<span style="cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--bronze);flex-shrink:0;padding-top:2px" onclick="resolveMachineAlert(\'' + al.id + '\',\'' + code + '\')">' + rsEsc(t('md.resolve')) + '</span>' +
       '</div>';
     }).join('');
   } catch (e) {
     panel.style.display = '';
-    el.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:11px">Could not load alerts.</div>';
+    el.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:11px">' + rsEsc(t('md.alertsFailed')) + '</div>';
   }
 }
 
@@ -7794,7 +7815,7 @@ async function renderAlerts() {
   document.getElementById('alerts-list').innerHTML = list.map(a=>`
     <div class="al-item" style="${a.resolved?'opacity:.5':''}">
       <div class="al-pip" style="background:${pipColor[a.severity]||'var(--clay)'}"></div>
-      <div class="al-body"><div class="al-title">${rsEsc(a.title)}</div><div class="al-meta">${rsEsc(a.detail)}</div></div>
+      <div class="al-body"><div class="al-title">${rsEsc(alertText(a).title)}</div><div class="al-meta">${rsEsc(alertText(a).detail)}</div></div>
       ${!a.resolved?`<span class="pill pill-out btn-sm" style="cursor:pointer;margin-right:8px" onclick="resolveAlert('${a.id}')">resolve</span>`:'<span class="pill pill-up btn-sm" style="margin-right:8px">resolved</span>'}
       <div class="al-time">${timeAgo(a.createdAt)}</div>
     </div>
