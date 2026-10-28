@@ -131,7 +131,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/expiry/soon',                             handler: handleExpirySoon,        middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/expiry/settings',                         handler: handleGetExpirySettings, middleware:[requireAuth] },
   { method:'PUT',  pattern:'/api/v1/expiry/settings',                         handler: handleSetExpirySettings, middleware:[requireAuth, requireAgAdmin] },
-  { method:'GET',  pattern:'/api/v1/debug/expiry',                            handler: handleDebugExpiry,       middleware:[] },
+  { method:'GET',  pattern:'/api/v1/debug/expiry',                            handler: handleDebugExpiry,       middleware:[requireAuth, requireAgAdmin] },
 
   // ─── Remote machine commands + drop-sensor mode (contract v0.5) ───────────
   // Kiosk-facing (X-Machine-Key): pull pending commands, post results.
@@ -141,9 +141,12 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/commands',            handler: handleEnqueueCommand, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/commands/history',    handler: handleCommandHistory, middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/hardware',            handler: handleSetHardware,    middleware:[requireAuth, requireMachineAccess] },
-  { method:'GET',  pattern:'/api/v1/debug/commands',                           handler: handleDebugCommands,  middleware:[] },
-  { method:'GET',  pattern:'/api/v1/debug/orders',                             handler: handleDebugOrders,    middleware:[] },
-  { method:'GET',  pattern:'/api/v1/debug/payday',                             handler: handleDebugPayday,    middleware:[] },
+  { method:'GET',  pattern:'/api/v1/debug/commands',                           handler: handleDebugCommands,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/debug/orders',                             handler: handleDebugOrders,    middleware:[requireAuth, requireAgAdmin] },
+  // /debug/payday drives live calls into Payday and returns real invoice,
+  // payment and customer rows — a company name and kennitala among them. It was
+  // reachable by anyone who knew the path.
+  { method:'GET',  pattern:'/api/v1/debug/payday',                             handler: handleDebugPayday,    middleware:[requireAuth, requireAgAdmin] },
 
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/weimi/sync',         handler: handleWeimiSyncOne, middleware:[requireAuth, requireMachineAccess] },
 
