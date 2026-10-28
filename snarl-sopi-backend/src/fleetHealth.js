@@ -13,6 +13,7 @@ const CLOCK_SKEW_MS = 2 * 60000;
 const SCALE_READ_STALE_S = 30 * 60;
 const STORAGE_FREE_WARN_PCT = 15;
 const RESTARTS_WARN = 2;                       // more than this in 24 h
+const SAME_START_MS = 60000;                   // processStart readings this close are one process
 
 /** Issues from the machine's latest self-test record (app 0.67.0+). */
 function selfTestIssues(rec, now, online) {
@@ -128,9 +129,17 @@ function failedPurchasesIssue(recent, now) {
 
 /** Fold one self-test report into the stored record, keeping a 24 h list of app restarts. */
 function nextSelfTestRecord(prev, report, now) {
-  const restarts = ((prev && prev.restarts) || []).filter(t => now - t <= 24 * HOUR);
+  // processStart is worked out from the wall clock at each report, so the same process reads a few
+  // ms apart every time; comparing it as text counted every 15-minute self-test as a restart. A
+  // restart is a start more than a minute from the last one, and entries that close are one start.
+  const restarts = [];
+  for (const t of ((prev && prev.restarts) || []).filter(t => now - t <= 24 * HOUR).sort((a, b) => a - b)) {
+    if (!restarts.length || t - restarts[restarts.length - 1] > SAME_START_MS) restarts.push(t);
+  }
   const started = Date.parse(report.processStart);
-  if (prev && prev.processStart && report.processStart && prev.processStart !== report.processStart && Number.isFinite(started)) {
+  const prevStarted = Date.parse(prev && prev.processStart);
+  if (Number.isFinite(started) && Number.isFinite(prevStarted) && Math.abs(started - prevStarted) > SAME_START_MS &&
+      !restarts.some(t => Math.abs(t - started) <= SAME_START_MS)) {
     restarts.push(started);
   }
   const pick = (v, ok) => (ok(v) ? v : null);
