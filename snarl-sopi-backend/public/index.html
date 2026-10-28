@@ -942,7 +942,7 @@ select.fi{cursor:pointer;}
 
       <!-- search first -->
       <div style="position:relative;margin-bottom:12px">
-        <input class="fi" id="mch-search" placeholder="find a machine — name or machine ID" oninput="mchSearch(this.value);renderMachines()" onfocus="mchSearch(this.value)" autocomplete="off" style="width:100%;padding:13px 16px;font-size:15px">
+        <input class="fi" id="mch-search" data-i18n-placeholder="mch.find" placeholder="find a machine — name or machine ID" oninput="mchSearch(this.value);renderMachines()" onfocus="mchSearch(this.value)" autocomplete="off" style="width:100%;padding:13px 16px;font-size:15px">
         <div id="mch-search-results" class="dl-results" style="display:none;position:absolute;left:0;right:0;z-index:40"></div>
       </div>
 
@@ -950,11 +950,11 @@ select.fi{cursor:pointer;}
       <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
         <div class="tabs" id="mch-status-tabs"><div class="tab active" onclick="filterMachines('all',this)" data-i18n="common.all">all</div><div class="tab" onclick="filterMachines('online',this)" data-i18n="common.online">online</div><div class="tab" onclick="filterMachines('offline',this)" data-i18n="common.offline">offline</div><div class="tab" onclick="filterMachines('warning',this)" data-i18n="common.warning">warning</div></div>
         <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
-          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">sort</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em" data-i18n="mch.sort">sort</span>
           <div class="tabs" id="mch-sort">
-            <div class="tab active" data-sort="restock" onclick="setMachineSort('restock',this)">restock age</div>
-            <div class="tab" data-sort="errors" onclick="setMachineSort('errors',this)">errors</div>
-            <div class="tab" data-sort="revenue" onclick="setMachineSort('revenue',this)">revenue</div>
+            <div class="tab active" data-sort="restock" onclick="setMachineSort('restock',this)" data-i18n="mch.sort.restockAge">restock age</div>
+            <div class="tab" data-sort="errors" onclick="setMachineSort('errors',this)" data-i18n="mch.sort.errors">errors</div>
+            <div class="tab" data-sort="revenue" onclick="setMachineSort('revenue',this)" data-i18n="mch.sort.revenue">revenue</div>
           </div>
         </div>
       </div>
@@ -964,7 +964,7 @@ select.fi{cursor:pointer;}
 
       <!-- demoted: map + revenue overview -->
       <details style="margin-top:6px">
-        <summary style="cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--bronze);padding:11px 0;list-style:none;text-align:center;border-top:1px solid var(--line)">▾ locations map &amp; revenue overview</summary>
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--bronze);padding:11px 0;list-style:none;text-align:center;border-top:1px solid var(--line)">▾ <span data-i18n="mch.mapToggle">locations map &amp; revenue overview</span></summary>
         <div class="panel mb" style="margin-top:10px">
           <div class="ph"><div class="ph-title" data-i18n="mch.locations">locations.</div></div>
           <div class="map-ph">
@@ -979,7 +979,7 @@ select.fi{cursor:pointer;}
         </div>
         <div class="panel">
           <div class="ph"><div class="ph-title">revenue by period.</div><div style="display:flex;gap:8px"><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="1" onclick="setMachinesRevenuePeriod(1,this)">1D</button><button class="btn btn-sm btn-ghost mch-rev-btn active" data-days="7" onclick="setMachinesRevenuePeriod(7,this)">7D</button><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="30" onclick="setMachinesRevenuePeriod(30,this)">30D</button><button class="btn btn-sm btn-ghost mch-rev-btn" data-days="90" onclick="setMachinesRevenuePeriod(90,this)">90D</button></div></div>
-          <div id="machines-revenue-chart" style="padding:18px;min-height:250px;color:var(--muted);display:flex;align-items:center;justify-content:center">loading…</div>
+          <div id="machines-revenue-chart" style="padding:18px;min-height:250px;color:var(--muted);display:flex;align-items:center;justify-content:center" data-i18n="mch.loading">loading…</div>
         </div>
         <div class="panel" style="margin-top:10px">
           <div class="ph"><div class="ph-title">Weimi.</div></div>
@@ -2152,6 +2152,15 @@ const I18N = {
     'exp.link':'expiry','exp.modalTitle':'best-before dates.','exp.back':'back','exp.slmRow':'Best-before dates','exp.slmSub':'set expiry per batch',
     'mch.th.deviceCode':'device code','mch.th.nameLocation':'name / location','mch.th.machine':'machine','mch.th.lastVisit':'last visit','mch.th.operatorName':'operator name',
     'mch.unsupported':'unsupported','mch.unsupportedLayout':'unsupported layout','mch.link':'link →',
+    'mch.sort':'sort','mch.sort.restockAge':'restock age','mch.sort.errors':'errors','mch.sort.revenue':'revenue',
+    'mch.mapToggle':'locations map & revenue overview','mch.loading':'loading…',
+    'mch.find':'find a machine — name or machine ID','mch.noMatch':'No machines match.',
+    'mch.restockedAgo':'restocked {ago}','mch.offlineFlag':'offline','mch.notApplicable':'n/a',
+    'mch.keyFlag':'key: not migrated',
+    'mch.keyFlagTitle':"Key still comes from this machine's own build — a generic update would lock it out",
+    'mch.keyMigration':'App key migration','mch.keyReady':'{n} ready','mch.keyNotMigrated':'{n} not migrated',
+    'mch.keyUnknown':'{n} unknown',
+    'mch.keyNote':'Only machines showing ready can safely take a generic app update. Unknown means the machine has not been asked yet.',
     'cell.noData':'no data','cell.yesterday':'yesterday','cell.daysAgo':'days ago',
     'lt.capNo':'This machine\u2019s app cannot control the lights. Anything set here is saved, and takes effect only once the machine is updated.',
     'lt.capUnknown':'Lighting has not been confirmed on this machine yet \u2014 press a test button below to find out.',
@@ -2240,6 +2249,15 @@ const I18N = {
     'exp.link':'dagsetning','exp.modalTitle':'síðasti söludagur.','exp.back':'til baka','exp.slmRow':'Síðasti söludagur','exp.slmSub':'dagsetningar á lotur',
     'mch.th.deviceCode':'vélakóði','mch.th.nameLocation':'nafn / staðsetning','mch.th.machine':'vél','mch.th.lastVisit':'síðasta heimsókn','mch.th.operatorName':'nafn aðila',
     'mch.unsupported':'óstutt','mch.unsupportedLayout':'óstutt uppsetning','mch.link':'tengja →',
+    'mch.sort':'röðun','mch.sort.restockAge':'áfyllingaraldur','mch.sort.errors':'villur','mch.sort.revenue':'tekjur',
+    'mch.mapToggle':'kort og tekjuyfirlit','mch.loading':'hleð…',
+    'mch.find':'finndu vél — nafn eða vélarnúmer','mch.noMatch':'Engin vél passar.',
+    'mch.restockedAgo':'áfyllt {ago}','mch.offlineFlag':'ótengd','mch.notApplicable':'á ekki við',
+    'mch.keyFlag':'lykill: ófluttur',
+    'mch.keyFlagTitle':'Lykillinn kemur enn úr eigin útgáfu vélarinnar — almenn uppfærsla myndi loka á hana',
+    'mch.keyMigration':'Lyklaflutningur','mch.keyReady':'{n} tilbúnar','mch.keyNotMigrated':'{n} ófluttar',
+    'mch.keyUnknown':'{n} óþekktar',
+    'mch.keyNote':'Aðeins vélar merktar tilbúnar geta tekið við almennri uppfærslu. Óþekkt þýðir að vélin hefur ekki verið spurð enn.',
     'cell.noData':'engin gögn','cell.yesterday':'í gær','cell.daysAgo':'dögum síðan',
     'lt.capNo':'Forriti\u00f0 \u00ed \u00feessari v\u00e9l r\u00e6\u00f0ur ekki vi\u00f0 l\u00fdsingarst\u00fdringu. \u00dea\u00f0 sem er stillt h\u00e9r vistast en tekur ekki gildi fyrr en v\u00e9lin er uppf\u00e6r\u00f0.',
     'lt.capUnknown':'L\u00fdsing hefur ekki veri\u00f0 sta\u00f0fest \u00e1 \u00feessari v\u00e9l enn \u2014 \u00fdttu \u00e1 pr\u00f3funarhnapp h\u00e9r a\u00f0 ne\u00f0an.',
@@ -3830,7 +3848,7 @@ async function renderMachines() {
   if (opFilterSel) {
     if (currentUser?.role === 'ag_admin' && _operatorsCache.length) {
       opFilterSel.style.display = '';
-      opFilterSel.innerHTML = '<option value="">all operators</option>' + _operatorsCache.map(o=>`<option value="${o.id}"${o.id===machineOperatorFilter?' selected':''}>${rsEsc(o.name)}</option>`).join('');
+      opFilterSel.innerHTML = '<option value="">' + rsEsc(t('dash.allOperators')) + '</option>' + _operatorsCache.map(o=>`<option value="${o.id}"${o.id===machineOperatorFilter?' selected':''}>${rsEsc(o.name)}</option>`).join('');
     } else { opFilterSel.style.display = 'none'; }
   }
   let ms = Object.values(DB.machines);
@@ -3857,7 +3875,7 @@ async function renderMachines() {
   document.getElementById('machines-sub').innerHTML = `${all.length} ${t('common.machinesWord')} · <span style="color:var(--success)">${all.filter(m=>m.isOnline).length} ${t('common.online')}</span> · <span style="color:var(--alert)">${all.filter(m=>!m.isOnline).length} ${t('common.offline')}</span> · ${all.filter(m=>m.unsupported).length} ${t('mch.unsupportedLayout')}`;
 
   const el = document.getElementById('machines-list');
-  if (!ms.length) { el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--muted);font-size:13px">No machines match.</div>'; return; }
+  if (!ms.length) { el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--muted);font-size:13px">' + rsEsc(t('mch.noMatch')) + '</div>'; return; }
   // "Which machines are safe to update" needs to be answerable at a glance, not by opening 46
   // command results. A machine still on a build-baked key would be locked out by a generic apk.
   const notMigrated = all.filter(m => m.keySource === 'build' || m.keySource === 'none');
@@ -3865,11 +3883,11 @@ async function renderMachines() {
   let banner = '';
   if (notMigrated.length || unknown.length) {
     banner = '<div style="margin-bottom:10px;padding:11px 13px;background:var(--cream-deep);border-radius:9px;font-size:12.5px;line-height:1.55">' +
-      '<b>App key migration</b><br>' +
-      '<span style="color:var(--success)">' + all.filter(m => m.keySource === 'stored').length + ' ready</span> · ' +
-      '<span style="color:var(--alert)">' + notMigrated.length + ' not migrated</span> · ' +
-      '<span style="color:var(--muted)">' + unknown.length + ' unknown</span><br>' +
-      '<span style="color:var(--muted)">Only machines showing <b>ready</b> can safely take a generic app update. Unknown means the machine has not been asked yet.</span>' +
+      '<b>' + rsEsc(t('mch.keyMigration')) + '</b><br>' +
+      '<span style="color:var(--success)">' + rsEsc(tv('mch.keyReady', { n: all.filter(m => m.keySource === 'stored').length })) + '</span> · ' +
+      '<span style="color:var(--alert)">' + rsEsc(tv('mch.keyNotMigrated', { n: notMigrated.length })) + '</span> · ' +
+      '<span style="color:var(--muted)">' + rsEsc(tv('mch.keyUnknown', { n: unknown.length })) + '</span><br>' +
+      '<span style="color:var(--muted)">' + rsEsc(t('mch.keyNote')) + '</span>' +
       '</div>';
   }
   el.innerHTML = banner + ms.map(m => machineRowCard(m)).join('');
@@ -3880,15 +3898,15 @@ function machineRowCard(m) {
   const dotColor = !m.isOnline ? 'var(--muted)' : (m.openAlertCount ? 'var(--alert)' : (m.isRunning ? 'var(--success)' : 'var(--alert)'));
   const dotStyle = (m.isOnline && m.openAlertCount) ? `background:${dotColor};box-shadow:0 0 0 3px var(--alert-bg)` : `background:${dotColor}`;
   const badge = m.openAlertCount ? ` <span style="display:inline-block;min-width:17px;height:17px;line-height:17px;text-align:center;padding:0 4px;border-radius:9px;background:var(--alert);color:#fff;font-family:var(--mono);font-size:10px;vertical-align:middle">${m.openAlertCount}</span>` : '';
-  const restock = m.lastVisitAt ? ('restocked ' + timeAgo(m.lastVisitAt)) : 'never restocked';
+  const restock = m.lastVisitAt ? tv('mch.restockedAgo', { ago: timeAgo(m.lastVisitAt) }) : t('dash.neverRestocked');
   const keyFlag = (m.keySource === 'build' || m.keySource === 'none')
-    ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--alert)" title="Key still comes from this machine\'s own build — a generic update would lock it out">key: not migrated</span>' : '';
+    ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--alert)" title="' + rsEsc(t('mch.keyFlagTitle')) + '">' + rsEsc(t('mch.keyFlag')) + '</span>' : '';
   const meta = rsEsc([m.deviceCode, m.location, restock].filter(Boolean).join(' · ')) + keyFlag;
   let revTxt;
-  if (m.isKioskModel === false) revTxt = '<span style="color:var(--muted)">n/a</span>';
+  if (m.isKioskModel === false) revTxt = '<span style="color:var(--muted)">' + rsEsc(t('mch.notApplicable')) + '</span>';
   else if (!m.isOnline) revTxt = '<span style="color:var(--muted)">—</span>';
   else revTxt = `${(salesTodayKr(m.deviceCode)||0).toLocaleString('is-IS')}<small style="color:var(--muted)"> kr</small>`;
-  const flag = !m.isOnline ? 'offline' : '';
+  const flag = !m.isOnline ? t('mch.offlineFlag') : '';
   return `<div onclick="openMachineDetail('${m.deviceCode}')" style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--cream);border:1px solid var(--line);border-radius:12px;cursor:pointer">
     <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;${dotStyle}"></div>
     <div style="flex:1;min-width:0">
@@ -7768,7 +7786,7 @@ async function renderReconcile(operatorId) {
   if (!body) return;
   if (opfilter) {
     if (currentUser?.role === 'ag_admin' && (_operatorsCache || []).length) {
-      const opts = '<option value="">all operators</option>' + _operatorsCache.map(o=>`<option value="${o.id}"${o.id===_reconcileOp?' selected':''}>${rsEsc(o.name)}</option>`).join('');
+      const opts = '<option value="">' + rsEsc(t('dash.allOperators')) + '</option>' + _operatorsCache.map(o=>`<option value="${o.id}"${o.id===_reconcileOp?' selected':''}>${rsEsc(o.name)}</option>`).join('');
       opfilter.innerHTML = `<select class="op-select" onchange="renderReconcile(this.value)" style="font-family:var(--mono);font-size:10px;background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 6px;cursor:pointer">${opts}</select>`;
     } else opfilter.innerHTML = '';
   }
@@ -8991,7 +9009,7 @@ async function renderProfit() {
   if (opWrap) {
     if (currentUser?.role === 'ag_admin' && _operatorsCache && _operatorsCache.length) {
       opWrap.innerHTML = '<select class="op-select" onchange="setProfitOperator(this.value)" style="font-family:var(--sans);font-size:12px;background:transparent;border:1px solid var(--line);border-radius:6px;padding:5px 8px;cursor:pointer">'
-        + '<option value="">all operators</option>'
+        + '<option value="">' + rsEsc(t('dash.allOperators')) + '</option>'
         + _operatorsCache.map(o => '<option value="' + o.id + '"' + (o.id === _profitOp ? ' selected' : '') + '>' + rsEsc(o.name) + '</option>').join('')
         + '</select>';
     } else { opWrap.innerHTML = ''; }
