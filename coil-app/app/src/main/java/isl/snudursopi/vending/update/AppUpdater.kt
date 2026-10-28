@@ -96,16 +96,21 @@ class AppUpdater(private val context: Context) {
                 return UpdateResult.UpToDate
             }
 
-            attempted.add(target)
+            // A build counts as attempted only once its APK is here and verified. A download that
+            // fails (the network at Grótta drops for hours at a time) is retried at the next hourly
+            // check; until 0.80.11 one failed download blocked the build for the rest of the
+            // process — hægri sat on 0.80.4 saying "already attempted" every hour.
             val apk = File(context.getExternalFilesDir(null), "update-$target.apk")
             downloadTo(apkUrl, apk)
             if (sha256 != null) {
                 val actual = sha256Of(apk)
                 if (!actual.equals(sha256, ignoreCase = true)) {
                     apk.delete()
+                    attempted.add(target) // the release itself is bad; re-downloading it hourly would not help
                     return UpdateResult.Error("sha256 mismatch (want $sha256, got $actual)")
                 }
             }
+            attempted.add(target)
             RecoveryGuard.markPending(context, target)
             installApk(apk)
             UpdateResult.Installing(name)
