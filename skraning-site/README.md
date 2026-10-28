@@ -184,6 +184,28 @@ nothing arrives through the old path.
 
 ## Operating it
 
+`ADMIN_TOKEN` is a Worker secret, so it lives on Cloudflare and not in your shell. From a fresh
+terminal the variable is empty, which sends a bare `Bearer` and gets back `{"error":"unauthorized"}`
+— the same answer you would get for a wrong token, so the message does not tell you which it is.
+Put it in the shell first (`read -rs` keeps it out of your history; nothing echoes as you paste):
+
+```sh
+read -rs ADMIN_TOKEN && export ADMIN_TOKEN
+```
+
+Cloudflare will not show you a secret again once set. If the value is lost, replace it — nothing
+else reads it, only `/api/admin/*` on this Worker:
+
+```sh
+ADMIN_TOKEN=$(openssl rand -base64 32 | tr -d '/+=' | cut -c1-40)
+printf '%s' "$ADMIN_TOKEN" | npx wrangler secret put ADMIN_TOKEN
+export ADMIN_TOKEN
+printf '%s' "$ADMIN_TOKEN" | pbcopy    # into the password manager, never onto the screen
+```
+
+`npx wrangler secret list` shows the names of all four secrets without revealing any value, which
+is how you check that a deploy left them intact.
+
 ```sh
 T="Authorization: Bearer $ADMIN_TOKEN"
 curl -H "$T" https://skraning.agvending.is/api/admin/submissions                 # newest 100
