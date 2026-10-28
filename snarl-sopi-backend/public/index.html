@@ -2256,6 +2256,17 @@ const I18N = {
 function t(key){ const l=I18N[LANG]||I18N.en; return (l[key]!=null?l[key]:(I18N.en[key]!=null?I18N.en[key]:key)); }
 function applyI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.getAttribute('data-i18n')); });
+  // Attributes. textContent alone covers a label but not the hint inside an
+  // empty field, which is often the only instruction on the screen. 30
+  // placeholders and 5 titles were untranslatable no matter what we put in
+  // the dictionary, because nothing ever read them.
+  const ATTRS = { 'data-i18n-placeholder':'placeholder', 'data-i18n-title':'title',
+                  'data-i18n-aria':'aria-label', 'data-i18n-value':'value' };
+  for (const [dataAttr, realAttr] of Object.entries(ATTRS)) {
+    document.querySelectorAll('[' + dataAttr + ']').forEach(el => {
+      el.setAttribute(realAttr, t(el.getAttribute(dataAttr)));
+    });
+  }
   const pt=document.getElementById('page-title'); const cur=(location.hash.slice(1)||'dashboard');
   if(pt && I18N.en['title.'+cur]) pt.textContent = t('title.'+cur);
   const tg=document.getElementById('lang-toggle'); if(tg) tg.textContent = (LANG==='en'?'IS':'EN');
@@ -4151,7 +4162,12 @@ const ui = {
 function apiErrorAsText(j) {
   if (j && j.error && typeof j.error === 'object') {
     const e = j.error;
-    return { ...j, errorInfo: e, error: e.messageEn || e.message || e.code || 'error' };
+    // The backend sends both: message (Icelandic) and messageEn. This always
+    // took the English one, so an operator reading the dashboard in Icelandic
+    // still got English the moment anything went wrong — which is exactly when
+    // the words matter most.
+    const preferred = (typeof LANG !== 'undefined' && LANG === 'is') ? (e.message || e.messageEn) : (e.messageEn || e.message);
+    return { ...j, errorInfo: e, error: preferred || e.code || 'error' };
   }
   return j;
 }
