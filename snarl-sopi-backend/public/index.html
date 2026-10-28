@@ -2137,6 +2137,8 @@ const I18N = {
     'dash.peakDay':'peak day','dash.avgPerDay':'avg / day','dash.totalOrders':'total · {n} orders',
     'dash.dowShort':'Sun,Mon,Tue,Wed,Thu,Fri,Sat','dash.dowLetter':'S,M,T,W,T,F,S',
     'time.minutes':'{n}m ago','time.hours':'{n}h ago','time.days':'{n}d ago',
+    'alert.offline.title':'Machine offline — {machine}',
+    'alert.offline.detail':'{code} · offline since {since}',
     'dash.allOperators':'All operators','dash.operatorLabel':'operator:',
     'mch.addMachine':'+ add machine','mch.locations':'locations.','mch.mapCaption':'machine locations — Reykjavík area',
     'mch.allMachines':'all machines.','mch.populateWeimi':'＋ populate from Weimi','mch.syncWeimi':'⟳ sync all from Weimi',
@@ -2201,7 +2203,7 @@ const I18N = {
     'shell.operatorPortal':'Rekstrargátt','shell.signOut':'útskrá',
     'title.dashboard':'mælaborð.','title.machines':'vélar.','title.alerts':'viðvaranir.','title.catalog':'vörur & hólf.',
     'title.hero':'áberandi vörur.','title.display':'skjástillingar.','title.orders':'pantanir.','title.reports':'skýrslur.',
-    'title.users':'notendur.','title.settings':'fleet.','title.operators':'rekstraraðilar.','title.complaints':'kvartanir.',
+    'title.users':'notendur.','title.settings':'floti.','title.operators':'rekstraraðilar.','title.complaints':'kvartanir.',
     'title.machinedetail':'vélaryfirlit.','title.help':'hjálp & leiðbeiningar.',
     'common.viewAll':'sjá allt →','common.status':'staða','common.kiosk':'skjár','common.nayax':'nayax',
     'common.todaySales':'sala í dag','common.stock':'birgðir','common.actions':'aðgerðir','common.restock':'fylla á',
@@ -2209,7 +2211,7 @@ const I18N = {
     'common.warning':'viðvörun','common.today':'í dag','common.fleet':'floti','common.recent':'nýlegt','common.machinesWord':'vélar',
     'dash.alerts':'viðvaranir.','dash.machinePerformance':'frammistaða véla.','dash.soldOutNow':'uppselt núna.',
     'dash.soldOutRecent':'nýlega uppselt.','dash.machinesOverview':'yfirlit véla.',
-    'dash.th.device':'vél','dash.th.locationOperator':'staðsetning / aðili','dash.th.stockFill':'birgðastaða','dash.th.lastSeen':'síðast séð',
+    'dash.th.device':'vél','dash.th.locationOperator':'staðsetning / rekstraraðili','dash.th.stockFill':'birgðastaða','dash.th.lastSeen':'síðast séð',
     'dash.revenueLast':'tekjur, síðustu','dash.days':'daga',
     'dash.stat.revenueToday':'tekjur í dag','dash.vsYesterday':'m.v. í gær','dash.stat.fromSynced':'úr samstilltum pöntunum','dash.stat.activeMachines':'virkar vélar',
     'dash.stat.needAttention':'þarfnast athygli','dash.stat.ordersToday':'pantanir í dag','dash.stat.completedToday':'lokið í dag',
@@ -2223,7 +2225,9 @@ const I18N = {
     'dash.peakDay':'besti dagur','dash.avgPerDay':'meðaltal á dag','dash.totalOrders':'samtals · {n} pantanir',
     'dash.dowShort':'su,má,þr,mi,fi,fö,la','dash.dowLetter':'S,M,Þ,M,F,F,L',
     'time.minutes':'fyrir {n} mín','time.hours':'fyrir {n} klst','time.days':'fyrir {n} d',
-    'dash.allOperators':'Allir aðilar','dash.operatorLabel':'aðili:',
+    'alert.offline.title':'Tæki ekki nettengt — {machine}',
+    'alert.offline.detail':'{code} · sambandslaust síðan {since}',
+    'dash.allOperators':'Allir rekstraraðilar','dash.operatorLabel':'rekstraraðili:',
     'mch.addMachine':'+ bæta við vél','mch.locations':'staðsetningar.','mch.mapCaption':'staðsetningar véla — Reykjavíkursvæðið',
     'mch.allMachines':'allar vélar.','mch.populateWeimi':'＋ sækja frá Weimi','mch.syncWeimi':'⟳ samstilla allt frá Weimi',
     'nav.expiry':'Síðasti söludagur','exp.title':'að renna út.','exp.alertWithin':'sýna innan','exp.days':'daga','exp.today':'í dag','exp.expired':'útrunnið',
@@ -2274,6 +2278,20 @@ function t(key){ const l=I18N[LANG]||I18N.en; return (l[key]!=null?l[key]:(I18N.
 // ("fyrir 5 mín" vs "5m ago"), so the number has to be a placeholder in the
 // string rather than concatenated around it.
 function tn(key, n){ return String(t(key)).replace('{n}', n); }
+function tv(key, vals){ return String(t(key)).replace(/\{(\w+)\}/g, (m, k) => (vals && vals[k] != null) ? vals[k] : m); }
+
+// An alert arrives with its sentence already written, in English, because the
+// backend composed it when the thing happened. A string cannot be translated
+// after the fact, so where the backend also sends the PARTS — which machine,
+// which code, since when — the sentence is composed here instead, in whatever
+// language is on. Rows without parts keep the text they were stored with;
+// there is nothing better to show, and it is still true.
+function alertText(a) {
+  const key = 'alert.' + String(a && a.type || '') + '.';
+  const hasKey = I18N.en[key + 'title'] != null;
+  if (!hasKey || !a || !a.params) return { title: a && a.title || '', detail: a && a.detail || '' };
+  return { title: tv(key + 'title', a.params), detail: tv(key + 'detail', a.params) };
+}
 function applyI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.getAttribute('data-i18n')); });
   // Attributes. textContent alone covers a label but not the hint inside an
@@ -3552,7 +3570,7 @@ async function renderDashboardClassic() {
   document.getElementById('dash-alerts').innerHTML = active.length ? active.map(a=>
     '<div class="al-item" onclick="go(&quot;alerts&quot;,document.querySelectorAll(&quot;.nav-item&quot;)[2])">' +
     '<div class="al-pip" style="background:'+(pipColor[a.severity]||'var(--clay)')+'"></div>' +
-    '<div class="al-body"><div class="al-title">'+rsEsc(a.title)+'</div><div class="al-meta">'+rsEsc(a.detail)+'</div></div>' +
+    '<div class="al-body"><div class="al-title">'+rsEsc(alertText(a).title)+'</div><div class="al-meta">'+rsEsc(alertText(a).detail)+'</div></div>' +
     '<div class="al-time">'+timeAgo(a.createdAt)+'</div></div>'
   ).join('') : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">'+t('dash.noAlerts')+'</div>';
 
@@ -3632,6 +3650,10 @@ async function hydrateAlertsFromBackend() {
     if (!r || !r.ok || !Array.isArray(r.data)) return;
     DB.alerts = r.data.map(a => ({
       id: a.id, type: a.type, severity: a.severity, title: a.title, detail: a.detail,
+      // The parts the sentence was built from, where the backend could supply
+      // them. Without these alertText() has nothing to compose and falls back
+      // to the stored English — which is what it did until this line existed.
+      params: a.params || null,
       deviceCode: a.deviceCode || null, resolved: !!a.resolved,
       resolvedAt: a.resolvedAt || null, createdAt: a.createdAt,
     }));

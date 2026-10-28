@@ -5233,6 +5233,31 @@ function handleRevokeKey(req, res) {
 
 // ─── Alerts ───────────────────────────────────────────────────────────────────
 
+// An alert's title and detail are written when it happens, in English, and a
+// written sentence cannot be translated afterwards. Sending the PARTS as well
+// lets the dashboard compose the sentence in whatever language is on, and —
+// because the parts are derived here rather than stored — that works for rows
+// written long before anyone thought about Icelandic.
+//
+// Only types whose text has a known shape can be taken apart. Everything else
+// is passed through untouched and keeps displaying what it was stored with.
+const OFFLINE_DETAIL = /^(\S+)\s+·\s+offline since\s+(\d{4})-(\d{2})-(\d{2})\s*$/;
+function withAlertParams(a) {
+  if (!a || a.params) return a;
+  if (a.type === 'offline') {
+    const m = OFFLINE_DETAIL.exec(String(a.detail || ''));
+    if (!m) return a;
+    const [, code, y, mo, d] = m;
+    const machine = machines[a.deviceCode];
+    return { ...a, params: {
+      machine: (machine && machine.deviceName) || a.deviceCode || code,
+      code,
+      since: `${d}/${mo}/${y}`,   // dd/mm/yyyy, as read in Iceland
+    } };
+  }
+  return a;
+}
+
 function handleListAlerts(req, res) {
   const { type, deviceCode, resolved } = req.query;
   // NB: `alerts` is a Proxy that supports filter/map/find but NOT iteration, so spreading it
@@ -5250,6 +5275,7 @@ function handleListAlerts(req, res) {
   // machine it happened to name.
   result = result.filter(a => a.deviceCode ? allowed.has(a.deviceCode) : isAg);
   result = result.filter(a => alertAudience.visibleTo(req.user, a));
+  result = result.map(withAlertParams);
   if (type)       result = result.filter(a => a.type === type);
   if (deviceCode) result = result.filter(a => a.deviceCode === deviceCode);
   if (resolved !== undefined) result = result.filter(a => a.resolved === (resolved === 'true'));
