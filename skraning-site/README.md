@@ -125,16 +125,31 @@ trigger's sample data so every field appears when you map.
 
 ### 3. Cloudflare
 
+The database and its schema already exist, and `wrangler.toml` carries the real `database_id`.
+Only the secrets are set by hand:
+
 ```sh
 cd skraning-site
-npx wrangler d1 create skraning          # paste database_id into wrangler.toml
-npx wrangler d1 execute skraning --remote --file=schema.sql
 npx wrangler secret put ZAPIER_HOOK_URL      # from step 2
 npx wrangler secret put LEASE_CLAIM_SECRET   # same value as on the backend
 npx wrangler secret put ADMIN_TOKEN          # any long random string
 npx wrangler secret put PROVISION_KEY        # same value as PROVISION_KEY on the backend (Railway)
 npx wrangler deploy
 ```
+
+Starting over on a different Cloudflare account is the only reason to run:
+
+```sh
+npx wrangler d1 create skraning          # paste the database_id it prints into wrangler.toml
+npx wrangler d1 execute skraning --remote --file=schema.sql
+```
+
+**A deploy overwrites the Worker's remote configuration with this file.** If `wrangler deploy`
+warns that the local and remote configurations differ, read the diff before answering: `+` is what
+your file would apply and `-` is what is live now. Anything on the `-` side that you did not mean
+to remove — a `database_id`, a service binding, a route — means `wrangler.toml` is behind
+production. Answer **n**, fix the file, and deploy again. Answering yes to that prompt once would
+have replaced the live D1 binding with a placeholder and stopped every registration being stored.
 
 **The domain.** `routes` in `wrangler.toml` makes `skraning.agvending.is` a custom domain, so
 `wrangler deploy` creates the DNS record and the certificate itself. Two requirements:

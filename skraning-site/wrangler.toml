@@ -18,23 +18,31 @@ binding = "ASSETS"
 crons = ["*/5 * * * *"]
 
 # Every registration is kept here, with its step, attempts and last error.
-# Create once:  npx wrangler d1 create skraning
-# then paste the database_id it prints below, and run:
+# This is the database that is already live; it was created with
+#   npx wrangler d1 create skraning
+# and its schema loaded with
 #   npx wrangler d1 execute skraning --remote --file=schema.sql
+# The id is an identifier, not a secret — it does nothing without account
+# credentials — and this file is where wrangler expects to read it. It has to
+# stay here: a deploy pushes this file's contents over the live configuration,
+# so a placeholder in it would replace a working binding with a broken one.
 [[d1_databases]]
 binding = "DB"
 database_name = "skraning"
-database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+database_id = "6cc6e2d2-aaf8-412a-ba22-7981f059e790"
 
 # The two lookup Workers that already power the Squarespace form, called directly
-# instead of over the public internet.
+# instead of over the public internet. Both are bound to their production
+# environment, which is what the deployed Worker already uses.
 [[services]]
 binding = "COMPANY"
 service = "skattur-company-lookup"
+environment = "production"
 
 [[services]]
 binding = "ADDRESS"
 service = "iceland-address-proxy"
+environment = "production"
 
 [vars]
 BACKEND_URL = "https://admin.agvending.is"
