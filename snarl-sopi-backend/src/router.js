@@ -542,9 +542,23 @@ function requireMachineKey(req, res, next) {
   next();
 }
 
-// ─── Lease-claim key middleware (for the Zapier lease flow) ──────────────────
-const LEASE_CLAIM_SECRET = process.env.LEASE_CLAIM_SECRET || 'lease-dev-secret';
+// ─── Lease-claim key middleware (for the skraning lease flow) ────────────────
+// This guards the one route that takes machines out of stock and puts them on a
+// customer's lease. It used to fall back to a fixed 'lease-dev-secret' when the
+// environment variable was missing, which fails the wrong way round: a dropped
+// variable in production does not break the endpoint, it quietly re-guards it
+// with a string that is written in this file. Missing now means closed.
+const LEASE_CLAIM_SECRET = process.env.LEASE_CLAIM_SECRET || '';
+if (!LEASE_CLAIM_SECRET) {
+  console.warn('[lease] LEASE_CLAIM_SECRET is not set — /api/v1/leases/claim will refuse every ' +
+               'request. Set it to the same value as the skraning Worker\'s secret of that name.');
+}
 function requireLeaseKey(req, res, next) {
+  if (!LEASE_CLAIM_SECRET) {
+    // 503, not 401: nothing the caller sends can work, and skraning retries a
+    // registration for hours. Say it is this end that is misconfigured.
+    return json(res, 503, { error: 'Lease claim is not configured — LEASE_CLAIM_SECRET is unset on the backend' });
+  }
   const key = req.headers['x-lease-key'];
   if (key !== LEASE_CLAIM_SECRET) {
     return json(res, 401, { error: 'Unauthorized — bad or missing X-Lease-Key' });
