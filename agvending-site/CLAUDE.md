@@ -63,9 +63,10 @@ Worker — a different name deploys to a second, separate Worker.
    `stadur`, `skilabod`, reject the request when `bot-field` is non-empty, and send through
    SendGrid (already a backend dependency). CORS is `*`. Building it is backend work — follow
    the root `CLAUDE.md` for that.
-5. **Worker build root.** `agvending.siggip.workers.dev` once served a since-deleted root-level
-   placeholder, which suggests the Builds root directory was the repo root. Check
-   Settings → Build: root directory `agvending-site`, build command empty.
+5. **Worker build root — fixed (28 Oct).** Builds failed because Root directory was `/`, where
+   there is no `wrangler.toml`. Now `/agvending-site`; merging to `main` deploys (first good
+   build 28 Oct 15:55 UTC). Include paths are still `*`, so every commit to the repo rebuilds the
+   site; narrow them once preview builds are proven.
 6. **DNS.** Apex and `www` still point at Squarespace. Move them only after the site is
    verified on workers.dev.
 7. **Cancel Squarespace last** — after DNS propagates, the site is confirmed live, and the built
