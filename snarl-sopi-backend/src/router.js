@@ -39,6 +39,7 @@ const {
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation,
 } = require('./db');
+const alertAudience = require('./alertAudience');
 const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
         revokeToken, revokeAllForUser, requireCap } = require('./auth');
@@ -5197,7 +5198,13 @@ function handleListAlerts(req, res) {
   // in the UI — now that the dashboard renders them, it does.
   const allowed = new Set(machinesForUser(req.user).map(m => m.deviceCode));
   const isAg = req.user && req.user.role === 'ag_admin';
+  // Two separate questions, and only the first was being asked. Machine access
+  // says WHICH machines you may hear about; audience says WHICH KINDS of thing
+  // are yours to act on. Scoping by machine alone sent every internal alert —
+  // app rollback, machine-key trouble, wiring — to whoever could see the
+  // machine it happened to name.
   result = result.filter(a => a.deviceCode ? allowed.has(a.deviceCode) : isAg);
+  result = result.filter(a => alertAudience.visibleTo(req.user, a));
   if (type)       result = result.filter(a => a.type === type);
   if (deviceCode) result = result.filter(a => a.deviceCode === deviceCode);
   if (resolved !== undefined) result = result.filter(a => a.resolved === (resolved === 'true'));
@@ -5207,7 +5214,9 @@ function handleListAlerts(req, res) {
 function handleResolveAlert(req, res) {
   const alert = storage.getAlert(req.params.id);
   if (!alert) return notFound(res, `Alert ${req.params.id} not found`);
-  if (req.user.role !== 'ag_admin' && (!alert.deviceCode || !userCanAccessMachine(req.user, alert.deviceCode))) {
+  // Same 404 for "no such alert" and "not yours", so the id space stays opaque.
+  if (req.user.role !== 'ag_admin' && (!alert.deviceCode || !userCanAccessMachine(req.user, alert.deviceCode)
+      || !alertAudience.visibleTo(req.user, alert))) {
     return notFound(res, `Alert ${req.params.id} not found`);
   }
   storage.resolveAlert(req.params.id);
