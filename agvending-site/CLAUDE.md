@@ -46,14 +46,15 @@ Worker — a different name deploys to a second, separate Worker.
 
 ## Launch blockers (status 28 Oct)
 
-1. **Photos — 7 files for `public/assets/img/`.** Still only on the Squarespace CDN. Download
-   them **before** Squarespace is cancelled; once the account closes they are gone. The
-   `.gitkeep` there lists the exact filenames `index.html` expects.
-2. **Logos — 17 files for `public/assets/logos/`.** Processed on 25 Aug (13.3 MB → 228 kB) and
-   delivered to Siggi as a zip, but **not yet in the repo** — the folder still holds only its
-   `.gitkeep`, which lists the filenames. Ask Siggi for the zip. The names are load-bearing:
-   the markup references them literally, with per-logo `mul`/`inv` flags.
-3. **Once both folders are full:** delete both `.gitkeep` files and the temporary
+1. **Photos — done (28 Oct).** All 7 in `public/assets/img/`, downloaded from the Squarespace
+   CDN. The hero is the old site's Orkan station photo; `portrait-stefan.jpg` is the Hagaskóli
+   crest, because the old site never had a photo of him.
+2. **Logos — 16 of 17 (28 Oct).** The zip never reached the repo, so they were rebuilt from the
+   Squarespace originals (16 files, 159 kB). Orkan and Macron are white marks on transparent
+   for their `ag-inv` tiles, so Macron is now `macron.png` (a JPEG can't be transparent).
+   **`nordic-hostel.gif` is still missing:** it is on no Squarespace page. The names are
+   load-bearing: the markup references them literally, with per-logo `mul`/`inv` flags.
+3. **Once both folders are full:** delete `logos/.gitkeep` and the temporary
    missing-image script in `<head>` (it swaps a failed image for its alt text; nothing else
    depends on it).
 4. **Contact form endpoint.** The form POSTs to `https://admin.agvending.is/api/tilbod`. As of
