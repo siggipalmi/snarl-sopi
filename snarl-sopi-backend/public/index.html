@@ -2175,6 +2175,7 @@ const I18N = {
     'md.posterNone':'No poster set for this machine. Add one — 1920×1080 (16:9) is the size the screen expects.',
     'md.pinShared':'Still on the shared PIN (123456). Generate one for this machine; needs fridge app 0.69.0 or coil app 0.80.6 or newer.',
     'md.resolve':'resolve','md.alertsFailed':'Could not load alerts.',
+    'md.connected':'online','md.appUnknown':'app unknown','md.appPrefix':'app','md.keyUnknown':'key unknown',
     'sev.critical':'critical','sev.warning':'warning','sev.info':'info',
     'md.tab.kiosk':'Kiosk',
     'md.tab.activity':'Activity',
@@ -2278,7 +2279,7 @@ const I18N = {
     'group.overview':'yfirlit','group.daily':'Daglegt','group.kioskControl':'Skjár og vörur','group.commerce':'Rekstur','group.system':'Stjórnun',
     'nav.dashboard':'Mælaborð','nav.machines':'Vélar','nav.alerts':'Viðvaranir','nav.operators':'Rekstraraðilar',
     'nav.catalog':'Vörur & hólf','nav.hero':'Áberandi vörur','nav.display':'Skjástillingar',
-    'nav.orders':'Pantanir','nav.complaints':'Kvartanir','nav.reports':'Skýrslur','nav.receipts':'Kvittanir','nav.users':'Notendur','nav.settings':'Floti','nav.help':'Hjálp',
+    'nav.orders':'Afgreiðslur','nav.complaints':'Kvartanir','nav.reports':'Skýrslur','nav.receipts':'Kvittanir','nav.users':'Notendur','nav.settings':'Floti','nav.help':'Hjálp',
     'nav.deals':'Tilboð','title.deals':'Afslættir og tilboð','nav.billing':'Reikningar','title.billing':'Reikningar','nav.leases':'Leigutæki','title.leases':'Leigutæki','billing.sub':'leigureikningar og hreyfingayfirlit','billing.operator':'Rekstraraðili',
     'billing.invoices':'reikningar','billing.ledger':'hreyfingar','billing.outstanding':'Staða í dag','billing.settled':'Engin skuld',
     'billing.invUnpaid':'{n} ógreiddir','billing.invOverdue':'· {n} í vanskilum','billing.noUnpaid':'ekkert ógreitt','billing.machines':'vélar',
@@ -2292,7 +2293,7 @@ const I18N = {
     'billing.error':'Tókst ekki að sækja frá Payday.','billing.pdfErr':'Tókst ekki að sækja reikninginn.',
     'shell.operatorPortal':'Rekstrargátt','shell.signOut':'útskrá',
     'title.dashboard':'mælaborð.','title.machines':'vélar.','title.alerts':'viðvaranir.','title.catalog':'vörur & hólf.',
-    'title.hero':'áberandi vörur.','title.display':'skjástillingar.','title.orders':'pantanir.','title.reports':'skýrslur.',
+    'title.hero':'áberandi vörur.','title.display':'skjástillingar.','title.orders':'afgreiðslur.','title.reports':'skýrslur.',
     'title.users':'notendur.','title.settings':'floti.','title.operators':'rekstraraðilar.','title.complaints':'kvartanir.',
     'title.machinedetail':'vélaryfirlit.','title.help':'hjálp & leiðbeiningar.',
     'common.viewAll':'sjá allt →','common.status':'staða','common.kiosk':'skjár','common.nayax':'nayax',
@@ -2303,8 +2304,8 @@ const I18N = {
     'dash.soldOutRecent':'nýlega uppselt.','dash.machinesOverview':'yfirlit véla.',
     'dash.th.device':'vél','dash.th.locationOperator':'staðsetning / rekstraraðili','dash.th.stockFill':'birgðastaða','dash.th.lastSeen':'síðast séð',
     'dash.revenueLast':'tekjur, síðustu','dash.days':'daga',
-    'dash.stat.revenueToday':'tekjur í dag','dash.vsYesterday':'m.v. í gær','dash.stat.fromSynced':'úr samstilltum pöntunum','dash.stat.activeMachines':'virkar vélar',
-    'dash.stat.needAttention':'þarfnast athygli','dash.stat.ordersToday':'pantanir í dag','dash.stat.completedToday':'lokið í dag',
+    'dash.stat.revenueToday':'tekjur í dag','dash.vsYesterday':'m.v. í gær','dash.stat.fromSynced':'úr samstilltum afgreiðslum','dash.stat.activeMachines':'virkar vélar',
+    'dash.stat.needAttention':'þarfnast athygli','dash.stat.ordersToday':'afgreiðslur í dag','dash.stat.completedToday':'lokið í dag',
     'dash.stat.lowStockSlots':'hólf við að klárast','dash.stat.requireRestock':'þarf áfyllingu',
     'dash.noAlerts':'Engar virkar viðvaranir','dash.justNow':'rétt í þessu','dash.more':'til viðbótar',
     'dash.restockDue':'áfylling.','dash.tryNewLayout':'Prófa nýja útlitið →',
@@ -2312,7 +2313,7 @@ const I18N = {
     'dash.sum.soldOut':'uppselt núna',
     'dash.neverRestocked':'aldrei fyllt á','dash.pctFull':'{n}% fullt','dash.soldOutN':'{n} uppseld',
     'dash.nothingDue':'Ekkert í bið — flotinn er fullur.',
-    'dash.peakDay':'besti dagur','dash.avgPerDay':'meðaltal á dag','dash.totalOrders':'samtals · {n} pantanir',
+    'dash.peakDay':'besti dagur','dash.avgPerDay':'meðaltal á dag','dash.totalOrders':'samtals · {n} afgreiðslur',
     'dash.dowShort':'su,má,þr,mi,fi,fö,la','dash.dowLetter':'S,M,Þ,M,F,F,L',
     'time.minutes':'fyrir {n} mín','time.hours':'fyrir {n} klst','time.days':'fyrir {n} d',
     'time.shortMinutes':'{n}m','time.shortHours':'{n}klst','time.shortDays':'{n}d','time.shortNow':'núna',
@@ -2353,6 +2354,7 @@ const I18N = {
     'md.posterNone':'Engin auglýsing valin fyrir þessa vél. Bættu við einni — 1920×1080 (16:9) er stærðin sem skjárinn gerir ráð fyrir.',
     'md.pinShared':'Enn á sameiginlega PIN-inum (123456). Búðu til einn fyrir þessa vél; krefst kæliforrits 0.69.0 eða sjálfsalaforrits 0.80.6 eða nýrra.',
     'md.resolve':'leysa','md.alertsFailed':'Tókst ekki að sækja viðvaranir.',
+    'md.connected':'nettengt','md.appUnknown':'Óþekkt útgáfa','md.appPrefix':'útgáfa','md.keyUnknown':'lykill óþekktur',
     'sev.critical':'alvarlegt','sev.warning':'viðvörun','sev.info':'upplýsingar',
     'md.tab.kiosk':'Skjár',
     'md.tab.activity':'Virkni',
@@ -2373,9 +2375,9 @@ const I18N = {
     'md.emptySlots':'tóm hólf.',
     'md.baysLayout':'hólf og uppröðun.',
     'md.revenue30':'tekjur, síðustu 30 daga.',
-    'md.recentOrders':'nýlegar pantanir.',
-    'md.viewAllOrders':'sjá allar pantanir →',
-    'md.th.order':'pöntun',
+    'md.recentOrders':'nýlegar afgreiðslur.',
+    'md.viewAllOrders':'sjá allar afgreiðslur →',
+    'md.th.order':'afgreiðsla',
     'md.th.items':'vörur',
     'md.th.amount':'upphæð',
     'md.th.status':'staða',
@@ -4620,7 +4622,7 @@ async function clearRsFault(code) {
 // them, and the header is where someone looks when an update "doesn't arrive".
 function mdKeyHeader(h) {
   const k = h && h.keySource ? String(h.keySource) : null;
-  if (!k) return ' · <span style="color:var(--muted)" title="run config_health to learn how this machine holds its key">key unknown</span>';
+  if (!k) return ' · <span style="color:var(--muted)" title="run config_health to learn how this machine holds its key">' + rsEsc(t('md.keyUnknown')) + '</span>';
   if (k === 'stored') return ' · <span style="color:var(--muted)" title="key stored on the machine; generic builds install">key stored</span>';
   return ' · <span style="color:var(--alert)" title="key comes from this machine\'s own build (' + rsEsc(k) + '); a generic update is withheld until it is paired">key ' + rsEsc(k) + ' — pair first</span>';
 }
@@ -6405,16 +6407,18 @@ async function renderMachineDetail() {
     document.getElementById('md-name').textContent = m.deviceName;
     document.getElementById('md-meta').innerHTML =
       m.deviceCode + ' · ' + rsEsc(m.location || '—') + ' · ' + rsEsc(dr.data.operatorName || '—') +
-      ' · ' + (m.isOnline ? '<span style="color:var(--success)">online</span>' : '<span style="color:var(--alert)">offline</span>') +
+      ' · ' + (m.isOnline
+        ? '<span style="color:var(--success)">' + rsEsc(t('md.connected')) + '</span>'
+        : '<span style="color:var(--alert);text-decoration:line-through">' + rsEsc(t('md.connected')) + '</span>') +
       // Always state the running app version — "unknown" is information too, and knowing what's on a
       // placed machine matters before you push an update or chase a bug.
       // From the build the app itself reports at each update check — not m.kioskVersion, which is
       // seed data from db.js ('0.21' on most coil machines) that nothing has ever updated.
-      ' · <span title="version the app reported with its logs, build code from its last update check">app ' +
+      ' · <span title="version the app reported with its logs, build code from its last update check">' +
         (m.lastAppVersionCode != null || m.lastAppVersionName
-          ? (m.lastAppVersionName ? 'v' + rsEsc(m.lastAppVersionName) + ' ' : '') +
+          ? rsEsc(t('md.appPrefix')) + ' ' + (m.lastAppVersionName ? 'v' + rsEsc(m.lastAppVersionName) + ' ' : '') +
             (m.lastAppVersionCode != null ? '<span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '')
-          : '<span style="color:var(--muted)">unknown</span>') +
+          : '<span style="color:var(--muted)">' + rsEsc(t('md.appUnknown')) + '</span>') +
       '</span>' + mdKeyHeader(dr.data.configHealth) + mdNayaxHeader(dr.data.payment);
 
     renderMdLanguage(m);
