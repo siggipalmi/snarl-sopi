@@ -30,6 +30,13 @@ browser ──▶ skraning Worker ──▶ D1 (every registration, with its ste
 - **Every registration is stored before anything else happens**, then moves through
   `received → claimed → ready → sent`. Each step is saved, so a failure is retried from the step
   where it stopped: every 5 minutes, up to 8 attempts, with backoff.
+
+  **`sent` means the Zapier hook accepted the payload. It does not mean the contract exists.**
+  Everything after the hook — the document, the signing request, Payday — happens inside Zapier,
+  where this Worker has no visibility and nothing to retry. A Zap that errors on its third step
+  leaves the registration sitting at `sent` looking finished. On 22 Oct 2026 one did exactly
+  that, and the only sign was a Zap alert email. Turn on Zapier's error notifications; a row
+  reading `sent` is not evidence that a customer got anything.
 - **Fields are recomputed on the server.** The Worker gets company name, legal address and
   manager from fyrirtækjaskrá itself, and confirms the address against staðfangaskrá.
 - **Exactly one machine is claimed per registration.** The claim carries the registration id, and
