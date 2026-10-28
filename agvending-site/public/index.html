@@ -61,7 +61,6 @@
   .form-msg{font-size:13.5px;line-height:1.6;color:#B8471F;background:#FAEEE9;border:.5px solid #E8E2D8;border-radius:8px;padding:12px 14px;margin:0}
   .form-msg[hidden]{display:none}
   /* TEMP: placeholder shown in place of an image file that is not in the repo yet. */
-  .img-missing{font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#8A8275;text-align:center;padding:8px;display:block}
   @media (prefers-reduced-motion:reduce){.ag-track{animation:none}html{scroll-behavior:auto}}
   @media (max-width:1120px){.ag-nav{gap:18px!important;font-size:11px!important;letter-spacing:.8px!important}.ag-headrow{gap:24px!important}}
   @media (max-width:960px){
@@ -80,31 +79,11 @@
     .ag-headrow img.mark{height:26px!important}
   }
 </style>
-<!-- ============================================================
-     TEMPORARY — delete this whole block once assets/img/ (7 files) and
-     assets/logos/ (17 files) are committed. It swaps an image that failed
-     to load for its alt/title text so the page can be reviewed without
-     broken-image icons everywhere. It sits in <head> because the header
-     logo and hero image error before the end of <body> is parsed.
-     Nothing else on the page depends on it.
-     ============================================================ -->
-<script>
-document.addEventListener("error", function (e) {
-  var el = e.target;
-  if (!el || el.tagName !== "IMG") return;
-  var label = el.getAttribute("alt") || el.getAttribute("title") || "";
-  var span = document.createElement("span");
-  span.className = "img-missing";
-  span.textContent = label;
-  el.replaceWith(span);
-}, true);
-</script>
 </head>
 <body>
 <!-- AG Vending homepage. Ported from the design handover into the Cloudflare
      Workers static-assets layout. See the commit message for the four
-     deliberate deviations from the source file. Images still needed:
-     assets/img/ (7) and assets/logos/ (17). -->
+     deliberate deviations from the source file. -->
 <header style="position:sticky;top:0;z-index:50;background:#FAF7F2;border-bottom:.5px solid #E8E2D8">
   <div class="wrap ag-headrow" style="padding-top:16px;padding-bottom:16px;display:flex;align-items:center;gap:40px">
     <a href="#top" style="display:flex;align-items:center;flex:none"><img class="mark" src="assets/img/logo-ag-vending.png" alt="AG Vending" style="height:34px;width:auto;display:block" /></a>
@@ -173,9 +152,8 @@ document.addEventListener("error", function (e) {
         <div class="ag-logo"><img src="assets/logos/airport-associates.png" alt="Airport Associates" title="Airport Associates" class="ag-mul" loading="lazy" decoding="async" /></div>
         <div class="ag-logo"><img src="assets/logos/hotel-dyrholaey.png" alt="Hótel Dyrhólaey" title="Hótel Dyrhólaey" class="ag-mul" loading="lazy" decoding="async" /></div>
         <div class="ag-logo"><img src="assets/logos/hotel-burfell.png" alt="Hótel Búrfell" title="Hótel Búrfell" class="ag-mul" loading="lazy" decoding="async" /></div>
-        <div class="ag-logo ag-inv"><img src="assets/logos/nordic-hostel.gif" alt="Nordic Hostel" title="Nordic Hostel" loading="lazy" decoding="async" /></div>
         <div class="ag-logo"><img src="assets/logos/skjol.jpg" alt="Skjól" title="Skjól" class="ag-mul" loading="lazy" decoding="async" /></div>
-        <div class="ag-logo ag-inv"><img src="assets/logos/macron.jpg" alt="Macron" title="Macron" loading="lazy" decoding="async" /></div>
+        <div class="ag-logo ag-inv"><img src="assets/logos/macron.png" alt="Macron" title="Macron" loading="lazy" decoding="async" /></div>
         <div class="ag-logo ag-inv" aria-hidden="true"><img src="assets/logos/orkan.png" alt="" title="Orkan" loading="lazy" decoding="async" /></div>
         <div class="ag-logo" aria-hidden="true"><img src="assets/logos/icelandair.png" alt="" title="Icelandair" class="ag-mul" loading="lazy" decoding="async" /></div>
         <div class="ag-logo" aria-hidden="true"><img src="assets/logos/valur.png" alt="" title="Valur" loading="lazy" decoding="async" /></div>
@@ -190,9 +168,8 @@ document.addEventListener("error", function (e) {
         <div class="ag-logo" aria-hidden="true"><img src="assets/logos/airport-associates.png" alt="" title="Airport Associates" class="ag-mul" loading="lazy" decoding="async" /></div>
         <div class="ag-logo" aria-hidden="true"><img src="assets/logos/hotel-dyrholaey.png" alt="" title="Hótel Dyrhólaey" class="ag-mul" loading="lazy" decoding="async" /></div>
         <div class="ag-logo" aria-hidden="true"><img src="assets/logos/hotel-burfell.png" alt="" title="Hótel Búrfell" class="ag-mul" loading="lazy" decoding="async" /></div>
-        <div class="ag-logo ag-inv" aria-hidden="true"><img src="assets/logos/nordic-hostel.gif" alt="" title="Nordic Hostel" loading="lazy" decoding="async" /></div>
         <div class="ag-logo" aria-hidden="true"><img src="assets/logos/skjol.jpg" alt="" title="Skjól" class="ag-mul" loading="lazy" decoding="async" /></div>
-        <div class="ag-logo ag-inv" aria-hidden="true"><img src="assets/logos/macron.jpg" alt="" title="Macron" loading="lazy" decoding="async" /></div>
+        <div class="ag-logo ag-inv" aria-hidden="true"><img src="assets/logos/macron.png" alt="" title="Macron" loading="lazy" decoding="async" /></div>
       </div>
     </div>
   </div>
