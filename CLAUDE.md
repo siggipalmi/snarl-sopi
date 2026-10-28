@@ -95,7 +95,8 @@ cohorts, Device Owner and machine commands stay with Siggi.
   EMPTY NAVIGATION STACK: `uiautomator dump` showed six nodes and no text, the activity resumed,
   the main thread idle and answering polls. A plain `popBackStack()` on a stack of one (a second
   tap on back/cancel during the exit animation of the screen being left) empties the NavHost,
-  which then composes nothing. From coil 0.80.13 every back goes through `popOrHome()`, an empty
+  which then composes nothing. **Confirmed by Siggi the same evening on 62160492 (0.80.9):
+  tapping "Til baka" rapidly on a product's info page blanks the screen on demand.** From coil 0.80.13 every back goes through `popOrHome()`, an empty
   stack navigates home by itself, route changes are logged (`Nav:` in the relayed log), and the
   screen watchdog restarts on a flat window of any colour, not only black. The "black, deaf
   screen" of 10-26 very likely was the same thing. Diagnose with:
