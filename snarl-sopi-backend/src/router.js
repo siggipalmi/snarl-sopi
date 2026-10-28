@@ -542,6 +542,11 @@ function requireMachineKey(req, res, next) {
   next();
 }
 
+// Machines with no known operator are parked here, not owned by anyone. It is a
+// holding slot, so anything deciding "does another customer run this machine?"
+// has to exclude it the same way it excludes AG Vending's own operator.
+const UNASSIGNED_OPERATOR_ID = 'op_unassigned';
+
 // ─── Lease-claim key middleware (for the skraning lease flow) ────────────────
 // This guards the one route that takes machines out of stock and puts them on a
 // customer's lease. It used to fall back to a fixed 'lease-dev-secret' when the
@@ -3266,7 +3271,7 @@ function handleAddMachine(req, res) {
   if (byName.length === 1) {
     rec.operatorId = byName[0].id;
   } else {
-    const UNASSIGNED = 'op_unassigned';
+    const UNASSIGNED = UNASSIGNED_OPERATOR_ID;
     if (!storage.getOperator(UNASSIGNED)) storage.upsertOperator({ id: UNASSIGNED, name: 'Unassigned', isAGVending: false });
     if (!operators[UNASSIGNED]) operators[UNASSIGNED] = storage.getOperator(UNASSIGNED);
     rec.operatorId = UNASSIGNED;
@@ -7081,7 +7086,11 @@ function linkLeasedMachines(op, kennitala, machineIds, location) {
       let m = machines[code];
       if (m && m.operatorId && m.operatorId !== op.id) {
         const cur = operators[m.operatorId];
-        if (cur && !cur.isAGVending) {
+        // "Unassigned" is where a machine waits until someone owns it, so moving one
+        // out of it is the whole point of a lease claim — not stealing it from a
+        // customer. Only a real operator blocks the move.
+        const heldByAnotherCustomer = cur && !cur.isAGVending && cur.id !== UNASSIGNED_OPERATOR_ID;
+        if (heldByAnotherCustomer) {
           out.push({ machineId: code, linked: false, reason: `already run by ${cur.name}` });
           return;
         }
