@@ -41,6 +41,9 @@ import isl.snudursopi.vending.ui.state.VendingViewModel
 import isl.snudursopi.vending.ui.screens.closed.ClosedScreen
 
 
+/** Product info page: back to the grid after this long without a touch. */
+private const val DETAIL_IDLE_MS = 30_000L
+
 @Composable
 fun NavGraph(viewModel: VendingViewModel) {
     val state by viewModel.state.collectAsState()
@@ -164,6 +167,18 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
         kotlinx.coroutines.delay(state.idleAttractTimeoutSeconds.coerceAtLeast(5) * 1000L)
         viewModel.resetForAttract()
         navController.navigate(Routes.Attract) { launchSingleTop = true }
+    }
+
+    // Product info left open: a customer reads a product's page and walks away, and with no deal
+    // cards configured nothing above ever fires, so the machine shows that page until the next
+    // person taps "Til baka" (seen at Grótta, 2026-10-29). Back to the grid after 30 s without a
+    // touch, deal cards or not. The basket is kept, exactly as "Til baka" keeps it.
+    val onDetail = currentRoute == Routes.Detail
+    LaunchedEffect(lastTouchMs, onDetail) {
+        if (!onDetail) return@LaunchedEffect
+        kotlinx.coroutines.delay(DETAIL_IDLE_MS)
+        android.util.Log.i("Nav", "product info idle for ${DETAIL_IDLE_MS / 1000} s — back to the grid")
+        popOrHome()
     }
 
     // Closed for sale: ClosedScreen covers every customer screen (drawn after the NavHost, so it

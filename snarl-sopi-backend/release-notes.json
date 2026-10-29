@@ -1,6 +1,17 @@
 [
  {
   "component": "coil",
+  "version": "0.80.14",
+  "versionCode": 170,
+  "date": "2026-10-29",
+  "title": "Product info returns to the grid by itself.",
+  "notes": [
+   "A product's info page left open used to stay until the next tap: nothing timed it out unless deal cards were configured. It now goes back to the grid after 30 seconds without a touch; the basket is kept, as with \"Til baka\"."
+  ],
+  "check": "Open a product's info page and wait 30 s without touching; the grid must come back."
+ },
+ {
+  "component": "coil",
   "version": "0.80.13",
   "versionCode": 169,
   "date": "2026-10-28",
