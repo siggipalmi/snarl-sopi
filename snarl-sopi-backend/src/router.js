@@ -203,6 +203,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/app-update',        handler: handleAppUpdate,      middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/revert-report',     handler: handleRevertReport,   middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/app-release',                            handler: handleGetAppRelease,  middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/release-notes',                          handler: handleGetReleaseNotes, middleware:[requireAuth] },
   { method:'PUT',  pattern:'/api/v1/app-release',                            handler: handlePublishAppRelease, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/rollout',                    handler: handleSetAppRollout,  middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/app-release/cohort',                     handler: handleSetAppCohort,   middleware:[requireAuth, requireAgAdmin] },
@@ -4826,6 +4827,41 @@ function handleGetAppRelease(req, res) {
       rejectedVersionCode: (rv && rv.rejected != null) ? rv.rejected : null };
   });
   ok(res, { release: relCoil || null, releaseCoil: relCoil || null, releaseFridge: relFridge || null, machines: list });
+}
+
+// GET what's new: the release notes file (one entry per version of coil, fridge and
+// backend, written in the same PR as the change) plus the live state to read them
+// against — which backend is running, which app build is published to whom, and
+// how many of the caller's machines run each build. Operators see the two app tabs
+// for their own machines; the backend entries are AG only.
+function handleGetReleaseNotes(req, res) {
+  let notes = [];
+  try { notes = require('../release-notes.json'); } catch (e) { console.warn('[RELEASE-NOTES] cannot read release-notes.json:', e.message); }
+  const isAg = req.user.role === 'ag_admin';
+  let fleet = Object.values(machines);
+  if (!isAg) fleet = fleet.filter(m => m.operatorId === req.user.operatorId);
+  const counts = { coil: {}, fridge: {} };
+  const totals = { coil: 0, fridge: 0 };
+  for (const m of fleet) {
+    const app = fridgeSpec(m.model).isFridge ? 'fridge' : 'coil';
+    totals[app]++;
+    const v = storage.getAppVersion(m.deviceCode);
+    if (v && v.vc != null) counts[app][v.vc] = (counts[app][v.vc] || 0) + 1;
+  }
+  const releaseOf = (app) => {
+    const r = storage.getAppRelease(app);
+    if (!r) return null;
+    return { targetVersionCode: r.targetVersionCode, versionName: r.versionName || null,
+      cohort: r.cohort === 'all' ? 'all' : 'canary', rolloutEnabled: r.rolloutEnabled !== false, publishedAt: r.publishedAt || r.updatedAt || null };
+  };
+  let backendVersion = null;
+  try { backendVersion = require('../package.json').version; } catch (e) {}
+  const entries = (Array.isArray(notes) ? notes : []).filter(n => n && (isAg || n.component !== 'backend'));
+  ok(res, { entries, live: {
+    backendVersion,
+    coil:   { release: releaseOf('coil'),   counts: counts.coil,   total: totals.coil },
+    fridge: { release: releaseOf('fridge'), counts: counts.fridge, total: totals.fridge },
+  } });
 }
 
 // PUT publish/replace the single active release (ag-admin).

@@ -287,3 +287,14 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   `DEBUG_KEYSTORE_BASE64` secret on *this* repo. Publishing it (Fleet → Releases → coil → load
   latest build) stays with Siggi, as for fridge. Coil installs are the `isl.snudursopi.vending.debug`
   package, signed with the debug keystore.
+
+## Release notes (2026-10-29)
+
+- **Every version bump adds an entry to `snarl-sopi-backend/release-notes.json`**, in the same PR:
+  `component` (`coil` | `fridge` | `backend`), `version`, `versionCode` (apps), `date`, a one-line
+  `title`, `notes` (bullets, in English, written for Siggi and operators: what changed on the machine
+  or the dashboard, not which file moved) and an optional `check` (what to look at on the canary).
+  The dashboard's last row, "what's new", reads this file through `GET /api/v1/release-notes` and
+  marks each app build with how many of the caller's machines run it and whether it is the
+  published release (canary / all); the backend tab (AG only) marks the version Railway is running
+  as live. Operators see the two app tabs for their own machines.
