@@ -44,6 +44,9 @@ import isl.snudursopi.vending.ui.screens.closed.ClosedScreen
 /** Product info page: back to the grid after this long without a touch. */
 private const val DETAIL_IDLE_MS = 30_000L
 
+/** Complaint form: back to the grid after this long without a touch or a keystroke. */
+private const val COMPLAINT_IDLE_MS = 60_000L
+
 @Composable
 fun NavGraph(viewModel: VendingViewModel) {
     val state by viewModel.state.collectAsState()
@@ -179,6 +182,21 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
         kotlinx.coroutines.delay(DETAIL_IDLE_MS)
         android.util.Log.i("Nav", "product info idle for ${DETAIL_IDLE_MS / 1000} s — back to the grid")
         popOrHome()
+    }
+
+    // Complaint form left open: twice on 2026-10-29 a customer opened it from the success screen
+    // and walked away, and the machine sat on a form with a keyboard for ten minutes and more
+    // (nothing times it out, and nothing was sent). 60 s without a touch or a keystroke leaves it
+    // the way "Hætta við" does. Keys on the soft keyboard are not touches on our window, so the
+    // form reports its edits as activity. Never while a submission is in flight.
+    val onComplaintForm = currentRoute == Routes.ComplaintForm
+    val complaintSubmitting = state.complaintSubmission is isl.snudursopi.vending.ui.state.ComplaintSubmissionState.Submitting
+    LaunchedEffect(lastTouchMs, onComplaintForm, complaintSubmitting) {
+        if (!onComplaintForm || complaintSubmitting) return@LaunchedEffect
+        kotlinx.coroutines.delay(COMPLAINT_IDLE_MS)
+        android.util.Log.i("Nav", "complaint form idle for ${COMPLAINT_IDLE_MS / 1000} s — back to the grid")
+        viewModel.resetComplaintSubmissionState()
+        navController.navigate(Routes.Browse) { popUpTo(Routes.Browse) { inclusive = true } }
     }
 
     // Closed for sale: ClosedScreen covers every customer screen (drawn after the NavHost, so it
@@ -366,6 +384,7 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
                     onSubmit = { items, note, email ->
                         viewModel.submitComplaint(items = items, note = note, customerEmail = email)
                     },
+                    onActivity = { lastTouchMs = System.currentTimeMillis() },
                     onCancel = {
                         viewModel.resetComplaintSubmissionState()
                         navController.navigate(Routes.Browse) {

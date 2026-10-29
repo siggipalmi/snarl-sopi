@@ -1,6 +1,17 @@
 [
  {
   "component": "coil",
+  "version": "0.80.15",
+  "versionCode": 171,
+  "date": "2026-10-29",
+  "title": "The complaint form returns to the grid by itself.",
+  "notes": [
+   "Twice in one afternoon a customer opened the complaint form from the success screen and walked away, leaving the machine on a form with a keyboard for ten minutes and more. It now goes back to the grid after 60 seconds without a touch or a keystroke, as \"Hætta við\" does; never while a complaint is being sent."
+  ],
+  "check": "After a sale, open the complaint form and wait 60 s; the grid must come back. Type slowly for over a minute; it must stay."
+ },
+ {
+  "component": "coil",
   "version": "0.80.14",
   "versionCode": 170,
   "date": "2026-10-29",

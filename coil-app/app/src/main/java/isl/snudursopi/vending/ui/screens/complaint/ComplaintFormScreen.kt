@@ -78,6 +78,8 @@ fun ComplaintFormScreen(
     onCancel: () -> Unit,
     onAcceptedNavigate: () -> Unit,
     onClockLongPress: () -> Unit = {},
+    /** Called on every edit, so the inactivity return counts typing as activity. */
+    onActivity: () -> Unit = {},
 ) {
     // Defensive: if there's no transaction (shouldn't happen), bail
     if (transaction == null || transaction.items.isEmpty()) {
@@ -176,7 +178,7 @@ fun ComplaintFormScreen(
             FieldLabel(localized(language, R.string.complaint_note_label))
             TextArea(
                 value = note,
-                onValueChange = { if (it.length <= 280) note = it },
+                onValueChange = { if (it.length <= 280) note = it; onActivity() },
                 placeholder = localized(language, R.string.complaint_note_placeholder),
             )
 
@@ -186,7 +188,7 @@ fun ComplaintFormScreen(
             FieldLabel(localized(language, R.string.complaint_email_label))
             TextLine(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { email = it; onActivity() },
                 placeholder = localized(language, R.string.complaint_email_placeholder),
                 keyboardType = KeyboardType.Email,
                 imeAction = ImeAction.Done,
