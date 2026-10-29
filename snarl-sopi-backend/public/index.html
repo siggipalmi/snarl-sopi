@@ -612,7 +612,8 @@ select.fi{cursor:pointer;}
 .fh-table td .ui-tag:first-child{margin-left:0}
 .fh-table tbody tr{cursor:pointer}.fh-table tbody tr:hover{background:var(--cream)}
 /* New operator home (Yfirlit v3) */
-#page-dashboard.v3 > :not(#home-v3){display:none !important}
+#page-dashboard.v3 > :not(#home-v3):not(#whatsnew-row){display:none !important}
+#page-dashboard.v3 > #whatsnew-row{margin:14px 0 10px}
 #page-dashboard:not(.v3) > #home-v3{display:none}
 #home-v3{max-width:560px;margin:0 auto}
 @media(min-width:760px){
@@ -926,6 +927,21 @@ select.fi{cursor:pointer;}
             </div>
           </div>
           <div id="soldout-content" style="max-height:340px;overflow:auto"></div>
+        </div>
+      </details>
+
+      <details id="whatsnew-row" style="margin-bottom:10px" ontoggle="if(this.open)renderWhatsNew()">
+        <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--bronze);background:var(--cream);border:1px solid var(--line);border-radius:14px">▸ <span data-i18n="dash.sum.whatsNew">what's new</span></summary>
+        <div class="panel" style="margin-top:8px">
+          <div class="ph">
+            <div class="ph-title" data-i18n="dash.whatsNew">what's new.</div>
+            <div class="tabs" id="whatsnew-tabs">
+              <div class="tab active" data-app="coil"    onclick="setWhatsNewTab('coil', this)" data-i18n="dash.wn.coil">coil app</div>
+              <div class="tab"        data-app="fridge"  onclick="setWhatsNewTab('fridge', this)" data-i18n="dash.wn.fridge">fridge app</div>
+              <div class="tab ag-only" data-app="backend" onclick="setWhatsNewTab('backend', this)" data-i18n="dash.wn.backend">backend</div>
+            </div>
+          </div>
+          <div id="whatsnew-content" style="max-height:420px;overflow:auto"></div>
         </div>
       </details>
     </div>
@@ -2132,6 +2148,7 @@ const I18N = {
     'dash.restockDue':'restock due.','dash.tryNewLayout':'Try the new layout →',
     'dash.sum.revenueTrends':'revenue & trends','dash.sum.machinePerformance':'machine performance',
     'dash.sum.soldOut':'currently sold out',
+    'dash.sum.whatsNew':"what's new",'dash.whatsNew':"what's new.",'dash.wn.on':'on {n} of {m} machines','dash.wn.none':'on no machine yet','dash.wn.superseded':'superseded','dash.wn.published':'published','dash.wn.live':'live','dash.wn.canary':'canary','dash.wn.all':'all machines','dash.wn.rolloutOff':'rollout off','dash.wn.check':'to check:','dash.wn.empty':'no notes yet.','dash.wn.coil':'coil app','dash.wn.fridge':'fridge app','dash.wn.backend':'backend',
     'dash.neverRestocked':'never restocked','dash.pctFull':'{n}% full','dash.soldOutN':'{n} sold out',
     'dash.nothingDue':'Nothing due — the fleet is stocked.',
     'dash.peakDay':'peak day','dash.avgPerDay':'avg / day','dash.totalOrders':'total · {n} orders',
@@ -2318,6 +2335,7 @@ const I18N = {
     'dash.restockDue':'áfylling.','dash.tryNewLayout':'Prófa nýja útlitið →',
     'dash.sum.revenueTrends':'tekjur og þróun','dash.sum.machinePerformance':'frammistaða véla',
     'dash.sum.soldOut':'uppselt núna',
+    'dash.sum.whatsNew':'nýtt í kerfinu','dash.whatsNew':'nýtt í kerfinu.','dash.wn.on':'á {n} af {m} vélum','dash.wn.none':'á engri vél enn','dash.wn.superseded':'úrelt','dash.wn.published':'gefin út','dash.wn.live':'í keyrslu','dash.wn.canary':'prufuvél','dash.wn.all':'allar vélar','dash.wn.rolloutOff':'dreifing slökkt','dash.wn.check':'athuga:','dash.wn.empty':'engar færslur enn.','dash.wn.coil':'sjálfsalaforrit','dash.wn.fridge':'kæliforrit','dash.wn.backend':'bakendi',
     'dash.neverRestocked':'aldrei fyllt á','dash.pctFull':'{n}% fullt','dash.soldOutN':'{n} uppseld',
     'dash.nothingDue':'Ekkert í bið — flotinn er fullur.',
     'dash.peakDay':'besti dagur','dash.avgPerDay':'meðaltal á dag','dash.totalOrders':'samtals · {n} afgreiðslur',
@@ -3589,6 +3607,72 @@ function setSoldOutScope(scope, el) {
   refreshDashboardSoldOut();
 }
 
+// ─── What's new: release notes per component, read against the live fleet ───
+let _whatsNewTab = 'coil';
+let _whatsNewData = null;
+function setWhatsNewTab(app, el) {
+  _whatsNewTab = app;
+  document.querySelectorAll('#whatsnew-tabs .tab').forEach(x => x.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderWhatsNew(true);
+}
+function wnText(key, n, m) { return t(key).replace('{n}', n).replace('{m}', m); }
+function wnEntryHtml(e, live) {
+  const isApp = e.component !== 'backend';
+  const rel = isApp && live && live[e.component] ? live[e.component].release : null;
+  const fleet = isApp && live && live[e.component] ? live[e.component] : null;
+  const pills = [];
+  if (isApp && fleet) {
+    const n = (fleet.counts && fleet.counts[e.versionCode]) || 0;
+    const newer = Object.keys(fleet.counts || {}).some(vc => Number(vc) > Number(e.versionCode));
+    const isPublished = rel && Number(rel.targetVersionCode) === Number(e.versionCode);
+    if (n > 0) pills.push(`<span class="pill ${isPublished || !newer ? 'pill-up' : 'pill-out'}">${rsEsc(wnText('dash.wn.on', n, fleet.total))}</span>`);
+    else if (isPublished) pills.push(`<span class="pill pill-warn">${rsEsc(t('dash.wn.none'))}</span>`);
+    else if (newer || (rel && Number(rel.targetVersionCode) > Number(e.versionCode))) pills.push(`<span class="pill pill-out">${rsEsc(t('dash.wn.superseded'))}</span>`);
+    if (isPublished) {
+      const scope = !rel.rolloutEnabled ? t('dash.wn.rolloutOff') : rel.cohort === 'all' ? t('dash.wn.all') : t('dash.wn.canary');
+      pills.push(`<span class="pill pill-bz">${rsEsc(t('dash.wn.published') + ' · ' + scope)}</span>`);
+    }
+  } else if (!isApp && live) {
+    if (live.backendVersion === e.version) pills.push(`<span class="pill pill-up">${rsEsc(t('dash.wn.live'))}</span>`);
+    else pills.push(`<span class="pill pill-out">${rsEsc(t('dash.wn.superseded'))}</span>`);
+  }
+  const code = isApp && e.versionCode != null ? ` (${e.versionCode})` : '';
+  const bullets = (e.notes || []).map(x => `<li>${rsEsc(x)}</li>`).join('');
+  const check = e.check ? `<div style="font-family:var(--mono);font-size:10.5px;color:var(--bronze);margin-top:6px">${rsEsc(t('dash.wn.check'))} ${rsEsc(e.check)}</div>` : '';
+  return `<div style="padding:12px 16px;border-top:1px solid var(--line)">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="font-family:var(--mono);font-size:12px;font-weight:600">${rsEsc('v' + e.version + code)}</span>
+      <span style="font-size:11px;color:var(--muted)">${rsEsc(e.date ? fmtDate(e.date) : '')}</span>${pills.join('')}
+    </div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">${rsEsc(e.title || '')}</div>
+    <ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.5;color:var(--ink-soft)">${bullets}</ul>${check}
+  </div>`;
+}
+async function renderWhatsNew(force) {
+  const el = document.getElementById('whatsnew-content');
+  if (!el) return;
+  const isAg = currentUser && currentUser.role === 'ag_admin';
+  document.querySelectorAll('#whatsnew-tabs .ag-only').forEach(x => { x.style.display = isAg ? '' : 'none'; });
+  if (!backendOnline || !API_TOKEN) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Backend offline</div>';
+    return;
+  }
+  if (!_whatsNewData || force !== true) {
+    try {
+      const r = await API.get('/api/v1/release-notes');
+      if (r && r.ok) _whatsNewData = r.data;
+    } catch (e) {
+      if (!_whatsNewData) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">' + rsEsc(e.message || 'error') + '</div>'; return; }
+    }
+  }
+  const d = _whatsNewData || { entries: [], live: null };
+  const list = (d.entries || []).filter(e => e.component === _whatsNewTab)
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (Number(b.versionCode) || 0) - (Number(a.versionCode) || 0) || String(b.version).localeCompare(String(a.version), undefined, { numeric: true }));
+  el.innerHTML = list.length ? list.map(e => wnEntryHtml(e, d.live)).join('')
+    : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">' + rsEsc(t('dash.wn.empty')) + '</div>';
+}
+
 async function refreshDashboardSoldOut() {
   const el = document.getElementById('soldout-content');
   if (!el) return;
@@ -3771,6 +3855,7 @@ async function renderDashboardClassic() {
   refreshRevenueChart();
   refreshDashboardSoldOut();
   refreshMachineComparison();
+  renderWhatsNew();
 
   const active   = DB.alerts.filter(a=>!a.resolved).slice(0,4);
   const pipColor = {critical:'var(--alert)',warning:'#B8860B',info:'var(--bronze-light)'};
@@ -4240,6 +4325,8 @@ function renderHomeV3(home) {
     + `<div class="home-main"><div class="home-machines"><div class="home-mh">vélar</div>${cardsHtml}</div>`
     + `<div class="home-cols"><div class="home-col-a">${attCard}</div><div class="home-col-b">${today}${top}</div></div></div>`
     + (seesSales ? `<div style="text-align:center;margin:18px 0 6px"><a onclick="setHomeLayout(true)" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Gamla útlitið</a></div>` : '');
+  // The "what's new" row stays the page's last child outside #home-v3 (the v3 CSS lets it through), so a re-render cannot wipe it.
+  renderWhatsNew();
   // Fill each fridge's restock-list count without holding up the page; keep a door that is opening.
   for (const m of (home.machines || [])) if (m.isFridge) {
     loadRestockCount(m.deviceCode);

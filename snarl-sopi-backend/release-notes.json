@@ -1,0 +1,437 @@
+[
+ {
+  "component": "coil",
+  "version": "0.80.13",
+  "versionCode": 169,
+  "date": "2026-10-28",
+  "title": "The blank cream screen is fixed.",
+  "notes": [
+   "Two quick taps on \"Til baka\" could empty the screen and leave the machine deaf while the dashboard said online. Every back now lands on the grid, and the app goes home by itself if the screen ever empties.",
+   "The screen watchdog restarts the app on any flat, single-colour screen, not only a black one."
+  ],
+  "check": "Tap \"Til baka\" twice fast on a product page; the grid must stay."
+ },
+ {
+  "component": "coil",
+  "version": "0.80.12",
+  "versionCode": 168,
+  "date": "2026-10-28",
+  "title": "Idle guard, per machine.",
+  "notes": [
+   "A switch under Controls (AG only) keeps one CPU core out of the deep sleep that stopped Grótta vinstri for 44 minutes twice in one night. Off unless switched on; measured on one machine first."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.11",
+  "versionCode": 167,
+  "date": "2026-10-28",
+  "title": "A failed update download is retried.",
+  "notes": [
+   "One download that failed used to block that build until the app restarted; hægri sat on an old build that way. A failed download now retries at the next hourly check."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.10",
+  "versionCode": 166,
+  "date": "2026-10-27",
+  "title": "Header never mixes versions.",
+  "notes": [
+   "The log relay carries the build code, so the dashboard header cannot pair a new version name with the old build's number."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.9",
+  "versionCode": 165,
+  "date": "2026-10-27",
+  "title": "The machine says why an update is withheld.",
+  "notes": [
+   "\"útgáfa í bið\" now names the reason: not in the release group, rollout halted, or the machine still needs pairing for its own key.",
+   "The version name reaches the dashboard header with every update check."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.8",
+  "versionCode": 164,
+  "date": "2026-10-27",
+  "title": "Wireless debugging from the dashboard.",
+  "notes": [
+   "\"adb on / status / off\" on the machine page (AG only); the answer carries the connect line, so nobody has to read the screen."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.7",
+  "versionCode": 163,
+  "date": "2026-10-27",
+  "title": "Out of service works on coil.",
+  "notes": [
+   "The dashboard switch covers the screen with \"Lokað tímabundið\" and the operator's reason; a payment already running finishes first. The clock long-press still reaches the PIN pad."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.6",
+  "versionCode": 162,
+  "date": "2026-10-27",
+  "title": "Each machine gets its own admin PIN.",
+  "notes": [
+   "The PIN pad checks the machine's own PIN from the dashboard (machine → admin PIN); no PIN set means the shared code still works.",
+   "Five wrong tries lock the pad for five minutes, kept across restarts, and raise an alert."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.5",
+  "versionCode": 161,
+  "date": "2026-10-27",
+  "title": "Shared module with the fridge app.",
+  "notes": [
+   "Self-healing, auto-revert, the installer, the clock guard, the screen watchdog and the card-reader report are now one copy for both apps. No change in behaviour on the machine."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.4",
+  "versionCode": 160,
+  "date": "2026-10-27",
+  "title": "Card reader in the header.",
+  "notes": [
+   "The machine reports its Nayax reader (serial, firmware) and whether the card link is up; the header shows the serial instead of \"Nayax —\", and a dead link raises an alert."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.3",
+  "versionCode": 159,
+  "date": "2026-10-27",
+  "title": "Updates check even on a SIM router.",
+  "notes": [
+   "The hourly update check ran only on networks Android calls unmetered, which the SIM router is not; it now runs regardless, five minutes after start and hourly after, and logs the outcome.",
+   "The dashboard's check-update command works on coil machines."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.2",
+  "versionCode": 158,
+  "date": "2026-10-27",
+  "title": "Dead screens restart; ads from the backend.",
+  "notes": [
+   "A watchdog restarts the app when the screen stops drawing or stays black.",
+   "The ad region plays the list set in the dashboard, from a local copy; nothing streams over the SIM any more.",
+   "The app relays its log to the dashboard (machine → logs)."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.1",
+  "versionCode": 157,
+  "date": "2026-10-26",
+  "title": "First build released by CI.",
+  "notes": [
+   "No change on the machine; this build proved the release pipeline end to end."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.0",
+  "versionCode": 156,
+  "date": "2026-10-25",
+  "title": "The clock stays right.",
+  "notes": [
+   "The setup and error screens say \"klukkan í vélinni er röng\" when the clock is years off, and the app switches automatic time back on at every start."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.79.0",
+  "versionCode": 155,
+  "date": "2026-10-25",
+  "title": "Set up by pairing code.",
+  "notes": [
+   "A six-digit code from the dashboard hands the machine its own key. No more keys baked into builds."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.70.5",
+  "versionCode": 171,
+  "date": "2026-10-28",
+  "title": "Idle guard, per machine.",
+  "notes": [
+   "Same switch as on coil (Controls, AG only): keeps one CPU core out of deep sleep. Off unless switched on."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.70.4",
+  "versionCode": 170,
+  "date": "2026-10-28",
+  "title": "A failed update download is retried.",
+  "notes": [
+   "A failed download no longer blocks that build until the next restart; it retries at the next check."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.70.3",
+  "versionCode": 169,
+  "date": "2026-10-27",
+  "title": "Header never mixes versions.",
+  "notes": [
+   "The log relay carries the build code, so the header cannot pair a new name with an old number."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.70.2",
+  "versionCode": 168,
+  "date": "2026-10-27",
+  "title": "Update reasons in words.",
+  "notes": [
+   "The update log says why a build is withheld (not in the release group, halted, key not stored). The version name reaches the header with every check."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.70.1",
+  "versionCode": 167,
+  "date": "2026-10-27",
+  "title": "Wireless debugging from the dashboard.",
+  "notes": [
+   "\"adb on / status / off\" on the machine page (AG only), from fridge 0.70.0. From this build the fridge app lives in the same repository as the coil app and shares code with it."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.69.5",
+  "versionCode": 166,
+  "date": "2026-10-27",
+  "title": "Admin PIN code shared with coil.",
+  "notes": [
+   "No change on the machine; the PIN code moved to the shared module."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.69.4",
+  "versionCode": 165,
+  "date": "2026-10-27",
+  "title": "Automatic time kept on.",
+  "notes": [
+   "The app switches automatic time back on at every start, as the coil app does. A wrong clock after a power cut fails every connection while the screen looks fine.",
+   "Self-healing, auto-revert and the installer are now shared with the coil app."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.87.0",
+  "date": "2026-10-29",
+  "title": "What's new, on the dashboard.",
+  "notes": [
+   "This row. One entry per version of the coil app, the fridge app and the backend, newest first, with how many machines run each build."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.86.0",
+  "date": "2026-10-28",
+  "title": "Orders and alerts in Icelandic.",
+  "notes": [
+   "Orders and alerts read in Icelandic; an offline machine is struck out in the list."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.85.0",
+  "date": "2026-10-28",
+  "title": "Afgreiðslur everywhere.",
+  "notes": [
+   "Sales are called afgreiðslur throughout; \"offline\" is the word struck out."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.84.0",
+  "date": "2026-10-28",
+  "title": "Machine detail renderers.",
+  "notes": [
+   "The machine page is built from one set of renderers, and each alert is rendered one way."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.83.0",
+  "date": "2026-10-28",
+  "title": "Machine detail markup pass.",
+  "notes": [
+   "More of the machine page can be translated (14% to 30%)."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.82.1",
+  "date": "2026-10-28",
+  "title": "Three corrections to the Icelandic.",
+  "notes": [
+   "Wording fixes."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.82.0",
+  "date": "2026-10-28",
+  "title": "The machines page reads in Icelandic.",
+  "notes": [
+   "The machines list is translated."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.81.0",
+  "date": "2026-10-28",
+  "title": "Alert sentences are composed, not stored.",
+  "notes": [
+   "Alerts are worded when shown, so they follow the dashboard language; the operator is \"rekstraraðili\"."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.80.0",
+  "date": "2026-10-28",
+  "title": "The dashboard reads in Icelandic.",
+  "notes": [
+   "The home page is translated."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.79.1",
+  "date": "2026-10-28",
+  "title": "The dashboard can be translated.",
+  "notes": [
+   "Language switch in place; 12% translated at this point."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.79.0",
+  "date": "2026-10-28",
+  "title": "Machines are defined; an app release never guesses.",
+  "notes": [
+   "Which app a machine runs comes from its definition, on both ends of a release."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.78.1",
+  "date": "2026-10-28",
+  "title": "A self-test is not a restart.",
+  "notes": [
+   "Self-test reports no longer count as restarts."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.78.0",
+  "date": "2026-10-28",
+  "title": "Alerts have an audience.",
+  "notes": [
+   "Every alert says who it is for; an unclassified one goes to AG."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.77.1",
+  "date": "2026-10-28",
+  "title": "Leased machines link to their operator.",
+  "notes": [
+   "A leased machine parked under \"Unassigned\" links to its new operator."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.77.0",
+  "date": "2026-10-28",
+  "title": "Lease claim is closed without its secret.",
+  "notes": [
+   "A missing LEASE_CLAIM_SECRET closes the lease claim rather than opening it."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.76.8",
+  "date": "2026-10-28",
+  "title": "Features page styled.",
+  "notes": [
+   "features.html gets the design system it advertises."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.76.7",
+  "date": "2026-10-28",
+  "title": "Idle guard switch.",
+  "notes": [
+   "Machine page → Controls → idle guard (AG only): keeps a CPU core out of deep sleep on a board that stalls in it."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.76.6",
+  "date": "2026-10-27",
+  "title": "Header never mixes versions.",
+  "notes": [
+   "The relay's build code is recorded before its name, so a fresh install never shows the old number next to the new name."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.76.5",
+  "date": "2026-10-27",
+  "title": "Key state in the header.",
+  "notes": [
+   "The machine header shows \"key stored\", \"key build — pair first\" or \"key unknown\", and the health banner finally shows; the machine page was missing both."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.76.4",
+  "date": "2026-10-27",
+  "title": "Updates say why they are withheld.",
+  "notes": [
+   "The update manifest names its reason (no release, not in cohort, halted, key not stored), and the version name is recorded with every check."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.76.3",
+  "date": "2026-10-27",
+  "title": "adb buttons for every machine.",
+  "notes": [
+   "\"adb on / status / off\" show on coil machines too (coil 0.80.8+)."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.76.1",
+  "date": "2026-10-27",
+  "title": "Admin PIN panel for coil machines.",
+  "notes": [
+   "The per-machine admin PIN can be set for coil machines (coil 0.80.6+), not only fridges."
+  ]
+ },
+ {
+  "component": "backend",
+  "version": "6.73.10",
+  "date": "2026-10-27",
+  "title": "Version name for every build.",
+  "notes": [
+   "The header reads \"v0.80.3 (159)\" for any build the app has reported, not only the current release; Fleet → Releases shows name and code too."
+  ]
+ }
+]
