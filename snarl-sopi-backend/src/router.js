@@ -9475,4 +9475,4 @@ function publicUser(u) {
   };
 }
 
-module.exports = { router };
+module.exports = { router, routes };
