@@ -93,9 +93,10 @@ function clearReplayGuard(userId) {
 
 // ─── HTTP ─────────────────────────────────────────────────────────────────────
 
-async function post(p, body, token) {
+async function post(p, body, token, ua) {
   const headers = { 'content-type': 'application/json' };
   if (token) headers.Authorization = 'Bearer ' + token;
+  if (ua) headers['user-agent'] = ua;
   const r = await fetch(BASE + p, { method: 'POST', headers, body: JSON.stringify(body || {}) });
   return { status: r.status, body: await r.json().catch(() => ({})) };
 }
@@ -103,7 +104,14 @@ async function get(p, token) {
   const r = await fetch(BASE + p, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
   return { status: r.status, body: await r.json().catch(() => ({})) };
 }
-const login = (email, extra) => post('/api/v1/auth/login', { email, password: PASSWORD, ...extra });
+const login = (email, extra, ua) =>
+  post('/api/v1/auth/login', { email, password: PASSWORD, ...extra }, null, ua);
+
+// A couple of real user-agent strings, so deviceLabel() produces genuinely different labels.
+const UA_MAC_SAFARI = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 '
+  + '(KHTML, like Gecko) Version/17.4 Safari/605.1.15';
+const UA_WIN_CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+  + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 async function waitUp() {
   for (let i = 0; i < 60; i++) {
@@ -318,6 +326,93 @@ async function main() {
   const left = sqlite.prepare('SELECT COUNT(*) n FROM user_recovery_codes WHERE userId = ?')
     .get(fx.agId).n;
   check('disabling cleared the recovery codes', left === 0, left + ' left behind');
+
+  // ── Sign-in alerts ────────────────────────────────────────────────────────
+  console.log('\nSign-in alerts');
+  const alertsFor = (type) => sqlite
+    .prepare("SELECT * FROM alerts WHERE type = ? ORDER BY createdAt").all(type);
+  const clearAuthAlerts = () => sqlite.prepare(
+    "DELETE FROM alerts WHERE type IN ('new_device_signin','recovery_code_used','two_factor_disabled')"
+  ).run();
+
+  // Two-factor is off again by this point, so these are plain password sign-ins.
+  clearAuthAlerts();
+  sqlite.prepare('DELETE FROM user_known_devices WHERE userId = ?').run(fx.agId);
+
+  await login(fx.agEmail, {}, UA_MAC_SAFARI);
+  check('the first device on an account raises nothing', alertsFor('new_device_signin').length === 0,
+    'that is the person setting it up');
+
+  await login(fx.agEmail, {}, UA_MAC_SAFARI);
+  check('signing in again from the same device raises nothing',
+    alertsFor('new_device_signin').length === 0);
+
+  await login(fx.agEmail, {}, UA_WIN_CHROME);
+  const newDev = alertsFor('new_device_signin');
+  check('a sign-in from a different device raises one alert', newDev.length === 1,
+    'got ' + newDev.length);
+  if (newDev.length) {
+    const p2 = JSON.parse(newDev[0].params || '{}');
+    check('the alert carries params the dashboard can translate',
+      p2.device === 'Windows · Chrome' && p2.who === fx.agEmail && !!p2.date && !!p2.ip,
+      JSON.stringify(p2));
+    check('it names no machine, so it is AG-only by audience', newDev[0].deviceCode === null);
+    check('its severity is warning', newDev[0].severity === 'warning');
+  }
+
+  await login(fx.agEmail, {}, UA_WIN_CHROME);
+  check('that device is now known and does not alert again',
+    alertsFor('new_device_signin').length === 1);
+
+  // A device is recorded only once a sign-in COMPLETES. The operator still has two-factor on
+  // from the section above, so a password-only attempt stops at the code step — and must not
+  // mark the device known, or someone holding just the password could silence the alert for
+  // the sign-in that follows.
+  clearAuthAlerts();
+  sqlite.prepare('DELETE FROM user_known_devices WHERE userId = ?').run(fx.opId);
+  const stalled = await login(fx.opEmail, {}, UA_WIN_CHROME);
+  check('a password-only attempt really did stall at the code step',
+    stalled.body.data?.needsTotp === true);
+  check('an unfinished sign-in does NOT mark the device known',
+    sqlite.prepare('SELECT COUNT(*) n FROM user_known_devices WHERE userId = ?').get(fx.opId).n === 0,
+    'otherwise the password alone could pre-approve a device');
+
+  // An operator on a brand-new device must stay silent: nobody could act on it.
+  await fullLogin(fx.opEmail, fx.opId);
+  check('an operator signing in from a new device raises nothing',
+    alertsFor('new_device_signin').length === 0, 'ag_admin only, by design');
+  check('but the completed operator sign-in IS recorded',
+    sqlite.prepare('SELECT COUNT(*) n FROM user_known_devices WHERE userId = ?').get(fx.opId).n === 1,
+    'rows: ' + sqlite.prepare('SELECT COUNT(*) n FROM user_known_devices WHERE userId = ?').get(fx.opId).n);
+
+  // Recovery code, and turning it off.
+  clearAuthAlerts();
+  const setup2 = await post('/api/v1/auth/2fa/setup', {}, (await login(fx.agEmail)).body.data.token);
+  const secret2 = setup2.body.data.secret;
+  const agTok2 = (await login(fx.agEmail)).body.data.token;
+  const conf = await post('/api/v1/auth/2fa/confirm', { code: totp.currentCode(secret2) }, agTok2);
+  const codes2 = conf.body.data.recoveryCodes;
+  let a2 = await login(fx.agEmail);
+  let r2 = await post('/api/v1/auth/login/totp', { challenge: a2.body.data.challenge, code: codes2[0] });
+  check('a recovery-code sign-in raises its own alert', alertsFor('recovery_code_used').length === 1,
+    'got ' + alertsFor('recovery_code_used').length);
+  if (alertsFor('recovery_code_used').length) {
+    const p3 = JSON.parse(alertsFor('recovery_code_used')[0].params || '{}');
+    check('and says how many codes are left', p3.left === '7', JSON.stringify(p3.left));
+  }
+
+  await post('/api/v1/auth/2fa/disable', { password: PASSWORD }, r2.body.data.token);
+  const off = alertsFor('two_factor_disabled');
+  check('turning two-factor off raises a critical alert',
+    off.length === 1 && off[0].severity === 'critical',
+    off.length + ' alert(s), severity ' + (off[0] && off[0].severity));
+
+  // An alert is a log line, not a condition: a second one must not replace the first.
+  check('each event is its own alert row, never an overwrite',
+    new Set([...alertsFor('new_device_signin'), ...alertsFor('recovery_code_used'),
+             ...alertsFor('two_factor_disabled')].map(a => a.id)).size
+    === alertsFor('new_device_signin').length + alertsFor('recovery_code_used').length
+      + alertsFor('two_factor_disabled').length);
 
   console.log('\n' + (failures.length ? failures.length + ' FAILED, ' : '') + passed + ' passed');
   if (failures.length) for (const f of failures) {

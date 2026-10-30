@@ -42,6 +42,7 @@ const {
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
 const twoFactor = require('./twoFactor');
+const authAlerts = require('./authAlerts');
 const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
         revokeToken, revokeAllForUser, requireCap, authConfig } = require('./auth');
@@ -1067,8 +1068,10 @@ function handleLogin(req, res) {
     }
   }
 
-  const token = createToken(user.id, deviceLabel(req));
+  const label = deviceLabel(req);
+  const token = createToken(user.id, label);
   storage.updateLastActive(user.id);
+  authAlerts.noteSignIn(user, label, clientIp(req));
   ok(res, { token, user: publicUser(user) });
 }
 
@@ -1125,11 +1128,17 @@ function handleLoginTotp(req, res) {
   const user = users.find(u => u.id === userId);
   if (!user) return json(res, 401, { ok: false, error: 'Invalid credentials' });
 
-  const token = createToken(user.id, deviceLabel(req));
+  const label = deviceLabel(req);
+  const token = createToken(user.id, label);
   storage.updateLastActive(user.id);
+  authAlerts.noteSignIn(user, label, clientIp(req));
 
   const out = { token, user: publicUser(user), via: check.via };
-  if (check.via === 'recovery') out.recoveryCodesLeft = check.recoveryCodesLeft;
+  if (check.via === 'recovery') {
+    out.recoveryCodesLeft = check.recoveryCodesLeft;
+    // Either the phone is gone, or somebody else is in. Worth hearing about either way.
+    authAlerts.noteRecoveryCodeUsed(user, label, clientIp(req), check.recoveryCodesLeft);
+  }
   if (trustDevice) {
     const t = twoFactor.trustDevice(user.id, deviceLabel(req));
     out.deviceToken = t.deviceToken;
@@ -1174,6 +1183,7 @@ function handle2faDisable(req, res) {
   }
   twoFactor.disable(req.user.id);
   console.log('[2FA] disabled for ' + req.user.id);
+  authAlerts.noteTwoFactorDisabled(me, deviceLabel(req), clientIp(req));
   ok(res, { enabled: false });
 }
 
@@ -5468,7 +5478,14 @@ function handleRevokeKey(req, res) {
 // is passed through untouched and keeps displaying what it was stored with.
 const OFFLINE_DETAIL = /^(\S+)\s+·\s+offline since\s+(\d{4})-(\d{2})-(\d{2})\s*$/;
 function withAlertParams(a) {
-  if (!a || a.params) return a;
+  if (!a) return a;
+  if (a.params) {
+    // Stored as JSON by whatever raised the alert. Already an object on a row that came
+    // straight from an in-memory seed.
+    if (typeof a.params !== 'string') return a;
+    try { return { ...a, params: JSON.parse(a.params) }; }
+    catch (e) { return { ...a, params: null }; }
+  }
   if (a.type === 'offline') {
     const m = OFFLINE_DETAIL.exec(String(a.detail || ''));
     if (!m) return a;

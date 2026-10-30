@@ -37,6 +37,12 @@ const AUDIENCE = {
   settlement_mismatch:         OPERATOR_ADMIN,
   operator_no_complaint_email: OPERATOR_ADMIN,
 
+  // Account security. AG-only, and raised only for ag_admin accounts — see authAlerts.js for
+  // why: an alert naming one operator's sign-in has no audience that could act on it.
+  new_device_signin:   AG,
+  recovery_code_used:  AG,
+  two_factor_disabled: AG,
+
   // Ours. Nothing an operator can do about any of it.
   invalid_machine_key:   AG,
   device_owner_cleared:  AG,
