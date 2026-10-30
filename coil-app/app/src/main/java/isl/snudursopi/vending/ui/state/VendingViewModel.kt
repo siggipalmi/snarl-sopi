@@ -871,7 +871,9 @@ class VendingViewModel(
         } ?: snapshot.basket.lines.map { line ->
             val realised = quote?.lines?.firstOrNull { it.goodsId == line.product.id }?.lineTotalIsk
                 ?: (line.product.priceIsk * line.quantity)
-            SaleLine(goodsId = line.product.id, qty = line.quantity, amountIsk = realised)
+            // The coil this line came out of: orderItems() dispenses every unit of a line from
+            // line.product.slot, so that is the aisle that vended it.
+            SaleLine(goodsId = line.product.id, qty = line.quantity, amountIsk = realised, aisle = line.product.slot)
         }
         if (lines.isEmpty()) return
         val payload = SalePayload(
