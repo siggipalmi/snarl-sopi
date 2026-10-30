@@ -572,6 +572,42 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_drafts_status  ON product_drafts(status);
   CREATE INDEX IF NOT EXISTS idx_drafts_receipt ON product_drafts(receiptId);
+
+  -- Two-factor authentication. One row per user who has set it up. The row exists from the
+  -- moment setup starts; confirmedAt is what makes it live, so an abandoned setup never locks
+  -- anyone out. lastStep is the last 30-second window spent, which is how a code read over
+  -- someone's shoulder is stopped from being used twice.
+  CREATE TABLE IF NOT EXISTS user_totp (
+    userId      TEXT PRIMARY KEY,
+    secret      TEXT NOT NULL,
+    confirmedAt INTEGER,
+    lastStep    INTEGER NOT NULL DEFAULT -1,
+    createdAt   INTEGER NOT NULL
+  );
+
+  -- Recovery codes, stored only as sha256. Shown once at enrolment and never again.
+  CREATE TABLE IF NOT EXISTS user_recovery_codes (
+    id        TEXT PRIMARY KEY,
+    userId    TEXT NOT NULL,
+    codeHash  TEXT NOT NULL,
+    usedAt    INTEGER,
+    createdAt INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_recovery_user ON user_recovery_codes(userId);
+
+  -- A browser that has already passed a code and was trusted for a while. The secret itself is
+  -- never stored: only its sha256, so a copy of this table does not let anyone skip the code.
+  CREATE TABLE IF NOT EXISTS trusted_devices (
+    id         TEXT PRIMARY KEY,
+    userId     TEXT NOT NULL,
+    tokenHash  TEXT NOT NULL,
+    label      TEXT,
+    createdAt  INTEGER NOT NULL,
+    lastUsedAt INTEGER,
+    expiresAt  INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_trusted_user    ON trusted_devices(userId);
+  CREATE INDEX IF NOT EXISTS idx_trusted_expires ON trusted_devices(expiresAt);
 `);
 
 // ─── Lightweight migrations ───────────────────────────────────────────────────
@@ -588,6 +624,9 @@ ensureColumn('machines', 'nayaxMachineId',  'TEXT');
 // is the kilo price and lineIsk = ceil(grams × kr/kg ÷ 1000).
 ensureColumn('fridge_settlement_lines', 'soldByWeight', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('machines', 'nayaxLastSyncAt', 'TEXT');
+// Which session was last used when, for the signed-in-devices screen and for idle expiry.
+// Existing tokens get NULL and are read as "first seen now" rather than as idle since the epoch.
+ensureColumn('auth_tokens', 'lastUsedAt', 'INTEGER');
 ensureColumn('machines', 'nayaxDataJson',   'TEXT');
 ensureColumn('machines', 'stockSource',     "TEXT NOT NULL DEFAULT 'weimi'");
 // products are keyed by the device-facing product code (goodsCode); we also keep
@@ -1045,6 +1084,32 @@ const stmts = {
   deleteAuthToken:   db.prepare('DELETE FROM auth_tokens WHERE token = ?'),
   deleteUserTokens:  db.prepare('DELETE FROM auth_tokens WHERE userId = ?'),
   cleanupExpiredAuthTokens: db.prepare('DELETE FROM auth_tokens WHERE expiresAt < ?'),
+  touchAuthToken:    db.prepare('UPDATE auth_tokens SET lastUsedAt = ? WHERE token = ?'),
+  listUserTokens:    db.prepare('SELECT token, createdAt, expiresAt, lastUsedAt FROM auth_tokens WHERE userId = ? ORDER BY COALESCE(lastUsedAt, createdAt) DESC'),
+  deleteOtherUserTokens: db.prepare('DELETE FROM auth_tokens WHERE userId = ? AND token != ?'),
+
+  // Two-factor
+  getTotp:           db.prepare('SELECT * FROM user_totp WHERE userId = ?'),
+  upsertTotp:        db.prepare(`INSERT INTO user_totp (userId, secret, confirmedAt, lastStep, createdAt)
+                                 VALUES (?, ?, NULL, -1, ?)
+                                 ON CONFLICT(userId) DO UPDATE SET secret = excluded.secret,
+                                   confirmedAt = NULL, lastStep = -1, createdAt = excluded.createdAt`),
+  confirmTotp:       db.prepare('UPDATE user_totp SET confirmedAt = ?, lastStep = ? WHERE userId = ?'),
+  setTotpStep:       db.prepare('UPDATE user_totp SET lastStep = ? WHERE userId = ?'),
+  deleteTotp:        db.prepare('DELETE FROM user_totp WHERE userId = ?'),
+
+  insertRecoveryCode: db.prepare('INSERT INTO user_recovery_codes (id, userId, codeHash, usedAt, createdAt) VALUES (?, ?, ?, NULL, ?)'),
+  listRecoveryCodes:  db.prepare('SELECT * FROM user_recovery_codes WHERE userId = ? ORDER BY createdAt'),
+  useRecoveryCode:    db.prepare('UPDATE user_recovery_codes SET usedAt = ? WHERE id = ? AND usedAt IS NULL'),
+  deleteRecoveryCodes: db.prepare('DELETE FROM user_recovery_codes WHERE userId = ?'),
+
+  insertTrustedDevice: db.prepare('INSERT INTO trusted_devices (id, userId, tokenHash, label, createdAt, lastUsedAt, expiresAt) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+  getTrustedDevice:    db.prepare('SELECT * FROM trusted_devices WHERE id = ?'),
+  listTrustedDevices:  db.prepare('SELECT * FROM trusted_devices WHERE userId = ? ORDER BY COALESCE(lastUsedAt, createdAt) DESC'),
+  touchTrustedDevice:  db.prepare('UPDATE trusted_devices SET lastUsedAt = ? WHERE id = ?'),
+  deleteTrustedDevice: db.prepare('DELETE FROM trusted_devices WHERE id = ? AND userId = ?'),
+  deleteUserTrustedDevices: db.prepare('DELETE FROM trusted_devices WHERE userId = ?'),
+  cleanupExpiredTrustedDevices: db.prepare('DELETE FROM trusted_devices WHERE expiresAt < ?'),
 
   // Stock history (append-only)
   insertStockHistory: db.prepare(`INSERT INTO stock_history (deviceCode, goodsId, productName, stock, recordedAt, source)
@@ -2139,6 +2204,48 @@ const storage = {
   deleteAuthToken(token)        { stmts.deleteAuthToken.run(token); },
   deleteUserTokens(userId)      { stmts.deleteUserTokens.run(userId); },
   cleanupExpiredAuthTokens()    { stmts.cleanupExpiredAuthTokens.run(Date.now()); },
+  touchAuthToken(token)         { stmts.touchAuthToken.run(Date.now(), token); },
+  listUserTokens(userId)        { return stmts.listUserTokens.all(userId); },
+  deleteOtherUserTokens(userId, keepToken) {
+    stmts.deleteOtherUserTokens.run(userId, keepToken);
+  },
+
+  // ─── Two-factor ─────────────────────────────────────────────────────────────
+  getTotp(userId)               { return stmts.getTotp.get(userId) || null; },
+  startTotpSetup(userId, secret) { stmts.upsertTotp.run(userId, secret, Date.now()); },
+  confirmTotp(userId, step)     { stmts.confirmTotp.run(Date.now(), step, userId); },
+  setTotpStep(userId, step)     { stmts.setTotpStep.run(step, userId); },
+  disableTotp(userId) {
+    stmts.deleteTotp.run(userId);
+    stmts.deleteRecoveryCodes.run(userId);
+    stmts.deleteUserTrustedDevices.run(userId);
+  },
+
+  replaceRecoveryCodes(userId, hashes) {
+    const now = Date.now();
+    const tx = db.transaction(() => {
+      stmts.deleteRecoveryCodes.run(userId);
+      let i = 0;
+      for (const h of hashes) {
+        stmts.insertRecoveryCode.run(userId + '_rc' + (++i) + '_' + now, userId, h, now);
+      }
+    });
+    tx();
+  },
+  listRecoveryCodes(userId)     { return stmts.listRecoveryCodes.all(userId); },
+  /** Marks one unused code as spent. Returns true only if this call is the one that spent it. */
+  spendRecoveryCode(id)         { return stmts.useRecoveryCode.run(Date.now(), id).changes === 1; },
+
+  insertTrustedDevice({ id, userId, tokenHash, label, expiresAt }) {
+    const now = Date.now();
+    stmts.insertTrustedDevice.run(id, userId, tokenHash, label || null, now, now, expiresAt);
+  },
+  getTrustedDevice(id)          { return stmts.getTrustedDevice.get(id) || null; },
+  listTrustedDevices(userId)    { return stmts.listTrustedDevices.all(userId); },
+  touchTrustedDevice(id)        { stmts.touchTrustedDevice.run(Date.now(), id); },
+  deleteTrustedDevice(id, userId) { return stmts.deleteTrustedDevice.run(id, userId).changes > 0; },
+  deleteUserTrustedDevices(userId) { stmts.deleteUserTrustedDevices.run(userId); },
+  cleanupExpiredTrustedDevices() { stmts.cleanupExpiredTrustedDevices.run(Date.now()); },
 
   // Stock & sold-out tracking
   recordStockSnapshot({ deviceCode, goodsId, productName, stock, source = 'unknown' }) {

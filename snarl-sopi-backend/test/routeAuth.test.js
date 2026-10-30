@@ -40,6 +40,10 @@ const PUBLIC = new Map([
     'The sign-in itself. Rate-limited per IP and per email in the handler.'],
   ['POST /api/v1/auth/forgot-password',
     'Reaching this without being signed in is the whole point.'],
+  ['POST /api/v1/auth/login/totp',
+    'The second step of signing in, so there is no session yet. The challenge in the body is '
+    + 'the credential, it lasts five minutes, and wrong codes count against the same limiter '
+    + 'as wrong passwords, per IP and per account.'],
   ['GET /api/v1/password-reset/:token',
     'The token in the URL is the credential.'],
   ['POST /api/v1/password-reset/:token',
