@@ -64,7 +64,8 @@ if [ "$MODE" = "--baskets" ]; then
   echo "Dashboard → this machine → read_all_trays, now. Waiting up to 90 s…"
   LINE=""
   for _ in $(seq 1 30); do
-    LINE=$(s logcat -d -T "$SINCE" -s CommandRunner:I | grep "command read_all_trays" | tail -1)
+    # One string: adb joins its arguments with spaces, so an unquoted time arrives as two words.
+    LINE=$(s "logcat -d -T '$SINCE' -s CommandRunner:I" | grep "command read_all_trays" | tail -1)
     [ -n "$LINE" ] && break
     sleep 3
   done
