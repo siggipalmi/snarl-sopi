@@ -2235,6 +2235,12 @@ let LANG = (function(){ try { return localStorage.getItem(LANG_KEY) || 'en'; } c
 const I18N = {
   en: {
     'nav.security':'Security','title.security':'security.',
+    'alert.new_device_signin.title':'Sign-in from a new device',
+    'alert.new_device_signin.detail':'{who} signed in from {device} ({ip}) on {date} at {time}. If this was not you, change the password and sign out everywhere else.',
+    'alert.recovery_code_used.title':'A recovery code was used to sign in',
+    'alert.recovery_code_used.detail':'{who} signed in with a recovery code from {device} ({ip}) on {date} at {time}. {left} left. If this was not you, change the password and sign out everywhere else.',
+    'alert.two_factor_disabled.title':'Two-factor authentication was turned off',
+    'alert.two_factor_disabled.detail':'{who} turned two-factor off from {device} ({ip}) on {date} at {time}. If this was not you, the account is compromised: change the password, sign out everywhere else and turn it back on.',
     'common.refresh':'refresh →','common.loading':'Loading…','common.cancel':'cancel','common.close':'close','common.print':'print',
     'sec.twoFactorTitle':'two-factor authentication.','sec.sessionsTitle':'signed-in devices.',
     'sec.noConnection':'The backend is not answering — try again in a moment.',
@@ -2452,6 +2458,12 @@ const I18N = {
   },
   is: {
     'nav.security':'Öryggi','title.security':'öryggi.',
+    'alert.new_device_signin.title':'Innskráning úr nýju tæki',
+    'alert.new_device_signin.detail':'{who} skráði sig inn úr {device} ({ip}) {date} kl. {time}. Ef þetta varst ekki þú skaltu breyta lykilorðinu og skrá út öll önnur tæki.',
+    'alert.recovery_code_used.title':'Neyðarkóði notaður við innskráningu',
+    'alert.recovery_code_used.detail':'{who} skráði sig inn með neyðarkóða úr {device} ({ip}) {date} kl. {time}. {left} eftir. Ef þetta varst ekki þú skaltu breyta lykilorðinu og skrá út öll önnur tæki.',
+    'alert.two_factor_disabled.title':'Tveggja þátta auðkenning tekin af',
+    'alert.two_factor_disabled.detail':'{who} tók tveggja þátta auðkenningu af úr {device} ({ip}) {date} kl. {time}. Ef þetta varst ekki þú er aðgangurinn í hættu: breyttu lykilorðinu, skráðu út öll önnur tæki og kveiktu á henni aftur.',
     'common.refresh':'endurnýja →','common.loading':'Hleð…','common.cancel':'hætta við','common.close':'loka','common.print':'prenta',
     'sec.twoFactorTitle':'tveggja þátta auðkenning.','sec.sessionsTitle':'innskráð tæki.',
     'sec.noConnection':'Kerfið svarar ekki í augnablikinu — reyndu aftur eftir smástund.',

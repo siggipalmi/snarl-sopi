@@ -608,6 +608,18 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_trusted_user    ON trusted_devices(userId);
   CREATE INDEX IF NOT EXISTS idx_trusted_expires ON trusted_devices(expiresAt);
+
+  -- Which devices an account has signed in from before. Deliberately NOT cleaned up with the
+  -- sessions: the whole question this answers is "have I ever seen this one", and a table that
+  -- forgets would call a familiar browser new every time a session lapsed.
+  CREATE TABLE IF NOT EXISTS user_known_devices (
+    userId      TEXT NOT NULL,
+    label       TEXT NOT NULL,
+    firstSeenAt INTEGER NOT NULL,
+    lastSeenAt  INTEGER NOT NULL,
+    signIns     INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (userId, label)
+  );
 `);
 
 // ─── Lightweight migrations ───────────────────────────────────────────────────
@@ -633,6 +645,10 @@ ensureColumn('auth_tokens', 'lastUsedAt', 'INTEGER');
 // What the session is, in words, so the signed-in-devices list can be read at a glance. A list
 // of identical rows cannot tell you which one is not yours, which is the only reason it exists.
 ensureColumn('auth_tokens', 'label', 'TEXT');
+// Structured values behind an alert's wording, as JSON. Until now the dashboard recovered these
+// by regex-parsing the detail text, which works for one type and does not generalise. The detail
+// column stays as the readable fallback for anything that has no translation.
+ensureColumn('alerts', 'params', 'TEXT');
 ensureColumn('machines', 'nayaxDataJson',   'TEXT');
 ensureColumn('machines', 'stockSource',     "TEXT NOT NULL DEFAULT 'weimi'");
 // products are keyed by the device-facing product code (goodsCode); we also keep
@@ -1036,8 +1052,8 @@ const stmts = {
     WHERE goodsId=@goodsId`),
 
   // Alerts
-  insertAlert:       db.prepare(`INSERT OR REPLACE INTO alerts (id, type, severity, title, detail, deviceCode, resolved, resolvedAt, createdAt)
-                                 VALUES (@id, @type, @severity, @title, @detail, @deviceCode, @resolved, @resolvedAt, @createdAt)`),
+  insertAlert:       db.prepare(`INSERT OR REPLACE INTO alerts (id, type, severity, title, detail, deviceCode, resolved, resolvedAt, createdAt, params)
+                                 VALUES (@id, @type, @severity, @title, @detail, @deviceCode, @resolved, @resolvedAt, @createdAt, @params)`),
   listAlerts:        db.prepare('SELECT * FROM alerts'),
   openAlertCountsByDevice: db.prepare("SELECT deviceCode, COUNT(*) n FROM alerts WHERE resolved = 0 AND deviceCode IS NOT NULL AND severity IN ('warning','critical') GROUP BY deviceCode"),
   getAlert:          db.prepare('SELECT * FROM alerts WHERE id = ?'),
@@ -1116,6 +1132,11 @@ const stmts = {
   deleteTrustedDevice: db.prepare('DELETE FROM trusted_devices WHERE id = ? AND userId = ?'),
   deleteUserTrustedDevices: db.prepare('DELETE FROM trusted_devices WHERE userId = ?'),
   cleanupExpiredTrustedDevices: db.prepare('DELETE FROM trusted_devices WHERE expiresAt < ?'),
+
+  getKnownDevice:    db.prepare('SELECT * FROM user_known_devices WHERE userId = ? AND label = ?'),
+  insertKnownDevice: db.prepare('INSERT INTO user_known_devices (userId, label, firstSeenAt, lastSeenAt, signIns) VALUES (?, ?, ?, ?, 1)'),
+  touchKnownDevice:  db.prepare('UPDATE user_known_devices SET lastSeenAt = ?, signIns = signIns + 1 WHERE userId = ? AND label = ?'),
+  countKnownDevices: db.prepare('SELECT COUNT(*) n FROM user_known_devices WHERE userId = ?'),
 
   // Stock history (append-only)
   insertStockHistory: db.prepare(`INSERT INTO stock_history (deviceCode, goodsId, productName, stock, recordedAt, source)
@@ -2079,6 +2100,7 @@ const storage = {
       detail: a.detail || '', deviceCode: a.deviceCode || null,
       resolved: a.resolved ? 1 : 0, resolvedAt: a.resolvedAt || null,
       createdAt: a.createdAt,
+      params: a.params ? JSON.stringify(a.params) : null,
     });
   },
   listAlerts()       { return stmts.listAlerts.all().map(r => ({ ...r, resolved: !!r.resolved })); },
@@ -2098,7 +2120,7 @@ const storage = {
     const id = 'alert_' + type + '_' + deviceCode;
     const ex = stmts.getAlert.get(id);
     if (ex && !ex.resolved) return; // already open — don't churn
-    stmts.insertAlert.run({ id, type, severity, title, detail: detail || '', deviceCode, resolved: 0, resolvedAt: null, createdAt: new Date().toISOString() });
+    stmts.insertAlert.run({ id, type, severity, title, detail: detail || '', deviceCode, resolved: 0, resolvedAt: null, createdAt: new Date().toISOString(), params: null });
   },
   _clearTelemAlert(deviceCode, type) {
     const id = 'alert_' + type + '_' + deviceCode;
@@ -2253,6 +2275,24 @@ const storage = {
   deleteTrustedDevice(id, userId) { return stmts.deleteTrustedDevice.run(id, userId).changes > 0; },
   deleteUserTrustedDevices(userId) { stmts.deleteUserTrustedDevices.run(userId); },
   cleanupExpiredTrustedDevices() { stmts.cleanupExpiredTrustedDevices.run(Date.now()); },
+
+  /**
+   * Record a sign-in from a device and say whether it had been seen before.
+   * Returns { known, firstEver } — firstEver marks the very first device on an account, which
+   * is the enrolment itself rather than anything to raise an alarm about.
+   */
+  noteSignInDevice(userId, label) {
+    const now = Date.now();
+    const key = String(label || 'unknown');
+    const existing = stmts.getKnownDevice.get(userId, key);
+    if (existing) {
+      stmts.touchKnownDevice.run(now, userId, key);
+      return { known: true, firstEver: false };
+    }
+    const firstEver = stmts.countKnownDevices.get(userId).n === 0;
+    stmts.insertKnownDevice.run(userId, key, now, now);
+    return { known: false, firstEver };
+  },
 
   // Stock & sold-out tracking
   recordStockSnapshot({ deviceCode, goodsId, productName, stock, source = 'unknown' }) {
