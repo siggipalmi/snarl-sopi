@@ -624,6 +624,9 @@ ensureColumn('machines', 'nayaxMachineId',  'TEXT');
 // is the kilo price and lineIsk = ceil(grams × kr/kg ÷ 1000).
 ensureColumn('fridge_settlement_lines', 'soldByWeight', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('machines', 'nayaxLastSyncAt', 'TEXT');
+// The coil a kiosk sale line was vended from ("A35"), as the coil app reports it from 0.80.16.
+// NULL for older sales, Weimi-synced orders and fridge sales.
+ensureColumn('orders', 'aisle', 'TEXT');
 // Which session was last used when, for the signed-in-devices screen and for idle expiry.
 // Existing tokens get NULL and are read as "first seen now" rather than as idle since the epoch.
 ensureColumn('auth_tokens', 'lastUsedAt', 'INTEGER');
@@ -853,8 +856,8 @@ const stmts = {
       WHERE machineId=@machineId`),
 
   // Orders
-  insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime)
-                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime)`),
+  insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime, aisle)
+                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime, @aisle)`),
   getOrder:          db.prepare('SELECT * FROM orders WHERE tradeNo = ?'),
   // Fridge sales arrive as settlements, not Weimi orders, and a settlement can be replayed on
   // reconnect — so this must be an upsert or a repost would double-count revenue.
@@ -1612,7 +1615,7 @@ const storage = {
       goodsId: o.goodsId || null, productName: o.productName || '',
       totalAmount: o.totalAmount || 0, amountKr: o.amountKr || 0,
       status: o.status, statusLabel: o.statusLabel || null,
-      createTime: o.createTime,
+      createTime: o.createTime, aisle: o.aisle || null,
     });
   },
   // One-shot repair: settlements recorded before fridge sales were mirrored into `orders` have no

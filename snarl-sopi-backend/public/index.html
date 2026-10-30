@@ -1179,7 +1179,7 @@ select.fi{cursor:pointer;}
 
         <div class="panel" style="margin-bottom:16px">
           <div class="ph"><div class="ph-title" data-i18n="md.recentOrders">recent orders.</div><div class="ph-action" onclick="viewMachineOrders(_mdDeviceCode)" data-i18n="md.viewAllOrders">view all orders →</div></div>
-          <div class="tw"><table class="rtable"><thead><tr><th data-i18n="md.th.order">order</th><th data-i18n="md.th.items">items</th><th data-i18n="md.th.amount">amount</th><th data-i18n="md.th.status">status</th><th data-i18n="md.th.time">time</th></tr></thead><tbody id="md-recent-orders"></tbody></table></div>
+          <div class="tw"><table class="rtable"><thead><tr><th data-i18n="md.th.order">order</th><th data-i18n="md.th.items">items</th><th id="md-th-coil" data-i18n="md.th.coil">coil</th><th data-i18n="md.th.amount">amount</th><th data-i18n="md.th.status">status</th><th data-i18n="md.th.time">time</th></tr></thead><tbody id="md-recent-orders"></tbody></table></div>
         </div>
 
         <div class="panel" style="margin-bottom:16px">
@@ -2374,6 +2374,7 @@ const I18N = {
     'md.viewAllOrders':'view all orders →',
     'md.th.order':'order',
     'md.th.items':'items',
+    'md.th.coil':'coil',
     'md.th.amount':'amount',
     'md.th.status':'status',
     'md.th.time':'time',
@@ -2590,6 +2591,7 @@ const I18N = {
     'md.viewAllOrders':'sjá allar afgreiðslur →',
     'md.th.order':'afgreiðsla',
     'md.th.items':'vörur',
+    'md.th.coil':'hólf',
     'md.th.amount':'upphæð',
     'md.th.status':'staða',
     'md.th.time':'tími',
@@ -5999,29 +6001,37 @@ function viewMachineOrders(code) {
 async function renderMachineRecentOrders(code) {
   const el = document.getElementById('md-recent-orders');
   if (!el) return;
+  // Coil machines show which coil vended each purchase (reported by coil 0.80.16+; older sales
+  // and Weimi-synced orders read "—"). Fridges have baskets, not coils, so the column is hidden.
+  const isCoil = !isFridgeModel(DB.machines[code] && DB.machines[code].model);
+  const thCoil = document.getElementById('md-th-coil');
+  if (thCoil) thCoil.style.display = isCoil ? '' : 'none';
+  const cols = isCoil ? 6 : 5;
   try {
     const r = await API.fetchOrders({ deviceCode: code, size: 50 });
     const rows = (r && r.ok && Array.isArray(r.data)) ? r.data : [];
     const groups = groupOrders(rows).slice(0, 10);
     if (!groups.length) {
-      el.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:12.5px">' + rsEsc(t('ord.none')) + '</td></tr>';
+      el.innerHTML = '<tr><td colspan="' + cols + '" style="padding:20px;text-align:center;color:var(--muted);font-size:12.5px">' + rsEsc(t('ord.none')) + '</td></tr>';
       return;
     }
     el.innerHTML = groups.map(g => {
       const items = g.lines.map(l =>
-        `<tr><td style="padding:5px 12px 5px 26px;color:var(--ink)">${rsEsc(l.productName || '(unknown)')}</td><td style="font-family:var(--mono);text-align:right;padding-right:18px">${(l.amountKr||0).toLocaleString('is-IS')} kr</td></tr>`).join('');
+        `<tr><td style="padding:5px 12px 5px 26px;color:var(--ink)">${isCoil ? `<span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);display:inline-block;min-width:34px">${rsEsc(l.aisle || '—')}</span>` : ''}${rsEsc(l.productName || '(unknown)')}</td><td style="font-family:var(--mono);text-align:right;padding-right:18px">${(l.amountKr||0).toLocaleString('is-IS')} kr</td></tr>`).join('');
+      const coils = [...new Set(g.lines.map(l => l.aisle).filter(Boolean))].join(', ');
       return `
       <tr style="cursor:pointer" onclick="toggleOrderDetail('md-${g.orderId}')">
         <td class="rcard-head"><span class="tid">▸ ${g.orderId.slice(0,14)}…</span></td>
         <td data-label="items" style="font-family:var(--mono)">${g.lines.length}</td>
+        ${isCoil ? `<td data-label="${rsEsc(t('md.th.coil'))}" style="font-family:var(--mono)${coils ? '' : ';color:var(--muted)'}">${rsEsc(coils || '—')}</td>` : ''}
         <td data-label="amount" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
         <td data-label="status">${pill(g.status===1?'pill-up':g.status===2?'pill-dn':'pill-warn', g.statusLabel)}</td>
         <td data-label="time" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtDateTimeS(g.createTime)}</td>
       </tr>
-      <tr id="od-md-${g.orderId}" style="display:none;background:rgba(139,107,62,0.04)"><td colspan="5" style="padding:0"><table style="width:100%;border-collapse:collapse"><tbody>${items}</tbody></table></td></tr>`;
+      <tr id="od-md-${g.orderId}" style="display:none;background:rgba(139,107,62,0.04)"><td colspan="${cols}" style="padding:0"><table style="width:100%;border-collapse:collapse"><tbody>${items}</tbody></table></td></tr>`;
     }).join('');
   } catch (e) {
-    el.innerHTML = '<tr><td colspan="5" style="padding:16px;color:var(--alert);font-size:12px">' + e.message + '</td></tr>';
+    el.innerHTML = '<tr><td colspan="' + cols + '" style="padding:16px;color:var(--alert);font-size:12px">' + rsEsc(e.message) + '</td></tr>';
   }
 }
 

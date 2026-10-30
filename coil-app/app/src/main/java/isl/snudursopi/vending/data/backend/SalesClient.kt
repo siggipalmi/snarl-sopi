@@ -3,12 +3,15 @@ package isl.snudursopi.vending.data.backend
 /**
  * One sold line in a sale. Mirrors the stock-ownership contract's
  * `lines[]` shape. [amountIsk] is what was actually charged for the line
- * (realised deal price — revenue + the recorded deal price).
+ * (realised deal price — revenue + the recorded deal price). [aisle] is the
+ * coil the line was vended from ("A35"), shown per purchase on the dashboard;
+ * null for a sale queued by a build older than 0.80.16.
  */
 data class SaleLine(
     val goodsId: String,
     val qty: Int,
     val amountIsk: Int,
+    val aisle: String? = null,
 )
 
 /**
@@ -54,6 +57,7 @@ class SalesClient(
                     "goodsId" to it.goodsId,
                     "qty" to it.qty,
                     "amountIsk" to it.amountIsk,
+                    "aisle" to it.aisle,
                 )
             },
         )

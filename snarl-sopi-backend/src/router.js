@@ -1310,6 +1310,13 @@ function normalizeSaleTs(at) {
   return Date.now();
 }
 
+// The coil a sale line came out of, as the coil app names it ("A35"). Anything else is dropped
+// rather than stored: it is shown on the dashboard, and a sale must never be refused over it.
+function saleAisle(v) {
+  const a = typeof v === 'string' ? v.trim().toUpperCase() : '';
+  return /^[A-Z]?\d{1,4}$/.test(a) ? a : null;
+}
+
 // Accept both sales shapes:
 //   (a) canonical per-item: { tradeNo, goodsId, amountKr, timestamp, status, qty? }
 //   (b) kiosk checkout envelope: { saleId, at, totalIsk, lines:[{goodsId, qty, amountIsk}] }
@@ -1337,6 +1344,7 @@ function normalizeSaleRecords(raw) {
           goodsId,
           productName: ln.name || ln.productName || '',
           amountKr, qty, timestamp: ts, status: 1,
+          aisle: ln.aisle,
         });
       });
       continue;
@@ -1880,6 +1888,7 @@ function handleSalesIngest(req, res) {
       status:     r.status,
       statusLabel:{1:'success',2:'failed',3:'refunded'}[r.status],
       createTime: r.timestamp,
+      aisle:      saleAisle(r.aisle),
     });
     accepted.push(r.tradeNo);
 

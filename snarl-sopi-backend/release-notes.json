@@ -1,5 +1,27 @@
 [
  {
+  "component": "backend",
+  "version": "6.93.0",
+  "date": "2026-10-30",
+  "title": "Activity shows which coil vended each purchase.",
+  "notes": [
+   "On a coil machine's Activity tab, recent orders have a \"coil\" column (e.g. A35), and each line in an expanded order shows its coil.",
+   "Filled from coil app 0.80.16 on; older sales and orders synced from Weimi read \"—\". Fridges don't show the column."
+  ],
+  "check": "Open the canary's Activity tab after a sale on 0.80.16; the order's coil must match the one that turned."
+ },
+ {
+  "component": "coil",
+  "version": "0.80.16",
+  "versionCode": 172,
+  "date": "2026-10-30",
+  "title": "Each sale reports the coil it came out of.",
+  "notes": [
+   "The sale the machine sends to the backend now names the coil each line was vended from, so the dashboard's Activity tab can show it per purchase. Nothing changes on the screen or in payment."
+  ],
+  "check": "Buy one item; Activity → recent orders must show that item's coil (needs backend 6.93.0)."
+ },
+ {
   "component": "coil",
   "version": "0.80.15",
   "versionCode": 171,

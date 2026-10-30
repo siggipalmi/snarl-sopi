@@ -69,7 +69,7 @@ class SalesQueueStore(private val context: Context) {
             "at" to payload.at,
             "totalIsk" to payload.totalIsk,
             "lines" to payload.lines.map {
-                mapOf("goodsId" to it.goodsId, "qty" to it.qty, "amountIsk" to it.amountIsk)
+                mapOf("goodsId" to it.goodsId, "qty" to it.qty, "amountIsk" to it.amountIsk, "aisle" to it.aisle)
             },
         ),
     )
@@ -83,6 +83,7 @@ class SalesQueueStore(private val context: Context) {
                 goodsId = goodsId,
                 qty = ln.path("qty").asInt(0),
                 amountIsk = ln.path("amountIsk").asInt(0),
+                aisle = ln.path("aisle").takeIf { it.isTextual }?.asText()?.takeIf { it.isNotBlank() },
             )
         }
         if (lines.isEmpty()) return null
