@@ -2005,13 +2005,6 @@ const storage = {
   }),
   removeDraft(id) { return stmts.deleteDraft.run(id); },
   markDraftResolved(draftId, goodsId) { return stmts.markDraftCreated.run({ id: draftId, goodsId, now: Date.now() }); },
-  // Current stock + name/image/price per product on a machine, read from the
-  // machine layout (operator-maintained planogram) — the same source the catalog
-  // and expiry views use. slot_stock only fills on Weimi sync/sales, so the layout
-  // is the reliable stock truth for machines that aren't syncing.
-  // Per-goodsId current stock map for the kiosk config (summed across bays,
-  // includes 0-stock so the kiosk can stop offering emptied bays). System of
-  // record for kiosk machines; the kiosk re-baselines its local count to this.
   // aisle code → current count, for every bay holding a product. The coil app vends each unit from
   // the coil with the most left (coil 0.80.17); with only the per-product total it always used the
   // product's first coil and turned it empty once that ran out (slot 41, 2026-10-30).
@@ -2026,6 +2019,13 @@ const storage = {
     return out;
   },
 
+  // Current stock + name/image/price per product on a machine, read from the
+  // machine layout (operator-maintained planogram) — the same source the catalog
+  // and expiry views use. slot_stock only fills on Weimi sync/sales, so the layout
+  // is the reliable stock truth for machines that aren't syncing.
+  // Per-goodsId current stock map for the kiosk config (summed across bays,
+  // includes 0-stock so the kiosk can stop offering emptied bays). System of
+  // record for kiosk machines; the kiosk re-baselines its local count to this.
   stockMapForMachine(deviceCode) {
     const lp = this.layoutProductsForDevice(deviceCode) || {};
     const out = {};
