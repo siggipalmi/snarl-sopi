@@ -26,7 +26,10 @@ ok()   { echo "  ✅ $*"; }
 bad()  { echo "  ❌ $*"; }
 
 owner() { s dumpsys device_policy | grep -i -A3 "device owner" | grep -o 'ComponentInfo{[^}]*}' | head -1; }
-tailscale_ip() { s ip -4 addr show tun0 2>/dev/null | grep -o 'inet [0-9.]*' | cut -d' ' -f2; }
+# Tailscale's range is 100.64.0.0/10. Not tied to an interface name: it is not always tun0.
+tailscale_ip() {
+  s ip -4 addr 2>/dev/null | grep -oE 'inet 100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9.]+' | head -1 | cut -d' ' -f2
+}
 
 report() {
   echo "== $D · $(s date)"
@@ -39,6 +42,8 @@ report() {
   [ -n "$(s pidof $PKG)" ] && ok "app running" || bad "app not running"
   if s pm list packages | grep -q com.tailscale.ipn; then
     local ip; ip=$(tailscale_ip)
+    # Reached over a Tailscale address: it is up, whatever the interface list says.
+    [ -z "$ip" ] && case "${D%%:*}" in 100.*) ip="${D%%:*} (reached over it)";; esac
     [ -n "$ip" ] && ok "Tailscale up: $ip" || bad "Tailscale installed but not connected"
   else
     bad "Tailscale not installed"
