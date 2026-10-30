@@ -15,16 +15,16 @@ const roles = require('./roles');
 const { authTokens, users, machines, operators, userCanAccessMachine, userCanAccessOperator,
         userCanInviteTo, userCanReassignWithin } = require('./db');
 
-const SECRET = process.env.JWT_SECRET || 'snudur-sopi-dev-secret-change-in-prod';
-
-// Whether a real secret was supplied. The fallback above is in a public repo, so it is worth
-// nothing as a secret; a forged token is still refused today because verifyToken also requires
-// the token to exist in SQLite, but that is one refactor away from being the only thing holding.
-// Reported as a boolean by GET /health (auth.jwtSecret) so it can be confirmed from outside.
+// There is deliberately no fallback secret here. A hardcoded default is a published secret, and
+// signing with a value anyone can read out of the repo is the same as not signing at all. With
+// JWT_SECRET missing we sign with a random key made at startup instead: local development keeps
+// working (you sign in again after a restart) and nothing is ever signed with a key an outsider
+// could know. Production sets JWT_SECRET, so tokens there are unaffected by this.
 const JWT_SECRET_SET = !!process.env.JWT_SECRET;
+const SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 if (!JWT_SECRET_SET) {
-  console.warn('[AUTH] JWT_SECRET is not set — using the built-in development secret. ' +
-    'Set JWT_SECRET on the backend: token signing is not secret without it.');
+  console.warn('[AUTH] JWT_SECRET is not set — signing with a random key generated at startup. ' +
+    'Sign-ins will not survive a restart. Set JWT_SECRET on the backend.');
 }
 
 // Session length follows the role. An ag_admin can read every operator's data, so their session
