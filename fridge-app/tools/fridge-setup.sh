@@ -56,12 +56,18 @@ report() {
 }
 
 if [ "$MODE" = "--owner" ]; then
-  [ -n "$(owner)" ] && { echo "Device Owner already set."; report; exit 0; }
+  if [ -n "$(owner)" ]; then
+    echo "Device Owner already set. Bringing the app forward so it applies its policies…"
+    s am start -n $PKG/isl.snudursopi.fridge.MainActivity >/dev/null; sleep 10; report; exit 0
+  fi
   [ -z "$(s pidof $PKG)" ] && { echo "our app is not running — run step 1 first"; exit 1; }
   echo "Device Owner cannot be removed from outside the app."
   read -r -p "Has the escape hatch been tested ON THIS MACHINE (long-press clock → PIN → admin)? [yes/no] " a
   [ "$a" = "yes" ] || { echo "Not set. Test the hatch first."; exit 1; }
   s dpm set-device-owner $ADMIN
+  # The app applies its Device Owner policies (hide Weimi, lock task, home) when it comes to the
+  # front. It already was, so bring it forward again: singleTask, so this pauses and resumes it.
+  s am start -n $PKG/isl.snudursopi.fridge.MainActivity >/dev/null
   echo "waiting 15 s for the app to hide the Weimi apps and become home…"
   sleep 15
   report
