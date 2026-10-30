@@ -53,7 +53,7 @@ function safeEqual(a, b) {
 
 // ─── Token creation / verification ────────────────────────────────────────────
 
-function createToken(userId) {
+function createToken(userId, label) {
   const issuedAt = Date.now();
   // The role is looked up here rather than passed in, so that no call site can hand an
   // AG Vending admin a 30-day session by forgetting an argument.
@@ -66,7 +66,7 @@ function createToken(userId) {
 
   // Persist so the token survives Railway restarts
   try {
-    storage.insertAuthToken(token, userId, expiresAt);
+    storage.insertAuthToken(token, userId, expiresAt, label);
   } catch (e) {
     // Shouldn't happen — token is unique — but log just in case
     console.warn('[AUTH] Failed to persist token:', e.message);

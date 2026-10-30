@@ -190,6 +190,31 @@ tr:hover td{background:rgba(240,232,218,.3);}
 .fi{width:100%;background:var(--cream-deep);border:.5px solid var(--line);border-radius:var(--rsm);padding:8px 12px;font-size:13px;color:var(--ink-soft);font-family:var(--sans);}
 .fi:focus{outline:none;border-color:var(--bronze-light);}
 .fi.mono{font-family:var(--mono);}
+/* The six-digit code field. One input rather than six boxes, so pasting a code from a password
+   manager lands in it whole; the wide tracking is what gives it the look of separate cells. */
+.otp-fi{font-family:var(--mono);font-size:25px;font-weight:500;letter-spacing:.40em;text-align:center;
+        padding:13px 0 13px .40em;color:var(--ink);}
+.otp-fi::placeholder{letter-spacing:.40em;color:var(--muted);opacity:.55;}
+.tfa-trust{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--bronze-light);
+           margin-top:12px;cursor:pointer;line-height:1.45;}
+.tfa-trust input{margin:2px 0 0;flex:0 0 auto;}
+/* Recovery codes, as they are meant to be printed. */
+.rec-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--clay);margin:14px 0;}
+.rec-grid span{background:var(--cream);padding:10px 8px;text-align:center;font-family:var(--mono);
+               font-size:14px;font-variant-numeric:tabular-nums;}
+.rec-grid span.used{color:var(--clay);text-decoration:line-through;}
+.sec-row{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:12px 0;}
+.sec-row + .sec-row{border-top:1px solid var(--line);}
+.sec-meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:3px;}
+.sec-pill{flex:0 0 auto;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+          padding:3px 8px;background:var(--ok,#22B05A);color:#fff;}
+.sec-pill.now{background:var(--c-night,#2C3A68);}
+.sec-pill.off{background:var(--clay);color:var(--bronze-light);}
+@media print{
+  body *{visibility:hidden;}
+  #rec-print, #rec-print *{visibility:visible;}
+  #rec-print{position:absolute;left:0;top:0;width:100%;}
+}
 select.fi{cursor:pointer;}
 
 /* TOGGLE */
@@ -719,10 +744,33 @@ select.fi{cursor:pointer;}
     <div class="ag-logo ag-logo-login" role="img" aria-label="AG Vending"></div>
     <div class="login-sub">Operator portal</div>
     <div class="login-err" id="login-err">Rangt netfang eða lykilorð.</div>
-    <div class="field"><div class="fl">email</div><input class="fi" id="login-email" type="email" placeholder="sky@agvending.is" autocomplete="username"></div>
-    <div class="field"><div class="fl">password</div><input class="fi" id="login-pw" type="password" placeholder="••••••••" autocomplete="current-password"></div>
-    <button class="btn btn-full" onclick="doLogin()" style="margin-top:8px"><span>sign in</span><span>→</span></button>
-    <div style="text-align:center;margin-top:10px"><a onclick="forgotPassword()" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Gleymt lykilorð? · Forgot password?</a></div>
+    <div id="login-creds">
+      <div class="field"><div class="fl">email</div><input class="fi" id="login-email" type="email" placeholder="sky@agvending.is" autocomplete="username"></div>
+      <div class="field"><div class="fl">password</div><input class="fi" id="login-pw" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn btn-full" onclick="doLogin()" style="margin-top:8px"><span>sign in</span><span>→</span></button>
+      <div style="text-align:center;margin-top:10px"><a onclick="forgotPassword()" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Gleymt lykilorð? · Forgot password?</a></div>
+    </div>
+    <!-- Second step, shown only when the account has two-factor on. The password is already
+         accepted at this point; the challenge from the backend is what this exchanges. -->
+    <div id="login-2fa" style="display:none">
+      <div class="field">
+        <div class="fl" data-i18n="tfa.codeFieldLabel">staðfestingarkóði</div>
+        <input class="fi otp-fi" id="login-2fa-code" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="6" placeholder="······" aria-describedby="login-2fa-hint">
+      </div>
+      <div id="login-2fa-hint" style="font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:-4px"
+           data-i18n="tfa.codeHint">Sláðu inn sex stafa kóðann úr auðkenningarforritinu.</div>
+      <label class="tfa-trust">
+        <input type="checkbox" id="login-2fa-trust" checked>
+        <span data-i18n="tfa.trustBrowser">Treysta þessum vafra í 7 daga</span>
+      </label>
+      <button class="btn btn-full" onclick="submitLoginCode()" style="margin-top:12px">
+        <span data-i18n="tfa.signIn">skrá inn</span><span>→</span></button>
+      <div style="text-align:center;margin-top:10px">
+        <a onclick="toggleRecoveryEntry()" id="login-2fa-alt" data-i18n="tfa.useRecovery"
+           style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Nota neyðarkóða í staðinn</a>
+      </div>
+    </div>
     <div id="login-note" style="display:none;font-size:12px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.45"></div>
     <!-- Public features page for people who don't have an account yet. Everything under public/ is
          served without auth, so this is reachable from the login screen by design.
@@ -804,6 +852,7 @@ select.fi{cursor:pointer;}
     <div class="nav-group-items">
       <div class="nav-item" onclick="go('operators',this)" style="display:none"><span class="nav-icon">⌬</span> <span data-i18n="nav.operators">Operators</span></div>
       <div class="nav-item" data-cap="users" onclick="go('users',this)"><span class="nav-icon">◎</span> <span data-i18n="nav.users">Users</span></div>
+      <div class="nav-item" onclick="go('security',this)"><span class="nav-icon">⚿</span> <span data-i18n="nav.security">Security</span></div>
       <div class="nav-item" onclick="go('help',this)"><span class="nav-icon">?</span> <span data-i18n="nav.help">Help</span></div>
     </div>
   </div>
@@ -1647,6 +1696,27 @@ select.fi{cursor:pointer;}
     </div>
 
     <!-- ═══ SETTINGS ═══ -->
+    <!-- Everyone's own account security. Not AG-only: an operator who wants a second factor
+         should be able to turn one on. -->
+    <div class="page" id="page-security">
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title" data-i18n="sec.twoFactorTitle">tveggja þátta auðkenning.</div>
+          <div class="ph-action" onclick="renderSecurity()" data-i18n="common.refresh">refresh →</div>
+        </div>
+        <div style="padding:16px 18px" id="tfa-body">
+          <div style="color:var(--muted);font-size:12px" data-i18n="common.loading">Loading…</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <div class="ph"><div class="ph-title" data-i18n="sec.sessionsTitle">innskráð tæki.</div></div>
+        <div style="padding:16px 18px" id="sessions-body">
+          <div style="color:var(--muted);font-size:12px" data-i18n="common.loading">Loading…</div>
+        </div>
+      </div>
+    </div>
+
     <div class="page" id="page-settings">
       <div class="tabs" id="fleet-tabs" style="margin:0 0 16px">
         <div class="tab active" data-fsec="health" onclick="showFleetSec('health')">Health</div>
@@ -1870,6 +1940,57 @@ select.fi{cursor:pointer;}
 </div><!-- /app-shell -->
 
 <!-- MODALS -->
+<!-- Turning two-factor on. Nothing changes about signing in until the code typed here checks
+     out, so a mis-scan cannot lock anyone out. -->
+<div class="modal-bg" id="modal-2fa-setup">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="sec.setupTitle">virkja auðkenningu.</div>
+    <div style="font-size:13px;color:var(--bronze-light);line-height:1.5;margin-bottom:14px"
+         data-i18n="sec.setupIntro">Skannaðu kóðann í auðkenningarforriti — Google Authenticator, 1Password eða Authy.</div>
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <div id="tfa-qr" style="width:148px;height:148px;flex:0 0 auto;background:#fff"></div>
+      <div style="flex:1 1 160px;min-width:0">
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.45;margin-bottom:6px"
+             data-i18n="sec.setupManual">Getur ekki skannað? Sláðu lykilinn inn handvirkt:</div>
+        <div class="mono" id="tfa-secret"
+             style="font-size:13px;background:var(--cream-deep);padding:9px 10px;word-break:break-all;line-height:1.6"></div>
+      </div>
+    </div>
+    <div class="field" style="margin-top:16px">
+      <div class="fl" data-i18n="sec.setupCodeLabel">staðfestingarkóði úr forritinu</div>
+      <input class="fi otp-fi" id="tfa-setup-code" inputmode="numeric" maxlength="6"
+             autocomplete="one-time-code" placeholder="······">
+    </div>
+    <div class="login-err" id="tfa-setup-err" style="margin-top:4px"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-full" onclick="confirm2fa()"><span data-i18n="sec.enable">virkja</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-2fa-setup')" data-i18n="common.cancel">cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- The one and only time the recovery codes exist in the clear. -->
+<div class="modal-bg" id="modal-2fa-codes">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="sec.recoveryTitle">neyðarkóðar.</div>
+    <div id="rec-print">
+      <div style="background:var(--accent,#FFC72C);color:var(--ink);padding:12px 14px;font-size:13.5px;font-weight:600;margin-bottom:12px"
+           data-i18n="sec.recoveryWarn">Prentaðu þessa kóða núna. Þeir birtast ekki aftur.</div>
+      <div style="font-size:13px;color:var(--bronze-light);line-height:1.5"
+           data-i18n="sec.recoveryIntro">Hver kóði virkar einu sinni og kemur í stað kóðans úr forritinu ef síminn er týndur eða bilaður.</div>
+      <div class="rec-grid" id="rec-codes"></div>
+    </div>
+    <label class="tfa-trust" style="margin-bottom:4px">
+      <input type="checkbox" id="rec-ack">
+      <span data-i18n="sec.recoveryAck">Ég hef prentað kóðana og geymt þá á pappír.</span>
+    </label>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-full" id="rec-close-btn" onclick="closeRecoveryCodes()"><span data-i18n="common.close">loka</span><span>→</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="window.print()" data-i18n="common.print">prenta</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-machine">
   <div class="modal-card">
     <div class="modal-title" id="modal-machine-title">add machine.</div>
@@ -2113,6 +2234,35 @@ const LANG_KEY = 'snarl_sopi_lang';
 let LANG = (function(){ try { return localStorage.getItem(LANG_KEY) || 'en'; } catch(e){ return 'en'; } })();
 const I18N = {
   en: {
+    'nav.security':'Security','title.security':'security.',
+    'common.refresh':'refresh →','common.loading':'Loading…','common.cancel':'cancel','common.close':'close','common.print':'print',
+    'sec.twoFactorTitle':'two-factor authentication.','sec.sessionsTitle':'signed-in devices.',
+    'sec.noConnection':'The backend is not answering — try again in a moment.',
+    'sec.offTitle':'Not turned on','sec.off':'inactive','sec.on':'active','sec.onTitle':'Turned on','sec.onSince':'on since {d}',
+    'sec.offBody':'Right now your password is the only thing protecting every operator and every machine. With a second factor, someone who learns your password still cannot sign in.',
+    'sec.enable':'Turn on two-factor','sec.disable':'Turn off',
+    'sec.recoveryLeftTitle':'Recovery codes','sec.recoveryLeft':'{n} of {total} unused','sec.newRecovery':'New recovery codes',
+    'sec.setupTitle':'turn on two-factor.',
+    'sec.setupIntro':'Scan the code in an authenticator app — Google Authenticator, 1Password or Authy.',
+    'sec.setupManual':'Cannot scan? Type the key in by hand:','sec.setupCodeLabel':'code from the app',
+    'sec.recoveryTitle':'recovery codes.','sec.recoveryWarn':'Print these now. They are not shown again.',
+    'sec.recoveryIntro':'Each code works once, and stands in for the app if your phone is lost or broken.',
+    'sec.recoveryAck':'I have printed the codes and kept them on paper.',
+    'sec.recoveryAckFirst':'Tick the box once you have the codes — they are not shown again.',
+    'sec.promptCodeForNewRecovery':'Enter the current code from your authenticator app:',
+    'sec.promptPasswordToDisable':'Enter your password to turn two-factor off:',
+    'sec.badPassword':'That password is not right.','sec.disabled':'Two-factor is off.',
+    'sec.sessionsIntro':'An AG admin stays signed in for seven days, operators for thirty. Signing out everywhere also makes every browser ask for a code again.',
+    'sec.session':'Session','sec.lastUsed':'last used {d}','sec.expires':'expires {d}','sec.thisDevice':'this device',
+    'sec.trustedTitle':'browsers that skip the code','sec.trustedUntil':'trusted until {d}',
+    'sec.forget':'Forget','sec.forgot':'Forgotten. That browser will ask for a code next time.',
+    'sec.signOutOthers':'Sign out everywhere else','sec.signedOutOthers':'Signed out {n} other session(s).',
+    'tfa.codeFieldLabel':'verification code','tfa.codeHint':'Enter the six-digit code from your authenticator app.',
+    'tfa.recoveryHint':'Enter one of your recovery codes.','tfa.trustBrowser':'Trust this browser for 7 days',
+    'tfa.signIn':'sign in','tfa.useRecovery':'Use a recovery code instead','tfa.useApp':'Use the app code instead',
+    'tfa.badCode':'That code is not right.','tfa.expired':'That took too long. Sign in again.',
+    'tfa.offline':'The backend is not answering — try again in a moment.',
+    'tfa.usedRecovery':'Signed in with a recovery code. {n} left.',
     'group.overview':'overview','group.daily':'Daily','group.kioskControl':'Kiosk setup','group.commerce':'Business','group.system':'Admin',
     'nav.dashboard':'Dashboard','nav.machines':'Machines','nav.alerts':'Alerts','nav.operators':'Operators',
     'nav.catalog':'Catalog & Slots','nav.hero':'Hero & Featured','nav.display':'Display Settings',
@@ -2300,6 +2450,35 @@ const I18N = {
     'sc.refInvalid':'Enter the reference weight in grams (a positive number).',
   },
   is: {
+    'nav.security':'Öryggi','title.security':'öryggi.',
+    'common.refresh':'endurnýja →','common.loading':'Hleð…','common.cancel':'hætta við','common.close':'loka','common.print':'prenta',
+    'sec.twoFactorTitle':'tveggja þátta auðkenning.','sec.sessionsTitle':'innskráð tæki.',
+    'sec.noConnection':'Kerfið svarar ekki í augnablikinu — reyndu aftur eftir smástund.',
+    'sec.offTitle':'Ekki í gangi','sec.off':'óvirk','sec.on':'virk','sec.onTitle':'Í gangi','sec.onSince':'frá {d}',
+    'sec.offBody':'Núna er lykilorðið þitt það eina sem verndar alla rekstraraðila og allar vélar. Með tveggja þátta auðkenningu kemst sá sem kemst yfir lykilorðið samt ekki inn.',
+    'sec.enable':'Virkja','sec.disable':'Taka af',
+    'sec.recoveryLeftTitle':'Neyðarkóðar','sec.recoveryLeft':'{n} af {total} ónotaðir','sec.newRecovery':'Nýir neyðarkóðar',
+    'sec.setupTitle':'virkja auðkenningu.',
+    'sec.setupIntro':'Skannaðu kóðann í auðkenningarforriti — Google Authenticator, 1Password eða Authy.',
+    'sec.setupManual':'Getur ekki skannað? Sláðu lykilinn inn handvirkt:','sec.setupCodeLabel':'staðfestingarkóði úr forritinu',
+    'sec.recoveryTitle':'neyðarkóðar.','sec.recoveryWarn':'Prentaðu þessa kóða núna. Þeir birtast ekki aftur.',
+    'sec.recoveryIntro':'Hver kóði virkar einu sinni og kemur í stað kóðans úr forritinu ef síminn er týndur eða bilaður.',
+    'sec.recoveryAck':'Ég hef prentað kóðana og geymt þá á pappír.',
+    'sec.recoveryAckFirst':'Hakaðu við þegar þú hefur kóðana — þeir birtast ekki aftur.',
+    'sec.promptCodeForNewRecovery':'Sláðu inn kóðann úr auðkenningarforritinu:',
+    'sec.promptPasswordToDisable':'Sláðu inn lykilorðið til að taka auðkenninguna af:',
+    'sec.badPassword':'Lykilorðið er ekki rétt.','sec.disabled':'Tveggja þátta auðkenning er af.',
+    'sec.sessionsIntro':'Innskráning sem ag_admin gildir í sjö daga, rekstraraðilar hafa þrjátíu. Ef þú skráir út öll önnur tæki þarf líka að slá inn kóða í hverjum vafra næst.',
+    'sec.session':'Innskráning','sec.lastUsed':'síðast notað {d}','sec.expires':'rennur út {d}','sec.thisDevice':'Þetta tæki',
+    'sec.trustedTitle':'vafrar sem sleppa kóðanum','sec.trustedUntil':'treyst til {d}',
+    'sec.forget':'Hætta að treysta','sec.forgot':'Búið. Sá vafri spyr um kóða næst.',
+    'sec.signOutOthers':'Skrá út öll önnur tæki','sec.signedOutOthers':'{n} innskráningum lokað.',
+    'tfa.codeFieldLabel':'staðfestingarkóði','tfa.codeHint':'Sláðu inn sex stafa kóðann úr auðkenningarforritinu.',
+    'tfa.recoveryHint':'Sláðu inn einn af neyðarkóðunum þínum.','tfa.trustBrowser':'Treysta þessum vafra í 7 daga',
+    'tfa.signIn':'skrá inn','tfa.useRecovery':'Nota neyðarkóða í staðinn','tfa.useApp':'Nota kóða úr forritinu í staðinn',
+    'tfa.badCode':'Kóðinn er ekki réttur.','tfa.expired':'Þetta tók of langan tíma. Skráðu þig inn aftur.',
+    'tfa.offline':'Kerfið svarar ekki í augnablikinu — reyndu aftur eftir smástund.',
+    'tfa.usedRecovery':'Skráð inn með neyðarkóða. {n} eftir.',
     'group.overview':'yfirlit','group.daily':'Daglegt','group.kioskControl':'Skjár og vörur','group.commerce':'Rekstur','group.system':'Stjórnun',
     'nav.dashboard':'Mælaborð','nav.machines':'Vélar','nav.alerts':'Viðvaranir','nav.operators':'Rekstraraðilar',
     'nav.catalog':'Vörur & hólf','nav.hero':'Áberandi vörur','nav.display':'Skjástillingar',
@@ -2677,9 +2856,19 @@ function viewAsHdr() { return VIEW_AS ? { 'X-View-As-Operator': VIEW_AS } : {}; 
 
 const API = {
   async login(email, password) {
+    // The device token, if this browser has been trusted before, lets the backend skip the
+    // second factor. It is kept outside DB on purpose: signing out should not untrust the
+    // browser, and DB is wiped on every sign-in.
     const r = await fetch(`${API_BASE}/api/v1/auth/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, deviceToken: getDeviceToken() }),
+    });
+    return r.json();
+  },
+  async loginTotp(challenge, code, trustDevice) {
+    const r = await fetch(`${API_BASE}/api/v1/auth/login/totp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challenge, code, trustDevice }),
     });
     return r.json();
   },
@@ -2949,28 +3138,13 @@ async function doLogin() {
   if (online) {
     try {
       const result = await API.login(email, pw);
+      // Two-factor: the password was right, but there is no session yet.
+      if (result.ok && result.data?.needsTotp) {
+        showLoginCodeStep(email, result.data.challenge);
+        return;
+      }
       if (result.ok && result.data?.token) {
-        API_TOKEN = result.data.token;
-        DB.authToken = result.data.token;  // persist so it survives page reloads / redeploys
-        const backendUser = result.data.user;
-        // Use the backend user directly — has operator info attached
-        let user = DB.users.find(u => u.email === email);
-        if (!user) {
-          user = { id: backendUser.id, name: backendUser.name, email, role: backendUser.role, operatorId: backendUser.operatorId, operatorName: backendUser.operatorName, isAGVending: backendUser.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() };
-          DB.users.push(user);
-        } else {
-          // Refresh operator info from backend
-          user.operatorId   = backendUser.operatorId;
-          user.operatorName = backendUser.operatorName;
-          user.isAGVending  = backendUser.isAGVending;
-          user.role         = backendUser.role;
-        }
-        user.lastActiveAt = new Date().toISOString();
-        DB.session = user.id;
-        // Nothing from a previous sign-in on this browser may carry over to this user.
-        DB.machines = {}; DB.alerts = []; DB.orders = [];
-        saveData();
-        bootApp(user);
+        completeSignIn(email, result.data);
         return;
       }
     } catch(e) { /* reported below */ }
@@ -2985,6 +3159,323 @@ async function doLogin() {
   }
 }
 document.getElementById('login-pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+// ─── Sign-in completion, shared by the one-step and two-step paths ───────────
+
+function completeSignIn(email, data) {
+  API_TOKEN = data.token;
+  DB.authToken = data.token;          // persist so it survives page reloads / redeploys
+  if (data.deviceToken) setDeviceToken(data.deviceToken);
+  const backendUser = data.user;
+  // Use the backend user directly — has operator info attached
+  let user = DB.users.find(u => u.email === email);
+  if (!user) {
+    user = { id: backendUser.id, name: backendUser.name, email, role: backendUser.role, operatorId: backendUser.operatorId, operatorName: backendUser.operatorName, isAGVending: backendUser.isAGVending, machineAccess: 'all', lastActiveAt: new Date().toISOString() };
+    DB.users.push(user);
+  } else {
+    // Refresh operator info from backend
+    user.operatorId   = backendUser.operatorId;
+    user.operatorName = backendUser.operatorName;
+    user.isAGVending  = backendUser.isAGVending;
+    user.role         = backendUser.role;
+  }
+  user.lastActiveAt = new Date().toISOString();
+  DB.session = user.id;
+  // Nothing from a previous sign-in on this browser may carry over to this user.
+  DB.machines = {}; DB.alerts = []; DB.orders = [];
+  saveData();
+  resetLoginScreen();
+  bootApp(user);
+  // A recovery code got them in, which means the phone is gone or the app was reinstalled.
+  // Say so once they are inside, where there is room to act on it.
+  if (data.via === 'recovery') {
+    showToast(tv('tfa.usedRecovery', { n: data.recoveryCodesLeft }));
+  }
+}
+
+// ─── The second step ────────────────────────────────────────────────────────
+
+let PENDING_2FA = null;   // { email, challenge } between the two requests
+
+function showLoginCodeStep(email, challenge) {
+  PENDING_2FA = { email, challenge, recovery: false };
+  document.getElementById('login-creds').style.display = 'none';
+  document.getElementById('login-2fa').style.display = 'block';
+  document.getElementById('login-err').style.display = 'none';
+  const f = document.getElementById('login-2fa-code');
+  f.value = ''; f.focus();
+}
+
+function resetLoginScreen() {
+  PENDING_2FA = null;
+  const creds = document.getElementById('login-creds');
+  const tfa = document.getElementById('login-2fa');
+  if (creds) creds.style.display = 'block';
+  if (tfa) tfa.style.display = 'none';
+  const pw = document.getElementById('login-pw'); if (pw) pw.value = '';
+  const code = document.getElementById('login-2fa-code'); if (code) code.value = '';
+}
+
+/** Swap the field between a six-digit app code and a recovery code off paper. */
+function toggleRecoveryEntry() {
+  if (!PENDING_2FA) return;
+  PENDING_2FA.recovery = !PENDING_2FA.recovery;
+  const rec = PENDING_2FA.recovery;
+  const f = document.getElementById('login-2fa-code');
+  f.classList.toggle('otp-fi', !rec);
+  f.classList.toggle('mono', rec);
+  f.maxLength = rec ? 9 : 6;
+  f.inputMode = rec ? 'text' : 'numeric';
+  f.placeholder = rec ? 'XXXX-XXXX' : '······';
+  f.value = '';
+  document.getElementById('login-2fa-hint').textContent = t(rec ? 'tfa.recoveryHint' : 'tfa.codeHint');
+  document.getElementById('login-2fa-alt').textContent = t(rec ? 'tfa.useApp' : 'tfa.useRecovery');
+  f.focus();
+}
+
+async function submitLoginCode() {
+  if (!PENDING_2FA) return;
+  const code = document.getElementById('login-2fa-code').value.trim();
+  const trust = document.getElementById('login-2fa-trust').checked;
+  const err = document.getElementById('login-err');
+  if (!code) return;
+
+  let result;
+  try {
+    result = await API.loginTotp(PENDING_2FA.challenge, code, trust);
+  } catch (e) {
+    err.textContent = t('tfa.offline'); err.style.display = 'block';
+    return;
+  }
+
+  if (result.ok && result.data?.token) {
+    completeSignIn(PENDING_2FA.email, result.data);
+    return;
+  }
+
+  // A stale challenge means starting over with the password; a wrong code does not.
+  if (result.error === 'challenge_expired') {
+    resetLoginScreen();
+    err.textContent = result.message || t('tfa.expired');
+    err.style.display = 'block';
+    return;
+  }
+  err.textContent = result.message || t('tfa.badCode');
+  err.style.display = 'block';
+  const f = document.getElementById('login-2fa-code');
+  f.value = ''; f.focus();
+}
+
+document.getElementById('login-2fa-code').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitLoginCode();
+});
+
+// ─── The trusted-browser token ──────────────────────────────────────────────
+// Its own localStorage key, not part of DB: signing out should not untrust the browser, and
+// DB is cleared on every sign-in. Wrapped because storage throws in a locked-down browser.
+
+const SEC_DATE_OPTS = { day: '2-digit', month: '2-digit', year: 'numeric' };
+/** dd/mm/yyyy, which is what the rest of the dashboard uses. */
+function secDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleDateString('en-GB', SEC_DATE_OPTS).replace(/-/g, '/');
+}
+
+// ─── Security page ──────────────────────────────────────────────────────────
+
+async function renderSecurity() {
+  renderTwoFactor();
+  renderSessions();
+}
+
+async function renderTwoFactor() {
+  const body = document.getElementById('tfa-body');
+  if (!body) return;
+  let st;
+  try { st = (await API.get('/api/v1/auth/2fa')).data; }
+  catch (e) { body.innerHTML = '<div style="color:var(--muted);font-size:12px">' + t('sec.noConnection') + '</div>'; return; }
+  if (!st) { body.innerHTML = '<div style="color:var(--muted);font-size:12px">' + t('sec.noConnection') + '</div>'; return; }
+
+  if (!st.enabled) {
+    body.innerHTML =
+      '<div class="sec-row"><div>'
+      + '<div style="font-weight:600;font-size:14.5px">' + t('sec.offTitle') + '</div>'
+      + '<div style="font-size:13px;color:var(--bronze-light);line-height:1.5;margin-top:4px;max-width:58ch">'
+      +   t('sec.offBody') + '</div>'
+      + '</div><span class="sec-pill off">' + t('sec.off') + '</span></div>'
+      + '<button class="btn btn-sm" style="margin-top:14px" onclick="start2fa()">' + t('sec.enable') + '</button>';
+    return;
+  }
+
+  const low = st.recoveryCodesLeft <= 2;
+  body.innerHTML =
+    '<div class="sec-row"><div>'
+    + '<div style="font-weight:600;font-size:14.5px">' + t('sec.onTitle') + '</div>'
+    + '<div class="sec-meta">' + tv('sec.onSince', { d: secDate(st.enabledAt) }) + '</div>'
+    + '</div><span class="sec-pill">' + t('sec.on') + '</span></div>'
+    + '<div class="sec-row"><div>'
+    + '<div style="font-weight:600;font-size:14px">' + t('sec.recoveryLeftTitle') + '</div>'
+    + '<div class="sec-meta"' + (low ? ' style="color:var(--alert)"' : '') + '>'
+    +   tv('sec.recoveryLeft', { n: st.recoveryCodesLeft, total: st.recoveryCodesTotal }) + '</div>'
+    + '</div></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
+    + '<button class="btn btn-sm btn-ghost" onclick="regenerateCodes()">' + t('sec.newRecovery') + '</button>'
+    + '<button class="btn btn-sm btn-ghost" onclick="disable2fa()">' + t('sec.disable') + '</button>'
+    + '</div>';
+}
+
+async function renderSessions() {
+  const body = document.getElementById('sessions-body');
+  if (!body) return;
+  let d;
+  try { d = (await API.get('/api/v1/auth/sessions')).data; }
+  catch (e) { body.innerHTML = '<div style="color:var(--muted);font-size:12px">' + t('sec.noConnection') + '</div>'; return; }
+  if (!d) { body.innerHTML = '<div style="color:var(--muted);font-size:12px">' + t('sec.noConnection') + '</div>'; return; }
+
+  const sessions = d.sessions || [], devices = d.trustedDevices || [];
+  let html =
+    '<div style="font-size:13px;color:var(--bronze-light);line-height:1.5;margin-bottom:10px;max-width:60ch">'
+    + t('sec.sessionsIntro') + '</div>';
+
+  for (const ses of sessions) {
+    html += '<div class="sec-row"><div>'
+      + '<div style="font-weight:600;font-size:14px">' + rsEsc(ses.label || t('sec.session')) + '</div>'
+      + '<div class="sec-meta">' + tv('sec.lastUsed', { d: secDate(ses.lastUsedAt) })
+      +   ' · ' + tv('sec.expires', { d: secDate(ses.expiresAt) }) + '</div>'
+      + '</div>'
+      + (ses.current ? '<span class="sec-pill now">' + t('sec.thisDevice') + '</span>' : '')
+      + '</div>';
+  }
+
+  if (devices.length) {
+    html += '<div style="margin-top:18px;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;'
+      + 'text-transform:uppercase;color:var(--muted)">' + t('sec.trustedTitle') + '</div>';
+    for (const dev of devices) {
+      html += '<div class="sec-row"><div>'
+        + '<div style="font-weight:600;font-size:14px">' + rsEsc(dev.label) + '</div>'
+        + '<div class="sec-meta">' + tv('sec.trustedUntil', { d: secDate(dev.expiresAt) }) + '</div>'
+        + '</div>'
+        + '<button class="btn btn-sm btn-ghost" onclick="forgetDevice(\'' + rsEsc(dev.id) + '\')">'
+        +   t('sec.forget') + '</button></div>';
+    }
+  }
+
+  if (sessions.length > 1 || devices.length) {
+    html += '<button class="btn btn-sm" style="margin-top:16px" onclick="signOutOthers()">'
+      + t('sec.signOutOthers') + '</button>';
+  }
+  body.innerHTML = html;
+}
+
+// ─── Turning it on ──────────────────────────────────────────────────────────
+
+async function start2fa() {
+  let d;
+  try { d = (await API.post('/api/v1/auth/2fa/setup', {})).data; }
+  catch (e) { showToast(t('sec.noConnection')); return; }
+  if (!d) { showToast(t('sec.noConnection')); return; }
+  // The SVG comes from the backend, which already holds the secret.
+  document.getElementById('tfa-qr').innerHTML = d.qrSvg || '';
+  document.getElementById('tfa-secret').textContent = d.secretFormatted || '';
+  document.getElementById('tfa-setup-err').style.display = 'none';
+  const f = document.getElementById('tfa-setup-code'); f.value = '';
+  document.getElementById('modal-2fa-setup').classList.add('show');
+  f.focus();
+}
+
+async function confirm2fa() {
+  const code = document.getElementById('tfa-setup-code').value.trim();
+  const err = document.getElementById('tfa-setup-err');
+  if (!code) return;
+  let r;
+  try { r = await API.post('/api/v1/auth/2fa/confirm', { code }); }
+  catch (e) { err.textContent = t('sec.noConnection'); err.style.display = 'block'; return; }
+  if (!r.ok) {
+    err.textContent = r.message || t('tfa.badCode');
+    err.style.display = 'block';
+    const f = document.getElementById('tfa-setup-code'); f.value = ''; f.focus();
+    return;
+  }
+  closeModal('modal-2fa-setup');
+  // This browser passed a code just now, so trust it rather than asking again immediately.
+  showRecoveryCodes(r.data.recoveryCodes);
+  renderSecurity();
+}
+
+function showRecoveryCodes(codes) {
+  const grid = document.getElementById('rec-codes');
+  grid.innerHTML = (codes || []).map(c => '<span>' + rsEsc(c) + '</span>').join('');
+  document.getElementById('rec-ack').checked = false;
+  document.getElementById('modal-2fa-codes').classList.add('show');
+}
+
+/** Only closes once they say they have the codes, because they are not shown again. */
+function closeRecoveryCodes() {
+  if (!document.getElementById('rec-ack').checked) {
+    showToast(t('sec.recoveryAckFirst'));
+    return;
+  }
+  closeModal('modal-2fa-codes');
+}
+
+async function regenerateCodes() {
+  const code = prompt(t('sec.promptCodeForNewRecovery'));
+  if (!code) return;
+  let r;
+  try { r = await API.post('/api/v1/auth/2fa/recovery-codes', { code: code.trim() }); }
+  catch (e) { showToast(t('sec.noConnection')); return; }
+  if (!r.ok) { showToast(r.message || t('tfa.badCode')); return; }
+  showRecoveryCodes(r.data.recoveryCodes);
+  renderSecurity();
+}
+
+async function disable2fa() {
+  const pw = prompt(t('sec.promptPasswordToDisable'));
+  if (!pw) return;
+  let r;
+  try { r = await API.post('/api/v1/auth/2fa/disable', { password: pw }); }
+  catch (e) { showToast(t('sec.noConnection')); return; }
+  if (!r.ok) { showToast(r.message || t('sec.badPassword')); return; }
+  clearDeviceToken();
+  showToast(t('sec.disabled'));
+  renderSecurity();
+}
+
+async function signOutOthers() {
+  let r;
+  try { r = await API.post('/api/v1/auth/sessions/revoke-others', {}); }
+  catch (e) { showToast(t('sec.noConnection')); return; }
+  if (!r.ok) { showToast(t('sec.noConnection')); return; }
+  // The backend forgot every trusted browser, including this one.
+  clearDeviceToken();
+  showToast(tv('sec.signedOutOthers', { n: r.data.signedOut }));
+  renderSecurity();
+}
+
+async function forgetDevice(id) {
+  let r;
+  try { r = await API.post('/api/v1/auth/trusted-devices/' + encodeURIComponent(id) + '/forget', {}); }
+  catch (e) { showToast(t('sec.noConnection')); return; }
+  if (!r.ok) { showToast(t('sec.noConnection')); return; }
+  showToast(t('sec.forgot'));
+  renderSessions();
+}
+
+document.getElementById('tfa-setup-code').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirm2fa();
+});
+
+const DEVICE_KEY = 'agv_device_token';
+function getDeviceToken() {
+  try { return localStorage.getItem(DEVICE_KEY) || undefined; } catch (e) { return undefined; }
+}
+function setDeviceToken(v) {
+  try { localStorage.setItem(DEVICE_KEY, v); } catch (e) {}
+}
+function clearDeviceToken() {
+  try { localStorage.removeItem(DEVICE_KEY); } catch (e) {}
+}
 
 async function doLogout() {
   // Tell the backend to revoke our token (best effort, fine to fail)
@@ -3276,7 +3767,7 @@ const PAGE_TITLES = {
   catalog:'catalog & slots.', hero:'hero & featured.', display:'display settings.',
   orders:'orders.', reports:'reports.', receipts:'receipts → costs.', users:'users.', settings:'fleet.',
   operators:'operators.', complaints:'kvartanir.',
-  machinedetail: 'machine detail.'
+  machinedetail: 'machine detail.', security: 'öryggi.'
 };
 
 // Parse the URL hash into a page id and optional param.
@@ -3360,6 +3851,7 @@ function go(id, el) {
   closeSidebar();
   window.scrollTo(0,0);
   // Lazy render
+  if(id==='security')  renderSecurity();
   if(id==='dashboard') renderDashboard();
   if(id==='machines')  renderMachines();
   if(id==='alerts')    renderAlerts();

@@ -15,6 +15,7 @@
  */
 
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 const storage = require('./storage');
 const totp = require('./totp');
 
@@ -75,13 +76,23 @@ function status(userId) {
  * Begin setup. Replaces any unconfirmed attempt, so a half-scanned QR can simply be redone.
  * Nothing about signing in changes until confirm() succeeds.
  */
-function beginSetup(user) {
+async function beginSetup(user) {
   const secret = totp.generateSecret();
   storage.startTotpSetup(user.id, secret);
+  const otpauthUri = totp.otpauthUri(secret, user.email);
+  // Rendered here rather than in the browser: the backend already holds the secret, and this
+  // keeps a QR encoder out of a 768 KB single-file dashboard. SVG so it stays sharp on a
+  // retina screen at any size. Proven scannable in test/qr.test.js, which decodes it with an
+  // independent implementation rather than trusting that it looks about right.
+  const qrSvg = await QRCode.toString(otpauthUri, {
+    type: 'svg', margin: 1, errorCorrectionLevel: 'M',
+    color: { dark: '#111111', light: '#FFFFFF' },
+  });
   return {
     secret,
     secretFormatted: totp.formatSecret(secret),
-    otpauthUri: totp.otpauthUri(secret, user.email),
+    otpauthUri,
+    qrSvg,
   };
 }
 
