@@ -1,6 +1,31 @@
 [
  {
   "component": "backend",
+  "version": "6.94.0",
+  "date": "2026-10-30",
+  "title": "Stock is counted per coil, for the coil that actually vended.",
+  "notes": [
+   "Config now sends coil machines on Kiosk stock the count in each coil, not only the total per product.",
+   "A sale that names its coil (coil app 0.80.17+) is taken off that coil. Older apps' sales are taken off the product's coils in layout order, as before."
+  ],
+  "check": "After a sale on the canary, Bays must show the count drop on the coil that turned (the one in Activity's coil column)."
+ },
+ {
+  "component": "coil",
+  "version": "0.80.17",
+  "versionCode": 173,
+  "date": "2026-10-30",
+  "title": "A product in several coils vends from one that still has stock.",
+  "notes": [
+   "Until now every unit of a product came out of its first coil. Once that coil was empty the spiral turned with nothing in it and the customer was still charged (Powerade blár, slot 41, while 42–49 were full).",
+   "Each unit now comes out of the product's coil with the most left. Two of the same item can come from two coils.",
+   "Closing one coil no longer takes the whole product off sale: it stays on sale while any of its coils is open.",
+   "Needs backend 6.94.0 for the per-coil counts. On Weimi stock it uses Weimi's counts from the last catalog load."
+  ],
+  "check": "On the canary, buy a product that sits in several coils where the first is empty; it must come out of a full coil, and Activity must show that coil."
+ },
+ {
+  "component": "backend",
   "version": "6.93.0",
   "date": "2026-10-30",
   "title": "Activity shows which coil vended each purchase.",

@@ -612,6 +612,9 @@ function buildConfigResponse(machine) {
     // effect between config polls. Independent of Weimi's isEnable (which we can't write).
     disabledAisles: Array.isArray(cfg.disabledAisles) ? cfg.disabledAisles : [],
     stock: storage.stockMapForMachine(machine.deviceCode),
+    // Per coil (aisle code → count), so the coil app can vend from a coil that still holds the
+    // product. Kiosk-stock machines only: on Weimi stock our layout counts are not the live ones.
+    aisleStock: machine.stockSource === 'kiosk' ? storage.aisleStockForMachine(machine.deviceCode) : {},
     // goodsId → { url, hasBackground } for products whose images we host+normalized.
     // Absent goodsId = not migrated yet; kiosk keeps its existing image source for those.
     images: storage.imageMapForMachine(machine.deviceCode),

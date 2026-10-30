@@ -1,10 +1,17 @@
 package isl.snudursopi.vending.domain
 
+/**
+ * True when every coil holding this product is closed. A product in several coils stays on sale
+ * while any of them is open: the dispense picks an open one (VendingViewModel.pickAisles).
+ */
+fun Product.isClosedBy(disabledAisles: Set<String>): Boolean =
+    slots.ifEmpty { listOf(slot) }.all { it.uppercase() in disabledAisles }
+
 /** Customer-facing display: visible only, sorted featured-first, then displayOrder, then name. */
 fun List<Product>.forCustomerDisplay(disabledAisles: Set<String> = emptySet()): List<Product> =
     asSequence()
         .filter { it.isVisibleToCustomer }
-        .filterNot { it.slot.uppercase() in disabledAisles }
+        .filterNot { it.isClosedBy(disabledAisles) }
         .sortedWith(
             compareByDescending<Product> { it.featured }
                 .thenBy { it.displayOrder }
@@ -29,7 +36,7 @@ fun List<Product>.forCustomerDisplay(
     val unlistedBase = gridOrder.size  // unlisted products sort after all listed
     return asSequence()
         .filter { it.isVisibleToCustomer }
-        .filterNot { it.slot.uppercase() in disabledAisles }
+        .filterNot { it.isClosedBy(disabledAisles) }
         .sortedWith(
             // Listed products by their gridOrder index; unlisted products keep
             // the default order (featured, displayOrder, name) but after listed.

@@ -57,6 +57,7 @@ import isl.snudursopi.vending.domain.MachineSettings
 import isl.snudursopi.vending.domain.Product
 import isl.snudursopi.vending.domain.ProductDetails
 import isl.snudursopi.vending.domain.forCustomerDisplay
+import isl.snudursopi.vending.domain.isClosedBy
 import isl.snudursopi.vending.data.backend.PairingClient
 import isl.snudursopi.vending.ui.screens.setup.PairResult
 import isl.snudursopi.vending.ui.screens.setup.CodeCheckResult
@@ -152,6 +153,31 @@ class VendingViewModel(
      * point the backend's currStock is the reconciled truth.
      */
     private val localVends = mutableMapOf<String, Int>()
+
+    /**
+     * Per-coil count, friendly slot ("A41") → units: the config's `aisleStock` block on kiosk
+     * machines, else Weimi's aisle counts from catalog load ([weimiAisleStock]). With
+     * [localAisleVends] it lets each unit come out of a coil that still holds the product.
+     * Until 0.80.17 every unit came from the product's FIRST coil, so once that coil was empty
+     * the board turned an empty spiral, reported "completed" and the customer was charged
+     * (Powerade blár, slot 41, 2026-10-30, while slots 42–49 were full).
+     */
+    @Volatile private var aisleStock: Map<String, Int> = emptyMap()
+
+    /** Friendly slot → the backend's aisle code ("0-D00"), so a sale names the bay it emptied. */
+    @Volatile private var aisleBackendCode: Map<String, String> = emptyMap()
+
+    /** Weimi's per-coil counts at catalog load (friendly slot → units). Fallback for [aisleStock]. */
+    @Volatile private var weimiAisleStock: Map<String, Int> = emptyMap()
+
+    /** Vends per coil since the last fresh config baseline — [localVends], per coil. */
+    private val localAisleVends = mutableMapOf<String, Int>()
+
+    /** One unit of a charge: the coil it comes out of and the price it is charged at. */
+    private data class PlannedUnit(val goodsId: String, val slot: String, val raw: Int, val priceIsk: Int)
+
+    /** The units of the charge last handed to the reader, in Marshall item-code order. */
+    @Volatile private var plannedUnits: List<PlannedUnit> = emptyList()
 
     /**
      * Backend-owned current count per goodsId, from the config `stock` block
@@ -612,6 +638,14 @@ class VendingViewModel(
 
             val products = aisles.toProducts()
             Log.i(TAG, "Consolidated to ${products.size} unique products")
+            // After toProducts(), which teaches the translator this machine's row widths.
+            localAisleVends.clear()
+            weimiAisleStock = buildMap {
+                aisles.forEach { a ->
+                    isl.snudursopi.vending.api.SlotCodeTranslator.fromApiCode(a.code)?.uppercase()
+                        ?.let { put(it, (get(it) ?: 0) + a.currStock) }
+                }
+            }
 
             if (products.isEmpty()) {
                 error(
@@ -808,6 +842,10 @@ class VendingViewModel(
             }
             rebuildVisibleProducts()
         }
+        // Per coil on every machine: it is what the next sale's coil choice reads.
+        planFor(current.basket)?.forEach { u ->
+            localAisleVends[u.slot] = (localAisleVends[u.slot] ?: 0) + 1
+        }
         reportSale(saleId = tradeNo, capturedIsk = capturedIsk, snapshot = current)
     }
 
@@ -818,12 +856,22 @@ class VendingViewModel(
     private fun reportSale(saleId: String, capturedIsk: Int, snapshot: VendingState) {
         val repo = salesRepo ?: return
         val quote = snapshot.quote
-        val lines = snapshot.basket.lines.map { line ->
+        // One line per product and coil, from the plan the reader was charged with: a product
+        // whose units came out of two coils is reported as two lines, each naming its coil, so
+        // the backend decrements the bays that were actually emptied.
+        val plan = planFor(snapshot.basket)
+        val lines = plan?.groupBy { it.goodsId to it.slot }?.map { (key, units) ->
+            SaleLine(
+                goodsId = key.first,
+                qty = units.size,
+                amountIsk = units.sumOf { it.priceIsk },
+                aisle = key.second,
+                aisleCode = aisleBackendCode[key.second],
+            )
+        } ?: snapshot.basket.lines.map { line ->
             val realised = quote?.lines?.firstOrNull { it.goodsId == line.product.id }?.lineTotalIsk
                 ?: (line.product.priceIsk * line.quantity)
-            // The coil this line came out of: orderItems() dispenses every unit of a line from
-            // line.product.slot, so that is the aisle that vended it.
-            SaleLine(goodsId = line.product.id, qty = line.quantity, amountIsk = realised, aisle = line.product.slot)
+            SaleLine(goodsId = line.product.id, qty = line.quantity, amountIsk = realised)
         }
         if (lines.isEmpty()) return
         val payload = SalePayload(
@@ -954,26 +1002,69 @@ class VendingViewModel(
         }
     }
 
-    /** Expand the basket into one payment Item per physical unit, mapping each
-     *  product's friendly slot ("A35") to its motor coil. Lines whose slot
-     *  can't be mapped are skipped (logged). */
-    private fun orderItems(): List<isl.snudursopi.vending.hardware.nayax.MarshallPaymentController.Item> {
-        var codeCounter = 0
+    /** Expand the basket into one payment Item per physical unit at base prices. */
+    private fun orderItems(): List<isl.snudursopi.vending.hardware.nayax.MarshallPaymentController.Item> =
+        planUnits(null).toItems()
+
+    /**
+     * Plan the basket unit by unit: which coil each unit comes out of ([pickAisles]) and what it
+     * is charged ([quote]'s line total split across the units, else the base price). Lines with
+     * no addressable open coil are skipped (logged), as before.
+     */
+    private fun planUnits(quote: CartQuote?): List<PlannedUnit> {
+        val planned = mutableMapOf<String, Int>()
         return _state.value.basket.lines.flatMap { line ->
-            val raw = isl.snudursopi.vending.api.SlotCodeTranslator.friendlyToRaw(line.product.slot)
-            if (raw == null) {
-                Log.w(TAG, "no raw slot for ${line.product.slot} (${line.product.name})")
-                emptyList()
-            } else {
-                List(line.quantity) {
-                    isl.snudursopi.vending.hardware.nayax.MarshallPaymentController.Item(
-                        code = codeCounter++,
-                        slot = raw,
-                        priceIsk = line.product.priceIsk,
-                    )
-                }
+            val slots = pickAisles(line.product, line.quantity, planned)
+            if (slots.isEmpty()) {
+                Log.w(TAG, "no open, addressable coil for ${line.product.name} (${line.product.slots})")
+                return@flatMap emptyList()
+            }
+            val ql = quote?.lines?.firstOrNull { it.goodsId == line.product.id }
+            val unitPrices = if (ql != null && line.quantity > 0) splitInt(ql.lineTotalIsk, line.quantity)
+                else List(line.quantity) { line.product.priceIsk }
+            slots.zip(unitPrices).map { (slot, price) ->
+                PlannedUnit(
+                    goodsId = line.product.id,
+                    slot = slot,
+                    raw = isl.snudursopi.vending.api.SlotCodeTranslator.friendlyToRaw(slot)!!,
+                    priceIsk = price,
+                )
             }
         }
+    }
+
+    private fun List<PlannedUnit>.toItems() = mapIndexed { i, u ->
+        isl.snudursopi.vending.hardware.nayax.MarshallPaymentController.Item(code = i, slot = u.raw, priceIsk = u.priceIsk)
+    }
+
+    /**
+     * The coil each of [qty] units of [product] comes out of. Candidates are the product's open,
+     * addressable coils; each unit goes to the one with the most left — its count, less what has
+     * vended since the last baseline, less what is already planned in this basket ([planned],
+     * updated here) — ties in coil order. Without any per-coil counts it is the first open coil.
+     */
+    private fun pickAisles(product: Product, qty: Int, planned: MutableMap<String, Int>): List<String> {
+        val candidates = product.slots.ifEmpty { listOf(product.slot) }.map { it.uppercase() }.distinct()
+            .filter { it !in disabledAisles && isl.snudursopi.vending.api.SlotCodeTranslator.friendlyToRaw(it) != null }
+        if (candidates.isEmpty() || qty <= 0) return emptyList()
+        val counts = if (stockSource == "kiosk" && aisleStock.isNotEmpty()) aisleStock else weimiAisleStock
+        fun left(s: String) = (counts[s] ?: 0) - (localAisleVends[s] ?: 0) - (planned[s] ?: 0)
+        return List(qty) {
+            val pick = if (counts.isEmpty()) candidates.first() else candidates.maxByOrNull { left(it) }!!
+            if (counts.isNotEmpty() && left(pick) <= 0) {
+                Log.w(TAG, "every coil of ${product.name} counts empty (${candidates.associateWith { left(it) }}) — vending $pick")
+            }
+            planned[pick] = (planned[pick] ?: 0) + 1
+            pick
+        }
+    }
+
+    /** The armed plan, if it is for exactly this basket (same products, same quantities). */
+    private fun planFor(basket: Basket): List<PlannedUnit>? {
+        val plan = plannedUnits
+        val want = basket.lines.associate { it.product.id to it.quantity }
+        val got = plan.groupingBy { it.goodsId }.eachCount()
+        return plan.takeIf { it.isNotEmpty() && got == want }
     }
 
     /** Price the current basket against the backend deal engine. Returns null on
@@ -992,38 +1083,6 @@ class VendingViewModel(
         } catch (e: Exception) {
             Log.w(TAG, "quote failed (${e.message}) — charging base prices")
             null
-        }
-    }
-
-    /** Build the Nayax item list using DEAL-priced per-unit prices from [quote]
-     *  so the terminal is charged the discounted total and per-item capture
-     *  (incl. partial dispense) stays correct. Falls back to base prices for any
-     *  line the quote didn't cover, or entirely when [quote] is null. */
-    private fun discountedOrderItems(
-        quote: CartQuote?,
-    ): List<isl.snudursopi.vending.hardware.nayax.MarshallPaymentController.Item> {
-        if (quote == null) return orderItems()
-        var codeCounter = 0
-        return _state.value.basket.lines.flatMap { line ->
-            val raw = isl.snudursopi.vending.api.SlotCodeTranslator.friendlyToRaw(line.product.slot)
-            if (raw == null) {
-                Log.w(TAG, "no raw slot for ${line.product.slot} (${line.product.name})")
-                emptyList()
-            } else {
-                val ql = quote.lines.firstOrNull { it.goodsId == line.product.id }
-                val unitPrices = if (ql != null && line.quantity > 0) {
-                    splitInt(ql.lineTotalIsk, line.quantity)
-                } else {
-                    List(line.quantity) { line.product.priceIsk }
-                }
-                unitPrices.map { price ->
-                    isl.snudursopi.vending.hardware.nayax.MarshallPaymentController.Item(
-                        code = codeCounter++,
-                        slot = raw,
-                        priceIsk = price,
-                    )
-                }
-            }
         }
     }
 
@@ -1047,8 +1106,8 @@ class VendingViewModel(
      *  — so an image tap never wipes a multi-item basket, and building a cart
      *  keeps you on the grid like the cart icon does. */
     fun buyNow(product: Product): Boolean {
-        if (product.slot.uppercase() in disabledAisles) {
-            Log.i(TAG, "buyNow ignored — aisle ${product.slot} is closed")
+        if (product.isClosedBy(disabledAisles)) {
+            Log.i(TAG, "buyNow ignored — every coil of ${product.name} is closed")
             return false
         }
         if (!_state.value.basket.isEmpty) {
@@ -1067,8 +1126,8 @@ class VendingViewModel(
      *  after coming back from checkout without leaving it), onOrderEdited kills
      *  the stale amount and re-prices. */
     fun addToOrder(product: Product) {
-        if (product.slot.uppercase() in disabledAisles) {
-            Log.i(TAG, "addToOrder ignored — aisle ${product.slot} is closed")
+        if (product.isClosedBy(disabledAisles)) {
+            Log.i(TAG, "addToOrder ignored — every coil of ${product.name} is closed")
             return
         }
         if (_state.value.basket.itemCount >= Basket.MAX_ITEMS) return
@@ -1227,7 +1286,10 @@ class VendingViewModel(
             val quote = quoteCart()
             if (mySeq != armSeq) return@launch
             _state.update { it.copy(quote = quote) }
-            val chargeItems = discountedOrderItems(quote)
+            val plan = planUnits(quote)
+            plannedUnits = plan
+            Log.i(TAG, "plan: ${plan.joinToString { "${it.goodsId}@${it.slot}" }}")
+            val chargeItems = plan.toItems()
             if (chargeItems.isEmpty()) { return@launch }
             cardDetectedThisArm = false
             arming = true
@@ -2484,10 +2546,24 @@ class VendingViewModel(
                     // backend's reconciled currStock (it has applied our reported
                     // vends), so any local decrements are now folded in.
                     localVends.clear()
+                    // Per-coil vends re-baseline only against fresh per-coil counts. A Weimi-stock
+                    // machine gets none from the backend: its baseline is the catalog load.
+                    if (result.stockSource == "kiosk" && result.aisleStock.isNotEmpty()) localAisleVends.clear()
                     // Adopt the backend's stock model + live counts (used to
                     // overlay the catalog for kiosk machines; no-op for weimi).
                     stockSource = result.stockSource
                     backendStock = result.stock
+                    aisleStock = buildMap {
+                        result.aisleStock.forEach { (code, n) ->
+                            isl.snudursopi.vending.api.SlotCodeTranslator.normalize(code)
+                                ?.let { put(it, (get(it) ?: 0) + n) }
+                        }
+                    }
+                    aisleBackendCode = buildMap {
+                        result.aisleStock.keys.forEach { code ->
+                            isl.snudursopi.vending.api.SlotCodeTranslator.normalize(code)?.let { put(it, code) }
+                        }
+                    }
                     Log.i(TAG, "config seed stockSource=$stockSource stock=$backendStock")
                     // Backend-hosted normalized images (empty until migration runs).
                     backendImages = result.images

@@ -1344,7 +1344,7 @@ function normalizeSaleRecords(raw) {
           goodsId,
           productName: ln.name || ln.productName || '',
           amountKr, qty, timestamp: ts, status: 1,
-          aisle: ln.aisle,
+          aisle: ln.aisle, aisleCode: ln.aisleCode,
         });
       });
       continue;
@@ -1897,7 +1897,8 @@ function handleSalesIngest(req, res) {
       if (m.stockSource === 'kiosk') {
         // Backend is system of record: decrement the planogram the kiosk reads,
         // applying the stale-vend timestamp guard against the bay's last restock.
-        storage.applySaleToLayout(deviceCode, String(r.goodsId), r.qty || 1, r.timestamp);
+        storage.applySaleToLayout(deviceCode, String(r.goodsId), r.qty || 1, r.timestamp,
+          typeof r.aisleCode === 'string' ? r.aisleCode : null);
         kioskStockTouched = true;
       } else {
         storage.applySaleToStock({
