@@ -41,6 +41,7 @@ const {
 } = require('./db');
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
+const twoFactor = require('./twoFactor');
 const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
         revokeToken, revokeAllForUser, requireCap, authConfig } = require('./auth');
@@ -165,6 +166,15 @@ const routes = [
   { method:'POST', pattern:'/api/v1/auth/logout',                            handler: handleLogout, middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/auth/change-password',                   handler: handleChangePassword, middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/auth/forgot-password',                   handler: handleForgotPassword },
+  { method:'POST', pattern:'/api/v1/auth/login/totp',                        handler: handleLoginTotp },
+  { method:'GET',  pattern:'/api/v1/auth/2fa',                               handler: handleGet2fa,            middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/auth/2fa/setup',                         handler: handle2faSetup,          middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/auth/2fa/confirm',                       handler: handle2faConfirm,        middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/auth/2fa/disable',                       handler: handle2faDisable,        middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/auth/2fa/recovery-codes',                handler: handle2faRecoveryCodes,  middleware:[requireAuth] },
+  { method:'GET',  pattern:'/api/v1/auth/sessions',                          handler: handleGetSessions,       middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/auth/sessions/revoke-others',            handler: handleRevokeOthers,      middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/auth/trusted-devices/:id/forget',        handler: handleForgetDevice,      middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/password-reset/:token',                  handler: handleGetPasswordReset },
   { method:'POST', pattern:'/api/v1/password-reset/:token',                  handler: handleUsePasswordReset },
   { method:'POST', pattern:'/api/v1/users/:userId/password-reset',           handler: handleIssuePasswordReset, middleware:[requireAuth, requireOperatorAdmin] },
@@ -1049,9 +1059,174 @@ function handleLogin(req, res) {
     storage.updateUserPassword(user.id, hashPassword(String(password)));
     console.log(`[AUTH] password for ${user.id} moved to a hash`);
   }
+  // Second factor, if this account has one. Operators are untouched unless they turned it on
+  // themselves. No session is issued here: the challenge only says the password was right.
+  if (twoFactor.isEnabled(user.id)) {
+    if (!twoFactor.deviceIsTrusted(user.id, (req.body || {}).deviceToken)) {
+      return ok(res, { needsTotp: true, challenge: twoFactor.issueChallenge(user.id) });
+    }
+  }
+
   const token = createToken(user.id);
   storage.updateLastActive(user.id);
   ok(res, { token, user: publicUser(user) });
+}
+
+/** A name for the signed-in-devices list. Rough on purpose: it is a reminder, not forensics. */
+function deviceLabel(req) {
+  const ua = String(req.headers['user-agent'] || '');
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad'
+           : /Android/.test(ua) ? 'Android' : /Macintosh/.test(ua) ? 'Mac'
+           : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Óþekkt tæki';
+  // Order matters: Chrome and Edge both say "Safari", and Edge also says "Chrome".
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera'
+                : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox'
+                : /Safari\//.test(ua) ? 'Safari' : null;
+  return browser ? os + ' · ' + browser : os;
+}
+
+/**
+ * POST /api/v1/auth/login/totp { challenge, code, trustDevice }
+ *
+ * The second step. Public by necessity — there is no session yet — and the challenge is the
+ * credential. Wrong codes are counted against the same limiter as wrong passwords, per IP and
+ * per account, because six digits is only a million values.
+ */
+function handleLoginTotp(req, res) {
+  const { challenge, code, trustDevice } = req.body || {};
+  const now = Date.now();
+
+  const userId = twoFactor.readChallenge(challenge);
+  if (!userId) {
+    return json(res, 401, { ok: false, error: 'challenge_expired',
+      message: 'Innskráningin er útrunnin. Skráðu þig inn aftur.' });
+  }
+
+  const ipKey = 'ip:' + clientIp(req), userKey = '2fa:' + userId;
+  const ipFails = loginFailCount(ipKey, now), userFails = loginFailCount(userKey, now);
+  if (ipFails >= LOGIN_MAX_FAILS || userFails >= LOGIN_MAX_FAILS) {
+    return json(res, 429, { ok: false, error: 'too_many_attempts',
+      message: 'Of margar tilraunir. Prófaðu aftur eftir 15 mínútur.' });
+  }
+
+  const check = twoFactor.checkCode(userId, code);
+  if (!check.ok) {
+    _loginFails.get(ipKey).push(now); _loginFails.get(userKey).push(now);
+    if (_loginFails.size > 10000) _loginFails.clear();
+    console.warn('[AUTH] wrong second factor for ' + userId + ' from ' + ipKey.slice(3));
+    return json(res, 401, { ok: false, error: 'bad_code',
+      attemptsLeft: Math.max(0, LOGIN_MAX_FAILS - (userFails + 1)),
+      message: 'Kóðinn er ekki réttur.' });
+  }
+
+  // One challenge, one session.
+  twoFactor.consumeChallenge(challenge);
+
+  const user = users.find(u => u.id === userId);
+  if (!user) return json(res, 401, { ok: false, error: 'Invalid credentials' });
+
+  const token = createToken(user.id);
+  storage.updateLastActive(user.id);
+
+  const out = { token, user: publicUser(user), via: check.via };
+  if (check.via === 'recovery') out.recoveryCodesLeft = check.recoveryCodesLeft;
+  if (trustDevice) {
+    const t = twoFactor.trustDevice(user.id, deviceLabel(req));
+    out.deviceToken = t.deviceToken;
+    out.deviceTrustedUntil = new Date(t.expiresAt).toISOString();
+  }
+  ok(res, out);
+}
+
+// ─── Two-factor management (the signed-in user's own, never anyone else's) ────
+
+function handleGet2fa(req, res) {
+  ok(res, twoFactor.status(req.user.id));
+}
+
+function handle2faSetup(req, res) {
+  if (twoFactor.isEnabled(req.user.id)) {
+    return badRequest(res, 'Tveggja þátta auðkenning er þegar í gangi.');
+  }
+  // The secret is returned once, to be scanned or typed. It is live only after confirm.
+  ok(res, twoFactor.beginSetup(req.user));
+}
+
+function handle2faConfirm(req, res) {
+  const r = twoFactor.confirmSetup(req.user.id, (req.body || {}).code);
+  if (!r.ok) {
+    if (r.error === 'bad_code') return json(res, 400, { ok: false, error: 'bad_code',
+      message: 'Kóðinn er ekki réttur. Bíddu eftir næsta kóða og prófaðu hann.' });
+    return badRequest(res, r.error);
+  }
+  console.log('[2FA] enabled for ' + req.user.id);
+  // The only time the recovery codes exist in the clear.
+  ok(res, { enabled: true, recoveryCodes: r.recoveryCodes });
+}
+
+/** Turning it off needs the password, so a borrowed open tab cannot do it. */
+function handle2faDisable(req, res) {
+  const { password } = req.body || {};
+  const me = users.find(u => u.id === req.user.id);
+  if (!me || !password || !verifyPassword(me.password, String(password))) {
+    return json(res, 401, { ok: false, error: 'bad_password',
+      message: 'Lykilorðið er ekki rétt.' });
+  }
+  twoFactor.disable(req.user.id);
+  console.log('[2FA] disabled for ' + req.user.id);
+  ok(res, { enabled: false });
+}
+
+function handle2faRecoveryCodes(req, res) {
+  const r = twoFactor.regenerateRecoveryCodes(req.user.id, (req.body || {}).code);
+  if (!r.ok) {
+    if (r.error === 'bad_code') return json(res, 400, { ok: false, error: 'bad_code',
+      message: 'Kóðinn er ekki réttur.' });
+    return badRequest(res, r.error);
+  }
+  ok(res, { recoveryCodes: r.recoveryCodes });
+}
+
+// ─── Sessions ─────────────────────────────────────────────────────────────────
+
+function currentToken(req) {
+  const h = req.headers['authorization'] || '';
+  return h.startsWith('Bearer ') ? h.slice(7) : null;
+}
+
+/**
+ * Where this account is signed in. The tokens themselves never leave the backend — each row
+ * carries a short digest instead, which is enough to tell the rows apart on screen.
+ */
+function handleGetSessions(req, res) {
+  const mine = currentToken(req);
+  const sessions = storage.listUserTokens(req.user.id).map(r => ({
+    id: crypto.createHash('sha256').update(r.token).digest('hex').slice(0, 12),
+    current: r.token === mine,
+    createdAt: new Date(r.createdAt).toISOString(),
+    lastUsedAt: new Date(r.lastUsedAt || r.createdAt).toISOString(),
+    expiresAt: new Date(r.expiresAt).toISOString(),
+  }));
+  ok(res, { sessions, trustedDevices: twoFactor.listTrustedDevices(req.user.id) });
+}
+
+/** Ends every session but this one, and forgets every trusted browser. */
+function handleRevokeOthers(req, res) {
+  const mine = currentToken(req);
+  const before = storage.listUserTokens(req.user.id).length;
+  storage.deleteOtherUserTokens(req.user.id, mine);
+  for (const [tok, uid] of authTokens.entries()) {
+    if (uid === req.user.id && tok !== mine) authTokens.delete(tok);
+  }
+  twoFactor.forgetAllDevices(req.user.id);
+  console.log('[AUTH] ' + req.user.id + ' signed out ' + Math.max(0, before - 1) + ' other session(s)');
+  ok(res, { signedOut: Math.max(0, before - 1) });
+}
+
+function handleForgetDevice(req, res) {
+  const removed = twoFactor.forgetDevice(req.user.id, String(req.params.id || ''));
+  if (!removed) return notFound(res, 'Tækið er ekki á listanum.');
+  ok(res, { forgotten: true });
 }
 
 function handleLogout(req, res) {

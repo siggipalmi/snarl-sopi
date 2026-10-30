@@ -135,11 +135,25 @@ setInterval(() => {
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
+// When each session was last seen, for the signed-in-devices screen. Written at most once
+// every five minutes per token: the screen shows days, and a write per request would mean a
+// SQLite write on every single call the dashboard makes.
+const TOUCH_EVERY_MS = 5 * 60 * 1000;
+const _touched = new Map();
+function touchSession(token) {
+  const now = Date.now();
+  if (now - (_touched.get(token) || 0) < TOUCH_EVERY_MS) return;
+  _touched.set(token, now);
+  if (_touched.size > 5000) _touched.clear();
+  try { storage.touchAuthToken(token); } catch (e) {}
+}
+
 function requireAuth(req, res, next) {
   const header = req.headers['authorization'] || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   const userId = verifyToken(token);
   if (!userId) return json(res, 401, { error: 'Unauthorized' });
+  touchSession(token);
   const user = users.find(u => u.id === userId);
   if (!user) return json(res, 401, { error: 'User not found' });
   // Billing lever: a suspended operator's users are locked out everywhere
