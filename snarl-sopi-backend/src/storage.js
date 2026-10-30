@@ -2012,6 +2012,20 @@ const storage = {
   // Per-goodsId current stock map for the kiosk config (summed across bays,
   // includes 0-stock so the kiosk can stop offering emptied bays). System of
   // record for kiosk machines; the kiosk re-baselines its local count to this.
+  // aisle code → current count, for every bay holding a product. The coil app vends each unit from
+  // the coil with the most left (coil 0.80.17); with only the per-product total it always used the
+  // product's first coil and turned it empty once that ran out (slot 41, 2026-10-30).
+  aisleStockForMachine(deviceCode) {
+    let layout;
+    try { const raw = this.getMeta('layout:' + deviceCode); layout = raw ? JSON.parse(raw) : null; } catch (e) { layout = null; }
+    const out = {};
+    if (Array.isArray(layout)) layout.forEach(layer => (layer.bays || []).forEach(b => {
+      if (!b || !b.code || b.goodsId == null || b.goodsId === '') return;
+      out[String(b.code)] = Number(b.currStock) || 0;
+    }));
+    return out;
+  },
+
   stockMapForMachine(deviceCode) {
     const lp = this.layoutProductsForDevice(deviceCode) || {};
     const out = {};
@@ -3178,19 +3192,27 @@ const storage = {
   // at/after the sale time (stale-vend guard for offline-queued vends). Clamps
   // >= 0. `soldAtMs` is epoch ms (the sale timestamp from the kiosk).
   // Returns the recomputed machine total stock.
-  applySaleToLayout(deviceCode, goodsId, qty, soldAtMs) {
+  // aisleCode (coil 0.80.17+) names the bay the units came out of; it is taken from first, and only
+  // what it cannot cover falls back to the product's bays in layout order, as every sale did before.
+  applySaleToLayout(deviceCode, goodsId, qty, soldAtMs, aisleCode) {
     let layout;
     try { const raw = this.getMeta('layout:' + deviceCode); layout = raw ? JSON.parse(raw) : null; } catch (e) { layout = null; }
     if (!Array.isArray(layout)) return { ok: false, totalCurrStock: null };
     let need = Math.max(0, Math.round(Number(qty) || 0));
     const saleMs = Number(soldAtMs) || Date.now();
-    layout.forEach(layer => (layer.bays || []).forEach(b => {
+    const bays = [];
+    layout.forEach(layer => (layer.bays || []).forEach(b => bays.push(b)));
+    if (aisleCode) {
+      const i = bays.findIndex(b => String(b.code) === String(aisleCode));
+      if (i > 0) bays.unshift(bays.splice(i, 1)[0]);
+    }
+    bays.forEach(b => {
       if (need <= 0) return;
       if (String(b.goodsId) !== String(goodsId)) return;
       if (b.restockAt && Date.parse(b.restockAt) >= saleMs) return; // restocked after this sale → skip
       const take = Math.min(need, Number(b.currStock) || 0);
       if (take > 0) { b.currStock = (Number(b.currStock) || 0) - take; need -= take; }
-    }));
+    });
     let total = 0; layout.forEach(l => (l.bays || []).forEach(b => total += Number(b.currStock) || 0));
     this.setMeta('layout:' + deviceCode, JSON.stringify(layout));
     return { ok: true, decremented: Math.max(0, Math.round(Number(qty) || 0)) - need, totalCurrStock: total };

@@ -168,6 +168,15 @@ class ConfigClient(
             }
         } ?: emptyMap()
 
+        // aisleStock: per-coil current count (backend 6.94.0+), keyed by the layout's aisle
+        // code. Lets the kiosk vend from a coil that still holds the product rather than the
+        // first coil it sits in. Absent on older backends → empty (kiosk falls back).
+        val aisleStock: Map<String, Int> = data.get("aisleStock")?.takeIf { it.isObject }?.let { node ->
+            buildMap {
+                node.fields().forEach { (k, v) -> if (v.isNumber) put(k, v.asInt()) }
+            }
+        } ?: emptyMap()
+
         // images: per-goodsId backend-hosted (R2) normalized product image.
         // Only products the backend has migrated appear here; an absent goodsId
         // means "not migrated yet" → the kiosk keeps its local Weimi image.
@@ -233,6 +242,7 @@ class ConfigClient(
             offers = offers,
             stockSource = stockSource,
             stock = stock,
+            aisleStock = aisleStock,
             images = images,
             restartApp = restartApp,
             restartMachine = restartMachine,
@@ -333,6 +343,8 @@ class ConfigClient(
             val stockSource: String = "weimi",
             /** Per-goodsId current count from the config `stock` block. */
             val stock: Map<String, Int> = emptyMap(),
+            /** Per-coil current count, keyed by the backend's aisle code (or empty). */
+            val aisleStock: Map<String, Int> = emptyMap(),
             /** Per-goodsId backend-hosted normalized image. Absent goodsId = not
              *  migrated → keep the local Weimi image for that product. */
             val images: Map<String, BackendImage> = emptyMap(),

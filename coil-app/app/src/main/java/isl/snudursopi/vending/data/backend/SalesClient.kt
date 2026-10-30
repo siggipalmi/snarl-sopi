@@ -5,13 +5,16 @@ package isl.snudursopi.vending.data.backend
  * `lines[]` shape. [amountIsk] is what was actually charged for the line
  * (realised deal price — revenue + the recorded deal price). [aisle] is the
  * coil the line was vended from ("A35"), shown per purchase on the dashboard;
- * null for a sale queued by a build older than 0.80.16.
+ * null for a sale queued by a build older than 0.80.16. [aisleCode] is the same
+ * coil in the backend's layout code ("0-D00", from 0.80.17), so the backend
+ * decrements that bay rather than the product's first one.
  */
 data class SaleLine(
     val goodsId: String,
     val qty: Int,
     val amountIsk: Int,
     val aisle: String? = null,
+    val aisleCode: String? = null,
 )
 
 /**
@@ -58,6 +61,7 @@ class SalesClient(
                     "qty" to it.qty,
                     "amountIsk" to it.amountIsk,
                     "aisle" to it.aisle,
+                    "aisleCode" to it.aisleCode,
                 )
             },
         )
