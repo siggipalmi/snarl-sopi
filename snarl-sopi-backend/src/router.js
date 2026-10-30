@@ -43,7 +43,7 @@ const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
 const { createToken, requireAuth, requireAdmin, requireAgAdmin,
         requireOperatorAdmin, requireMachineAccess, requireOperatorAccess,
-        revokeToken, revokeAllForUser, requireCap } = require('./auth');
+        revokeToken, revokeAllForUser, requireCap, authConfig } = require('./auth');
 const roles = require('./roles');
 const adminPin = require('./adminPin');
 const email = require('./email');
@@ -779,6 +779,9 @@ function handleHealth(req, res) {
     // ANTHROPIC_API_KEY variable name/casing is right and a key is visible to the backend.
     // This does NOT prove the key works (billing/validity) — use GET /api/v1/receipts/ping for that.
     receiptsVision: !!process.env.ANTHROPIC_API_KEY ? 'key-present' : 'no-key',
+    // Sign-in readiness. Booleans and day counts only — never the secret. jwtSecret:false means
+    // tokens are being signed with the development fallback that ships in the repo.
+    auth: authConfig(),
     db: { path: storage.dbPath || null, persistent: storage.dbPersistent !== false },
   });
 }
