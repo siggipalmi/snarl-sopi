@@ -1067,7 +1067,7 @@ function handleLogin(req, res) {
     }
   }
 
-  const token = createToken(user.id);
+  const token = createToken(user.id, deviceLabel(req));
   storage.updateLastActive(user.id);
   ok(res, { token, user: publicUser(user) });
 }
@@ -1125,7 +1125,7 @@ function handleLoginTotp(req, res) {
   const user = users.find(u => u.id === userId);
   if (!user) return json(res, 401, { ok: false, error: 'Invalid credentials' });
 
-  const token = createToken(user.id);
+  const token = createToken(user.id, deviceLabel(req));
   storage.updateLastActive(user.id);
 
   const out = { token, user: publicUser(user), via: check.via };
@@ -1144,12 +1144,12 @@ function handleGet2fa(req, res) {
   ok(res, twoFactor.status(req.user.id));
 }
 
-function handle2faSetup(req, res) {
+async function handle2faSetup(req, res) {
   if (twoFactor.isEnabled(req.user.id)) {
     return badRequest(res, 'Tveggja þátta auðkenning er þegar í gangi.');
   }
   // The secret is returned once, to be scanned or typed. It is live only after confirm.
-  ok(res, twoFactor.beginSetup(req.user));
+  ok(res, await twoFactor.beginSetup(req.user));
 }
 
 function handle2faConfirm(req, res) {
@@ -1203,6 +1203,7 @@ function handleGetSessions(req, res) {
   const sessions = storage.listUserTokens(req.user.id).map(r => ({
     id: crypto.createHash('sha256').update(r.token).digest('hex').slice(0, 12),
     current: r.token === mine,
+    label: r.label || null,
     createdAt: new Date(r.createdAt).toISOString(),
     lastUsedAt: new Date(r.lastUsedAt || r.createdAt).toISOString(),
     expiresAt: new Date(r.expiresAt).toISOString(),

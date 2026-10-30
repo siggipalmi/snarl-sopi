@@ -627,6 +627,9 @@ ensureColumn('machines', 'nayaxLastSyncAt', 'TEXT');
 // Which session was last used when, for the signed-in-devices screen and for idle expiry.
 // Existing tokens get NULL and are read as "first seen now" rather than as idle since the epoch.
 ensureColumn('auth_tokens', 'lastUsedAt', 'INTEGER');
+// What the session is, in words, so the signed-in-devices list can be read at a glance. A list
+// of identical rows cannot tell you which one is not yours, which is the only reason it exists.
+ensureColumn('auth_tokens', 'label', 'TEXT');
 ensureColumn('machines', 'nayaxDataJson',   'TEXT');
 ensureColumn('machines', 'stockSource',     "TEXT NOT NULL DEFAULT 'weimi'");
 // products are keyed by the device-facing product code (goodsCode); we also keep
@@ -1079,13 +1082,13 @@ const stmts = {
                                    SELECT id FROM kiosk_logs WHERE deviceCode = ? ORDER BY id DESC LIMIT ?)`),
 
   // Auth tokens (persistent across restarts so sessions survive redeploys)
-  insertAuthToken:   db.prepare('INSERT INTO auth_tokens (token, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)'),
+  insertAuthToken:   db.prepare('INSERT INTO auth_tokens (token, userId, createdAt, expiresAt, lastUsedAt, label) VALUES (?, ?, ?, ?, ?, ?)'),
   getAuthToken:      db.prepare('SELECT * FROM auth_tokens WHERE token = ?'),
   deleteAuthToken:   db.prepare('DELETE FROM auth_tokens WHERE token = ?'),
   deleteUserTokens:  db.prepare('DELETE FROM auth_tokens WHERE userId = ?'),
   cleanupExpiredAuthTokens: db.prepare('DELETE FROM auth_tokens WHERE expiresAt < ?'),
   touchAuthToken:    db.prepare('UPDATE auth_tokens SET lastUsedAt = ? WHERE token = ?'),
-  listUserTokens:    db.prepare('SELECT token, createdAt, expiresAt, lastUsedAt FROM auth_tokens WHERE userId = ? ORDER BY COALESCE(lastUsedAt, createdAt) DESC'),
+  listUserTokens:    db.prepare('SELECT token, createdAt, expiresAt, lastUsedAt, label FROM auth_tokens WHERE userId = ? ORDER BY COALESCE(lastUsedAt, createdAt) DESC'),
   deleteOtherUserTokens: db.prepare('DELETE FROM auth_tokens WHERE userId = ? AND token != ?'),
 
   // Two-factor
@@ -2192,8 +2195,9 @@ const storage = {
   },
 
   // Auth tokens
-  insertAuthToken(token, userId, expiresAt) {
-    stmts.insertAuthToken.run(token, userId, Date.now(), expiresAt);
+  insertAuthToken(token, userId, expiresAt, label) {
+    const now = Date.now();
+    stmts.insertAuthToken.run(token, userId, now, expiresAt, now, label || null);
   },
   getAuthToken(token) {
     const row = stmts.getAuthToken.get(token);

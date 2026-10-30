@@ -184,7 +184,7 @@ h1, h2, h3, h4 { font-style: normal; }
 #page-alerts, #page-complaints                              { --band: var(--c-magenta); }  /* something is wrong */
 #page-orders, #page-receipts                                { --band: var(--c-green);   }  /* sales that went through */
 #page-catalog, #page-expiry, #page-operators, #page-users   { --band: var(--c-teal);    }  /* stock and people */
-#page-reports, #page-settings, #page-help {
+#page-reports, #page-settings, #page-help, #page-security {
   --band: var(--c-night); --band-ink: #FFFFFF;
 }
 
