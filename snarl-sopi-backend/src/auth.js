@@ -17,13 +17,48 @@ const { authTokens, users, machines, operators, userCanAccessMachine, userCanAcc
 
 const SECRET = process.env.JWT_SECRET || 'snudur-sopi-dev-secret-change-in-prod';
 
-const TOKEN_TTL_MS = 30 * 24 * 3600 * 1000; // 30 days
+// Whether a real secret was supplied. The fallback above is in a public repo, so it is worth
+// nothing as a secret; a forged token is still refused today because verifyToken also requires
+// the token to exist in SQLite, but that is one refactor away from being the only thing holding.
+// Reported as a boolean by GET /health (auth.jwtSecret) so it can be confirmed from outside.
+const JWT_SECRET_SET = !!process.env.JWT_SECRET;
+if (!JWT_SECRET_SET) {
+  console.warn('[AUTH] JWT_SECRET is not set — using the built-in development secret. ' +
+    'Set JWT_SECRET on the backend: token signing is not secret without it.');
+}
+
+// Session length follows the role. An ag_admin can read every operator's data, so their session
+// is capped short; operator sessions stay long, because making a restocker sign in again every
+// week is friction that buys nothing.
+const TTL_AG_ADMIN_MS = 7 * 24 * 3600 * 1000;  // 7 days
+const TOKEN_TTL_MS = 30 * 24 * 3600 * 1000;    // 30 days — operators
+
+function ttlFor(role) { return role === 'ag_admin' ? TTL_AG_ADMIN_MS : TOKEN_TTL_MS; }
+
+/** Boolean-only view of the auth config, for GET /health. Never returns the secret itself. */
+function authConfig() {
+  return {
+    jwtSecret: JWT_SECRET_SET,
+    adminSessionDays: Math.round(TTL_AG_ADMIN_MS / 86400000),
+    operatorSessionDays: Math.round(TOKEN_TTL_MS / 86400000),
+  };
+}
+
+/** Constant-time string compare, so a signature check cannot be probed byte by byte. */
+function safeEqual(a, b) {
+  const ab = Buffer.from(String(a)), bb = Buffer.from(String(b));
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
 
 // ─── Token creation / verification ────────────────────────────────────────────
 
 function createToken(userId) {
   const issuedAt = Date.now();
-  const expiresAt = issuedAt + TOKEN_TTL_MS;
+  // The role is looked up here rather than passed in, so that no call site can hand an
+  // AG Vending admin a 30-day session by forgetting an argument.
+  const role = (users.find(u => u.id === userId) || {}).role;
+  const expiresAt = issuedAt + ttlFor(role);
   const payload = JSON.stringify({ userId, iat: issuedAt, exp: expiresAt });
   const b64 = Buffer.from(payload).toString('base64url');
   const sig = crypto.createHmac('sha256', SECRET).update(b64).digest('base64url');
@@ -46,7 +81,7 @@ function verifyToken(token) {
   const [b64, sig] = token.split('.');
   if (!b64 || !sig) return null;
   const expected = crypto.createHmac('sha256', SECRET).update(b64).digest('base64url');
-  if (expected !== sig) return null;
+  if (!safeEqual(expected, sig)) return null;
   try {
     const payload = JSON.parse(Buffer.from(b64, 'base64url').toString());
     if (payload.exp < Date.now()) return null;
@@ -190,7 +225,7 @@ function requireKioskAuth(req, res, next) {
 }
 
 module.exports = {
-  createToken, verifyToken, revokeToken, revokeAllForUser,
+  createToken, verifyToken, revokeToken, revokeAllForUser, authConfig,
   requireAuth, requireAdmin, requireAgAdmin, requireOperatorAdmin,
   requireMachineAccess, requireOperatorAccess, requireKioskAuth, requireCap,
   KIOSK_SECRET,
