@@ -3,6 +3,7 @@
 #
 #   bash fridge-app/tools/fridge-setup.sh IP:PORT            # step 1: everything but Device Owner
 #   bash fridge-app/tools/fridge-setup.sh IP:PORT --owner    # step 2: after pairing and the PIN test
+#   bash fridge-app/tools/fridge-setup.sh IP:PORT --baskets  # any time: which baskets answer
 #
 # Step 1 sets automatic time, pins adb to port 5555, installs the published fridge build from the
 # backend, grants WRITE_SECURE_SETTINGS (dashboard "adb on" and the clock guard), stops the Weimi
@@ -19,7 +20,7 @@ A=~/Library/Android/sdk/platform-tools/adb
 PKG=isl.snudursopi.fridge.debug
 ADMIN=$PKG/isl.snudursopi.fridge.KioskAdminReceiver
 APK_URL=https://api.agvending.is/api/v1/app-release/fridge/apk
-[ -z "$D" ] && { echo "usage: bash $0 IP:PORT [--owner]"; exit 1; }
+[ -z "$D" ] && { echo "usage: bash $0 IP:PORT [--owner|--baskets]"; exit 1; }
 $A connect "$D" | grep -q "connected" || { echo "could not connect to $D"; exit 1; }
 s() { $A -s "$D" shell "$@" | tr -d '\r'; }
 ok()   { echo "  ✅ $*"; }
@@ -54,6 +55,47 @@ report() {
     s dumpsys package $p | grep -q "hidden=true" && ok "$p hidden" || echo "  ·  $p not hidden"
   done
 }
+
+# The app holds the scale port, so adb cannot read the baskets itself. Instead: wait for a
+# read_all_trays issued from the dashboard and read its answer from the app's log. Tray numbers
+# are the board's: cabinet A from 0 (A1 = 0), cabinet B from 20 (B1 = 20), 10 or 16 per cabinet.
+if [ "$MODE" = "--baskets" ]; then
+  SINCE=$(s date +'%m-%d %H:%M:%S.000')
+  echo "Dashboard → this machine → read_all_trays, now. Waiting up to 90 s…"
+  LINE=""
+  for _ in $(seq 1 30); do
+    LINE=$(s logcat -d -T "$SINCE" -s CommandRunner:I | grep "command read_all_trays" | tail -1)
+    [ -n "$LINE" ] && break
+    sleep 3
+  done
+  [ -z "$LINE" ] && { echo "no read_all_trays answer in 90 s — is the machine paired and online?"; exit 1; }
+  echo "$LINE" | grep -q -- "-> ok" || { echo "read_all_trays did not succeed:"; echo "  ${LINE#*: }"; exit 1; }
+  echo "$LINE" | awk '
+    function label(t) { return (t >= 20 ? "B" (t - 19) : "A" (t + 1)) }
+    {
+      match($0, /expecting [0-9]+ trays, got [0-9]+/); split(substr($0, RSTART, RLENGTH), h, " ")
+      want = h[2]; got = h[5]
+      n = split($0, f, " ")
+      for (i = 1; i <= n; i++) if (f[i] ~ /^#[0-9]+=-?[0-9]+g$/) {
+        split(substr(f[i], 2), kv, "="); w[kv[1] + 0] = kv[2]
+      }
+      printf "== baskets: %d of %d answering\n", got, want
+      # 10 or 16 per cabinet; a double (20 or 32) has two cabinets, the second addressed from 20.
+      per = (want == 20 || want == 32) ? want / 2 : want
+      for (k = 0; k < want; k++) {
+        t = (k < per) ? k : 20 + (k - per)
+        if (t in w) {
+          g = w[t] + 0; note = (g <= -20) ? "  ⚠ negative — tare it empty" : ""
+          printf "  ✅ %-4s #%-2d %7s%s\n", label(t), t, w[t], note
+        } else printf "  ❌ %-4s #%-2d  silent — check its cable / module\n", label(t), t
+        delete w[t]
+      }
+      for (t in w) printf "  ?  #%s=%s answered but is not expected for this cabinet layout\n", t, w[t]
+    }'
+  FAULTS=$(s logcat -d -t 2000 | grep "SENSOR FAULT" | tail -5)
+  [ -n "$FAULTS" ] && { echo "recent sensor faults in the log:"; echo "$FAULTS" | sed 's/^/  /'; }
+  exit 0
+fi
 
 if [ "$MODE" = "--owner" ]; then
   if [ -n "$(owner)" ]; then
@@ -110,4 +152,5 @@ Next, at the machine:
   1. Dashboard → issue a pairing code → type it on the kiosk.
   2. Test the escape hatch: long-press the clock → PIN → admin opens.
   3. Then: bash $0 $D --owner
+  4. After tare/calibration: bash $0 $D --baskets
 NEXT
