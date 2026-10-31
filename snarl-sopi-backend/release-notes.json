@@ -1,6 +1,17 @@
 [
  {
   "component": "backend",
+  "version": "6.95.3",
+  "date": "2026-10-31",
+  "title": "The machine page shows which layers the machine itself treats as direct-push.",
+  "notes": [
+   "A coil machine's direct-push layers are set at the machine (vélbúnaðarpróf → beinar raðir). On those layers a motor that turns less than one turn still counts as a sale. The spiral / direct-push label on the layout is only a label, and nothing on the machine reads it.",
+   "The health check now records the machine's setting, and the machine page shows it. If any layer is direct-push on the machine, a warning says which, and how to clear it if those layers are coils."
+  ],
+  "check": "On 62160492 run config_health: the health line must read \"direct-push on machine: none\" for an all-coil machine."
+ },
+ {
+  "component": "backend",
   "version": "6.95.2",
   "date": "2026-10-31",
   "title": "Test vend shows its result where you pressed it.",

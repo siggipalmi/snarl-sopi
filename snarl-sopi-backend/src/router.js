@@ -4199,7 +4199,10 @@ function handleCommandResult(req, res) {
   const b = req.body || {};
   ['aisle', 'rawSlot', 'outcome', 'resultCode', 'resultCodeHex', 'boardDetail', 'orderId',
    'closedAisles', 'undecodableAisles', 'columnBaseZero', 'stockSource', 'dropSensorDesiredOn', 'keySource', 'trays', 'addresses', 'tared', 'refused', 'noReply', 'tempC',
-   'versionName', 'versionCode', 'configAppliedAt'].forEach(k => {
+   'versionName', 'versionCode', 'configAppliedAt',
+   // config_health also reports these; they were dropped here, so nobody could see which rows a coil
+   // machine treats as direct-push — the setting that decides whether a 0x05 is charged.
+   'directPushRows', 'dropSensorOverride', 'lanesPerRow'].forEach(k => {
     if (b[k] !== undefined) result[k] = b[k];
   });
   if (Array.isArray(b.dispenses)) result.dispenses = b.dispenses.slice(0, 100);
