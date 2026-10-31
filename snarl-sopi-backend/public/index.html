@@ -5269,7 +5269,18 @@ function renderHealthBanner(h) {
     keyBit = '<div style="margin-top:7px;padding:8px 11px;background:var(--alert-bg);border-radius:6px;color:var(--alert);font-size:12px;font-family:var(--sans)">' +
       '<b>No usable key</b> — the next backend call will fail. Run "migrate key".</div>';
   }
+  // The machine's own direct-push rows (set at the machine, vélbúnaðarpróf → beinar raðir). This is
+  // what charging follows, not the spiral / direct-push label on the layout: on these rows a board
+  // code 0x05 ("turned less than one turn") counts as a sale. Right for a pusher, wrong for a coil.
+  const dpRows = Array.isArray(h.directPushRows) ? h.directPushRows : null;
+  const rowLetter = r => String.fromCharCode(64 + Number(r));
+  if (dpRows && dpRows.length) {
+    keyBit += '<div style="margin-top:7px;padding:8px 11px;background:var(--alert-bg);border-radius:6px;color:var(--alert);font-size:12px;font-family:var(--sans)">' +
+      '<b>Direct-push on the machine: layer ' + rsEsc(dpRows.map(rowLetter).join(', ')) + '</b> — there a motor that turns less than one turn (0x05) counts as a sale and the customer is charged. ' +
+      'If those are coils, clear it at the machine: vélbúnaðarpróf → beinar raðir (empty) → vista.</div>';
+  }
   el.innerHTML = '<div style="padding:9px 13px;background:var(--cream-deep);border-radius:8px;font-family:var(--mono);font-size:10.5px;color:var(--muted)">' +
+    (dpRows ? 'direct-push on machine: ' + (dpRows.length ? rsEsc(dpRows.map(rowLetter).join(', ')) : 'none') + ' · ' : '') +
     'kiosk agrees: ' + closed.length + ' lane(s) closed' + (closed.length ? ' (' + rsEsc(closed.join(', ')) + ')' : '') +
     (h.versionName ? ' · app v' + rsEsc(String(h.versionName)) : '') +
     (h.keySource ? ' · key: ' + rsEsc(String(h.keySource)) : '') +
