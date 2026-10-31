@@ -1,6 +1,20 @@
 [
  {
   "component": "backend",
+  "version": "6.96.0",
+  "date": "2026-10-31",
+  "title": "Layer labels come from Weimi, not a guess.",
+  "notes": [
+   "A coil machine's layout now labels each layer spiral or direct-push from Weimi's own slot data. Before, it guessed: top 4 layers spiral, everything below direct-push. That put the wrong label on the bottom layers of six-layer all-coil machines.",
+   "A label you set by hand still wins. Tapping a layer now saves only that layer; before, every other layer's guess was saved along with it.",
+   "Where a hand-set label disagrees with Weimi, the layer shows \"Weimi says …\" in red. That means either the label or Weimi's own setup is out of date.",
+   "Weimi's type is read at the next sync. Until then a layer reads spiral.",
+   "The label is still display only. Charging follows the direct-push rows set on the machine, shown in its health line."
+  ],
+  "check": "After the next Weimi sync, open Stjarnan or Laugardagshöll: their two direct-push layers should read direct-push without anyone setting them."
+ },
+ {
+  "component": "backend",
   "version": "6.95.3",
   "date": "2026-10-31",
   "title": "The machine page shows which layers the machine itself treats as direct-push.",

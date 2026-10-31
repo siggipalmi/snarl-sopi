@@ -142,6 +142,9 @@ async function syncDeviceProducts(deviceCode) {
         maxStock:  a.maxStock || 0,
         isEnable:  a.isEnable !== false,
         isBroken:  !!a.isBroken,
+        // Weimi's dispensing mode for this aisle: 1 coil, 2 direct push, 4 gravity fridge. The
+        // layout's spiral / direct-push label defaults from it (router defaultBayConfig).
+        shippingMode: (a.shippingMode != null) ? Number(a.shippingMode) : null,
       });
     });
   }));

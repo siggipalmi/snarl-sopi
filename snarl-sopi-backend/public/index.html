@@ -7488,6 +7488,7 @@ async function renderMachineLayout(code) {
     const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/layout');
     if (!r || !r.ok) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">' + (r?.error || 'Could not load layout') + '</div>'; return; }
     const { layout, bayConfig, configured, disabledAisles, stockSource } = r.data;
+    const weimiTypes = r.data.weimiLayerTypes || {};
     const kioskClosed = new Set(Array.isArray(disabledAisles) ? disabledAisles : []);
     // On kiosk-owned machines Weimi's isEnable/isBroken govern nothing and can't be cleared —
     // don't tint or label bays with them, it flags working bays as faulty.
@@ -7539,6 +7540,7 @@ async function renderMachineLayout(code) {
           <div style="font-family:var(--serif);font-style:italic;font-size:16px;min-width:24px">${layer.layer}</div>
           ${toggle}
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">${layer.bays.length} bays</div>
+          ${(weimiTypes[layer.layer] && weimiTypes[layer.layer] !== type) ? `<div style="font-family:var(--mono);font-size:10px;color:var(--alert)" title="Weimi's slot data reads this layer as ${weimiTypes[layer.layer] === 'push' ? 'direct-push' : 'coil'}; the label here was set by hand">Weimi says ${weimiTypes[layer.layer] === 'push' ? 'direct-push' : 'spiral'}</div>` : ''}
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap">${bays}</div>
       </div>`;
@@ -8464,11 +8466,8 @@ async function saveFridgeBulk() {
 
 async function toggleBayType(code, layer, newType) {
   try {
-    // Fetch current config, flip this layer, save the whole map
-    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/layout');
-    if (!r || !r.ok) { showToast('Could not load layout'); return; }
-    const cfg = { ...r.data.bayConfig, [layer]: newType };
-    const save = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/bay-config', { layerTypes: cfg });
+    // Send only this layer: the backend merges it, and every untouched layer keeps following Weimi.
+    const save = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/bay-config', { layerTypes: { [layer]: newType } });
     if (save && save.ok) { renderMachineLayout(code); }
     else { showToast(save?.error || 'Could not save'); }
   } catch (e) { showToast('Error: ' + e.message); }
