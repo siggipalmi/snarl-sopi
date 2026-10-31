@@ -3940,9 +3940,12 @@ function fillBar(curr, max) {
   const pct = max>0?Math.round(curr/max*100):0;
   return `<div class="fb"><div class="fb-t"><div class="fb-i" style="width:${pct}%;background:${stockColor(pct)}"></div></div><div class="fb-p">${pct}% · ${curr}/${max}</div></div>`;
 }
-function showToast(msg) {
+let _toastTimer = null;
+function showToast(msg, ms) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2500);
+  // A newer toast must not be cut short by an older one's timer.
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), ms || 2500);
 }
 function renderAlertBadge() {
   const n = DB.alerts.filter(a=>!a.resolved).length;
@@ -5448,8 +5451,29 @@ async function sendTestVend(deviceCode, code, onSale) {
     'The stock count is not changed: put the item back in the coil. Only if you keep it, lower the count (Set stock).')) return;
   try {
     const r = await API.post('/api/v1/machines/' + encodeURIComponent(deviceCode) + '/commands', { type: 'test_vend', params: { aisle: code } });
-    if (r && r.ok) showToast('Test vend sent — result appears in command history');
-    else showToast((r && r.error) || 'could not send test vend');
+    if (!(r && r.ok)) { showToast((r && r.error) || 'could not send test vend'); return; }
+    const slot = physicalSlot(code);
+    showToast('Slot ' + slot + ': test vend sent…', 30000);
+    // Wait for the machine's answer and show it here. Coil 0.80.19+ picks commands up within 5 s;
+    // older builds only every 2 minutes, so stop watching after 30 s and point at the history.
+    const id = r.data && r.data.id;
+    const t0 = Date.now();
+    while (id && Date.now() - t0 < 30000) {
+      await new Promise(res => setTimeout(res, 1000));
+      let c = null;
+      try {
+        const h = await API.get('/api/v1/machines/' + encodeURIComponent(deviceCode) + '/commands/history?limit=10');
+        c = h && h.ok && (h.data.commands || []).find(x => x.id === id);
+      } catch (e) { continue; }
+      if (!c || c.status === 'pending') continue;
+      const res = c.result || {};
+      const code16 = res.resultCodeHex ? ' (code ' + res.resultCodeHex + ')' : '';
+      if (c.status === 'done' && res.outcome === 'VENDED') showToast('Slot ' + slot + ': motor turned \u2713' + code16, 6000);
+      else if (c.status === 'done' && res.outcome) showToast('Slot ' + slot + ': ' + res.outcome + code16 + ' \u2014 ' + (res.boardDetail || ''), 9000);
+      else showToast('Slot ' + slot + ': ' + (res.detail || c.status), 9000);
+      return;
+    }
+    showToast('Slot ' + slot + ': no answer yet \u2014 an app older than 0.80.19 checks every 2 minutes; the result will appear in command history', 8000);
   } catch (e) { showToast('error: ' + e.message); }
 }
 

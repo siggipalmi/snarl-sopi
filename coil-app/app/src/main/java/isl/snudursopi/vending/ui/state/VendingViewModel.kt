@@ -73,6 +73,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalTime
 
 /**
@@ -215,6 +216,10 @@ class VendingViewModel(
 
     /** Recurring 2-min config poll (also the presence heartbeat). */
     private var configPollJob: Job? = null
+    private var commandPollJob: Job? = null
+    /** One command pass at a time: a test vend holds the motor for up to 8 s. */
+    private val commandMutex = kotlinx.coroutines.sync.Mutex()
+    private var commandPollFailures = 0
     private var telemetryJob: Job? = null
     private var logRelayJob: Job? = null
     private var paymentWatchStarted = false
@@ -1850,14 +1855,21 @@ class VendingViewModel(
      * backend also treats the first result as final). Runs on the config poll
      * schedule; hardware calls are moved to IO since they block.
      */
-    private suspend fun runPendingCommands(deviceCode: String) {
+    private suspend fun runPendingCommands(deviceCode: String) =
+        commandMutex.withLock { runPendingCommandsLocked(deviceCode) }
+
+    private suspend fun runPendingCommandsLocked(deviceCode: String) {
         val machineKey = resolveMachineKey(deviceCode)
         val http = AdminBackendHttp(AdminBackendConfig.BASE_URL, machineKey)
         val client = MachineCommandsClient(http)
         val pending = try {
-            client.fetchPending(deviceCode)
+            client.fetchPending(deviceCode).also {
+                if (commandPollFailures > 0) Log.i(TAG, "command poll back after $commandPollFailures failure(s)")
+                commandPollFailures = 0
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "command poll failed: ${e.message}")
+            // Every 5 s while offline would flood the relayed log: say it once per outage.
+            if (commandPollFailures++ == 0) Log.w(TAG, "command poll failed: ${e.message}")
             return
         }
         if (pending.isEmpty()) return
@@ -2455,9 +2467,7 @@ class VendingViewModel(
     private fun startConfigPoll(deviceCode: String) {
         configPollJob?.cancel()
         configPollJob = viewModelScope.launch {
-            // Immediate pass so an enqueued command isn't held for a full
-            // interval before the first poll.
-            runPendingCommands(deviceCode)
+            startCommandPoll(deviceCode)
             while (true) {
                 delay(CONFIG_POLL_INTERVAL_MS)
                 try {
@@ -2509,8 +2519,28 @@ class VendingViewModel(
                     // presence margin).
                     Log.w(TAG, "Config poll tick failed: ${e.message} — keeping cache")
                 }
-                // Pull + run any pending backend commands on the same schedule.
-                runPendingCommands(deviceCode)
+            }
+        }
+    }
+
+    /**
+     * Commands are pulled every [COMMAND_POLL_INTERVAL_MS], apart from the config poll. On the
+     * 2-minute config schedule a test vend from the dashboard could wait two minutes before the
+     * motor turned (Siggi, 2026-10-31: "it has to be almost instant"). 5 s is the fridge app's
+     * cadence, already running fleet-wide; an empty answer is a few hundred bytes.
+     */
+    private fun startCommandPoll(deviceCode: String) {
+        commandPollJob?.cancel()
+        commandPollJob = viewModelScope.launch {
+            while (isActive) {
+                try {
+                    runPendingCommands(deviceCode)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "command poll tick failed: ${e.message}")
+                }
+                delay(COMMAND_POLL_INTERVAL_MS)
             }
         }
     }
@@ -2821,6 +2851,7 @@ class VendingViewModel(
          * backend's KIOSK_PRESENCE_THRESHOLD_MS.
          */
         private const val CONFIG_POLL_INTERVAL_MS = 2L * 60L * 1000L  // 2 minutes
+        private const val COMMAND_POLL_INTERVAL_MS = 5_000L
         private const val TELEMETRY_INTERVAL_MS = 5L * 60L * 1000L  // 5 minutes
         private const val UPDATE_CHECK_INTERVAL_MS = 60L * 60L * 1000L  // 60 minutes
         private const val FIRST_UPDATE_CHECK_MS = 5L * 60L * 1000L  // 5 minutes after start
