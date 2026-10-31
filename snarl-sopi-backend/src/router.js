@@ -3926,6 +3926,8 @@ function validateLedPolicy(raw) {
 
 const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update', 'set_basket_count', 'adb_wifi'];
 const CMD_TTL_MS = 5 * 60 * 1000;
+// First coil build (0.80.18) that test-vends a coil while it is on sale.
+const TEST_VEND_OPEN_MIN_VC = 174;
 const CMD_AG_ONLY = new Set(['clear_device_owner', 'set_payment_port', 'set_machine_key', 'adb_wifi']);
 // What a restocker may send: open a door, count, read the scales, clear a jam, test a vend.
 const CMD_RESTOCK = new Set(['fridge_open_door', 'set_basket_count', 'scale_read', 'read_all_trays', 'read_temp',
@@ -3982,9 +3984,10 @@ function handleEnqueueCommand(req, res) {
     storage.upsertMachine(m);
   } else if (type === 'test_vend') {
     if (!params.aisle || typeof params.aisle !== 'string') return badRequest(res, 'test_vend requires params.aisle (string)');
-    // The kiosk enforces this too, but refusing here gives an immediate, explainable error instead
-    // of a queued command that comes back failed minutes later. A test vend physically ejects
-    // product, so it's only legal on a lane that is closed to customers.
+    // From coil 0.80.18 (versionCode 174) a test vend runs on a coil that is on sale: the app holds
+    // that one coil off sale for the few seconds its motor turns, and still refuses while a customer
+    // is mid-purchase. Older apps refuse an open coil themselves, minutes later, so say it now.
+    // A machine whose version we have never heard stays allowed; its own answer is the authority.
     const mv = machines[deviceCode];
     const closed = (mv && mv.settings && Array.isArray(mv.settings.disabledAisles)) ? mv.settings.disabledAisles : [];
     // disabledAisles holds Weimi codes ("0-E08"); the caller may send either that or the friendly
@@ -3995,22 +3998,12 @@ function handleEnqueueCommand(req, res) {
       const code = String(c);
       return code === wanted || physicalSlotServer(code) === wanted || physicalSlotServer(code) === wantedNum;
     });
-    if (!isClosed) {
-      // Distinguish "you didn't close it" from "we can't decode it". physicalSlotServer returns the
-      // raw code when a lane is outside the canonical scheme (column > 9), so an undecodable closed
-      // lane silently fails to match and looks like operator error. If the machine has closed lanes
-      // we can't decode, say so — on a machine with no OTA, a decode disagreement is a dashboard fix
-      // and a mystery refusal is a trip to the site.
-      const undecodable = closed.filter(c => {
-        const code = String(c);
-        return /^\d+-[A-Z]\d+$/.test(code) && physicalSlotServer(code) === code;
-      });
-      if (undecodable.length) {
-        return badRequest(res,
-          `Aisle ${wanted} isn't recognised as closed, but ${undecodable.length} closed lane(s) on this machine can't be decoded under the canonical scheme (9 per layer): ${undecodable.join(', ')}. ` +
-          `If ${wanted} is one of them, the lane numbering disagrees rather than the lane being open — send the exact code shown in the layout instead.`);
-      }
-      return badRequest(res, `Aisle ${wanted} must be closed before a test vend. Use "stop selling" on that bay first — a test vend ejects real product.`);
+    const av = storage.getAppVersion(deviceCode);
+    const vc = (av && av.vc != null) ? Number(av.vc) : null;
+    const isFridge = mv ? fridgeSpec(mv.model).isFridge : false;
+    if (!isClosed && !isFridge && vc != null && vc < TEST_VEND_OPEN_MIN_VC) {
+      return badRequest(res, `This machine runs app ${(av && av.vn) || ('build ' + vc)}, which only test-vends a closed coil. ` +
+        `Use "stop selling" on that bay first, or update the machine to coil 0.80.18 or newer.`);
     }
   } else if (type === 'set_machine_key') {
     // The caller does NOT send the key. The backend already holds every machine's key, so filling it

@@ -1,6 +1,31 @@
 [
  {
   "component": "backend",
+  "version": "6.95.0",
+  "date": "2026-10-31",
+  "title": "Test vend works on a bay that is on sale.",
+  "notes": [
+   "Every bay in the restock sheet now has a test vend link, not only closed ones. You no longer have to stop selling a coil to test its motor.",
+   "The confirmation warns that an item drops if the coil holds product, and that the stock count is not changed. If one dropped, press − on that row.",
+   "A coil machine below app 0.80.18 still needs the bay closed first; the dashboard says so straight away instead of a failed command minutes later."
+  ],
+  "check": "On the canary, press test vend on an on-sale bay: command history must show the board's result with \"on sale\" in the detail."
+ },
+ {
+  "component": "coil",
+  "version": "0.80.18",
+  "versionCode": 174,
+  "date": "2026-10-31",
+  "title": "Motor test without closing the coil.",
+  "notes": [
+   "A test vend from the dashboard now runs on a coil that is on sale. That coil is taken off the screen only while its motor turns (up to 8 seconds), then comes back by itself.",
+   "It is still refused while a customer has something in the basket or is paying; send it again when the machine is idle.",
+   "A coil the operator closed stays closed after the test, as before."
+  ],
+  "check": "On the canary, test-vend an on-sale coil: its product disappears from the screen for a few seconds and comes back; command history shows the result code."
+ },
+ {
+  "component": "backend",
   "version": "6.94.0",
   "date": "2026-10-30",
   "title": "Stock is counted per coil, for the coil that actually vended.",
