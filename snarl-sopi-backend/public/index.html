@@ -5440,7 +5440,7 @@ async function testVendAisle(code) {
   if (!confirm('Run a test vend on slot ' + physicalSlot(code) + '?\n\n' +
     'The motor turns once. If the coil holds product, one item drops — make sure you can retrieve it.\n\n' +
     (onSale ? 'The slot stays on sale; it is held off sale only while the motor turns, and the test is refused while a customer is buying (send it again).\n\n' : '') +
-    'The stock count is not changed. If an item dropped, press \u2212 on this row.')) return;
+    'The stock count is not changed: put the item back in the coil. Only if you keep it, press \u2212 on this row.')) return;
   try {
     const r = await API.post('/api/v1/machines/' + encodeURIComponent(_restockCode) + '/commands', { type: 'test_vend', params: { aisle: code } });
     if (r && r.ok) showToast('Test vend sent — result appears in command history');

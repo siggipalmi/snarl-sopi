@@ -2046,9 +2046,9 @@ class VendingViewModel(
                 //      while its motor turns. Until 0.80.18 the coil had to be
                 //      closed by the operator first; Siggi asked to test without
                 //      that (2026-10-31). A closed coil stays closed as before.
-                // Stock is NOT touched: whether an item fell is not known (drop
-                // sensor off fleet-wide). The dashboard tells the operator to
-                // take it off the count if one did.
+                // Stock is NOT touched, by Siggi's decision (2026-10-31): the tester
+                // puts the item back in the coil. The dashboard says so, and to
+                // press − only if the item is kept.
                 // The result deliberately returns the RAW result code, because
                 // "VENDED"/"MOTOR_FAILED" is exactly the information we're trying
                 // to look behind.

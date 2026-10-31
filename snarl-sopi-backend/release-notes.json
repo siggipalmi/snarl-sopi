@@ -6,7 +6,7 @@
   "title": "Test vend works on a bay that is on sale.",
   "notes": [
    "Every bay in the restock sheet now has a test vend link, not only closed ones. You no longer have to stop selling a coil to test its motor.",
-   "The confirmation warns that an item drops if the coil holds product, and that the stock count is not changed. If one dropped, press − on that row.",
+   "The confirmation warns that an item drops if the coil holds product, and that the stock count is not changed: the tester puts the item back. Only if it is kept, press − on that row.",
    "A coil machine below app 0.80.18 still needs the bay closed first; the dashboard says so straight away instead of a failed command minutes later."
   ],
   "check": "On the canary, press test vend on an on-sale bay: command history must show the board's result with \"on sale\" in the detail."
