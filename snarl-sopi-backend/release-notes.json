@@ -1,6 +1,17 @@
 [
  {
   "component": "backend",
+  "version": "6.95.1",
+  "date": "2026-10-31",
+  "title": "Test vend is in the slot menu.",
+  "notes": [
+   "Tapping a coil in the machine's bays & layout now offers Test vend directly, next to Set stock and Set price. No need to open the restock sheet.",
+   "It works on empty coils too, to check a motor turns."
+  ],
+  "check": "On 62160492, tap a coil → Test vend → confirm; the result appears in command history."
+ },
+ {
+  "component": "backend",
   "version": "6.95.0",
   "date": "2026-10-31",
   "title": "Test vend works on a bay that is on sale.",

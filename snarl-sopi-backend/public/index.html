@@ -5436,13 +5436,18 @@ async function checkConfigHealth(code) {
 async function testVendAisle(code) {
   if (!_restockCode) return;
   const bay = _restockBays[code];
-  const onSale = !(bay && bay.isDisabled);
+  return sendTestVend(_restockCode, code, !(bay && bay.isDisabled));
+}
+
+// Shared by the restock sheet and the slot menu (tap a tile in bays & layout).
+async function sendTestVend(deviceCode, code, onSale) {
+  if (!deviceCode || !code) return;
   if (!confirm('Run a test vend on slot ' + physicalSlot(code) + '?\n\n' +
     'The motor turns once. If the coil holds product, one item drops — make sure you can retrieve it.\n\n' +
     (onSale ? 'The slot stays on sale; it is held off sale only while the motor turns, and the test is refused while a customer is buying (send it again).\n\n' : '') +
-    'The stock count is not changed: put the item back in the coil. Only if you keep it, press \u2212 on this row.')) return;
+    'The stock count is not changed: put the item back in the coil. Only if you keep it, lower the count (Set stock).')) return;
   try {
-    const r = await API.post('/api/v1/machines/' + encodeURIComponent(_restockCode) + '/commands', { type: 'test_vend', params: { aisle: code } });
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(deviceCode) + '/commands', { type: 'test_vend', params: { aisle: code } });
     if (r && r.ok) showToast('Test vend sent — result appears in command history');
     else showToast((r && r.error) || 'could not send test vend');
   } catch (e) { showToast('error: ' + e.message); }
@@ -5961,12 +5966,19 @@ function openSlotMenu(deviceCode, aisleCode) {
   } else {
     h += row('slmChangeProduct()', 'Assign product', 'this slot is empty');
   }
+  // Motor test: turns this coil once. Works on an on-sale coil from coil app 0.80.18.
+  h += row('slmTestVend()', 'Test vend', b.goodsId ? 'turn the motor once · one item drops' : 'turn the motor once');
   document.getElementById('slm-actions').innerHTML = h;
   document.getElementById('modal-slotmenu').classList.add('show');
 }
 
 function slmChangeProduct() { closeModal('modal-slotmenu'); openSwap(_slmCode, _slmAisle); }
 function slmSetPrice() { closeModal('modal-slotmenu'); openPriceFromBay(_slmAisle); }
+function slmTestVend() {
+  const b = _mdBays[_slmAisle] || {};
+  closeModal('modal-slotmenu');
+  sendTestVend(_slmCode, _slmAisle, !b.closed);
+}
 async function slmSetStock() {
   const code = _slmCode, aisle = _slmAisle;
   closeModal('modal-slotmenu');
@@ -7473,7 +7485,7 @@ async function renderMachineLayout(code) {
         if (isKioskClosed) { border = 'var(--muted)'; }
         const label = (b.name || '—').slice(0, 16);
         const img = b.image ? '<img src="' + rsEsc(b.image) + '" alt="" style="width:100%;height:38px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
-        _mdBays[b.code] = { goodsId: b.goodsId || '', name: b.name || '', priceIsk: b.priceIsk || 0 };
+        _mdBays[b.code] = { goodsId: b.goodsId || '', name: b.name || '', priceIsk: b.priceIsk || 0, closed: isKioskClosed };
         const kioskBadge = isKioskClosed ? '<div style="position:absolute;top:3px;left:3px;font-family:var(--mono);font-size:7.5px;background:var(--muted);color:#fff;padding:0 3px;border-radius:3px">not selling</div>' : '';
         return `<div title="slot ${physicalSlot(b.code)} · ${rsEsc(b.name || 'empty')} · ${b.currStock}/${b.maxStock} · ${formatKr(b.priceIsk)}${(showWeimiFlags && b.isBroken) ? ' · BROKEN (Weimi)' : ''}${(showWeimiFlags && !b.isEnable) ? ' · closed (Weimi)' : ''}${isKioskClosed ? ' · not selling (kiosk)' : ''}"
           onclick="openSlotMenu('${code}','${b.code}')"
