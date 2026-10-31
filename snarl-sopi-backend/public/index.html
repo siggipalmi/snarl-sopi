@@ -5196,9 +5196,9 @@ function rsBayRow(code) {
       (s.goodsId ? ' · <span class="rs-swap-chip" onclick="openExpiryFromRestock(\'' + c + '\')">' + t('exp.link') + '</span>' : '') +
       ((showWeimiFlags && s.isBroken) ? ' · <span class="rs-swap-chip" style="color:var(--alert)" onclick="clearRsFault(\'' + c + '\')">clear fault</span>' : '') +
       ' · <span class="rs-swap-chip" onclick="toggleRsAisle(\'' + c + '\')">' + (s.isDisabled ? 'enable for sale' : 'stop selling') + '</span>' +
-      // Test vend only on a closed lane — it ejects real product, so it must never be one keystroke
-      // away on a bay that's on sale.
-      (s.isDisabled ? ' · <span class="rs-swap-chip" onclick="testVendAisle(\'' + c + '\')">test vend</span>' : '') +
+      // Test vend on any bay (coil 0.80.18+ holds an on-sale coil off sale while its motor turns).
+      // It ejects real product, so testVendAisle asks first.
+      ' · <span class="rs-swap-chip" onclick="testVendAisle(\'' + c + '\')">test vend</span>' +
       (changed ? ' · <span class="rs-changed">was ' + s.orig + '</span>' : '') + '</div></div>' +
     '<div class="rs-step">' +
       '<button onclick="rsStep(\'' + c + '\',-1)">&minus;</button>' +
@@ -5435,7 +5435,12 @@ async function checkConfigHealth(code) {
 // returns, and a "motor ok" on an empty lane would mean charging for product that never fell.
 async function testVendAisle(code) {
   if (!_restockCode) return;
-  if (!confirm('Run a test vend on slot ' + physicalSlot(code) + '?\n\nThis physically ejects one item. Make sure you can retrieve it.')) return;
+  const bay = _restockBays[code];
+  const onSale = !(bay && bay.isDisabled);
+  if (!confirm('Run a test vend on slot ' + physicalSlot(code) + '?\n\n' +
+    'The motor turns once. If the coil holds product, one item drops — make sure you can retrieve it.\n\n' +
+    (onSale ? 'The slot stays on sale; it is held off sale only while the motor turns, and the test is refused while a customer is buying (send it again).\n\n' : '') +
+    'The stock count is not changed: put the item back in the coil. Only if you keep it, press \u2212 on this row.')) return;
   try {
     const r = await API.post('/api/v1/machines/' + encodeURIComponent(_restockCode) + '/commands', { type: 'test_vend', params: { aisle: code } });
     if (r && r.ok) showToast('Test vend sent — result appears in command history');

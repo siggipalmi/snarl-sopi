@@ -227,6 +227,13 @@ class VendingViewModel(
     @Volatile private var desiredDropSensorOn: Boolean? = null
     /** Aisles the operator has closed (friendly codes, uppercased); hidden + unsellable. */
     @Volatile private var disabledAisles: Set<String> = emptySet()
+    /**
+     * Coils held off sale while a test_vend turns them. Kept apart from [disabledAisles] because a
+     * config poll REPLACES that set, and would put a coil back on sale halfway through its test.
+     */
+    @Volatile private var testHeldAisles: Set<String> = emptySet()
+    /** What the customer side treats as closed: the operator's closed coils plus any under test. */
+    private val closedAisles: Set<String> get() = disabledAisles + testHeldAisles
 
     /**
      * The machine key typed at setup, cached from DataStore so the synchronous
@@ -681,7 +688,7 @@ class VendingViewModel(
                 it.copy(
                     phase = Phase.Ready,
                     catalog = products.withBackendStock().withBackendImages(),
-                    visibleProducts = products.withBackendStock().withBackendImages().withLocalVends().forCustomerDisplay(config.gridOrder, disabledAisles),
+                    visibleProducts = products.withBackendStock().withBackendImages().withLocalVends().forCustomerDisplay(config.gridOrder, closedAisles),
                     heroes = heroes,
                     productDetails = config.productDetails,
                     machineName = machineName,
@@ -1045,7 +1052,7 @@ class VendingViewModel(
      */
     private fun pickAisles(product: Product, qty: Int, planned: MutableMap<String, Int>): List<String> {
         val candidates = product.slots.ifEmpty { listOf(product.slot) }.map { it.uppercase() }.distinct()
-            .filter { it !in disabledAisles && isl.snudursopi.vending.api.SlotCodeTranslator.friendlyToRaw(it) != null }
+            .filter { it !in closedAisles && isl.snudursopi.vending.api.SlotCodeTranslator.friendlyToRaw(it) != null }
         if (candidates.isEmpty() || qty <= 0) return emptyList()
         val counts = if (stockSource == "kiosk" && aisleStock.isNotEmpty()) aisleStock else weimiAisleStock
         fun left(s: String) = (counts[s] ?: 0) - (localAisleVends[s] ?: 0) - (planned[s] ?: 0)
@@ -1106,7 +1113,7 @@ class VendingViewModel(
      *  — so an image tap never wipes a multi-item basket, and building a cart
      *  keeps you on the grid like the cart icon does. */
     fun buyNow(product: Product): Boolean {
-        if (product.isClosedBy(disabledAisles)) {
+        if (product.isClosedBy(closedAisles)) {
             Log.i(TAG, "buyNow ignored — every coil of ${product.name} is closed")
             return false
         }
@@ -1126,7 +1133,7 @@ class VendingViewModel(
      *  after coming back from checkout without leaving it), onOrderEdited kills
      *  the stale amount and re-prices. */
     fun addToOrder(product: Product) {
-        if (product.isClosedBy(disabledAisles)) {
+        if (product.isClosedBy(closedAisles)) {
             Log.i(TAG, "addToOrder ignored — every coil of ${product.name} is closed")
             return
         }
@@ -1666,7 +1673,7 @@ class VendingViewModel(
 
     private fun rebuildVisibleProducts() {
         val catalog = _state.value.catalog
-        val visible = catalog.withLocalVends().forCustomerDisplay(lastConfig.gridOrder, disabledAisles)
+        val visible = catalog.withLocalVends().forCustomerDisplay(lastConfig.gridOrder, closedAisles)
         Log.i(TAG, "rebuild: disabledAisles=$disabledAisles visible=${visible.size}/${catalog.size} " +
             "slots=${catalog.take(6).joinToString { it.slot }}")
         _state.update { it.copy(visibleProducts = visible) }
@@ -2031,13 +2038,17 @@ class VendingViewModel(
             }
             "test_vend" -> {
                 // The ONLY remote command that turns a motor and ejects product.
-                // Every guard below exists because of that. Read them as a set:
-                //   1. the aisle must be CLOSED (in disabledAisles) — so a remote
-                //      command can never eject from a lane that is on sale. This
-                //      also matches how it's used: we characterise a lane while
-                //      it's closed, then open it once we trust it.
-                //   2. no customer session in flight — never vend into someone
+                // Guards, read as a set:
+                //   1. no customer session in flight — never vend into someone
                 //      else's transaction.
+                //   2. a coil that is ON SALE is held off sale (testHeldAisles) for
+                //      exactly the length of the test, so no customer can pick it
+                //      while its motor turns. Until 0.80.18 the coil had to be
+                //      closed by the operator first; Siggi asked to test without
+                //      that (2026-10-31). A closed coil stays closed as before.
+                // Stock is NOT touched, by Siggi's decision (2026-10-31): the tester
+                // puts the item back in the coil. The dashboard says so, and to
+                // press − only if the item is kept.
                 // The result deliberately returns the RAW result code, because
                 // "VENDED"/"MOTOR_FAILED" is exactly the information we're trying
                 // to look behind.
@@ -2055,53 +2066,64 @@ class VendingViewModel(
                             "(A51) or a Weimi code (0-E00)",
                         "completedAt" to now,
                     )
-                if (aisle !in disabledAisles) return mapOf(
-                    "status" to "failed",
-                    "detail" to "aisle $aisle is OPEN — close it first (test_vend only " +
-                        "runs on a closed aisle, so it can never eject from a lane on sale)",
-                    "completedAt" to now,
-                )
-                val st = _state.value
-                if (st.paymentPhase != PaymentPhase.Idle || st.basket.lines.isNotEmpty()) return mapOf(
-                    "status" to "failed",
-                    "detail" to "machine busy (phase=${st.paymentPhase}, " +
-                        "${st.basket.lines.size} line(s) in basket) — retry when idle",
-                    "completedAt" to now,
-                )
                 val raw = isl.snudursopi.vending.api.SlotCodeTranslator.friendlyToRaw(aisle)
                     ?: return mapOf(
                         "status" to "failed",
                         "detail" to "aisle $aisle has no raw slot mapping",
                         "completedAt" to now,
                     )
-                // Optional channelType sweep. Absent = SDK default (what spirals
-                // have always used). Present = try that mechanism value on this
-                // lane — the way we find out what a direct-push lane wants.
-                val channelType = cmd.params?.get("channelType")?.takeIf { !it.isNull }?.asInt()
-                val res = m.dispenseBlocking(
-                    address = 0,
-                    slot = raw,
-                    timeoutMs = 8000,
-                    channelType = channelType,
-                )
-                recordDispense(raw, res, test = true)
-                val hex = res.resultCode?.let { "0x%02x".format(it) }
-                Log.i(TAG, "test_vend aisle=$aisle raw=$raw → ${res.outcome} code=$hex (${res.detail})")
-                mapOf(
-                    "status" to "ok",
-                    "detail" to "aisle $aisle (raw $raw, channelType=" +
-                        (channelType?.toString() ?: "default") + ") → ${res.outcome}" +
-                        (hex?.let { " code $it" } ?: " no code") + " — ${res.detail}",
-                    "channelType" to channelType,
-                    "aisle" to aisle,
-                    "rawSlot" to raw,
-                    "outcome" to res.outcome.name,
-                    "resultCode" to res.resultCode,
-                    "resultCodeHex" to hex,
-                    "boardDetail" to res.detail,
-                    "orderId" to res.orderId,
-                    "completedAt" to now,
-                )
+                val wasOnSale = aisle !in disabledAisles
+                // Hold first, then check for a customer: a basket started between
+                // the check and the hold could otherwise still reach this coil.
+                if (wasOnSale) {
+                    testHeldAisles = testHeldAisles + aisle
+                    rebuildVisibleProducts()
+                }
+                try {
+                    val st = _state.value
+                    if (st.paymentPhase != PaymentPhase.Idle || st.basket.lines.isNotEmpty()) return mapOf(
+                        "status" to "failed",
+                        "detail" to "machine busy (phase=${st.paymentPhase}, " +
+                            "${st.basket.lines.size} line(s) in basket) — retry when idle",
+                        "completedAt" to now,
+                    )
+                    // Optional channelType sweep. Absent = SDK default (what spirals
+                    // have always used). Present = try that mechanism value on this
+                    // lane — the way we find out what a direct-push lane wants.
+                    val channelType = cmd.params?.get("channelType")?.takeIf { !it.isNull }?.asInt()
+                    val res = m.dispenseBlocking(
+                        address = 0,
+                        slot = raw,
+                        timeoutMs = 8000,
+                        channelType = channelType,
+                    )
+                    recordDispense(raw, res, test = true)
+                    val hex = res.resultCode?.let { "0x%02x".format(it) }
+                    Log.i(TAG, "test_vend aisle=$aisle raw=$raw onSale=$wasOnSale → " +
+                        "${res.outcome} code=$hex (${res.detail})")
+                    return mapOf(
+                        "status" to "ok",
+                        "detail" to "aisle $aisle (raw $raw, channelType=" +
+                            (channelType?.toString() ?: "default") + ", " +
+                            (if (wasOnSale) "on sale" else "closed") + ") → ${res.outcome}" +
+                            (hex?.let { " code $it" } ?: " no code") + " — ${res.detail}",
+                        "channelType" to channelType,
+                        "aisle" to aisle,
+                        "rawSlot" to raw,
+                        "onSale" to wasOnSale,
+                        "outcome" to res.outcome.name,
+                        "resultCode" to res.resultCode,
+                        "resultCodeHex" to hex,
+                        "boardDetail" to res.detail,
+                        "orderId" to res.orderId,
+                        "completedAt" to now,
+                    )
+                } finally {
+                    if (wasOnSale) {
+                        testHeldAisles = testHeldAisles - aisle
+                        rebuildVisibleProducts()
+                    }
+                }
             }
 
             "dispense_log" -> {
@@ -2458,7 +2480,7 @@ class VendingViewModel(
                         it.copy(
                             heroes = heroes,
                             catalog = catalog,
-                            visibleProducts = catalog.withLocalVends().forCustomerDisplay(config.gridOrder, disabledAisles),
+                            visibleProducts = catalog.withLocalVends().forCustomerDisplay(config.gridOrder, closedAisles),
                             productDetails = config.productDetails,
                             idleCards = config.idle.cards,
                             idleRotationSeconds = config.idle.rotationSeconds,
