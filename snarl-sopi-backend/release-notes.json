@@ -1,6 +1,17 @@
 [
  {
   "component": "backend",
+  "version": "6.96.1",
+  "date": "2026-10-31",
+  "title": "Fridges no longer read \"key unknown\".",
+  "notes": [
+   "A fridge machine page now says \"key stored\". Fridges have kept their key on the machine since fridge 0.46.2, and they have no config_health command, so \"key unknown\" could never change there.",
+   "The key-migration banner on the machine list counts coil machines only."
+  ],
+  "check": "Open a fridge (e.g. 8626020606): the header reads \"key stored\". A coil machine never asked still reads \"key unknown\"."
+ },
+ {
+  "component": "backend",
   "version": "6.96.0",
   "date": "2026-10-31",
   "title": "Layer labels come from Weimi, not a guess.",

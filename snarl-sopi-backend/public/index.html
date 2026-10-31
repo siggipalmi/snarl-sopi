@@ -4661,13 +4661,15 @@ async function renderMachines() {
   if (!ms.length) { el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--muted);font-size:13px">' + rsEsc(t('mch.noMatch')) + '</div>'; return; }
   // "Which machines are safe to update" needs to be answerable at a glance, not by opening 46
   // command results. A machine still on a build-baked key would be locked out by a generic apk.
-  const notMigrated = all.filter(m => m.keySource === 'build' || m.keySource === 'none');
-  const unknown = all.filter(m => !m.keySource);
+  // Coil only: fridges have kept their key on the machine since fridge 0.46.2 and never run config_health.
+  const coils = all.filter(m => !isFridgeModel(m.model));
+  const notMigrated = coils.filter(m => m.keySource === 'build' || m.keySource === 'none');
+  const unknown = coils.filter(m => !m.keySource);
   let banner = '';
   if (notMigrated.length || unknown.length) {
     banner = '<div style="margin-bottom:10px;padding:11px 13px;background:var(--cream-deep);border-radius:9px;font-size:12.5px;line-height:1.55">' +
       '<b>' + rsEsc(t('mch.keyMigration')) + '</b><br>' +
-      '<span style="color:var(--success)">' + rsEsc(tv('mch.keyReady', { n: all.filter(m => m.keySource === 'stored').length })) + '</span> · ' +
+      '<span style="color:var(--success)">' + rsEsc(tv('mch.keyReady', { n: coils.filter(m => m.keySource === 'stored').length })) + '</span> · ' +
       '<span style="color:var(--alert)">' + rsEsc(tv('mch.keyNotMigrated', { n: notMigrated.length })) + '</span> · ' +
       '<span style="color:var(--muted)">' + rsEsc(tv('mch.keyUnknown', { n: unknown.length })) + '</span><br>' +
       '<span style="color:var(--muted)">' + rsEsc(t('mch.keyNote')) + '</span>' +
@@ -5231,8 +5233,10 @@ async function clearRsFault(code) {
 // How the machine holds its key, from its last config_health: 'stored' can take a generic build;
 // 'build' (key baked into its own APK) and 'none' cannot — the backend withholds updates from
 // them, and the header is where someone looks when an update "doesn't arrive".
-function mdKeyHeader(h) {
-  const k = h && h.keySource ? String(h.keySource) : null;
+// Fridges have kept their key on the machine since fridge 0.46.2 (one APK for every machine) and
+// have no config_health, so "unknown" there could never change.
+function mdKeyHeader(h, isFridge) {
+  const k = h && h.keySource ? String(h.keySource) : (isFridge ? 'stored' : null);
   if (!k) return ' · <span style="color:var(--muted)" title="run config_health to learn how this machine holds its key">' + rsEsc(t('md.keyUnknown')) + '</span>';
   if (k === 'stored') return ' · <span style="color:var(--muted)" title="key stored on the machine; generic builds install">key stored</span>';
   return ' · <span style="color:var(--alert)" title="key comes from this machine\'s own build (' + rsEsc(k) + '); a generic update is withheld until it is paired">key ' + rsEsc(k) + ' — pair first</span>';
@@ -7087,7 +7091,7 @@ async function renderMachineDetail() {
           ? rsEsc(t('md.appPrefix')) + ' ' + (m.lastAppVersionName ? 'v' + rsEsc(m.lastAppVersionName) + ' ' : '') +
             (m.lastAppVersionCode != null ? '<span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '')
           : '<span style="color:var(--muted)">' + rsEsc(t('md.appUnknown')) + '</span>') +
-      '</span>' + mdKeyHeader(dr.data.configHealth) + mdNayaxHeader(dr.data.payment);
+      '</span>' + mdKeyHeader(dr.data.configHealth, isFridgeModel(m.model)) + mdNayaxHeader(dr.data.payment);
 
     renderMdLanguage(m);
     renderMdPairing();
