@@ -1,6 +1,29 @@
 [
  {
   "component": "backend",
+  "version": "6.95.2",
+  "date": "2026-10-31",
+  "title": "Test vend shows its result where you pressed it.",
+  "notes": [
+   "After a test vend the dashboard waits for the machine and shows the outcome in a message: \"motor turned ✓\" with the board's code, or what went wrong.",
+   "No need to open command history. If a machine on an older app has not answered within 30 seconds, the message says so."
+  ],
+  "check": "Test vend a coil on 62160492: the result message must appear within a few seconds."
+ },
+ {
+  "component": "coil",
+  "version": "0.80.19",
+  "versionCode": 175,
+  "date": "2026-10-31",
+  "title": "Dashboard commands run within 5 seconds.",
+  "notes": [
+   "The machine now checks for dashboard commands every 5 seconds, the same as the fridges. Before, it checked only every 2 minutes, so a test vend could wait up to 2 minutes before the motor turned.",
+   "Applies to every command (restart, health check, adb, test vend…), not only test vend."
+  ],
+  "check": "On the canary, test vend a coil from the dashboard: the motor should turn within about 5 seconds."
+ },
+ {
+  "component": "backend",
   "version": "6.95.1",
   "date": "2026-10-31",
   "title": "Test vend is in the slot menu.",
