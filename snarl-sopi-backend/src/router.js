@@ -7976,19 +7976,24 @@ async function handleWeimiSyncOne(req, res) {
 
 // ─── Bay layout + dispensing-type configuration ──────────────────────────────
 
-// Named exceptions (spiral layer count differs from the standard 4).
-// Everything else defaults to: top 4 layers spiral, the rest direct-push.
-const BAY_SPIRAL_EXCEPTIONS = {
-  '62160043': 3,  // Valur I       — A,B,C spiral / D,E,F push
-  '62160042': 2,  // Gamli Gerpla  — A,B spiral / rest push
-  '62160488': 99, // Evanger       — all spiral
-};
-
+// A layer's spiral / direct-push label, until someone sets it by hand (saved under baycfg:<code>,
+// which always wins). It comes from Weimi's shippingMode on the layer's aisles, stored with the
+// layout on every sync: 2 = direct push, anything else = spiral (1 coil; 4 gravity has no layers here).
+// A layer is push only when most of its aisles say 2.
+//
+// This replaced a guess - "top 4 layers spiral, the rest direct-push", with three named exceptions -
+// that labelled the bottom layers of every six-layer all-coil machine (62160492, both Grótta units)
+// direct-push (Siggi, 2026-10-31). The label is display only; charging follows the machine's own
+// direct-push rows, which config_health reports.
+//
+// A layout synced before shippingMode was stored has no modes yet: those layers read spiral until
+// the next Weimi sync, which is the safer wrong answer (no layer is called a pusher by accident).
 function defaultBayConfig(deviceCode, layout) {
-  const spiralCount = BAY_SPIRAL_EXCEPTIONS[deviceCode] ?? 4;
   const cfg = {};
-  (layout || []).forEach((l, idx) => {
-    cfg[l.layer] = idx < spiralCount ? 'spiral' : 'push';
+  (layout || []).forEach(l => {
+    const modes = (l.bays || []).map(b => b.shippingMode).filter(m => m != null);
+    const push = modes.filter(m => Number(m) === 2).length;
+    cfg[l.layer] = (modes.length && push * 2 > modes.length) ? 'push' : 'spiral';
   });
   return cfg;
 }
@@ -8002,6 +8007,11 @@ function handleMachineLayout(req, res) {
   const saved = savedRaw ? JSON.parse(savedRaw) : null;
   const defaults = defaultBayConfig(code, layout);
   const bayConfig = { ...defaults, ...(saved || {}) };
+  // What Weimi says per layer, only where its aisles carry a shippingMode. The dashboard shows it
+  // next to a hand-set label that disagrees, because toggles used to save the whole map and froze
+  // the old guesses for every layer nobody touched.
+  const weimiLayerTypes = {};
+  (layout || []).forEach(l => { if ((l.bays || []).some(b => b.shippingMode != null)) weimiLayerTypes[l.layer] = defaults[l.layer]; });
   const m = machines[code];
   const disabledAisles = (m && m.settings && Array.isArray(m.settings.disabledAisles)) ? m.settings.disabledAisles : [];
   ok(res, {
@@ -8009,6 +8019,7 @@ function handleMachineLayout(req, res) {
     configured: layout.length > 0,
     layout,
     bayConfig,
+    weimiLayerTypes,
     disabledAisles,   // kiosk-local "stop selling" set — distinct from Weimi's isEnable
     stockSource: (m && m.stockSource) || 'weimi',   // 'kiosk' => Weimi's isEnable/isBroken are noise
     lastSync: storage.getMeta(`weimisync:products:${code}`) || null,
@@ -8023,7 +8034,10 @@ function handleSetBayConfig(req, res) {
   if (!layerTypes || typeof layerTypes !== 'object') {
     return json(res, 400, { ok: false, error: 'layerTypes object required' });
   }
-  const clean = {};
+  // Merge into what is saved: a toggle sends only the layer it changes, so every other layer keeps
+  // following Weimi instead of having today's default frozen into the saved map.
+  let clean = {};
+  try { const raw = storage.getMeta(`baycfg:${code}`); clean = raw ? (JSON.parse(raw) || {}) : {}; } catch (e) { clean = {}; }
   for (const [layer, type] of Object.entries(layerTypes)) {
     if (type === 'spiral' || type === 'push') clean[layer] = type;
   }
