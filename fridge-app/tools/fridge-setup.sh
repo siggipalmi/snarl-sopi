@@ -164,6 +164,9 @@ cat <<NEXT
 Next, at the machine:
   1. Dashboard → issue a pairing code → type it on the kiosk.
   2. Test the escape hatch: long-press the clock → PIN → admin opens.
-  3. Then: bash $0 $D --owner
-  4. After tare/calibration: bash $0 $D --baskets
+  3. Settings → Developer options → Wireless debugging, on THIS Wi-Fi: tick
+     "Always allow on this network". Without it Android switches wireless debugging
+     off again within minutes, and dashboard "adb on" never gets a port (8626020606).
+  4. Then: bash $0 $D --owner
+  5. After tare/calibration: bash $0 $D --baskets
 NEXT

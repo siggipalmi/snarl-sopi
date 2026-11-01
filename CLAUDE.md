@@ -229,7 +229,9 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   nobody at the screen. But after a **deliberate reboot** the same day, adb was next reached on the
   Wireless-debugging port (46843), and whether 5555 also answered then was not checked. So: it
   worked once after an unwitnessed restart; it is **not yet proven across a witnessed reboot**.
-  Try 5555 first after the next one before relying on it. `62160479` was pinned the same day (by
+  Try 5555 first after the next one before relying on it.
+  **Disproved on `8626020606` (2026-11-01):** pinned at setup, and after the tablet's next restart
+  `adb connect 100.119.126.13:5555` was refused. Do not count on 5555 coming back. `62160479` was pinned the same day (by
   `adb-onepass.sh`, which pins every machine it touches).
 
   Do NOT run `adb tcpip 5555` on a machine whose connection you cannot afford to lose: it restarts
@@ -244,6 +246,14 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
 
   *adb status* reports whether a machine has it. Only computers already paired with the machine
   can connect; switch it off (*adb off*) when done.
+- **Allow the site's Wi-Fi for wireless debugging while you are there.** On `8626020606`
+  (2026-11-01) *adb on* switched it on, never got a port, and Android had it off again within
+  minutes, twice, grant held and Tailscale up. Most likely Android 11's "Allow wireless debugging
+  on this network?" prompt, unanswered on a kiosk (unconfirmed — nobody saw the screen). On site:
+  Settings → Developer options → Wireless debugging → tick **Always allow on this network**.
+- **From fridge 0.70.6 the app makes Tailscale the always-on VPN** (`shared/TailscaleVpn.kt`), so it
+  comes back after a restart. 606 had lost it; the update alone brought it back (on `tun1`, not
+  `tun0` — never look for Tailscale by interface name).
 
 - **A machine with no valid key cannot be updated over the air.** `app-update` is machine-key
   gated, so it never learns an update exists; the APK route being open does not help. That is how
