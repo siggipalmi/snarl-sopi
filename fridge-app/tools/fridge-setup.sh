@@ -46,6 +46,10 @@ report() {
     # Reached over a Tailscale address: it is up, whatever the interface list says.
     [ -z "$ip" ] && case "${D%%:*}" in 100.*) ip="${D%%:*} (reached over it)";; esac
     [ -n "$ip" ] && ok "Tailscale up: $ip" || bad "Tailscale installed but not connected"
+    # Android starts an always-on VPN at boot; without it Tailscale stays down after a restart
+    # (8626020606). The app sets it itself from fridge 0.70.6, as Device Owner or with the grant.
+    [ "$(s settings get secure always_on_vpn_app)" = com.tailscale.ipn ] \
+      && ok "Tailscale is the always-on VPN" || bad "Tailscale is not the always-on VPN — it will not come back after a restart"
   else
     bad "Tailscale not installed"
   fi
@@ -137,6 +141,14 @@ else
   head -c 2 "$APK" | grep -q PK || { echo "$APK is not an APK"; exit 1; }
   $A -s "$D" install -r "$APK" || { echo "install failed — send this output on"; exit 1; }
   s pm grant $PKG android.permission.WRITE_SECURE_SETTINGS
+fi
+
+# Tailscale as the always-on VPN, so it comes back after a restart. Never over another VPN.
+if s pm list packages | grep -q com.tailscale.ipn; then
+  case "$(s settings get secure always_on_vpn_app)" in
+    null|""|com.tailscale.ipn) s settings put secure always_on_vpn_app com.tailscale.ipn
+                               s settings put secure always_on_vpn_lockdown 0 ;;
+  esac
 fi
 
 # The Weimi apps hold the serial ports (scales, card reader). Monitor first: it restarts the others.

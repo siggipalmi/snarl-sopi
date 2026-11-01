@@ -1,5 +1,18 @@
 [
  {
+  "component": "fridge",
+  "version": "0.70.6",
+  "versionCode": 172,
+  "date": "2026-11-01",
+  "title": "Tailscale comes back after a restart.",
+  "notes": [
+   "The app makes Tailscale the tablet's always-on VPN at every start, so Android starts it after a restart or a power cut. Before, Tailscale stayed off until someone opened it at the machine, and remote adb was out of reach (8626020606, Gym800).",
+   "As Device Owner this takes effect at once, so a machine whose Tailscale is signed in but stopped comes back without a visit. Without Device Owner it needs the adb permission grant, and takes effect at the next restart.",
+   "Not lockdown: when Tailscale is down the machine still reaches the backend and keeps selling. A different always-on VPN that is already set is left alone."
+  ],
+  "check": "Publish to 8626020606 first. Within a few minutes of the update, adb status should list a 100.x address, and adb connect to 100.119.126.13:5555 should answer."
+ },
+ {
   "component": "backend",
   "version": "6.96.1",
   "date": "2026-10-31",
