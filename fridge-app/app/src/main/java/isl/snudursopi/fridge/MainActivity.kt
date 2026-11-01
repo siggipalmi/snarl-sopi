@@ -249,6 +249,10 @@ class MainActivity : ComponentActivity() {
         // can set it; otherwise a one-time WRITE_SECURE_SETTINGS grant over adb.
         ClockGuard.enforceAutoTime(this)
 
+        // Tailscale as the always-on VPN, so remote adb comes back after a restart
+        // (8626020606, 2026-10-31: signed in, not running, out of reach). Not lockdown.
+        isl.snudursopi.shared.TailscaleVpn.ensureAlwaysOn(this)
+
         // Demo planogram is only a bootstrap so the machine is usable before
         // the first config poll lands (or on an unprovisioned unit). The
         // backend overwrites it as soon as it has anything real.
