@@ -712,7 +712,9 @@ function handlePairExchange(req, res) {
   ok(res, { deviceCode: rec.deviceCode, deviceName: m.deviceName || rec.deviceCode, machineKey });
 }
 
-function handleDemoRequest(req, res) {
+// Demo requests, from agvending.is/kerfid (and the older features page on this host). Waits for
+// SendGrid like handleSiteEnquiry: the site treats 200 as "sent", so a failed mail must not be one.
+async function handleDemoRequest(req, res) {
   const b = req.body || {};
   // Honeypot: a real person never fills a field they cannot see. Answer 200 so a bot learns nothing.
   if (String(b.botField || '').trim()) return ok(res, { received: true });
@@ -749,8 +751,12 @@ function handleDemoRequest(req, res) {
     'Received: ' + new Date().toISOString(),
   ].join('\n');
 
-  email.send({ to, subject: 'Demo request — ' + name + (company ? ' (' + company + ')' : ''), text, fromName: 'AG Vending site' })
-    .catch(err => console.error('[DEMO] email failed:', err && err.message));
+  try {
+    await email.send({ to, replyTo: senderEmail, subject: 'Demo request — ' + name + (company ? ' (' + company + ')' : ''), text, fromName: 'AG Vending site' });
+  } catch (err) {
+    console.error('[DEMO] email failed for ' + senderEmail + ':', err && err.message);
+    return json(res, 502, { ok: false, error: 'Could not send the request. Please email agvending@agvending.is.' });
+  }
   console.log('[DEMO] request from ' + senderEmail + (company ? ' (' + company + ')' : ''));
 
   ok(res, { received: true });

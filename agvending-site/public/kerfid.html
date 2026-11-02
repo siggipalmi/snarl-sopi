@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vefumsjónarkerfið — AG Vending</title>
+<meta name="description" content="Rekstrarkerfi fyrir sjálfsala og snjallkæla: sala, lager, áfylling, viðvaranir og uppgjör á einum stað. Á íslensku og innifalið í leigunni." />
+<link rel="canonical" href="https://agvending.is/kerfid" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="is_IS" />
+<meta property="og:site_name" content="AG Vending" />
+<meta property="og:title" content="Vefumsjónarkerfið — AG Vending" />
+<meta property="og:description" content="Rekstrarkerfi fyrir sjálfsala og snjallkæla: sala, lager, áfylling, viðvaranir og uppgjör á einum stað. Á íslensku og innifalið í leigunni." />
+<meta property="og:url" content="https://agvending.is/kerfid" />
+<meta property="og:image" content="https://agvending.is/assets/img/kerfid-dashboard.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="theme-color" content="#FFFFFF" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+/* =====================================================================
+   agvending.is — marketing site theme ("colour as accent", Oct 2026)
+   ---------------------------------------------------------------------
+   NOTES FOR WHOEVER IMPLEMENTS THIS
+   - Replaces the cream / bronze / Cormorant look. White page, black type,
+     black hairline rules. Colour is an ACCENT only: a small square, a thin
+     top bar, one highlighted word. Never fill a large area with a palette
+     colour. The one dark area is the testimonial band and the footer.
+   - One typeface: Libre Franklin (Google Fonts, SIL OFL, full Icelandic
+     support). No serif anywhere, no italics.
+   - Square corners everywhere (radius 0). No shadows. No gradients.
+   - Black text on every colour.
+   - Everything the old brief protects still holds: products -> pricing -> FAQ
+     order, price ON the product card, the partner logo rail (mono, colour on
+     hover of the individual tile), 0% of sales in hero + pricing + FAQ,
+     prefers-reduced-motion respected.
+   - Inline in index.html, as the site's only stylesheet. The legacy-alias
+     block (old section 2) is gone: nothing references the cream/bronze
+     names now. Libre Franklin is loaded by a <link> in <head>.
+   - The real FAQ is a JS accordion (single item open, first open by
+     default). Section 12 styles it via [aria-expanded]; plain <details>
+     works too.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Tokens
+   --------------------------------------------------------------------- */
+:root {
+  /* Neutrals */
+  --ink:        #111111;   /* all text, rules, primary buttons, dark bands */
+  --ink-soft:   #555555;   /* secondary text (4.5:1+ on white and wall) */
+  --on-dark-soft: #D0D0D0; /* secondary text on the black bands */
+  --paper:      #FFFFFF;   /* page background */
+  --wall:       #F3F0EB;   /* pricing band, image wells, form fields */
+
+  /* Palette — accents only */
+  --c-yellow:   #FFC72C;   /* THE accent: headline highlight, kicker square, link underline */
+  --c-pink:     #F48FB8;
+  --c-sky:      #3FC3E6;
+  --c-green:    #22B05A;   /* "included" ticks */
+  --c-salmon:   #F7AE94;
+  --c-teal:     #8DCFC7;
+  --c-magenta:  #EC4F8C;   /* form errors */
+
+  --accent:     var(--c-yellow);
+
+  /* Type */
+  --font: "Libre Franklin", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs-h1:      clamp(48px, 6.4vw, 88px);
+  --fs-h2:      56px;
+  --fs-h3:      28px;
+  --fs-stat:    52px;
+  --fs-quote:   clamp(30px, 3.6vw, 48px);
+  --fs-lead:    20px;
+  --fs-body:    17px;
+  --fs-small:   15px;
+
+  /* Spacing */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 24px;
+  --s-6: 32px; --s-7: 48px; --s-8: 80px;
+
+  --rule:       1px solid var(--ink);
+  --rule-heavy: 3px solid var(--ink);
+  --bar:        6px;    /* colour bar over hero stats */
+  --bar-card:   10px;   /* colour bar over product cards */
+  --mark:       14px;
+
+  --page-max:   1280px;
+  --gutter:     32px;
+}
+
+/* ---------------------------------------------------------------------
+   3. Base
+   --------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+h1, h2, h3, h4 { margin: 0; font-family: var(--font); font-style: normal; color: inherit; }
+h1 { font-size: var(--fs-h1); font-weight: 900; line-height: 0.95; letter-spacing: -3px; }
+h2 { font-size: var(--fs-h2); font-weight: 900; line-height: 1; letter-spacing: -2px; }
+h3 { font-size: var(--fs-h3); font-weight: 800; line-height: 1.1; letter-spacing: -0.6px; }
+p  { margin: 0; }
+
+a { color: var(--ink); text-underline-offset: 5px; text-decoration-thickness: 2px; }
+a:hover { color: var(--ink-soft); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+img { max-width: 100%; display: block; }
+
+/* ---------------------------------------------------------------------
+   4. Layout
+   --------------------------------------------------------------------- */
+.wrap { max-width: var(--page-max); margin: 0 auto; padding-inline: var(--gutter); }
+.section { padding-block: var(--s-8); }
+.section--wall { background: var(--wall); }
+.section--ruled { border-top: var(--rule); }
+
+/* Heading on the left, content on the right (pricing, FAQ, contact) */
+.split { display: flex; flex-wrap: wrap; gap: var(--s-7); }
+.split__aside { flex: 1 1 300px; display: flex; flex-direction: column; gap: var(--s-4); }
+.split__main  { flex: 2 1 560px; min-width: 0; }
+
+/* ---------------------------------------------------------------------
+   5. Accent pieces — the only places colour appears
+   --------------------------------------------------------------------- */
+.kicker { display: flex; align-items: center; gap: var(--s-3); font-size: 17px; font-weight: 700; }
+.kicker::before { content: ""; width: var(--mark); height: var(--mark); background: var(--accent); flex-shrink: 0; }
+
+.highlight { background: var(--accent); padding: 0 .1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+/* Rule: one highlighted word per page. */
+
+.link-accent { font-weight: 700; text-decoration-color: var(--accent); text-decoration-thickness: 4px; text-underline-offset: 4px; }
+
+/* ---------------------------------------------------------------------
+   6. Header + nav
+   --------------------------------------------------------------------- */
+.site-header { border-bottom: var(--rule); background: var(--paper); }
+.site-header .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 40px; padding-block: 18px; }
+.brand { font-size: 26px; font-weight: 900; letter-spacing: -0.8px; text-decoration: none; color: var(--ink); flex-grow: 1; }
+.nav { display: flex; flex-wrap: wrap; gap: var(--s-2) 28px; font-size: 16px; font-weight: 700; }
+.nav a { text-decoration: none; }
+.nav a:hover, .nav a[aria-current="true"] {
+  color: var(--ink);
+  text-decoration: underline; text-decoration-color: var(--accent);
+  text-decoration-thickness: 4px; text-underline-offset: 8px;
+}
+
+/* ---------------------------------------------------------------------
+   7. Buttons
+   --------------------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  min-height: 44px; padding: 12px 20px;
+  font-family: var(--font); font-size: var(--fs-small); font-weight: 800;
+  background: var(--ink); color: var(--paper);
+  border: 2px solid var(--ink); text-decoration: none; cursor: pointer;
+}
+.btn:hover { background: #333333; border-color: #333333; color: var(--paper); }
+.btn--lg { padding: 16px 26px; font-size: var(--fs-body); }
+.btn--text { background: none; border: 0; padding: 0; min-height: 0; color: var(--ink); font-size: var(--fs-body); font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.btn--text:hover { background: none; color: var(--ink-soft); }
+
+/* ---------------------------------------------------------------------
+   8. Hero
+   --------------------------------------------------------------------- */
+.hero { padding-block: 72px 56px; display: flex; flex-direction: column; gap: 56px; }
+.hero__top { display: flex; flex-wrap: wrap; gap: var(--s-7); align-items: stretch; }
+.hero__copy { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 26px; }
+.hero__lead { font-size: var(--fs-lead); max-width: 560px; }
+.hero__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-4) 28px; }
+.hero__media { flex: 1 1 420px; min-height: 420px; background: var(--wall); overflow: hidden; }
+.hero__media img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Hero stats — number under a colour bar */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-5); }
+.stat { border-top: var(--bar) solid var(--accent); padding-top: var(--s-4); display: flex; flex-direction: column; gap: 6px; }
+.stat:nth-child(2) { border-top-color: var(--c-pink); }
+.stat:nth-child(3) { border-top-color: var(--c-sky); }
+.stat__value { font-size: var(--fs-stat); font-weight: 900; letter-spacing: -1.5px; line-height: 1; }
+.stat__label { font-weight: 600; }
+
+/* ---------------------------------------------------------------------
+   9. Partner logo rail — mono, full colour on hover of the single tile
+   --------------------------------------------------------------------- */
+.partners { border-top: var(--rule); border-bottom: var(--rule); }
+.partners .wrap { display: flex; align-items: center; gap: var(--s-4) var(--s-6); padding-block: 22px; }
+.partners__label { font-size: var(--fs-small); font-weight: 700; white-space: nowrap; }
+.marquee { flex-grow: 1; overflow: hidden; min-width: 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+.marquee__track { display: flex; gap: var(--s-6); width: max-content; animation: marquee 50s linear infinite; }
+.marquee:hover .marquee__track { animation-play-state: paused; }
+.logo-tile { width: 124px; height: 58px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-tile img { max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(1); opacity: .7; transition: filter .2s, opacity .2s; }
+.logo-tile:hover img { filter: none; opacity: 1; }
+.logo-tile.ag-mul img { mix-blend-mode: multiply; }   /* white-backed logos, e.g. ir.gif */
+@keyframes marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .marquee { -webkit-mask-image: none; mask-image: none; }
+  .marquee__track { animation: none; flex-wrap: wrap; width: auto; }
+}
+
+/* ---------------------------------------------------------------------
+   10. Products — colour bar, photo well, copy, specs, price on the card
+   --------------------------------------------------------------------- */
+.products { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; }
+.product { display: flex; flex-direction: column; gap: var(--s-4); }
+.product::before { content: ""; height: var(--bar-card); background: var(--c-teal); }
+.product:nth-child(2)::before { background: var(--c-salmon); }
+.product:nth-child(3)::before { background: var(--c-yellow); }
+.product__media { height: 300px; background: var(--wall); display: flex; align-items: center; justify-content: center; padding: var(--s-4); }
+.product__media img { width: 100%; height: 100%; object-fit: contain; }  /* studio cut-outs on white */
+.product__text { font-size: var(--fs-body); }
+
+/* Spec block — dense on purpose, operators care about dimensions */
+.specs { display: grid; grid-template-columns: auto 1fr; gap: 0 var(--s-4); margin: 0; font-size: var(--fs-small); border-top: var(--rule); }
+.specs dt, .specs dd { margin: 0; padding: 8px 0; border-bottom: 1px solid #D6D2CB; }
+.specs dt { font-weight: 700; }
+.specs dd { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.price { margin-top: auto; border-top: var(--rule); padding-top: var(--s-3); font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.price small { font-size: var(--fs-small); font-weight: 600; }
+
+/* ---------------------------------------------------------------------
+   11. Pricing — two ruled lists on the wall band
+   --------------------------------------------------------------------- */
+.pricing__lead { font-size: var(--fs-lead); max-width: 440px; }
+.pricing__lists { display: flex; flex-wrap: wrap; gap: 40px; }
+.ruled-list { flex: 1 1 220px; margin: 0; padding: 0; list-style: none; }
+.ruled-list__title { font-size: 20px; font-weight: 900; padding-bottom: var(--s-3); border-bottom: var(--rule-heavy); }
+.ruled-list li { display: flex; align-items: center; gap: var(--s-3); padding: 14px 0; border-bottom: var(--rule); font-weight: 600; }
+.ruled-list--included li::before { content: ""; width: 10px; height: 10px; background: var(--c-green); flex-shrink: 0; }
+
+/* ---------------------------------------------------------------------
+   12. FAQ accordion
+   --------------------------------------------------------------------- */
+.faq { border-top: var(--rule-heavy); }
+.faq__item { border-bottom: var(--rule); }
+.faq__q {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--s-4);
+  width: 100%; padding: 20px 0; background: none; border: 0; text-align: left; cursor: pointer;
+  font-family: var(--font); font-size: 22px; font-weight: 800; color: var(--ink);
+  list-style: none;
+}
+.faq__q::-webkit-details-marker { display: none; }
+.faq__q::after {
+  content: "+"; width: 32px; height: 32px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 700; line-height: 1;
+  border: 2px solid var(--ink); transition: background .15s;
+}
+.faq__q[aria-expanded="true"]::after,
+details[open] > .faq__q::after { content: "−"; background: var(--accent); }
+.faq__a { padding: 0 0 20px; max-width: 640px; line-height: 1.5; }
+.faq__a[hidden] { display: none; }
+
+/* ---------------------------------------------------------------------
+   13. Testimonial band (dark)
+   --------------------------------------------------------------------- */
+.testimonial { background: var(--ink); color: var(--paper); }
+.testimonial .wrap { padding-block: 88px; display: flex; flex-direction: column; gap: var(--s-5); }
+.testimonial .wrap::before { content: ""; width: 40px; height: 8px; background: var(--c-pink); }
+.testimonial blockquote { margin: 0; font-size: var(--fs-quote); line-height: 1.1; font-weight: 800; letter-spacing: -1.2px; max-width: 980px; }
+.testimonial cite { font-style: normal; font-weight: 600; color: var(--on-dark-soft); }
+.testimonial a { color: var(--paper); }
+
+/* ---------------------------------------------------------------------
+   14. Contact form
+   --------------------------------------------------------------------- */
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px 20px; }
+.form__full { grid-column: 1 / -1; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-small); font-weight: 700; }
+.field input, .field textarea, .field select {
+  font-family: var(--font); font-size: var(--fs-body); font-weight: 500; color: var(--ink);
+  background: var(--wall); border: 0; border-bottom: 2px solid var(--ink);
+  padding: 14px; min-height: 48px; width: 100%;
+}
+.field textarea { resize: vertical; min-height: 120px; }
+.field input:focus, .field textarea:focus, .field select:focus { outline: none; background: var(--paper); box-shadow: inset 0 0 0 2px var(--ink); }
+.field--error input, .field--error textarea { border-bottom-color: var(--c-magenta); }
+.field__error { display: flex; align-items: center; gap: var(--s-2); font-weight: 700; }
+.field__error::before { content: ""; width: 10px; height: 10px; background: var(--c-magenta); flex-shrink: 0; }
+.form__fallback { border-top: var(--bar) solid var(--c-magenta); padding-top: var(--s-3); font-weight: 600; }  /* fetch failed -> mailto */
+.bot-field { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }  /* honeypot */
+
+/* ---------------------------------------------------------------------
+   15. Footer (dark)
+   --------------------------------------------------------------------- */
+.site-footer { background: var(--ink); color: var(--paper); }
+.site-footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-3) var(--s-6); padding-block: 28px; font-size: var(--fs-small); font-weight: 600; }
+.site-footer .brand { color: var(--paper); font-size: 18px; flex-grow: 0; }
+.site-footer a { color: var(--paper); }
+.site-footer .muted { color: var(--on-dark-soft); }
+
+/* ---------------------------------------------------------------------
+   16. takk / 404 / 500 — one big line and a way back
+   --------------------------------------------------------------------- */
+.status-page { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; gap: var(--s-5); padding-block: var(--s-8); }
+.status-page .code { font-size: var(--fs-small); font-weight: 700; display: flex; align-items: center; gap: var(--s-3); }
+.status-page .code::before { content: ""; width: var(--mark); height: var(--mark); background: var(--accent); }
+
+/* ---------------------------------------------------------------------
+   17. Breakpoints (same points as the current site)
+   --------------------------------------------------------------------- */
+@media (max-width: 1000px) {
+  :root { --fs-h2: 46px; --s-8: 64px; }
+}
+@media (max-width: 760px) {
+  .partners .wrap { flex-wrap: wrap; }
+  .hero__media { min-height: 300px; }
+}
+@media (max-width: 680px) {
+  :root { --fs-h2: 38px; --fs-h3: 24px; --fs-stat: 42px; --fs-lead: 18px; --gutter: 16px; --s-8: 56px; }
+  h1 { letter-spacing: -2px; }
+  .hero { padding-block: 48px 40px; gap: 40px; }
+  .faq__q { font-size: 19px; }
+  .product__media { height: 240px; }
+}
+
+/* ---------------------------------------------------------------------
+   18. Site addendum — what this page has that the theme above does not
+       cover. Same rules: no radius, no shadow, colour only as accent.
+   --------------------------------------------------------------------- */
+.brand { display: inline-flex; }
+.brand img { height: 40px; width: auto; }
+/* The logo file is black; on the dark footer it is turned white. */
+.site-footer .brand img { height: 32px; filter: brightness(0) invert(1); }
+.nav { align-items: center; }
+/* The highlight block would cover the descenders of the line above (h1
+   line-height .95), so it paints behind the heading's text. */
+h1 .highlight { position: relative; z-index: -1; }
+.nav .btn { min-height: 40px; padding: 9px 16px; color: var(--paper); text-decoration: none; }
+.nav .btn:hover { color: var(--paper); }
+
+.section__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-6); margin-bottom: var(--s-6); }
+.section__head > div { display: flex; flex-direction: column; gap: var(--s-4); max-width: 720px; }
+.section__intro { font-size: var(--fs-lead); }
+
+/* Each logo is ONE tile in the markup. A script appends an aria-hidden copy of the set and
+   adds .is-looped, and only then does the track move (the -50% keyframe needs both halves).
+   Without the script the logos simply stand still. With motion off the track wraps, so the
+   copies are hidden again. */
+.marquee__track:not(.is-looped) { animation: none; }
+/* The theme loops in 50s, sized for 16 logos; scale with the count (about 3s a logo) so the
+   speed stays the same when logos are added. */
+.marquee__track { animation-duration: 80s; }
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track > [aria-hidden="true"] { display: none; }
+}
+
+/* Product card: category + per-day line above the name; price row with the CTA. */
+.product__meta { display: flex; justify-content: space-between; gap: var(--s-3); font-size: var(--fs-small); font-weight: 700; }
+.product__meta span:last-child { font-weight: 600; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.price { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+.price a { font-size: var(--fs-small); font-weight: 700; }
+
+/* Pricing: the title is an h3 above the list; items carry a short note. */
+.ruled-list ul { margin: 0; padding: 0; list-style: none; }
+.ruled-list li { align-items: flex-start; }
+.ruled-list--included li::before { margin-top: .45em; }
+.ruled-list li > span { display: flex; flex-direction: column; gap: 2px; }
+.ruled-list li small { font-size: var(--fs-small); font-weight: 500; color: var(--ink-soft); }
+.fine { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s-4) var(--s-6); margin-top: var(--s-7); font-size: var(--fs-small); color: var(--ink-soft); }
+
+/* The web admin ("Kerfið"): a demo-data screenshot with the phone view overlapping its corner,
+   beside the feature list. Screenshots come from snarl-sopi-backend/public/assets/shots. */
+.system { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: var(--s-7); align-items: start; }
+.system__shots { margin: 0; position: relative; background: var(--wall); border-top: var(--bar-card) solid var(--c-sky); padding: var(--s-5) var(--s-5) var(--s-7); }
+.system__desktop { width: 100%; height: auto; border: var(--rule); }
+.system__phone { position: absolute; right: var(--s-5); bottom: var(--s-5); width: 22%; height: auto; border: var(--rule); }
+.system__shots figcaption { margin-top: var(--s-3); font-size: var(--fs-small); color: var(--ink-soft); max-width: 70%; }
+.system__side { display: flex; flex-direction: column; gap: var(--s-6); }
+@media (max-width: 1000px) {
+  .system { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .system__shots { padding: var(--s-4) var(--s-4) var(--s-6); }
+  .system__phone { width: 30%; right: var(--s-4); bottom: var(--s-4); }
+}
+
+/* Two testimonials side by side, so the quote steps down a size. */
+.testimonial__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--s-7); }
+.testimonial figure { margin: 0; display: flex; flex-direction: column; gap: var(--s-5); }
+.testimonial__grid blockquote { font-size: clamp(24px, 2.4vw, 34px); letter-spacing: -0.8px; }
+.testimonial cite { display: flex; align-items: center; gap: var(--s-3); margin-top: auto; }
+.testimonial cite img { width: 48px; height: 48px; object-fit: cover; flex-shrink: 0; }
+.testimonial cite b { display: block; color: var(--paper); font-weight: 800; }
+
+.faq__a p + p { margin-top: var(--s-3); }
+
+.contact__details { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.form .btn { justify-self: start; }
+/* Native select, squared off like the inputs, with a drawn chevron in place of the platform arrow. */
+.field select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 44px; }
+.field select, .field select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23111111' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center; background-size: 12px 8px; }
+.form__fallback[hidden] { display: none; }
+
+.site-footer nav { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); }
+.site-footer nav a { text-decoration: none; }
+.site-footer nav a:hover { text-decoration: underline; color: var(--paper); }
+
+@media (max-width: 760px) {
+  .partners__label { white-space: normal; }
+}
+@media (max-width: 680px) {
+  .testimonial__grid { grid-template-columns: 1fr; }
+  .nav { gap: var(--s-2) 18px; }
+  .nav .nav__login { display: none; }   /* still in the footer */
+}
+
+/* ---------------------------------------------------------------------
+   19. /kerfid only (this block is not in index.html; everything above is
+       copied from it by the build, so the two pages share one layout).
+   --------------------------------------------------------------------- */
+.kerfid-intro { max-width: 860px; }
+.hero .system__shots { margin-top: var(--s-2); }
+.hero .stats { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.hero .stat .stat__label { font-size: var(--fs-body); font-weight: 700; }
+.kerfid-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 var(--s-7); }
+.kerfid-steps { display: flex; flex-direction: column; gap: var(--s-8); }
+.kerfid-step .split__aside .kicker { font-variant-numeric: tabular-nums; }
+.kerfid-step .split__aside > p:not(.section__intro) { color: var(--ink-soft); }
+.kerfid-shot { margin: 0; display: flex; flex-direction: column; gap: var(--s-3); }
+.kerfid-shot img { width: 100%; height: auto; border: var(--rule); background: var(--paper); }
+.kerfid-shot figcaption { font-size: var(--fs-small); color: var(--ink-soft); }
+.kerfid-phones { display: grid; grid-template-columns: repeat(3, minmax(0, 260px)); gap: var(--s-6); justify-content: start; }
+.kerfid-phones img { width: 100%; height: auto; border: var(--rule); }
+.kerfid-statement { max-width: 860px; }
+.kerfid-statement h2 { color: var(--paper); }
+.kerfid-statement p { font-size: var(--fs-lead); color: var(--on-dark-soft); }
+.kerfid-note { font-size: var(--fs-small); color: var(--ink-soft); }
+@media (max-width: 680px) {
+  .kerfid-phones { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); }
+}
+</style>
+</head>
+<body>
+<!-- AG Vending: the web admin (vefumsjónarkerfið). Built from index.html (head, styles,
+     header, footer) plus its own content; change the shared parts in index.html, not here. -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" /></a>
+    <nav class="nav" aria-label="Aðalvalmynd">
+      <a href="/#vorur">Sjálfsalar</a>
+      <a href="/#verd">Verðskrá</a>
+      <a href="/kerfid" aria-current="true">Kerfið</a>
+      <a href="/#faq">Spurt og svarað</a>
+      <a class="nav__login" href="https://admin.agvending.is">Innskráning</a>
+      <a class="btn" href="/#hafa-samband">Hafðu samband</a>
+    </nav>
+  </div>
+</header>
+<main>
+<section class="wrap hero" id="top">
+  <div class="hero__copy kerfid-intro">
+    <div class="kicker">Vefumsjónarkerfið</div>
+    <h1>Sjáðu allar vélarnar í <span class="highlight">rauntíma</span>.</h1>
+    <p class="hero__lead">Hvað selst, hvað er búið og hverja þarf að fylla. Rekstrarkerfi fyrir sjálfsala og snjallkæla: sala, lager, áfylling, viðvaranir og uppgjör á einum stað. Í vafra á skrifstofunni og í símanum á leiðinni.</p>
+    <div class="hero__actions">
+      <a class="btn btn--lg" href="#kynning">Fá kynningu</a>
+      <a class="btn--text" href="https://admin.agvending.is">Innskráning</a>
+    </div>
+  </div>
+  <figure class="system__shots">
+    <img class="system__desktop" src="assets/img/kerfid-dashboard.png" alt="Yfirlitið í vefumsjónarkerfinu: tekjur dagsins, vélar sem þarf að fylla á og viðvaranir" width="1440" height="900" />
+    <img class="system__phone" src="assets/img/kerfid-simi.png" alt="Sama yfirlit í símanum" width="390" height="844" />
+    <figcaption>Sýnigögn — raunverulegt viðmót, tilbúnar tölur.</figcaption>
+  </figure>
+  <div class="stats">
+    <div class="stat"><span class="stat__label">Frá fyrstu vélinni upp í allan flotann</span></div>
+    <div class="stat"><span class="stat__label">Sjálfsalar og snjallkælar í sama viðmóti</span></div>
+    <div class="stat"><span class="stat__label">Íslenska og enska</span></div>
+    <div class="stat"><span class="stat__label">Innifalið í leigunni á vélunum</span></div>
+  </div>
+</section>
+
+<section class="section section--ruled">
+  <div class="wrap">
+    <div class="section__head">
+      <div>
+        <div class="kicker">Hvað kerfið gerir</div>
+        <h2>Allt sem reksturinn þarf</h2>
+        <p class="section__intro">Eitt kerfi í stað þess að púsla saman töflureiknum, skilaboðum og minnisblöðum.</p>
+      </div>
+    </div>
+    <div class="kerfid-grid">
+      <div class="ruled-list">
+        <ul>
+          <li><span>Sala í rauntíma<small>Tekjur dagsins, vikunnar og mánaðarins — á flotann og á hverja vél.</small></span></li>
+          <li><span>Lagerstaða<small>Hvað er eftir í hverri vél, niður í einstök hólf, og hvað er uppselt núna.</small></span></li>
+          <li><span>Áfyllingarlisti<small>Vélarnar raðaðar eftir því hverja er brýnast að heimsækja.</small></span></li>
+          <li><span>Viðvaranir<small>Vél sem dettur út, kælir sem hlýnar, hólf sem tæmist — á skjá og í tölvupósti.</small></span></li>
+        </ul>
+      </div>
+      <div class="ruled-list">
+        <ul>
+          <li><span>Uppgjör og VSK<small>Tekjur, VSK og framlegð eftir vöru. Kvittanir og útflutningur í CSV.</small></span></li>
+          <li><span>Fjarstýring<small>Opna hurð kælis, stilla kælingu, taka vél úr sölu — án þess að fara á staðinn.</small></span></li>
+          <li><span>Kvartanir<small>Kvörtun kemur úr vélinni sjálfri; þú svarar og endurgreiðir úr sama viðmóti.</small></span></li>
+          <li><span>Notendur og aðgangur<small>Starfsmaður sér aðeins sínar vélar. Rekstrarstjóri sér allt og býður öðrum aðgang.</small></span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--wall">
+  <div class="wrap kerfid-steps">
+    <div class="split kerfid-step">
+      <div class="split__aside">
+        <div class="kicker">01</div>
+        <h2>Salan</h2>
+        <p class="section__intro">Tekjur dagsins efst, og svo niður í hvern dag, hverja vél og hverja færslu.</p>
+        <div class="ruled-list ruled-list--included"><ul>
+          <li><span>Hvaða dagar skila og hvaða dagar ekki</span></li>
+          <li><span>Hvaða vélar bera sig — raðað eftir tekjum</span></li>
+          <li><span>Hver einasta færsla, með útflutningi í CSV</span></li>
+        </ul></div>
+      </div>
+      <figure class="split__main kerfid-shot">
+        <img src="assets/img/kerfid-tekjur.png" alt="Tekjur og frammistaða véla" width="1440" height="900" loading="lazy" decoding="async" />
+        <figcaption>Tekjur eftir dögum og tekjur eftir vél.</figcaption>
+      </figure>
+    </div>
+    <div class="split kerfid-step">
+      <div class="split__aside">
+        <div class="kicker">02</div>
+        <h2>Lagerinn</h2>
+        <p class="section__intro">Hvað er eftir í hverri vél. Þú sérð hvað er búið áður en viðskiptavinurinn gerir það.</p>
+        <div class="ruled-list ruled-list--included"><ul>
+          <li><span>Hvaða vara er búin, í hvaða vél, og hversu lengi</span></li>
+          <li><span>Nettengd eða ekki, og hvenær var síðast fyllt á</span></li>
+          <li><span>Síðasti söludagur eftir lotum</span></li>
+        </ul></div>
+      </div>
+      <figure class="split__main kerfid-shot">
+        <img src="assets/img/kerfid-velar.png" alt="Vélalisti með stöðu og síðustu áfyllingu" width="1440" height="900" loading="lazy" decoding="async" />
+        <figcaption>Allur flotinn í einum lista.</figcaption>
+      </figure>
+    </div>
+    <div class="split kerfid-step">
+      <div class="split__aside">
+        <div class="kicker">03</div>
+        <h2>Uppgjörið</h2>
+        <p class="section__intro">Tekjur, VSK og framlegð eftir vöru — yfir sjö daga, þrjátíu eða níutíu. Út í CSV fyrir bókarann.</p>
+        <div class="ruled-list ruled-list--included"><ul>
+          <li><span>VSK innheimt og tekjur án VSK</span></li>
+          <li><span>Framlegð eftir vöru, ekki bara sala</span></li>
+          <li><span>Mest sölu vörur og þær sem hreyfast ekki</span></li>
+        </ul></div>
+      </div>
+      <figure class="split__main kerfid-shot">
+        <img src="assets/img/kerfid-uppgjor.png" alt="Uppgjör: tekjur, VSK og framlegð" width="1440" height="900" loading="lazy" decoding="async" />
+        <figcaption>Uppgjör yfir valið tímabil.</figcaption>
+      </figure>
+    </div>
+    <div class="split kerfid-step">
+      <div class="split__aside">
+        <div class="kicker">04</div>
+        <h2>Forgangur, ekki fastar rútur</h2>
+        <p class="section__intro">Vélar eru ekki jafnar. Sumar þarf að heimsækja í hverri viku, aðrar standa hálffullar mánuðum saman. Fastar rútur láta þig keyra á báðar jafn oft.</p>
+        <p>Þess vegna raðar kerfið vélunum eftir þörf — hversu langt er síðan var fyllt á, hversu full vélin er, hvað er uppselt — frekar en að reikna út akstursleið. Þú ákveður hverja þú heimsækir; listinn segir þér hverjar eru farnar að kosta þig peninga.</p>
+      </div>
+      <figure class="split__main kerfid-shot">
+        <img src="assets/img/kerfid-afylling.png" alt="Áfyllingarlisti raðaður eftir þörf" width="1440" height="900" loading="lazy" decoding="async" />
+        <figcaption>Brýnast efst — sex dagar og 88% full bíður, sjö dagar og 19% full bíður ekki.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="section__head">
+      <div>
+        <div class="kicker">Í símanum</div>
+        <h2>Sama kerfið í símanum</h2>
+        <p class="section__intro">Ekki stytt útgáfa og ekki sérstakt smáforrit — sama kerfið, sami aðgangur, í vafranum í símanum. Þar fer reksturinn fram.</p>
+      </div>
+    </div>
+    <div class="kerfid-phones">
+      <img src="assets/img/kerfid-simi.png" alt="Yfirlit í síma" width="390" height="844" loading="lazy" decoding="async" />
+      <img src="assets/img/kerfid-simi-velar.png" alt="Vélalisti í síma" width="390" height="844" loading="lazy" decoding="async" />
+      <img src="assets/img/kerfid-simi-faerslur.png" alt="Færslur í síma" width="390" height="844" loading="lazy" decoding="async" />
+    </div>
+  </div>
+</section>
+
+<section class="section section--ruled">
+  <div class="wrap">
+    <div class="split">
+      <div class="split__aside">
+        <div class="kicker">Og svo þetta</div>
+        <h2>Það sem enginn sér fyrr en það vantar</h2>
+        <p class="section__intro">Sjálfsali sem hættir að taka kort lítur nákvæmlega eins út og sjálfsali sem enginn notaði. Kerfið er byggt í kringum þann mun.</p>
+      </div>
+      <div class="split__main kerfid-grid">
+        <div class="ruled-list"><ul>
+          <li><span>Viðvaranir í tölvupóst<small>Vél dettur út, kælir hlýnar of lengi, hólf tæmist — á skjánum og í pósti, ekki í loggskrá sem enginn opnar.</small></span></li>
+          <li><span>Fjarstýring<small>Opna hurð kælis, stilla kælingu, taka vél úr sölu — án þess að fara á staðinn.</small></span></li>
+        </ul></div>
+        <div class="ruled-list"><ul>
+          <li><span>Kvittanir og leigureikningar<small>Kvittun í tölvupósti til kaupanda, og leigureikningar með hreyfingayfirliti.</small></span></li>
+          <li><span>Kvartanir og endurgreiðslur<small>Kvörtun kemur úr vélinni sjálfri; þú svarar og endurgreiðir úr sama viðmóti.</small></span></li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="testimonial" aria-label="Um kerfið">
+  <div class="wrap kerfid-statement">
+    <h2>Við notum þetta sjálf, alla daga.</h2>
+    <p>AG Vending rekur sjálfsala og snjallkæla á höfuðborgarsvæðinu. Kerfið hér er ekki hliðarverkefni — það er kerfið sem við stýrum okkar eigin vélum með, og það er byggt á því sem raunverulega klikkar í rekstrinum.</p>
+    <p>Það þýðir líka að kerfið er á íslensku, verðin eru í krónum, VSK er reiknaður eins og hér er gert, og sá sem svarar þér þekkir vélina sem þú ert að tala um.</p>
+    <p>Og kerfið er innifalið í leigunni á vélunum. Ekkert mánaðargjald á vél fyrir hugbúnaðinn, ekkert aukagjald fyrir fleiri notendur eða fleiri skýrslur — vélin og kerfið fylgjast að.</p>
+  </div>
+</section>
+
+<section id="kynning" class="section">
+  <div class="wrap">
+    <div class="split">
+      <div class="split__aside">
+        <div class="kicker">Kynning</div>
+        <h2>Fá kynningu</h2>
+        <p class="section__intro">Skildu eftir nokkrar upplýsingar og við setjum upp kynningaraðgang fyrir þig og förum yfir kerfið með þér.</p>
+        <div class="ruled-list ruled-list--included">
+          <h3 class="ruled-list__title">Hvað gerist næst</h3>
+          <ul>
+            <li><span>Við svörum og bókum stuttan yfirlitsfund</span></li>
+            <li><span>Þú færð kynningaraðgang með sýnigögnum</span></li>
+            <li><span>Svo skoðum við hvað passar þínum rekstri</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="split__main">
+        <!-- Posts JSON to the backend's POST /api/v1/demo-request (snarl-sopi-backend), which mails it
+             to AG Vending. Fields: name, email, company, phone, machines, note + botField honeypot. -->
+        <form class="form" id="kynning-form" name="kynning" method="POST" action="https://admin.agvending.is/api/v1/demo-request">
+          <p class="bot-field" aria-hidden="true"><label>Ekki fylla út: <input name="botField" tabindex="-1" autocomplete="off" /></label></p>
+          <label class="field" for="k-name">Nafn<input id="k-name" name="name" required maxlength="100" autocomplete="name" /></label>
+          <label class="field" for="k-email">Netfang<input id="k-email" type="email" name="email" required maxlength="200" autocomplete="email" /></label>
+          <label class="field" for="k-company">Fyrirtæki<input id="k-company" name="company" maxlength="120" autocomplete="organization" /></label>
+          <label class="field" for="k-phone">Sími<input id="k-phone" name="phone" maxlength="40" inputmode="tel" autocomplete="tel" /></label>
+          <label class="field form__full" for="k-machines">Hvað ertu með í rekstri?<input id="k-machines" name="machines" maxlength="60" placeholder="t.d. 6 sjálfsalar, 2 kælar" /></label>
+          <label class="field form__full" for="k-note">Eitthvað annað?<textarea id="k-note" name="note" rows="3" maxlength="1000"></textarea></label>
+          <p class="form__fallback form__full" id="kynning-msg" role="alert" hidden>Ekki tókst að senda beiðnina. Sendu okkur línu á <a href="mailto:agvending@agvending.is">agvending@agvending.is</a> og við svörum strax.</p>
+          <button class="btn btn--lg form__full" id="kynning-submit" type="submit">Senda beiðni um kynningu</button>
+          <p class="form__full kerfid-note">Við notum þetta eingöngu til að hafa samband um kynninguna og afhendum engum þriðja aðila.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" loading="lazy" /></a>
+    <span class="muted">AG Vending ehf. · kt. 590922-0800</span>
+    <nav aria-label="Fótur">
+      <a href="/#vorur">Sjálfsalar</a>
+      <a href="/#verd">Verðskrá</a>
+      <a href="/kerfid" aria-current="true">Kerfið</a>
+      <a href="/#faq">Spurt og svarað</a>
+      <a href="/#hafa-samband">Hafðu samband</a>
+      <a href="https://admin.agvending.is">Innskráning</a>
+    </nav>
+  </div>
+</footer>
+<script>
+/* Demo request → POST /api/v1/demo-request on the backend (snarl-sopi-backend), as JSON. The
+   backend answers 200 only once the mail has gone out, so anything else shows the mailto fallback. */
+var DEMO_ENDPOINT = "https://admin.agvending.is/api/v1/demo-request";
+(function () {
+  var form = document.getElementById("kynning-form");
+  if (!form) return;
+  var btn = document.getElementById("kynning-submit");
+  var msg = document.getElementById("kynning-msg");
+  var label = btn.textContent;
+  form.setAttribute("action", DEMO_ENDPOINT);
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    msg.hidden = true;
+    btn.disabled = true;
+    btn.textContent = "Sendi…";
+    var data = {};
+    new FormData(form).forEach(function (v, k) { data[k] = v; });
+    fetch(DEMO_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        window.location.href = "/takk";
+      })
+      .catch(function () {
+        msg.hidden = false;
+        btn.disabled = false;
+        btn.textContent = label;
+      });
+  });
+})();
+</script>
+</body>
+</html>

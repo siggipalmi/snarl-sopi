@@ -356,8 +356,9 @@ h1 .highlight { position: relative; z-index: -1; }
    Without the script the logos simply stand still. With motion off the track wraps, so the
    copies are hidden again. */
 .marquee__track:not(.is-looped) { animation: none; }
-/* The theme loops in 50s, sized for 16 logos; scale with the count so the speed stays the same. */
-.marquee__track { animation-duration: 70s; }
+/* The theme loops in 50s, sized for 16 logos; scale with the count (about 3s a logo) so the
+   speed stays the same when logos are added. */
+.marquee__track { animation-duration: 80s; }
 @media (prefers-reduced-motion: reduce) {
   .marquee__track > [aria-hidden="true"] { display: none; }
 }
@@ -434,7 +435,7 @@ h1 .highlight { position: relative; z-index: -1; }
     <nav class="nav" aria-label="Aðalvalmynd">
       <a href="#vorur">Sjálfsalar</a>
       <a href="#verd">Verðskrá</a>
-      <a href="#kerfid">Kerfið</a>
+      <a href="/kerfid">Kerfið</a>
       <a href="#faq">Spurt og svarað</a>
       <a class="nav__login" href="https://admin.agvending.is">Innskráning</a>
       <a class="btn" href="#hafa-samband">Hafðu samband</a>
@@ -504,6 +505,10 @@ h1 .highlight { position: relative; z-index: -1; }
         <div class="logo-tile"><img src="assets/logos/oddsson.png" alt="Oddsson" title="Oddsson" loading="lazy" decoding="async" /></div>
         <div class="logo-tile"><img src="assets/logos/gardlist.png" alt="Garðlist" title="Garðlist" loading="lazy" decoding="async" /></div>
         <div class="logo-tile"><img src="assets/logos/thors-power-gym.png" alt="Thor&#39;s Power Gym" title="Thor&#39;s Power Gym" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/keflavik.png" alt="Keflavík" title="Keflavík" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/fylkir.png" alt="Fylkir" title="Fylkir" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/goa.png" alt="Góa" title="Góa" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/hotel-boli.png" alt="Hótel Boli" title="Hótel Boli" loading="lazy" decoding="async" /></div>
       </div>
     </div>
   </div>
@@ -607,7 +612,7 @@ h1 .highlight { position: relative; z-index: -1; }
         <h2>Sjáðu allar vélarnar í rauntíma.</h2>
         <p class="section__intro">Sama kerfi og við notum sjálf, alla daga. Á íslensku, í krónum, með íslenskum VSK — og innifalið í leigunni.</p>
       </div>
-      <a class="link-accent" href="https://admin.agvending.is/features.html">Skoða kerfið nánar →</a>
+      <a class="link-accent" href="/kerfid">Skoða kerfið nánar →</a>
     </div>
     <div class="system">
       <figure class="system__shots">
@@ -627,7 +632,7 @@ h1 .highlight { position: relative; z-index: -1; }
             <li><span>Fjarstýring<small>Opna hurð, stilla kælingu, taka úr sölu — án þess að fara á staðinn.</small></span></li>
           </ul>
         </div>
-        <div><a class="btn btn--lg" href="https://admin.agvending.is/features.html#demo">Fá kynningu af kerfinu</a></div>
+        <div><a class="btn btn--lg" href="/kerfid#kynning">Fá kynningu af kerfinu</a></div>
       </div>
     </div>
   </div>
@@ -725,7 +730,7 @@ h1 .highlight { position: relative; z-index: -1; }
     <nav aria-label="Fótur">
       <a href="#vorur">Sjálfsalar</a>
       <a href="#verd">Verðskrá</a>
-      <a href="#kerfid">Kerfið</a>
+      <a href="/kerfid">Kerfið</a>
       <a href="#faq">Spurt og svarað</a>
       <a href="#hafa-samband">Hafðu samband</a>
       <a href="https://admin.agvending.is">Innskráning</a>

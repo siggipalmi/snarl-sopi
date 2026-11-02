@@ -20,7 +20,13 @@ Updated 28 Oct 2026, from the claude.ai Project handover of 25 Aug.
 
 Fully static. Plain HTML/CSS/JS. No framework, no build step, no CMS, no npm dependencies.
 
-- **Pages:** `public/index.html` (the whole site, ~42 KB) + `takk.html` + `404.html` + `500.html`
+- **Pages:** `public/index.html` (the front page) + `kerfid.html` (the web admin, /kerfid) +
+  `takk.html` + `404.html` + `500.html`
+- **`kerfid.html` shares the front page's layout by copy:** its `<head>` style block (theme
+  sections 1–18), header and footer are `index.html`'s, with the in-page links pointing back to
+  `/#…`; only its section 19 and `<main>` are its own. Change a shared part in both files.
+  It replaces the backend's `admin.agvending.is/features.html` as the public page about the
+  system; redirect that to `https://agvending.is/kerfid` once the domain has moved.
 - **Host:** Cloudflare Worker `agvending` with static assets — NOT Pages, NOT Railway.
   Preview at `agvending.siggip.workers.dev`
 - **Config:** `wrangler.toml`, `public/_headers`, `public/_redirects`, `robots.txt`, `sitemap.xml`
