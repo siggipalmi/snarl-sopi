@@ -10,6 +10,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import isl.snudursopi.shared.backend.LogCursor
 
 private const val TAG = "LogRelay"
 
@@ -40,9 +44,9 @@ class LogRelay(
     private val mapper = jacksonObjectMapper()
 
     /**
-     * The last timestamp we shipped. logcat has no cursor, so we re-read the
-     * buffer and drop anything we have already sent. Crude, and reliable —
-     * the alternative is a persistent read process that dies with the app.
+     * The last line we shipped. logcat has no cursor, so we re-read the buffer
+     * from just before it and drop anything we have already sent ([LogCursor]).
+     * The alternative is a persistent read process that dies with the app.
      */
     private var lastSeen: String = ""
 
@@ -59,29 +63,69 @@ class LogRelay(
     }
 
     private suspend fun flushOnce() {
-        val lines = readOwnLog()
-        if (lines.isEmpty()) return
-        val body = mapper.writeValueAsString(
-            mapOf(
-                "kioskAppVersion" to isl.snudursopi.shared.AppVersion.name,
-                // The code too, so the header never pairs a new name with the old build's code.
-                "kioskAppVersionCode" to isl.snudursopi.shared.AppVersion.code,
-                "at" to System.currentTimeMillis(),
-                "lines" to lines,
-            ),
-        )
-        http.postRawJson("/api/v1/machines/$deviceCode/logs", body)
-        lastSeen = lines.last()
+        val lines = freshLines()
+        // Posted in chunks the backend accepts (it keeps 400 per post), oldest first, and the
+        // cursor moves after each one: a failed post leaves the rest for the next flush.
+        for (chunk in lines.chunked(MAX_LINES)) {
+            val body = mapper.writeValueAsString(
+                mapOf(
+                    "kioskAppVersion" to isl.snudursopi.shared.AppVersion.name,
+                    // The code too, so the header never pairs a new name with the old build's code.
+                    "kioskAppVersionCode" to isl.snudursopi.shared.AppVersion.code,
+                    "at" to System.currentTimeMillis(),
+                    "lines" to chunk,
+                ),
+            )
+            http.postRawJson("/api/v1/machines/$deviceCode/logs", body)
+            lastSeen = chunk.last()
+        }
     }
+
+    /**
+     * Everything logged since [lastSeen], read so that nothing in between can be skipped.
+     *
+     * *** NOT `-t 400` (lost a line per batch on Blue Hotel, 2026-11-01). logd counts `-t N`
+     * over all of the app's output before the tag filter, so the silenced tray-weight and
+     * poll lines used up the window and it no longer reached back to the last shipped line.
+     * See [LogCursor] for the whole story. The read is by time now, from a minute before the
+     * last shipped line; a deep count read is the fallback when that misses it (clock moved
+     * back, first minute of the day), and a gap that cannot be closed is said out loud.
+     */
+    private fun freshLines(): List<String> {
+        if (lastSeen.isBlank()) {
+            // First flush since start: the recent history, whatever it holds.
+            return LogCursor.cap(LogCursor.after(readOwnLog(FIRST_READ.toString()), "").orEmpty(), MAX_PER_FLUSH, ::note)
+        }
+        LogCursor.sinceArg(lastSeen)?.let { since ->
+            LogCursor.after(readOwnLog(since), lastSeen)?.let { return LogCursor.cap(it, MAX_PER_FLUSH, ::note) }
+        }
+        val deep = readOwnLog(DEEP_READ.toString())
+        val fresh = LogCursor.after(deep, lastSeen) ?: run {
+            // Gone even from the deep read: the ring buffer wrapped past it. Ship what is
+            // there and mark the gap, rather than hiding it.
+            // Never a note on its own: the cursor must always end on a real logcat line.
+            val all = LogCursor.after(deep, "").orEmpty()
+            if (all.isEmpty()) return emptyList()
+            Log.w(TAG, "last shipped line not found; the buffer moved on")
+            listOf(note("the last relayed line is no longer in the device log; lines before this may be missing")) + all
+        }
+        return LogCursor.cap(fresh, MAX_PER_FLUSH, ::note)
+    }
+
+    /** A line in `-v time` format, so the dashboard shows it as a warning in place. */
+    private fun note(msg: String): String =
+        SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.ROOT).format(Date()) +
+            " W/$TAG(${android.os.Process.myPid()}): $msg"
 
     /**
      * Our own tags only. Deliberately not the whole buffer: the system is noisy,
      * and a fridge's log has no business carrying other apps' output to a server.
+     * [tail] is logcat's `-t`: a line count, or a time ("MM-DD hh:mm:ss.mmm").
      */
-    private fun readOwnLog(): List<String> {
+    private fun readOwnLog(tail: String): List<String> {
         val proc = ProcessBuilder(
             listOf(
-                "logcat", "-d", "-v", "time", "-t", MAX_LINES.toString(),
+                "logcat", "-d", "-v", "time", "-t", tail,
                 // *** MotorFridgeHW AT WARN, NOT INFO, AND FridgePoll SILENCED.
                 //
                 // The tray-weight line fires every 7-10 seconds and carries 16
@@ -118,10 +162,7 @@ class LogRelay(
         val all = BufferedReader(InputStreamReader(proc.inputStream)).use { it.readLines() }
         proc.waitFor()
 
-        // Drop everything up to and including the last line we shipped.
-        val cut = if (lastSeen.isBlank()) -1 else all.indexOf(lastSeen)
-        val fresh = if (cut >= 0) all.drop(cut + 1) else all
-        return fresh.filter { it.isNotBlank() }.takeLast(MAX_LINES)
+        return all
     }
 
     private companion object {
@@ -132,7 +173,19 @@ class LogRelay(
          */
         const val INTERVAL_MS = 5L * 60L * 1000L
 
-        /** Cap per post, so a log storm cannot mail the whole buffer. */
+        /** Lines per post: what the backend keeps from one request. */
         const val MAX_LINES = 400
+
+        /** Cap per flush, so a log storm cannot mail the whole buffer. */
+        const val MAX_PER_FLUSH = 2000
+
+        /** The first read after start: recent history, counted before the tag filter. */
+        const val FIRST_READ = 2000
+
+        /**
+         * The fallback read when the time read misses the last shipped line. Counted before
+         * the tag filter, so it has to be deep; it only runs when something moved.
+         */
+        const val DEEP_READ = 20000
     }
 }
