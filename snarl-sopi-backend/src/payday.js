@@ -268,16 +268,23 @@ function parseStatement(raw) {
   }
   if (!moves.length) return { ok: false, reason: 'no amounts found', movements: [], closingBalance: 0 };
 
-  // Payday returns the statement oldest first with a running balance. Trust its balance where
-  // it gives one; otherwise accumulate, so a statement without the column still works.
+  // Never assume which way round the rows came. Reading them newest-first while trusting a
+  // balance column gives the OLDEST row's balance as the closing figure — 51.314 instead of
+  // 154.808 on the real account. Sorting by date first makes the order irrelevant.
+  const dated = moves.filter(m => m.ts && !isNaN(new Date(m.ts)));
+  const ordered = dated.length === moves.length
+    ? moves.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts))
+    : moves.slice();                       // undated rows: leave them as they came
+
   let running = 0, hadBalance = false;
-  for (const m of moves) {
+  for (const m of ordered) {
     running += m.amount;
     if (m.balance == null) m.balance = running;
     else { hadBalance = true; running = m.balance; }
   }
-  const closingBalance = moves[moves.length - 1].balance;
-  return { ok: true, movements: moves.slice().reverse(), closingBalance, hadBalance };
+  const closingBalance = ordered[ordered.length - 1].balance;
+  return { ok: true, movements: ordered.slice().reverse(), closingBalance, hadBalance,
+           rowsSeen: rows.length, rowsRead: ordered.length };
 }
 
 function buildLedger(invoices = []) {

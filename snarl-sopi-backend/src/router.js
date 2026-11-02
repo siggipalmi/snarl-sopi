@@ -7376,22 +7376,33 @@ async function handleOperatorLedger(req, res) {
     // Its response shape is undocumented, so a parse that comes back not-ok falls through to
     // the invoice-derived ledger rather than showing a figure nobody can stand behind. The
     // answer says which was used, so the page can show where the number came from.
+    const inv = await payday.getCustomerInvoices(op.paydayCustomerId);
+    // Every invoice has to appear in the ledger, so the statement must carry at least as many
+    // movements as there are invoices that were not cancelled. A statement that parses to
+    // fewer than that was only partly read, and a partly-read statement produces a confident
+    // wrong number: on the real account one parsed row gave 51.766 against a true 154.808.
+    // Better to fall back to an approximation that is honest about being one.
+    const liveCount = inv.filter(i => payday.invoiceState(i) !== 'cancelled').length;
+
     try {
       const raw = await payday.getAccountStatement(op.paydayCustomerId, {
         from: req.query && req.query.from, to: req.query && req.query.to,
       });
       const st = payday.parseStatement(raw);
-      if (st.ok) {
+      if (st.ok && st.movements.length >= liveCount) {
         return ok(res, { configured: true, linked: true, source: 'payday-statement',
           dateFrom: raw.dateFrom, dateTo: raw.dateTo,
           movements: st.movements, balance: st.closingBalance });
       }
-      console.warn('[payday] account statement unusable (' + st.reason + ') — deriving from invoices');
+      console.warn('[payday] account statement not usable — '
+        + (st.ok ? 'read ' + st.movements.length + ' movement(s) of ' + st.rowsSeen
+                   + ' row(s) for ' + liveCount + ' live invoice(s)'
+                 : st.reason)
+        + ' — deriving from invoices instead');
     } catch (e) {
       console.warn('[payday] account statement failed (' + e.message + ') — deriving from invoices');
     }
 
-    const inv = await payday.getCustomerInvoices(op.paydayCustomerId);
     const movements = payday.buildLedger(inv);
     ok(res, { configured: true, linked: true, source: 'derived',
       movements, balance: movements.length ? movements[0].balance : 0 });
