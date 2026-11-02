@@ -62,6 +62,7 @@ const weimi = require('./weimi');
 const routes = [
   { method:'GET',  pattern:'/health',                                        handler: handleHealth },
   { method:'POST', pattern:'/api/v1/demo-request',                             handler: handleDemoRequest },
+  { method:'POST', pattern:'/api/v1/site-enquiry',                             handler: handleSiteEnquiry },
   // Unauthenticated BY DESIGN: the machine has no key yet, which is the point. Rate-limited hard
   // in the handler, because six digits is only a million values.
   { method:'POST', pattern:'/api/v1/provisioning/pair',                       handler: handlePairExchange },
@@ -752,6 +753,59 @@ function handleDemoRequest(req, res) {
     .catch(err => console.error('[DEMO] email failed:', err && err.message));
   console.log('[DEMO] request from ' + senderEmail + (company ? ' (' + company + ')' : ''));
 
+  ok(res, { received: true });
+}
+
+// The contact form on agvending.is (the marketing site, agvending-site/ in this repo). Field names
+// are the site's own, in Icelandic. Unlike the demo form this one WAITS for SendGrid: the site
+// redirects to /takk on 200 and shows a mailto fallback otherwise, so answering 200 for a mail
+// that then failed would lose the enquiry silently. Shares the demo form's rate limit.
+async function handleSiteEnquiry(req, res) {
+  const b = req.body || {};
+  // Honeypot: a real person never fills a field they cannot see. Answer 200 so a bot learns nothing.
+  if (String(b['bot-field'] || '').trim()) return ok(res, { received: true });
+
+  const str = (v, max) => String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim().slice(0, max);
+  const name = str(b.nafn, 100);
+  const senderEmail = str(b.netfang, 200);
+  const phone = str(b.simi, 40);
+  const place = str(b.stadur, 160);
+  const message = String(b.skilabod == null ? '' : b.skilabod).trim().slice(0, 2000);
+
+  if (!name) return badRequest(res, 'nafn is required');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(senderEmail)) return badRequest(res, 'a valid netfang is required');
+
+  if (demoRateLimited(clientIp(req))) {
+    return json(res, 429, { ok: false, error: 'Of margar fyrirspurnir héðan í bili. Sendu okkur línu á agvending@agvending.is.' });
+  }
+
+  const to = process.env.SITE_ENQUIRY_TO || 'agvending@agvending.is';
+  // Plain text only. Nothing a stranger typed is rendered as markup anywhere.
+  const text = [
+    'Fyrirspurn af agvending.is',
+    '',
+    'Nafn:      ' + name,
+    'Netfang:   ' + senderEmail,
+    'Sími:      ' + (phone || '-'),
+    'Staðurinn: ' + (place || '-'),
+    '',
+    'Skilaboð:',
+    message || '-',
+    '',
+    'Svaraðu þessum pósti til að svara ' + name + ' beint.',
+    'Móttekið: ' + new Date().toISOString(),
+  ].join('\n');
+
+  try {
+    await email.send({
+      to, replyTo: senderEmail, fromName: 'agvending.is',
+      subject: 'Fyrirspurn — ' + name + (place ? ' (' + place + ')' : ''), text,
+    });
+  } catch (err) {
+    console.error('[ENQUIRY] email failed for ' + senderEmail + ':', err && err.message);
+    return json(res, 502, { ok: false, error: 'Ekki tókst að senda fyrirspurnina.' });
+  }
+  console.log('[ENQUIRY] from ' + senderEmail + (place ? ' (' + place + ')' : ''));
   ok(res, { received: true });
 }
 

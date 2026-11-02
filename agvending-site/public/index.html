@@ -15,7 +15,7 @@
 <meta property="og:image" content="https://agvending.is/assets/img/hero-sjalfsali.jpg" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="theme-color" content="#FFFFFF" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23111111'/%3E%3Crect x='44' y='8' width='12' height='12' fill='%23FFC72C'/%3E%3Ctext x='29' y='46' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='30' fill='%23FFFFFF' text-anchor='middle'%3EAG%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -336,7 +336,10 @@ details[open] > .faq__q::after { content: "−"; background: var(--accent); }
    18. Site addendum — what this page has that the theme above does not
        cover. Same rules: no radius, no shadow, colour only as accent.
    --------------------------------------------------------------------- */
-.brand img { height: 34px; width: auto; }
+.brand { display: inline-flex; }
+.brand img { height: 40px; width: auto; }
+/* The logo file is black; on the dark footer it is turned white. */
+.site-footer .brand img { height: 32px; filter: brightness(0) invert(1); }
 .nav { align-items: center; }
 /* The highlight block would cover the descenders of the line above (h1
    line-height .95), so it paints behind the heading's text. */
@@ -348,8 +351,11 @@ h1 .highlight { position: relative; z-index: -1; }
 .section__head > div { display: flex; flex-direction: column; gap: var(--s-4); max-width: 720px; }
 .section__intro { font-size: var(--fs-lead); }
 
-/* The marquee repeats every tile once (aria-hidden) for a seamless loop.
-   With motion off the track wraps, so show each logo once. */
+/* Each logo is ONE tile in the markup. A script appends an aria-hidden copy of the set and
+   adds .is-looped, and only then does the track move (the -50% keyframe needs both halves).
+   Without the script the logos simply stand still. With motion off the track wraps, so the
+   copies are hidden again. */
+.marquee__track:not(.is-looped) { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .marquee__track > [aria-hidden="true"] { display: none; }
 }
@@ -401,7 +407,7 @@ h1 .highlight { position: relative; z-index: -1; }
      <style> block above, sections 1-17 as delivered plus a site addendum (18). -->
 <header class="site-header">
   <div class="wrap">
-    <a class="brand" href="#top"><img src="assets/img/logo-ag-vending.png" alt="AG Vending" /></a>
+    <a class="brand" href="#top"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" /></a>
     <nav class="nav" aria-label="Aðalvalmynd">
       <a href="#vorur">Sjálfsalar</a>
       <a href="#verd">Verðskrá</a>
@@ -420,7 +426,7 @@ h1 .highlight { position: relative; z-index: -1; }
       <p class="hero__lead">Sjálfsali á fjölförnum stað skapar tekjur og bætir þjónustu — án stofnkostnaðar. Þú leggur til rafmagn og nettengingu, við sjáum um tæki, uppsetningu og viðhald.</p>
       <div class="hero__actions">
         <a class="btn btn--lg" href="#verd">Sjá verðskrá</a>
-        <a class="btn--text" href="#hafa-samband">Fá tilboð</a>
+        <a class="btn--text" href="#hafa-samband">Hafðu samband</a>
       </div>
     </div>
     <div class="hero__media">
@@ -436,7 +442,7 @@ h1 .highlight { position: relative; z-index: -1; }
     <div class="stat">
       <span class="stat__label">Hlutfall af sölu</span>
       <span class="stat__value">0%</span>
-      <span class="stat__label">fast gjald, ekkert annað</span>
+      <span class="stat__label">fast gjald, engin prósenta</span>
     </div>
     <div class="stat">
       <span class="stat__label">Uppsetning</span>
@@ -450,6 +456,8 @@ h1 .highlight { position: relative; z-index: -1; }
     <div class="partners__label">Í rekstri hjá skólum, íþróttafélögum og fyrirtækjum um allt land</div>
     <div class="marquee">
       <div class="marquee__track">
+        <!-- One line per partner. File in assets/logos/ (≤600px, a NEW name to replace one: /assets
+             is cached for a year). Add class ag-mul to the tile when the logo sits on a white box. -->
         <div class="logo-tile"><img src="assets/logos/orkan-mark.png" alt="Orkan" title="Orkan" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/icelandair.png" alt="Icelandair" title="Icelandair" loading="lazy" decoding="async" /></div>
         <div class="logo-tile"><img src="assets/logos/valur.png" alt="Valur" title="Valur" loading="lazy" decoding="async" /></div>
@@ -466,22 +474,6 @@ h1 .highlight { position: relative; z-index: -1; }
         <div class="logo-tile ag-mul"><img src="assets/logos/hotel-burfell.png" alt="Hótel Búrfell" title="Hótel Búrfell" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/skjol.jpg" alt="Skjól" title="Skjól" loading="lazy" decoding="async" /></div>
         <div class="logo-tile"><img src="assets/logos/macron-mark.png" alt="Macron" title="Macron" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile" aria-hidden="true"><img src="assets/logos/orkan-mark.png" alt="" title="Orkan" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/icelandair.png" alt="" title="Icelandair" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile" aria-hidden="true"><img src="assets/logos/valur.png" alt="" title="Valur" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile" aria-hidden="true"><img src="assets/logos/kr.png" alt="" title="KR" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile" aria-hidden="true"><img src="assets/logos/grotta.png" alt="" title="Grótta" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/ir.gif" alt="" title="ÍR" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/sa.png" alt="" title="Skautafélag Akureyrar" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/taekniskolinn.png" alt="" title="Tækniskólinn" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/holaskoli.jpeg" alt="" title="Háskólinn á Hólum" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/reykjalundur.png" alt="" title="Reykjalundur" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/islandshotel.png" alt="" title="Íslandshótel" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/airport-associates.png" alt="" title="Airport Associates" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/hotel-dyrholaey.png" alt="" title="Hótel Dyrhólaey" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/hotel-burfell.png" alt="" title="Hótel Búrfell" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul" aria-hidden="true"><img src="assets/logos/skjol.jpg" alt="" title="Skjól" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile" aria-hidden="true"><img src="assets/logos/macron-mark.png" alt="" title="Macron" loading="lazy" decoding="async" /></div>
       </div>
     </div>
   </div>
@@ -508,7 +500,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Rafmagn</dt><dd>Venjuleg innstunga</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>55.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Fá tilboð →</a></div>
+        <div class="price"><span>55.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Leigja þetta tæki →</a></div>
       </article>
       <article class="product">
         <div class="product__media"><img src="assets/img/machine-einfaldur.png" alt="Einfaldur snjallsjálfsali með kæli" loading="lazy" decoding="async" /></div>
@@ -521,7 +513,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Rafmagn</dt><dd>Venjuleg innstunga</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Fá tilboð →</a></div>
+        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Leigja þetta tæki →</a></div>
       </article>
       <article class="product">
         <div class="product__media"><img src="assets/img/machine-snertiskjar.png" alt="Sjálfsali með 55&quot; snertiskjá" loading="lazy" decoding="async" /></div>
@@ -534,7 +526,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Efni</dt><dd>Kaldrúllað stál</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Fá tilboð →</a></div>
+        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Leigja þetta tæki →</a></div>
       </article>
     </div>
   </div>
@@ -564,11 +556,12 @@ h1 .highlight { position: relative; z-index: -1; }
             <li><span>Rafmagn<small>Venjuleg innstunga.</small></span></li>
             <li><span>Nettenging<small>WiFi, LAN eða 4G.</small></span></li>
             <li><span>Færsluhirðing hjá Teya<small>Við aðstoðum við umsóknina.</small></span></li>
+            <li><span>Þjónustugjald posans<small>Greitt til Tæknivits, þjónustuaðila Nayax á Íslandi.</small></span></li>
           </ul>
           </div>
         </div>
         <div class="fine">
-          <p>Öll verð eru án vsk. Við leiguverð bætist þjónustugjald vegna posa og færslugjöld þriðja aðila.</p>
+          <p>Öll verð eru án vsk. Við leiguverð bætist þjónustugjald posans, sem leigutaki greiðir til Tæknivits, þjónustuaðila Nayax, og færslugjöld færsluhirðis.</p>
           <p>Frí afhending hvar sem er á höfuðborgarsvæðinu. Leigutaki ber flutningskostnað utan þess.</p>
           <p>Leigutími ótímabundinn. Eins mánaðar uppsagnarfrestur fyrstu þrjá mánuðina, þrír mánuðir eftir það.</p>
         </div>
@@ -602,7 +595,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <button class="faq__q" type="button" aria-expanded="true" aria-controls="faq-a-0" data-faq>Er einhver aukakostnaður?</button>
           <div class="faq__a" id="faq-a-0">
             <p>AG Vending innheimtir bara fast leiguverð. Innifalið í leiguverði er sjálfsali, greiðsluposi og aðgangur að vefumsjónarkerfi þar sem hægt er að fylgjast með sölu, búa til vörur, tilboð og fleira.</p>
-            <p>Aukakostnaður við þjónustu þriðja aðila, t.d. vegna nettengingar, færslu- og þjónustugjalda vegna kreditkorta o.þ.h., er á ábyrgð leigutaka.</p>
+            <p>Aukakostnaður við þjónustu þriðja aðila er á ábyrgð leigutaka: þjónustugjald posans, sem greitt er til Tæknivits, þjónustuaðila Nayax, færslu- og þjónustugjöld vegna greiðslukorta, nettenging o.þ.h.</p>
           </div>
         </div>
         <div class="faq__item">
@@ -638,10 +631,9 @@ h1 .highlight { position: relative; z-index: -1; }
         </div>
       </div>
       <div class="split__main">
-        <!-- FORM — the endpoint in CONTACT_ENDPOINT (bottom of file) does not exist yet.
-             Fields: nafn, netfang, simi, stadur, skilabod + bot-field honeypot,
-             which must be rejected server-side when filled. -->
-        <form class="form" id="tilbod-form" name="tilbod" method="POST" action="https://admin.agvending.is/api/tilbod">
+        <!-- Posts JSON to the backend (snarl-sopi-backend, POST /api/v1/site-enquiry), which mails it to
+             agvending@agvending.is. Fields: nafn, netfang, simi, stadur, skilabod + the bot-field honeypot. -->
+        <form class="form" id="fyrirspurn-form" name="fyrirspurn" method="POST" action="https://admin.agvending.is/api/v1/site-enquiry">
           <p class="bot-field" aria-hidden="true"><label>Ekki fylla út: <input name="bot-field" tabindex="-1" autocomplete="off" /></label></p>
           <label class="field" for="f-nafn">Nafn<input id="f-nafn" name="nafn" required autocomplete="name" /></label>
           <label class="field" for="f-email">Netfang<input id="f-email" type="email" name="netfang" required autocomplete="email" /></label>
@@ -649,7 +641,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <label class="field form__full" for="f-stadur">Staðurinn<input id="f-stadur" name="stadur" placeholder="t.d. íþróttahús, skóli, hótel" /></label>
           <label class="field form__full" for="f-skilabod">Skilaboð<textarea id="f-skilabod" name="skilabod" rows="3"></textarea></label>
           <p class="form__fallback form__full" id="form-msg" role="alert" hidden>Ekki tókst að senda fyrirspurnina. Sendu okkur línu á <a href="mailto:agvending@agvending.is">agvending@agvending.is</a> og við svörum strax.</p>
-          <button class="btn btn--lg form__full" id="tilbod-submit" type="submit">Senda fyrirspurn</button>
+          <button class="btn btn--lg form__full" id="fyrirspurn-submit" type="submit">Senda fyrirspurn</button>
         </form>
       </div>
     </div>
@@ -658,7 +650,7 @@ h1 .highlight { position: relative; z-index: -1; }
 </main>
 <footer class="site-footer">
   <div class="wrap">
-    <span class="brand">AG Vending</span>
+    <a class="brand" href="#top"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" loading="lazy" /></a>
     <span class="muted">AG Vending ehf. · kt. 590922-0800</span>
     <nav aria-label="Fótur">
       <a href="#vorur">Sjálfsalar</a>
@@ -673,9 +665,23 @@ h1 .highlight { position: relative; z-index: -1; }
 {"@context":"https://schema.org","@type":"LocalBusiness","name":"AG Vending ehf.","url":"https://agvending.is/","email":"agvending@agvending.is","description":"Leigðu sjálfsala frá AG Vending. Fast mánaðargjald frá 40.000 kr, engin prósenta af sölu. Tæki, uppsetning, posi og viðhald innifalið.","areaServed":"IS","address":{"@type":"PostalAddress","addressCountry":"IS"}}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Er einhver aukakostnaður?","acceptedAnswer":{"@type":"Answer","text":"AG Vending innheimtir bara fast leiguverð. Innifalið í leiguverði er sjálfsali, greiðsluposi og aðgangur að vefumsjónarkerfi þar sem hægt er að fylgjast með sölu, búa til vörur, tilboð og fleira. Aukakostnaður við þjónustu þriðja aðila, t.d. vegna nettengingar, færslu- og þjónustugjalda vegna kreditkorta o.þ.h., er á ábyrgð leigutaka."}},{"@type":"Question","name":"Tekur AG Vending prósentu af sölu?","acceptedAnswer":{"@type":"Answer","text":"Nei. Við rukkum fast gjald og tökum ekkert hlutfall af sölu — ef það gengur vel hjá þér þá græðir þú meira."}},{"@type":"Question","name":"Hver er leigutíminn?","acceptedAnswer":{"@type":"Answer","text":"Leigutímabilið er ótímabundið. Fyrstu þrjá mánuðina er eins mánaðar uppsagnarfrestur en þriggja mánaða uppsagnarfrestur að þeim tíma liðnum."}},{"@type":"Question","name":"Hvað ef tækið bilar?","acceptedAnswer":{"@type":"Answer","text":"AG Vending ábyrgist að tækið virki sem skyldi á meðan leigusambandi stendur. Við gerum við biluð tæki eða skiptum þeim út leigutaka að kostnaðarlausu."}},{"@type":"Question","name":"Hvað þarf ég að leggja til?","acceptedAnswer":{"@type":"Answer","text":"Venjulega innstungu og nettengingu (WiFi, LAN eða 4G). Við afhendum og setjum upp tækið án kostnaðar hvar sem er á höfuðborgarsvæðinu. Leigutaki þarf að vera með færsluhirðingu hjá Teya og við aðstoðum við umsókn."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Er einhver aukakostnaður?","acceptedAnswer":{"@type":"Answer","text":"AG Vending innheimtir bara fast leiguverð. Innifalið í leiguverði er sjálfsali, greiðsluposi og aðgangur að vefumsjónarkerfi þar sem hægt er að fylgjast með sölu, búa til vörur, tilboð og fleira. Aukakostnaður við þjónustu þriðja aðila er á ábyrgð leigutaka: þjónustugjald posans, sem greitt er til Tæknivits, þjónustuaðila Nayax, færslu- og þjónustugjöld vegna greiðslukorta, nettenging o.þ.h."}},{"@type":"Question","name":"Tekur AG Vending prósentu af sölu?","acceptedAnswer":{"@type":"Answer","text":"Nei. Við rukkum fast gjald og tökum ekkert hlutfall af sölu — ef það gengur vel hjá þér þá græðir þú meira."}},{"@type":"Question","name":"Hver er leigutíminn?","acceptedAnswer":{"@type":"Answer","text":"Leigutímabilið er ótímabundið. Fyrstu þrjá mánuðina er eins mánaðar uppsagnarfrestur en þriggja mánaða uppsagnarfrestur að þeim tíma liðnum."}},{"@type":"Question","name":"Hvað ef tækið bilar?","acceptedAnswer":{"@type":"Answer","text":"AG Vending ábyrgist að tækið virki sem skyldi á meðan leigusambandi stendur. Við gerum við biluð tæki eða skiptum þeim út leigutaka að kostnaðarlausu."}},{"@type":"Question","name":"Hvað þarf ég að leggja til?","acceptedAnswer":{"@type":"Answer","text":"Venjulega innstungu og nettengingu (WiFi, LAN eða 4G). Við afhendum og setjum upp tækið án kostnaðar hvar sem er á höfuðborgarsvæðinu. Leigutaki þarf að vera með færsluhirðingu hjá Teya og við aðstoðum við umsókn."}}]}
 </script>
 <script>
+/* Partner rail: copy the tiles once for the seamless loop (see .is-looped in the styles). */
+(function () {
+  var track = document.querySelector(".marquee__track");
+  if (!track) return;
+  Array.prototype.slice.call(track.children).forEach(function (tile) {
+    var copy = tile.cloneNode(true);
+    copy.setAttribute("aria-hidden", "true");
+    var img = copy.querySelector("img");
+    if (img) img.alt = "";
+    track.appendChild(copy);
+  });
+  track.classList.add("is-looped");
+})();
+
 /* FAQ accordion — single-open, first item open by default. The +/− sign is
    drawn by CSS from aria-expanded (theme section 12). */
 document.querySelectorAll("[data-faq]").forEach(function (btn) {
@@ -692,17 +698,14 @@ document.querySelectorAll("[data-faq]").forEach(function (btn) {
   });
 });
 
-/* Contact form.
-   ⚠ CONTACT_ENDPOINT does not exist yet. Build it on admin.agvending.is before
-   pointing DNS at this site, or every enquiry is silently lost.
-   It must accept a POST of nafn / netfang / simi / stadur / skilabod, reject the
-   request when bot-field is non-empty, and send with SendGrid.
-   admin.agvending.is already returns Access-Control-Allow-Origin: *. */
-var CONTACT_ENDPOINT = "https://admin.agvending.is/api/tilbod";
+/* Contact form → POST /api/v1/site-enquiry on the backend (snarl-sopi-backend), as JSON.
+   The backend answers 200 only once the mail to agvending@agvending.is has gone out, so anything
+   else shows the mailto fallback and the enquiry is never lost silently. */
+var CONTACT_ENDPOINT = "https://admin.agvending.is/api/v1/site-enquiry";
 (function () {
-  var form = document.getElementById("tilbod-form");
+  var form = document.getElementById("fyrirspurn-form");
   if (!form) return;
-  var btn = document.getElementById("tilbod-submit");
+  var btn = document.getElementById("fyrirspurn-submit");
   var msg = document.getElementById("form-msg");
   form.setAttribute("action", CONTACT_ENDPOINT);
   form.addEventListener("submit", function (e) {
@@ -710,7 +713,13 @@ var CONTACT_ENDPOINT = "https://admin.agvending.is/api/tilbod";
     msg.hidden = true;
     btn.disabled = true;
     btn.textContent = "Sendi…";
-    fetch(CONTACT_ENDPOINT, { method: "POST", body: new FormData(form) })
+    var data = {};
+    new FormData(form).forEach(function (v, k) { data[k] = v; });
+    fetch(CONTACT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    })
       .then(function (r) {
         if (!r.ok) throw new Error(r.status);
         window.location.href = "/takk";

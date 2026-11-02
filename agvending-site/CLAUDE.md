@@ -57,12 +57,13 @@ Worker — a different name deploys to a second, separate Worker.
    the per-logo `ag-mul` flag.
 3. **Folders full — done (28 Oct).** Both `.gitkeep` files and the temporary missing-image
    script are gone, so a missing image now shows as a broken icon.
-4. **Contact form endpoint.** The form POSTs to `https://admin.agvending.is/api/tilbod`. As of
-   25 Aug it did not exist and a code search on 28 Oct found no `tilbod` route. Confirm before DNS
-   cutover, or every enquiry is silently lost. It must accept `nafn`, `netfang`, `simi`,
-   `stadur`, `skilabod`, reject the request when `bot-field` is non-empty, and send through
-   SendGrid (already a backend dependency). CORS is `*`. Building it is backend work — follow
-   the root `CLAUDE.md` for that.
+4. **Contact form endpoint — built (backend 6.97.0, 2 Nov).** The form posts JSON to
+   `https://admin.agvending.is/api/v1/site-enquiry` (`handleSiteEnquiry` in
+   `snarl-sopi-backend/src/router.js`), which mails it as plain text to agvending@agvending.is
+   (`SITE_ENQUIRY_TO` overrides) with the customer as reply-to. It answers 200 only once SendGrid
+   has taken the mail, so a failure shows the mailto fallback instead of /takk. Honeypot
+   `bot-field`; rate limit shared with the demo form (3/h per IP, 30/h total). Send one real test
+   enquiry before DNS cutover.
 5. **Worker build root — fixed (28 Oct).** Builds failed because Root directory was `/`, where
    there is no `wrangler.toml`. Now `/agvending-site`; merging to `main` deploys (first good
    build 28 Oct 15:55 UTC). Include paths are still `*`, so every commit to the repo rebuilds the
@@ -95,6 +96,8 @@ things the page has that the theme didn't cover. `takk`/`404`/`500` carry a subs
 
 - White page, `#111` type and 1px black rules; `--wall #F3F0EB` for the pricing band, image wells
   and form fields. The only dark areas are the testimonial band and the footer.
+- The logo is `assets/img/logo-ag-vending.svg` (Siggi's render, 2 Nov), black; the footer turns it
+  white with a CSS filter. `/favicon.svg` is its AG mark on white.
 - One typeface, Libre Franklin (500–900). No serif, no italics. Square corners, no shadows, no
   gradients. Black text on every colour.
 - Palette, accents only: yellow `--accent` (kicker squares, the one highlighted word, link
@@ -113,6 +116,12 @@ things the page has that the theme didn't cover. `takk`/`404`/`500` carry a subs
 - **0% of sales** — fixed fee only. The strongest differentiator; it appears in the hero stats,
   the pricing headline and the FAQ. Keep all three.
 - Free delivery and setup in the capital area
+- **Never "tilboð" (an offer/quote).** AG Vending has fixed prices; calls to action say "Hafðu
+  samband" or "Leigja þetta tæki". "Tilboð" on the page means promotions an operator sets up in the
+  web admin, which is fine.
+- **Posi service fee goes to Tæknivit**, Nayax's service provider in Iceland, paid by the tenant on
+  top of the rent (Siggi, 2 Nov). It appears in "Þú leggur til", the fine print and the first FAQ
+  answer (plus its JSON-LD copy). So the hero never says "ekkert annað".
 - Included: machine, Nayax vPOS touch reader, web admin, maintenance, warranty
 - Tenant provides: power, internet, a Teya acquiring agreement (AG assists)
 - Open-ended term; 1 month notice for the first three months, 3 months after
@@ -131,6 +140,17 @@ things the page has that the theme didn't cover. `takk`/`404`/`500` carry a subs
 Not Samtök atvinnulífsins — the crest is a script SA monogram and a skater. Confirmed by Siggi.
 Never describe the rail as carrying an industry body. The source is only 131×177 and renders soft
 at 2×; a higher-resolution crest is worth asking for.
+
+## Adding a partner logo
+
+1. Put the file in `public/assets/logos/`: PNG (transparent if you have it), longest edge ≤600px,
+   a lowercase name. A white or very light logo needs a dark version — the rail is on white.
+2. Add **one line** to the rail in `public/index.html`, copying a neighbour:
+   `<div class="logo-tile"><img src="assets/logos/NAME.png" alt="Name" title="Name" loading="lazy" decoding="async" /></div>`
+   Add `ag-mul` to the tile's class when the logo sits on a white box. The looping copy is made by
+   script, so there is no second line to add.
+3. Do it on a branch: Workers Builds gives the branch its own preview URL to check before merging.
+   To replace a logo, give the new file a new name — `/assets` is cached for a year.
 
 ## Logo traps (if reprocessing)
 
