@@ -268,22 +268,33 @@ function parseStatement(raw) {
   }
   if (!moves.length) return { ok: false, reason: 'no amounts found', movements: [], closingBalance: 0 };
 
-  // Never assume which way round the rows came. Reading them newest-first while trusting a
-  // balance column gives the OLDEST row's balance as the closing figure — 51.314 instead of
-  // 154.808 on the real account. Sorting by date first makes the order irrelevant.
+  // Never assume which way round the rows came: sorting by date first makes it irrelevant.
   const dated = moves.filter(m => m.ts && !isNaN(new Date(m.ts)));
   const ordered = dated.length === moves.length
     ? moves.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts))
     : moves.slice();                       // undated rows: leave them as they came
 
-  let running = 0, hadBalance = false;
+  // The running balance is accumulated from the signed amounts, and the row's own `balance`
+  // field is NOT used for it.
+  //
+  // That field looked like a running balance and is not one. On a real account the newest row
+  // (invoice #199, 51.766) carried balance 51.766 — its own amount — while Payday's own
+  // Hreyfingalisti closed at 154.808 for the same customer. Trusting the column put 51.766 on
+  // the customer's page and called it Payday's figure. The signed amounts add up to 154.808
+  // exactly, which is the number Payday shows (Siggi, 2026-11-02).
+  //
+  // The column is kept per row as docBalance, since it appears to be what is outstanding on
+  // that document, but nothing is computed from it.
+  let running = 0, columnAgrees = true;
   for (const m of ordered) {
     running += m.amount;
-    if (m.balance == null) m.balance = running;
-    else { hadBalance = true; running = m.balance; }
+    m.docBalance = m.balance;
+    if (m.docBalance != null && m.docBalance !== running) columnAgrees = false;
+    m.balance = running;
   }
-  const closingBalance = ordered[ordered.length - 1].balance;
-  return { ok: true, movements: ordered.slice().reverse(), closingBalance, hadBalance,
+  const closingBalance = running;
+  return { ok: true, movements: ordered.slice().reverse(), closingBalance,
+           hadBalance: ordered.some(m => m.docBalance != null), columnAgrees,
            rowsSeen: rows.length, rowsRead: ordered.length };
 }
 

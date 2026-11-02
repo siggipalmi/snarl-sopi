@@ -114,14 +114,42 @@ test('a payment in the live shape is a negative amount', () => {
   assert.strictEqual(r.movements[0].amount, -50032);
 });
 
-test('Payday\'s own running balance is trusted, not recomputed', () => {
-  // If the two ever disagree, Payday is right: it is the ledger, we are reading it.
+test('the row balance column is NOT the account balance, and is not used as one', () => {
+  // The assumption that cost three attempts. The column looks like a running balance and is
+  // not one: on the real account the newest row (invoice #199, 51.766) carried balance 51.766,
+  // its own amount, while Payday's Hreyfingalisti closed at 154.808 for that customer. The
+  // signed amounts are what add up to the figure Payday shows.
   const r = parseStatement({ rows: [
-    { ...LIVE_ROW, amount: 1000, balance: 9000 },      // a balance that does not follow from
+    { ...LIVE_ROW, amount: 1000, balance: 9000 },
     { ...LIVE_ROW, id: 'b', date: '2026-01-01T00:00:00Z', amount: 500, balance: 9500 },
   ] });
-  assert.strictEqual(r.hadBalance, true);
-  assert.strictEqual(r.closingBalance, 9500, 'the column wins over our arithmetic');
+  assert.strictEqual(r.closingBalance, 1500, 'the amounts, not the column');
+  assert.strictEqual(r.columnAgrees, false, 'and the disagreement is reported');
+  // The column is kept per row, since it appears to be what is left on that document.
+  assert.strictEqual(r.movements[0].docBalance, 9500);
+  assert.strictEqual(r.movements[0].balance, 1500, 'the running total at that row');
+});
+
+test('the real account closes at 154.808, the figure Payday itself shows', () => {
+  // Bus Station, as the API returns it: a signed amount per row, and a per-document balance
+  // that must be ignored. This is the number that was wrong on the page three times.
+  const rows = [
+    { date: '2026-02-01T00:00:00Z', description: 'Reikningur nr. 127',             voucher: 'SR00000127', amount:  50372, balance:  50372 },
+    { date: '2026-02-01T00:00:00Z', description: 'Kreditfært: Reikningur nr. 127', voucher: 'SR00000139', amount: -50173, balance: -50173 },
+    { date: '2026-02-16T00:00:00Z', description: 'Seðilgjald dregið af kröfu',      voucher: '0000000793', amount:   -199, balance:   -199 },
+    { date: '2026-03-01T00:00:00Z', description: 'Reikningur nr. 144',             voucher: 'SR00000144', amount:  50560, balance:      0 },
+    { date: '2026-04-01T00:00:00Z', description: 'Reikningur nr. 158',             voucher: 'SR00000158', amount:  51035, balance:      0 },
+    { date: '2026-05-01T00:00:00Z', description: 'Reikningur nr. 171',             voucher: 'SR00000171', amount:  51314, balance:  51314 },
+    { date: '2026-05-06T00:00:00Z', description: 'Greiðsla á reikning nr. 144',    voucher: 'S000002895', amount: -50560, balance:      0 },
+    { date: '2026-05-06T00:00:00Z', description: 'Greiðsla á reikning nr. 158',    voucher: 'S000002896', amount: -51035, balance:      0 },
+    { date: '2026-06-01T00:00:00Z', description: 'Reikningur nr. 184',             voucher: 'SR00000184', amount:  51728, balance:  51728 },
+    { date: '2026-07-01T00:00:00Z', description: 'Reikningur nr. 199',             voucher: 'SR00000199', amount:  51766, balance:  51766 },
+  ];
+  const r = parseStatement({ rows });
+  assert.strictEqual(r.closingBalance, 154808);
+  assert.notStrictEqual(r.closingBalance, 51766, 'not the last row balance, which was the bug');
+  // Order must not matter, since the API decides it.
+  assert.strictEqual(parseStatement({ rows: rows.slice().reverse() }).closingBalance, 154808);
 });
 
 test('a voucher-less row still reads, since ref is only for display', () => {
