@@ -177,6 +177,109 @@ function invoiceIsLive(inv) { return invoiceState(inv) === 'open'; }
  * GET /customers/:id/accountStatement returns the real thing, fees and all. Use that where it
  * can be reached; this remains the fallback for when it cannot.
  */
+// ─── Payday's own account statement ───────────────────────────────────────────
+//
+// GET /customers/:id/accountStatement is the ledger Payday itself shows, and the only source
+// that is right: it carries the seðilgjald on each claim and any part-payment, neither of which
+// can be recovered from invoice amounts. On one real account the invoice-derived figure was
+// 50.770 kr short of it (Siggi, 2026-11-02).
+//
+// The documented collection carries no response example for this endpoint, so the field names
+// below are read tolerantly rather than assumed, and parseStatement reports ok:false instead of
+// guessing when it cannot find what it needs. The caller falls back to buildLedger on a false.
+
+const PATH_ACCOUNT_STATEMENT = process.env.PAYDAY_PATH_ACCOUNT_STATEMENT
+  || '/customers/{id}/accountStatement';
+
+function _ymd(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  if (isNaN(x)) return null;
+  const p = n => String(n).padStart(2, '0');
+  return x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
+}
+
+/** Raw statement for a customer. Dates are inclusive and default to the last two years. */
+async function getAccountStatement(customerId, { from, to } = {}) {
+  const path = PATH_ACCOUNT_STATEMENT.replace('{id}', encodeURIComponent(String(customerId)));
+  const now = new Date();
+  const dateTo = _ymd(to) || _ymd(now);
+  const dateFrom = _ymd(from)
+    || _ymd(new Date(now.getFullYear() - 2, now.getMonth(), 1));
+  const out = [];
+  let page = 1, pages = 1;
+  for (let i = 0; i < 60; i++) {
+    const json = await apiGet(path, { dateFrom, dateTo, perpage: 100, page });
+    const rows = json.lines || json.entries || json.movements || json.transactions
+      || json.data || json.items || json.results || (Array.isArray(json) ? json : []);
+    out.push(...rows);
+    pages = Number(json.pages || 1);
+    if (page >= pages || !rows.length) break;
+    page++;
+  }
+  return { rows: out, dateFrom, dateTo };
+}
+
+// Key names are read case-insensitively and with the spellings Payday might plausibly use,
+// Icelandic included, because the response shape is not documented.
+function _pick(row, names) {
+  const keys = Object.keys(row || {});
+  for (const want of names) {
+    const k = keys.find(k2 => k2.toLowerCase() === want.toLowerCase());
+    if (k != null && row[k] != null && row[k] !== '') return row[k];
+  }
+  return null;
+}
+function _money(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return v;
+  // "50.372 kr." / "50,372" — Icelandic groups with dots and decimals with a comma.
+  const cleaned = String(v).replace(/[^\d,.\-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Normalise a statement into the movement shape the dashboard already renders.
+ * Returns { ok, movements, closingBalance, reason } — ok:false means use the fallback.
+ */
+function parseStatement(raw) {
+  const rows = (raw && raw.rows) || (Array.isArray(raw) ? raw : null);
+  if (!Array.isArray(rows)) return { ok: false, reason: 'no rows', movements: [], closingBalance: 0 };
+  if (!rows.length) return { ok: true, movements: [], closingBalance: 0, empty: true };
+
+  const moves = [];
+  for (const r of rows) {
+    const debit = _money(_pick(r, ['debit', 'debet', 'amountDebit', 'debitAmount']));
+    const credit = _money(_pick(r, ['credit', 'kredit', 'amountCredit', 'creditAmount']));
+    let amount = null;
+    if (debit != null || credit != null) amount = (debit || 0) - (credit || 0);
+    else amount = _money(_pick(r, ['amount', 'upphaed', 'value', 'total']));
+    if (amount == null) continue;                       // not a movement row
+    const balance = _money(_pick(r, ['balance', 'runningBalance', 'stada', 'staða', 'total']));
+    const ts = _pick(r, ['date', 'transactionDate', 'entryDate', 'created', 'dags', 'dagsetning']);
+    const desc = _pick(r, ['description', 'text', 'name', 'lysing', 'lýsing']) || '';
+    const doc = _pick(r, ['voucher', 'documentNumber', 'document', 'reference', 'fylgiskjal',
+      'invoiceNumber', 'number']);
+    moves.push({
+      ts: ts || null, kind: amount >= 0 ? 'invoice' : 'payment',
+      ref: doc != null ? String(doc) : '', desc: String(desc),
+      amount, balance: balance != null ? balance : null,
+    });
+  }
+  if (!moves.length) return { ok: false, reason: 'no amounts found', movements: [], closingBalance: 0 };
+
+  // Payday returns the statement oldest first with a running balance. Trust its balance where
+  // it gives one; otherwise accumulate, so a statement without the column still works.
+  let running = 0, hadBalance = false;
+  for (const m of moves) {
+    running += m.amount;
+    if (m.balance == null) m.balance = running;
+    else { hadBalance = true; running = m.balance; }
+  }
+  const closingBalance = moves[moves.length - 1].balance;
+  return { ok: true, movements: moves.slice().reverse(), closingBalance, hadBalance };
+}
+
 function buildLedger(invoices = []) {
   const num = v => Number(v || 0);
   const moves = [];
@@ -270,6 +373,30 @@ async function debugProbe(customerId, ssn) {
   // so an operator only needs to enter the ssn and we resolve their Payday id automatically.
   out.customerScan = await scan(['/customers', '/customer', '/clients']);
 
+  // The account statement, whose response shape the published collection does not show. Report
+  // the first row's keys and how our parser read it, so the live shape can be confirmed without
+  // anyone pasting customer data around.
+  try {
+    const cust = (out.customerScan || []).find(t => t.firstSample) || {};
+    const cid = cust.firstSample && (cust.firstSample.id || cust.firstSample.customerId);
+    if (cid) {
+      const raw = await getAccountStatement(cid);
+      const parsed = parseStatement(raw);
+      out.accountStatement = {
+        path: PATH_ACCOUNT_STATEMENT, dateFrom: raw.dateFrom, dateTo: raw.dateTo,
+        rowsFound: raw.rows.length,
+        firstKeys: raw.rows[0] ? Object.keys(raw.rows[0]) : [],
+        firstSample: raw.rows[0] ? _redact(raw.rows[0]) : null,
+        parsed: { ok: parsed.ok, reason: parsed.reason || null, movements: parsed.movements.length,
+                  closingBalance: parsed.closingBalance, carriedItsOwnBalance: !!parsed.hadBalance },
+      };
+    } else {
+      out.accountStatement = { note: 'no customer id to probe with' };
+    }
+  } catch (e) {
+    out.accountStatement = { error: String(e.message || e) };
+  }
+
   // Deep tests (self-contained): use a real customer taken from the first invoice to learn
   // (a) the invoice→customer field shape, (b) which param filters /invoices by customer,
   // (c) which param filters /customers by ssn. No external input needed.
@@ -314,7 +441,7 @@ async function debugProbe(customerId, ssn) {
 }
 
 module.exports = {
-  invoiceState, invoiceIsLive,
+  invoiceState, invoiceIsLive, getAccountStatement, parseStatement,
   paydayConfigured, getCustomerInvoices, getCustomerPayments, findCustomerBySsn, getInvoicePdf, buildLedger, debugProbe,
   _meta: { API_BASE, TOKEN_URL, PATH_INVOICES, PATH_CUSTOMERS, PATH_INVOICE_PDF, CUSTOMER_PARAM },
 };

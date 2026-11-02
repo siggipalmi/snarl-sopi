@@ -429,6 +429,7 @@ select.fi{cursor:pointer;}
 #page-billing .bl-led-head{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-bottom:6px;}
 #page-billing .bl-led{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;}
 #page-billing .bl-led-desc{font-size:13px;}
+#page-billing .bl-src{font-size:12.5px;color:var(--muted);padding:9px 12px;background:var(--cream-deep);margin:-2px 0 10px;line-height:1.45;}
 #page-billing .bl-led-date{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:1px;}
 #page-billing .bl-led-amt{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap;min-width:84px;}
 #page-billing .bl-led-amt.credit{color:var(--success);}
@@ -2247,6 +2248,8 @@ let LANG = (function(){ try { return localStorage.getItem(LANG_KEY) || 'en'; } c
 const I18N = {
   en: {
     'nav.security':'Security','title.security':'security.',
+    'billing.srcStatement':'Balance and movements are Payday\u2019s own account statement, including the claim fee on each invoice.',
+    'billing.srcDerived':'Payday\u2019s statement could not be read just now, so this balance is calculated from invoices. It does not include the claim fee on each invoice.',
     'billing.cancelled':'cancelled','billing.credited':'credited',
     'fleet.noModel':'no model set','fleet.noUpdates':'gets no updates',
     'alert.new_device_signin.title':'Sign-in from a new device',
@@ -2523,6 +2526,8 @@ const I18N = {
   },
   is: {
     'nav.security':'Öryggi','title.security':'öryggi.',
+    'billing.srcStatement':'Staða og hreyfingar koma beint úr hreyfingalista Payday, með seðilgjaldi af hverri kröfu.',
+    'billing.srcDerived':'Ekki náðist í hreyfingalista Payday í augnablikinu, svo staðan er reiknuð út frá reikningum. Hún inniheldur ekki seðilgjald af hverjum reikningi.',
     'billing.cancelled':'niðurfelldur','billing.credited':'kreditfærður',
     'fleet.noModel':'engin tegund skráð','fleet.noUpdates':'fær engar uppfærslur',
     'alert.new_device_signin.title':'Innskráning úr nýju tæki',
@@ -10428,6 +10433,15 @@ async function renderBilling() {
   const ktLine = (opMeta.kennitala ? 'kt. ' + blKt(opMeta.kennitala) : '') +
     (opMeta.machineCount != null ? (opMeta.kennitala ? ' · ' : '') + opMeta.machineCount + ' ' + t('billing.machines') : '');
 
+  // Where the number came from. Payday's own statement carries the seðilgjald on each claim and
+  // any part-payment; a balance derived from invoice amounts cannot, and on one real account
+  // was 597 kr short for exactly that reason. The page says which it is rather than presenting
+  // an approximation as fact.
+  const fromPayday = led.source === 'payday-statement';
+  const srcNote = led.source
+    ? `<div class="bl-src">${fromPayday ? t('billing.srcStatement') : t('billing.srcDerived')}</div>`
+    : '';
+
   const summary = `<div class="bl-summary">
     <div><div class="bl-sum-lab">${t('billing.outstanding')}</div>
       <div class="bl-sum-bal${due ? ' due' : ''}">${due ? blKr(balance) : t('billing.settled')}</div>
@@ -10448,7 +10462,7 @@ async function renderBilling() {
 
   const refreshBar = `<div style="display:flex;justify-content:flex-end;margin:-8px 0 10px"><button class="bl-dl" onclick="renderBilling()">↻ ${t('billing.refresh')}</button></div>`;
 
-  body.innerHTML = summary + refreshBar + tabs +
+  body.innerHTML = summary + srcNote + refreshBar + tabs +
     `<div id="bl-panel-invoices" style="${_blTab === 'invoices' ? '' : 'display:none'}">${invPanel}</div>` +
     `<div id="bl-panel-ledger" style="${_blTab === 'ledger' ? '' : 'display:none'}">${ledPanel}</div>` +
     `<div class="bl-foot">${t('billing.foot')}</div>`;
@@ -10493,13 +10507,22 @@ function blInvRow(opId, i) {
 function blLedRow(m) {
   const credit = m.amount < 0;
   const amt = (credit ? '−' : '+') + blNum(Math.abs(m.amount));
-  return `<div class="bl-led"><div><div class="bl-led-date">${m.ts ? blDate(m.ts) : ''}</div><div class="bl-led-desc">${rsEsc(blLedDesc(m))}</div></div>` +
+  // Payday's statement carries the document number for each movement. It is what an operator
+  // matches against their own books, so it is shown rather than dropped.
+  const doc = m.ref ? ` · <span class="mono">${rsEsc(String(m.ref))}</span>` : '';
+  return `<div class="bl-led"><div><div class="bl-led-date">${m.ts ? blDate(m.ts) : ''}${doc}</div><div class="bl-led-desc">${rsEsc(blLedDesc(m))}</div></div>` +
     `<div class="bl-led-amt${credit ? ' credit' : ''}">${amt}</div><div class="bl-led-bal">${blNum(m.balance)}</div></div>`;
 }
 function blLedDesc(m) {
+  // When the movements come from Payday's account statement, the description IS the label the
+  // operator will match against their own books — "Seðilgjald dregið af kröfu vegna reiknings
+  // nr. 127" says something that "Innborgun · #0000000793" does not. It stays in Icelandic in
+  // both languages, because it is the wording on the accounting document itself.
+  if (m.desc) return m.desc;
+  // Derived from invoices: there is no meaningful text, so the kind is the label.
   if (m.kind === 'payment') return t('billing.payment') + (m.ref ? ' · #' + m.ref : '');
   if (m.kind === 'credit')  return t('billing.credit') + (m.ref ? ' · #' + m.ref : '');
-  return t('billing.invoiceRow') + (m.ref ? ' #' + m.ref : '');   // ignore Payday's free-text description
+  return t('billing.invoiceRow') + (m.ref ? ' #' + m.ref : '');
 }
 function onBillingOp(id) { _blOpId = id; renderBilling(); }
 function onBillingTab(tab) {
