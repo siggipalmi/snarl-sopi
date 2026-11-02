@@ -136,18 +136,50 @@ async function getInvoicePdf(invoiceId) {
  * its invoiceDate (+gross) and, when paid/credited, an offsetting credit on the
  * paidDate/creditDate (−gross). Cancelled invoices are skipped. Returns newest-first.
  */
+/**
+ * What state is this invoice actually in?
+ *
+ * One definition, used by both the ledger and the invoice list, because they disagreed: the
+ * ledger skipped cancelled invoices while the list was never told they were cancelled, so an
+ * operator saw a balance of one figure and a pile of "overdue" rows adding up to another.
+ * A cancelled or credited invoice is not money anybody owes.
+ *
+ *   cancelled  withdrawn; owed nothing, and it is not overdue however old it is
+ *   credited   cancelled out by a credit note (or itself a credit note: a negative amount)
+ *   paid       settled
+ *   open       still owed; the caller decides whether it is also overdue, from the due date
+ */
+function invoiceState(inv) {
+  const status = String((inv && inv.status) || '').toUpperCase();
+  if (inv && (inv.cancelledDate || status === 'CANCELLED')) return 'cancelled';
+  if (inv && (inv.creditDate || inv.refundDate || status === 'CREDITED' || status === 'REFUNDED')) {
+    return 'credited';
+  }
+  // A negative amount IS a credit note. It can never be overdue, whatever its due date says.
+  const gross = Number((inv && (inv.amountIncludingVat != null ? inv.amountIncludingVat
+    : (inv.total || inv.amount))) || 0);
+  if (gross < 0) return 'credited';
+  if (inv && (inv.paidDate || status === 'PAID' || status === 'SETTLED')) return 'paid';
+  return 'open';
+}
+
+/** Does this invoice still represent money owed? */
+function invoiceIsLive(inv) { return invoiceState(inv) === 'open'; }
+
 function buildLedger(invoices = []) {
   const num = v => Number(v || 0);
   const moves = [];
   for (const inv of invoices) {
-    const status = String(inv.status || '').toUpperCase();
-    if (inv.cancelledDate || status === 'CANCELLED') continue;
+    const state = invoiceState(inv);
+    if (state === 'cancelled') continue;      // withdrawn: it never counted
     const gross = num(inv.amountIncludingVat != null ? inv.amountIncludingVat : (inv.total || inv.amount));
     const ref = inv.number != null ? inv.number : inv.id;
     moves.push({ ts: inv.invoiceDate || inv.created || inv.dueDate || null, kind: 'invoice', ref, desc: inv.description || '', amount: gross });
-    if (inv.paidDate || status === 'PAID') {
+    if (state === 'paid') {
       moves.push({ ts: inv.paidDate || inv.invoiceDate || null, kind: 'payment', ref, desc: '', amount: -Math.abs(gross) });
-    } else if (inv.creditDate || status === 'CREDITED' || inv.refundDate || status === 'REFUNDED') {
+    } else if (state === 'credited' && gross > 0) {
+      // A credit note of its own (gross < 0) is already the offsetting line; adding another
+      // would cancel it twice.
       moves.push({ ts: inv.creditDate || inv.refundDate || null, kind: 'credit', ref, desc: '', amount: -Math.abs(gross) });
     }
   }
@@ -249,6 +281,7 @@ async function debugProbe(customerId, ssn) {
 }
 
 module.exports = {
+  invoiceState, invoiceIsLive,
   paydayConfigured, getCustomerInvoices, getCustomerPayments, findCustomerBySsn, getInvoicePdf, buildLedger, debugProbe,
   _meta: { API_BASE, TOKEN_URL, PATH_INVOICES, PATH_CUSTOMERS, PATH_INVOICE_PDF, CUSTOMER_PARAM },
 };
