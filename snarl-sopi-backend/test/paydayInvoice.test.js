@@ -82,12 +82,37 @@ test('an invoice and its credit note net to zero', () => {
   assert.strictEqual(moves[0].balance, 0, 'a credit note cancels the invoice exactly');
 });
 
-test('a credit note is not double-counted', () => {
-  // A negative amount is itself the offsetting line. Adding a second "credit" movement for it
-  // would swing the balance the wrong way by its full value.
-  const moves = buildLedger([inv({ number: 9, amountIncludingVat: -50173 })]);
-  assert.strictEqual(moves.length, 1, 'one movement, not two');
-  assert.strictEqual(moves[0].balance, -50173);
+test('a credit note is dropped only when it cancels an invoice that was dropped', () => {
+  // Checked against Payday's own ledger. The invoice it cancels is already gone as cancelled,
+  // so counting the credit as well subtracts the same money twice — 50.173 kr on the real
+  // account. They are paired by magnitude, Payday giving no link between the two documents.
+  const paired = buildLedger([
+    inv({ number: 127, amountIncludingVat: 50173, status: 'CANCELLED', cancelledDate: '2026-02-01' }),
+    inv({ number: 139, amountIncludingVat: -50173 }),
+  ]);
+  assert.strictEqual(paired.length, 0, 'both documents drop out together');
+
+  // With no cancelled invoice to pair against, the credit is a real credit on the account.
+  const lone = buildLedger([inv({ number: 9, amountIncludingVat: -50173 })]);
+  assert.strictEqual(lone.length, 1, 'it still counts');
+  assert.strictEqual(lone[0].balance, -50173);
+
+  // Two cancellations, two credit notes: each absorbs one, and nothing is left over.
+  const two = buildLedger([
+    inv({ number: 1, amountIncludingVat: 1000, status: 'CANCELLED', cancelledDate: '2026-01-01' }),
+    inv({ number: 2, amountIncludingVat: 1000, status: 'CANCELLED', cancelledDate: '2026-01-01' }),
+    inv({ number: 3, amountIncludingVat: -1000 }),
+    inv({ number: 4, amountIncludingVat: -1000 }),
+  ]);
+  assert.strictEqual(two.length, 0);
+
+  // One cancellation but two credit notes: only one is absorbed, the other is a real credit.
+  const spare = buildLedger([
+    inv({ number: 1, amountIncludingVat: 1000, status: 'CANCELLED', cancelledDate: '2026-01-01' }),
+    inv({ number: 3, amountIncludingVat: -1000 }),
+    inv({ number: 4, amountIncludingVat: -1000 }),
+  ]);
+  assert.strictEqual(spare[0].balance, -1000, 'the spare credit still counts');
 });
 
 test('a paid invoice leaves nothing outstanding', () => {
@@ -123,15 +148,40 @@ test('the balance equals the sum of everything still owed', () => {
   assert.strictEqual(owed, 51567 + 51529);
 });
 
-test('a credit note reduces the balance but is not counted as an unpaid invoice', () => {
-  // The distinction the summary line depends on: "2 unpaid" counts demands for payment, while
-  // the balance nets the credit note off. Both are right, and they are different numbers.
+test('a credit note is never an unpaid invoice', () => {
   const rows = [
     inv({ number: 1, amountIncludingVat: 30000 }),
     inv({ number: 2, amountIncludingVat: 20000 }),
     inv({ number: 3, amountIncludingVat: -5000 }),
   ];
-  const awaitingPayment = rows.filter(invoiceIsLive);
-  assert.strictEqual(awaitingPayment.length, 2, 'the credit note is not an unpaid invoice');
-  assert.strictEqual(buildLedger(rows)[0].balance, 45000, 'but it does come off the balance');
+  assert.strictEqual(rows.filter(invoiceIsLive).length, 2);
+  // Nothing was cancelled here, so the credit note is a real credit on the account and comes
+  // off the balance. The count and the balance are different numbers on purpose: the count is
+  // how many invoices await payment, the balance is what is owed net of credits.
+  assert.strictEqual(buildLedger(rows)[0].balance, 45000);
+});
+
+test('the real account from 2026-11-02 reconciles with Payday, bar the claim fee', () => {
+  // Every figure here is read off Payday's own Hreyfingalisti for this customer.
+  const rows = [
+    inv({ number: 199, invoiceDate: '2026-07-01', amountIncludingVat: 51567 }),
+    inv({ number: 184, invoiceDate: '2026-06-01', amountIncludingVat: 51529 }),
+    inv({ number: 171, invoiceDate: '2026-05-01', amountIncludingVat: 51115 }),
+    inv({ number: 158, invoiceDate: '2026-04-01', amountIncludingVat: 50836, status: 'PAID', paidDate: '2026-05-06' }),
+    inv({ number: 144, invoiceDate: '2026-03-01', amountIncludingVat: 50361, status: 'PAID', paidDate: '2026-05-06' }),
+    inv({ number: 139, invoiceDate: '2026-02-02', amountIncludingVat: -50173, status: 'CREDITED', creditDate: '2026-02-01' }),
+    inv({ number: 127, invoiceDate: '2026-02-01', amountIncludingVat: 50173, status: 'CANCELLED', cancelledDate: '2026-02-01' }),
+  ];
+  const balance = buildLedger(rows)[0].balance;
+
+  // Before the fix this came out at 104.038: the credit note was subtracted although the
+  // invoice it cancelled had already been dropped.
+  assert.strictEqual(balance, 154211, 'the three open invoices, nothing else');
+  assert.notStrictEqual(balance, 104038, 'the double-counted credit note is gone');
+
+  // Payday's closing balance is 154.808. The 597 left over is the 199 kr seðilgjald on each of
+  // the three open claims, which is not part of amountIncludingVat and cannot be recovered from
+  // invoice data. Asserted so that nobody later "fixes" this number by inventing a fee.
+  const PAYDAY_CLOSING = 154808, CLAIM_FEE = 199, OPEN_CLAIMS = 3;
+  assert.strictEqual(PAYDAY_CLOSING - balance, CLAIM_FEE * OPEN_CLAIMS);
 });

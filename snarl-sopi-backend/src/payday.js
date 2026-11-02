@@ -166,20 +166,53 @@ function invoiceState(inv) {
 /** Does this invoice still represent money owed? */
 function invoiceIsLive(inv) { return invoiceState(inv) === 'open'; }
 
+/**
+ * A ledger derived from invoices.
+ *
+ * This is an APPROXIMATION of Payday's own account statement and cannot be made exact from
+ * invoice data alone. Payday's claim carries a seðilgjald — 199 kr per claim on this account —
+ * which is not part of amountIncludingVat, so a balance built from invoices is short by that fee
+ * for every open claim. It also cannot see a part-payment, or a payment not tied to one invoice.
+ *
+ * GET /customers/:id/accountStatement returns the real thing, fees and all. Use that where it
+ * can be reached; this remains the fallback for when it cannot.
+ */
 function buildLedger(invoices = []) {
   const num = v => Number(v || 0);
   const moves = [];
+  // A cancelled invoice is dropped, and the credit note that cancelled it has to go with it.
+  // Counting the credit on its own subtracts the same money twice: on a real account that
+  // understated the balance by 50.173 kr against Payday's own ledger (Siggi, 2026-11-02).
+  //
+  // Payday gives no link between the two documents, so they are paired by magnitude: each
+  // cancelled invoice absorbs one credit note of the same size. A credit note left unpaired is
+  // a real credit against the account and still counts — which is the case where the invoice
+  // was left open rather than cancelled.
+  const grossOf = (i) => num(i.amountIncludingVat != null ? i.amountIncludingVat : (i.total || i.amount));
+  const unpaired = new Map();   // |amount| → how many cancelled invoices of that size
+  for (const i of invoices) {
+    if (invoiceState(i) !== 'cancelled') continue;
+    const k = Math.abs(grossOf(i));
+    unpaired.set(k, (unpaired.get(k) || 0) + 1);
+  }
+
   for (const inv of invoices) {
     const state = invoiceState(inv);
     if (state === 'cancelled') continue;      // withdrawn: it never counted
-    const gross = num(inv.amountIncludingVat != null ? inv.amountIncludingVat : (inv.total || inv.amount));
+    const grossRaw = grossOf(inv);
+    if (grossRaw < 0) {
+      const k = Math.abs(grossRaw), left = unpaired.get(k) || 0;
+      if (left > 0) { unpaired.set(k, left - 1); continue; }   // it cancelled a dropped invoice
+      // otherwise it is a credit standing against the account, and it counts
+    }
+    const gross = grossRaw;
     const ref = inv.number != null ? inv.number : inv.id;
     moves.push({ ts: inv.invoiceDate || inv.created || inv.dueDate || null, kind: 'invoice', ref, desc: inv.description || '', amount: gross });
     if (state === 'paid') {
       moves.push({ ts: inv.paidDate || inv.invoiceDate || null, kind: 'payment', ref, desc: '', amount: -Math.abs(gross) });
     } else if (state === 'credited' && gross > 0) {
-      // A credit note of its own (gross < 0) is already the offsetting line; adding another
-      // would cancel it twice.
+      // Only an invoice that was itself credited needs an offsetting line. A credit note is a
+      // negative document: it IS the offset, and giving it one as well counts it twice.
       moves.push({ ts: inv.creditDate || inv.refundDate || null, kind: 'credit', ref, desc: '', amount: -Math.abs(gross) });
     }
   }
