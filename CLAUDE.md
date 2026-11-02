@@ -190,6 +190,13 @@ a guest guessed the technician code (Nayax default `123123`) and pressed everyth
 in Nayax Core's machine or queue history, because Core still holds the right settings; the reader
 lost its copy and stops receiving commands until its next check-in (~50 min), when it came back.
 
+- **A stuck customer screen locks out every remote command (2026-11-02).** Blue Hotel sat on a
+  customer phase from before 01:33 to past 05:33 with nobody there; `restart app` logged
+  `a customer session is live — deferring` and then expired (commands live 5 min, `CMD_TTL_MS`).
+  Nothing bounded the complaint form, and a charge result landing after the receipt timer put the
+  receipt back with no timer. From fridge 0.70.7 (`StuckSession.kt`) a phase unchanged for 15 min
+  stops blocking commands, post-payment screens return to idle by themselves, and the log says
+  `STUCK on <phase>`. Below 0.70.7 only someone at the screen can clear it.
 - Both sides timing out (`Marshall: Mac,Err: Rx timeout` on the reader, `no onReady … 90s` in the
   app) means reader config or cabling, never our port choice.
 - Technician codes are set in Nayax Core (VPOS Touch group attributes → Technician Code). Never
