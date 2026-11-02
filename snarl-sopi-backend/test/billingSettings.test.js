@@ -1,0 +1,130 @@
+/**
+ * Invoice delivery settings, and the one rule that cannot be bypassed.
+ *
+ * Siggi's rule, 2026-11-02: "you can have either email or e-invoice or both on. But never have
+ * both off." An operator with both switched off would simply never receive an invoice and
+ * could later say so with a straight face.
+ *
+ * The rule lives in a pure function so it is enforced on the server for every caller, not by a
+ * disabled checkbox that a direct API call walks straight past.
+ */
+
+const test = require('node:test');
+const assert = require('node:assert');
+const { nextDeliverySettings } = require('../src/payday');
+
+const on = { email: 'bokhald@dæmi.is', sendEmail: true, sendElectronicInvoices: false };
+const eInvOnly = { email: '', sendEmail: false, sendElectronicInvoices: true };
+const both = { email: 'bokhald@dæmi.is', sendEmail: true, sendElectronicInvoices: true };
+
+test('turning the last delivery route off is refused', () => {
+  // Email is the only one on; switching it off would leave nothing.
+  const r = nextDeliverySettings(on, { sendEmail: false });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.error, 'delivery_required');
+});
+
+test('turning e-invoicing off is refused when it is the only one on', () => {
+  const r = nextDeliverySettings(eInvOnly, { sendElectronicInvoices: false });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.error, 'delivery_required');
+});
+
+test('switching both off in a single call is refused too', () => {
+  // The obvious way round a rule enforced one field at a time.
+  const r = nextDeliverySettings(both, { sendEmail: false, sendElectronicInvoices: false });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.error, 'delivery_required');
+});
+
+test('either one alone is fine', () => {
+  assert.strictEqual(nextDeliverySettings(both, { sendEmail: false }).ok, true);
+  assert.strictEqual(nextDeliverySettings(both, { sendElectronicInvoices: false }).ok, true);
+});
+
+test('both on is fine', () => {
+  const r = nextDeliverySettings(eInvOnly, { sendEmail: true, email: 'a@b.is' });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.next.sendEmail, true);
+  assert.strictEqual(r.next.sendElectronicInvoices, true);
+});
+
+test('switching email on while switching e-invoice off keeps one route open', () => {
+  const r = nextDeliverySettings(eInvOnly,
+    { sendEmail: true, email: 'a@b.is', sendElectronicInvoices: false });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.next.sendEmail, true);
+});
+
+// ─── The address ──────────────────────────────────────────────────────────────
+
+test('email cannot be switched on with nowhere to send it', () => {
+  const r = nextDeliverySettings({ email: '', sendEmail: false, sendElectronicInvoices: true },
+    { sendEmail: true });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.error, 'email_required');
+});
+
+test('an address that is not an address is refused', () => {
+  for (const bad of ['not-an-email', 'a@b', '@b.is', 'a@.is', 'a b@c.is']) {
+    const r = nextDeliverySettings(both, { email: bad });
+    assert.strictEqual(r.ok, false, bad);
+    assert.strictEqual(r.error, 'email_invalid', bad);
+  }
+});
+
+test('the address is trimmed', () => {
+  const r = nextDeliverySettings(both, { email: '  nytt@daemi.is  ' });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.next.email, 'nytt@daemi.is');
+});
+
+test('clearing the address is refused while email delivery is on', () => {
+  const r = nextDeliverySettings(both, { email: '' });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.error, 'email_required');
+});
+
+test('clearing the address is allowed once e-invoicing carries it', () => {
+  const r = nextDeliverySettings(both, { email: '', sendEmail: false });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.next.sendElectronicInvoices, true);
+});
+
+// ─── Only what was asked for ──────────────────────────────────────────────────
+
+test('a field that is not in the patch is left exactly as it was', () => {
+  const r = nextDeliverySettings(both, { email: 'nytt@daemi.is' });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.next.sendEmail, true);
+  assert.strictEqual(r.next.sendElectronicInvoices, true);
+  assert.deepStrictEqual(r.changed, { email: true, sendEmail: false, sendElectronicInvoices: false });
+});
+
+test('an empty patch changes nothing and is allowed', () => {
+  const r = nextDeliverySettings(both, {});
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(r.changed, { email: false, sendEmail: false, sendElectronicInvoices: false });
+});
+
+test('what changed is reported, so only those fields are written to Payday', () => {
+  // The two settings live on different Payday objects; writing one that did not change would
+  // mean rewriting a recurring invoice for nothing.
+  const r = nextDeliverySettings(eInvOnly, { sendEmail: true, email: 'a@b.is' });
+  assert.strictEqual(r.changed.sendEmail, true);
+  assert.strictEqual(r.changed.sendElectronicInvoices, false);
+});
+
+test('a missing current state is treated as everything off, and so refuses', () => {
+  for (const cur of [null, undefined, {}]) {
+    assert.strictEqual(nextDeliverySettings(cur, {}).ok, false);
+    assert.strictEqual(nextDeliverySettings(cur, {}).error, 'delivery_required');
+  }
+});
+
+test('truthy junk does not switch a route on', () => {
+  // The patch comes off an HTTP body, so the values are whatever was sent.
+  const r = nextDeliverySettings(both, { sendEmail: 0, sendElectronicInvoices: '' });
+  assert.strictEqual(r.ok, false, 'both coerce to off, which is refused');
+  assert.strictEqual(r.error, 'delivery_required');
+});

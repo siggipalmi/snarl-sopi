@@ -177,6 +177,122 @@ function invoiceIsLive(inv) { return invoiceState(inv) === 'open'; }
  * GET /customers/:id/accountStatement returns the real thing, fees and all. Use that where it
  * can be reached; this remains the fallback for when it cannot.
  */
+// ─── Invoice delivery settings ────────────────────────────────────────────────
+//
+// Three settings, and they do NOT live in the same place:
+//
+//   email                   on the CUSTOMER   (PUT /customers/:id)
+//   sendElectronicInvoices  on the CUSTOMER   (PUT /customers/:id)
+//   sendEmail               on the RECURRING INVOICE (PUT /recurring/invoices/:id)
+//
+// The first two are a documented partial update: Payday's own example sends three fields and
+// nothing else. The third is not — the documented body for a recurring invoice is the whole
+// object, lines and dates included, so it is written read-modify-write and refuses to proceed
+// on anything that does not look like a complete recurring invoice. Getting that wrong would
+// change how a customer is billed every month, which is not something to be casual about.
+
+/** Write to Payday. The first non-GET call this backend makes. */
+async function apiSend(method, path, body) {
+  const url = `${API_BASE}${path}`;
+  const payload = body == null ? null : JSON.stringify(body);
+  const doCall = async () => {
+    const token = await getAccessToken();
+    return httpsRequest(method, url, {
+      'Api-Version': API_VER, 'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json', 'Accept': 'application/json',
+      ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
+    }, payload);
+  };
+  let res = await doCall();
+  if (res.status === 401) { _token = null; res = await doCall(); }
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`Payday ${method} ${path} → HTTP ${res.status}: `
+      + res.body.toString('utf8').slice(0, 200));
+  }
+  const text = res.body.toString('utf8');
+  if (!text) return {};
+  try { return JSON.parse(text); } catch (e) { return {}; }
+}
+
+async function getCustomer(customerId) {
+  return apiGet(PATH_CUSTOMERS + '/' + encodeURIComponent(String(customerId)));
+}
+
+/** Partial update, as Payday's own example does. Only the keys given are sent. */
+async function updateCustomer(customerId, patch) {
+  return apiSend('PUT', PATH_CUSTOMERS + '/' + encodeURIComponent(String(customerId)), patch);
+}
+
+/** Every recurring invoice set up for one customer. Payday has no per-customer filter. */
+async function recurringInvoicesFor(customerId) {
+  const all = await listAll('/recurring/invoices', { include: 'lines' });
+  const want = String(customerId);
+  return all.filter(r => r && r.customer && String(r.customer.id) === want);
+}
+
+/**
+ * Turn the invoice email on or off for a customer's recurring billing.
+ *
+ * Read-modify-write on the whole object: the documented update body carries the lines, the
+ * dates and the interval, and sending a partial one risks clearing them. A row that does not
+ * come back looking like a complete recurring invoice is left alone rather than written to.
+ */
+async function setRecurringInvoiceEmail(customerId, sendEmail) {
+  const rows = await recurringInvoicesFor(customerId);
+  const changed = [];
+  for (const r of rows) {
+    if (!r.id) continue;
+    // Refuse to write back something that does not look whole. Guessing here would rewrite a
+    // customer's monthly billing.
+    if (!Array.isArray(r.lines) || !r.lines.length || !r.intervalType) {
+      throw new Error('recurring invoice ' + r.id + ' came back without lines or interval; '
+        + 'not writing a partial object back');
+    }
+    if (r.sendEmail === sendEmail) continue;                 // already as asked
+    await apiSend('PUT', '/recurring/invoices/' + encodeURIComponent(String(r.id)),
+      { ...r, sendEmail });
+    changed.push(r.id);
+  }
+  return { changed, found: rows.length };
+}
+
+/**
+ * Apply a change to the delivery settings, refusing one that would leave a customer with no
+ * way of receiving an invoice at all.
+ *
+ * Pure, so the rule is testable without touching Payday. Siggi's rule, 2026-11-02: email or
+ * e-invoice or both, never both off.
+ */
+function nextDeliverySettings(current, patch) {
+  const cur = {
+    email: (current && current.email) || '',
+    sendEmail: !!(current && current.sendEmail),
+    sendElectronicInvoices: !!(current && current.sendElectronicInvoices),
+  };
+  const next = { ...cur };
+  if (patch && patch.email !== undefined) next.email = String(patch.email || '').trim();
+  if (patch && patch.sendEmail !== undefined) next.sendEmail = !!patch.sendEmail;
+  if (patch && patch.sendElectronicInvoices !== undefined) {
+    next.sendElectronicInvoices = !!patch.sendElectronicInvoices;
+  }
+
+  if (!next.sendEmail && !next.sendElectronicInvoices) {
+    return { ok: false, error: 'delivery_required', next };
+  }
+  // Email switched on with nowhere to send it is the same failure one step later.
+  if (next.sendEmail && !next.email) {
+    return { ok: false, error: 'email_required', next };
+  }
+  if (next.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(next.email)) {
+    return { ok: false, error: 'email_invalid', next };
+  }
+  return { ok: true, next, changed: {
+    email: next.email !== cur.email,
+    sendEmail: next.sendEmail !== cur.sendEmail,
+    sendElectronicInvoices: next.sendElectronicInvoices !== cur.sendElectronicInvoices,
+  } };
+}
+
 // ─── Payday's own account statement ───────────────────────────────────────────
 //
 // GET /customers/:id/accountStatement is the ledger Payday itself shows, and the only source
@@ -476,6 +592,8 @@ async function debugProbe(customerId, ssn) {
 
 module.exports = {
   invoiceState, invoiceIsLive, getAccountStatement, parseStatement,
+  getCustomer, updateCustomer, recurringInvoicesFor, setRecurringInvoiceEmail,
+  nextDeliverySettings,
   paydayConfigured, getCustomerInvoices, getCustomerPayments, findCustomerBySsn, getInvoicePdf, buildLedger, debugProbe,
   _meta: { API_BASE, TOKEN_URL, PATH_INVOICES, PATH_CUSTOMERS, PATH_INVOICE_PDF, CUSTOMER_PARAM },
 };

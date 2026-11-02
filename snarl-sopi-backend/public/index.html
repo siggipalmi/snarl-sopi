@@ -429,6 +429,23 @@ select.fi{cursor:pointer;}
 #page-billing .bl-led-head{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-bottom:6px;}
 #page-billing .bl-led{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;}
 #page-billing .bl-led-desc{font-size:13px;}
+#page-billing .bl-set{display:flex;gap:14px;align-items:flex-start;padding:15px 2px;}
+#page-billing .bl-set + .bl-set{border-top:2px solid var(--cream-deep);}
+#page-billing .bl-set-main{flex:1 1 auto;min-width:0;}
+#page-billing .bl-set-t{font-weight:700;font-size:14.5px;}
+#page-billing .bl-set-d{font-size:13px;color:var(--muted);margin-top:3px;max-width:62ch;line-height:1.45;}
+/* --clay is transparent under theme-accent.css, so an off switch drawn with it is invisible
+   apart from its knob. --wall-deep is the theme's own inactive grey. */
+#page-billing .bl-sw{flex:0 0 auto;width:46px;height:26px;background:var(--wall-deep,#E2DED7);position:relative;cursor:pointer;display:block;}
+#page-billing .bl-sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;display:block;}
+#page-billing .bl-sw.on{background:var(--success,#22B05A);}
+#page-billing .bl-sw.on i{left:23px;}
+#page-billing .bl-sw.off-limits{opacity:.45;cursor:not-allowed;}
+#page-billing .bl-sw:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+#page-billing .bl-warn{background:var(--accent);color:var(--ink);padding:11px 13px;font-size:13.5px;font-weight:600;margin-top:14px;}
+#page-billing .bl-set-msg{font-size:13px;margin-top:10px;min-height:18px;}
+#page-billing .bl-set-msg.bad{color:var(--alert);}
+#page-billing .bl-set-msg.good{color:var(--success);}
 #page-billing .bl-src{font-size:12.5px;color:var(--muted);padding:9px 12px;background:var(--cream-deep);margin:-2px 0 10px;line-height:1.45;}
 #page-billing .bl-led-date{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:1px;}
 #page-billing .bl-led-amt{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap;min-width:84px;}
@@ -2248,6 +2265,12 @@ let LANG = (function(){ try { return localStorage.getItem(LANG_KEY) || 'en'; } c
 const I18N = {
   en: {
     'nav.security':'Security','title.security':'security.',
+    'billing.settings':'settings','billing.save':'Save','billing.saving':'Saving…','billing.saved':'Saved.','billing.saveFailed':'Could not save.',
+    'billing.setEmailTitle':'Email for invoices','billing.setEmailDesc':'Invoices from now on go to this address. It does not change invoices already sent.',
+    'billing.setSendEmailTitle':'Send invoices by email','billing.setSendEmailDesc':'The invoice arrives as a PDF by email when it is issued.',
+    'billing.setEinvTitle':'Electronic invoices','billing.setEinvDesc':'The invoice goes straight into your accounting system. Both can be on at once.',
+    'billing.setNeverBothOff':'You cannot switch both off. You have to receive the invoice somehow.',
+    'billing.setNoRecurring':'No recurring invoice is set up, so there is nothing to switch.',
     'billing.srcStatement':'Balance and movements are Payday\u2019s own account statement, including the claim fee on each invoice.',
     'billing.srcDerived':'Payday\u2019s statement could not be read just now, so this balance is calculated from invoices. It does not include the claim fee on each invoice.',
     'billing.cancelled':'cancelled','billing.credited':'credited',
@@ -2526,6 +2549,12 @@ const I18N = {
   },
   is: {
     'nav.security':'Öryggi','title.security':'öryggi.',
+    'billing.settings':'stillingar','billing.save':'Vista','billing.saving':'Vista…','billing.saved':'Vistað.','billing.saveFailed':'Tókst ekki að vista.',
+    'billing.setEmailTitle':'Netfang fyrir reikninga','billing.setEmailDesc':'Reikningar framvegis fara á þetta netfang. Breytir ekki reikningum sem þegar hafa verið sendir.',
+    'billing.setSendEmailTitle':'Senda reikninga í tölvupósti','billing.setSendEmailDesc':'Reikningurinn kemur sem PDF í pósti þegar hann er gefinn út.',
+    'billing.setEinvTitle':'Rafrænir reikningar','billing.setEinvDesc':'Reikningurinn fer beint í bókhaldskerfið þitt. Hægt að hafa kveikt á báðum.',
+    'billing.setNeverBothOff':'Ekki er hægt að slökkva á báðum. Þú verður að fá reikninginn einhvern veginn.',
+    'billing.setNoRecurring':'Enginn fastur reikningur er skráður, svo ekkert er að stilla.',
     'billing.srcStatement':'Staða og hreyfingar koma beint úr hreyfingalista Payday, með seðilgjaldi af hverri kröfu.',
     'billing.srcDerived':'Ekki náðist í hreyfingalista Payday í augnablikinu, svo staðan er reiknuð út frá reikningum. Hún inniheldur ekki seðilgjald af hverjum reikningi.',
     'billing.cancelled':'niðurfelldur','billing.credited':'kreditfærður',
@@ -10374,7 +10403,8 @@ function toggleOperatorMachines(opId) {
 // ════════ Billing portal (read-only operator lease invoices + ledger from Payday) ════════
 let _blOpId = null;      // operator currently shown (AG admin can switch)
 let _blTab = 'invoices';
-let _blData = null;      // stashed for downloads
+let _blData = null;
+let _blSettings = null;      // stashed for downloads
 
 function blTargetOperator() {
   if (currentUser?.role === 'ag_admin') {
@@ -10448,7 +10478,13 @@ async function renderBilling() {
       <div class="bl-sum-sub">${sub}</div></div>
     <div class="bl-sum-acct"><div class="nm">${rsEsc(opMeta.name || '')}</div><div class="kt">${ktLine}</div></div></div>`;
 
-  const tabs = `<div class="tabs"><div class="tab${_blTab === 'invoices' ? ' active' : ''}" onclick="onBillingTab('invoices')">${t('billing.invoices')}</div><div class="tab${_blTab === 'ledger' ? ' active' : ''}" onclick="onBillingTab('ledger')">${t('billing.ledger')}</div></div>`;
+  // The settings tab needs the billing capability, which only an operator_admin has.
+  const mayEditBilling = canDo('billing');
+  const tabs = `<div class="tabs">`
+    + `<div class="tab${_blTab === 'invoices' ? ' active' : ''}" data-bltab="invoices" onclick="onBillingTab('invoices')">${t('billing.invoices')}</div>`
+    + `<div class="tab${_blTab === 'ledger' ? ' active' : ''}" data-bltab="ledger" onclick="onBillingTab('ledger')">${t('billing.ledger')}</div>`
+    + (mayEditBilling ? `<div class="tab${_blTab === 'settings' ? ' active' : ''}" data-bltab="settings" onclick="onBillingTab('settings')">${t('billing.settings')}</div>` : '')
+    + `</div>`;
 
   const invPanel = invoices.length
     ? invoices.map(i => blInvRow(opId, i)).join('')
@@ -10465,6 +10501,7 @@ async function renderBilling() {
   body.innerHTML = summary + srcNote + refreshBar + tabs +
     `<div id="bl-panel-invoices" style="${_blTab === 'invoices' ? '' : 'display:none'}">${invPanel}</div>` +
     `<div id="bl-panel-ledger" style="${_blTab === 'ledger' ? '' : 'display:none'}">${ledPanel}</div>` +
+    (mayEditBilling ? `<div id="bl-panel-settings" style="${_blTab === 'settings' ? '' : 'display:none'}"></div>` : '') +
     `<div class="bl-foot">${t('billing.foot')}</div>`;
 }
 
@@ -10527,13 +10564,92 @@ function blLedDesc(m) {
 function onBillingOp(id) { _blOpId = id; renderBilling(); }
 function onBillingTab(tab) {
   _blTab = tab;
-  const ip = document.getElementById('bl-panel-invoices'), lp = document.getElementById('bl-panel-ledger');
-  if (ip) ip.style.display = tab === 'invoices' ? '' : 'none';
-  if (lp) lp.style.display = tab === 'ledger' ? '' : 'none';
-  const tabs = document.querySelectorAll('#page-billing .tabs .tab');
-  tabs.forEach(x => x.classList.remove('active'));
-  if (tabs[0] && tab === 'invoices') tabs[0].classList.add('active');
-  if (tabs[1] && tab === 'ledger') tabs[1].classList.add('active');
+  for (const name of ['invoices', 'ledger', 'settings']) {
+    const el = document.getElementById('bl-panel-' + name);
+    if (el) el.style.display = tab === name ? '' : 'none';
+  }
+  document.querySelectorAll('#page-billing .tabs .tab').forEach(x => {
+    x.classList.toggle('active', x.dataset.bltab === tab);
+  });
+  if (tab === 'settings') renderBillingSettings();
+}
+
+// ─── Invoice delivery settings ──────────────────────────────────────────────
+// Only an operator_admin holds the billing capability, and the backend checks it too — this
+// just avoids offering a tab that would answer 403.
+
+async function renderBillingSettings() {
+  const el = document.getElementById('bl-panel-settings');
+  if (!el) return;
+  const opId = blTargetOperator();
+  el.innerHTML = `<div class="bl-state">${t('billing.loading')}</div>`;
+  let d;
+  try { d = (await API.get('/api/v1/operators/' + encodeURIComponent(opId) + '/billing-settings?_=' + Date.now())).data; }
+  catch (e) { el.innerHTML = `<div class="bl-state">${t('sec.noConnection')}</div>`; return; }
+  if (!d || d.linked === false) { el.innerHTML = `<div class="bl-state">${t('billing.notLinked')}</div>`; return; }
+  if (d.error) { el.innerHTML = `<div class="bl-state">${rsEsc(d.error)}</div>`; return; }
+  _blSettings = d;
+
+  const sw = (on, id, disabled) =>
+    `<span class="bl-sw${on ? ' on' : ''}${disabled ? ' off-limits' : ''}" id="${id}"
+       role="switch" aria-checked="${on}" tabindex="0"
+       ${disabled ? '' : `onclick="blToggle('${id}')" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();blToggle('${id}')}"`}><i></i></span>`;
+
+  el.innerHTML =
+    `<div class="bl-set"><div class="bl-set-main">
+       <div class="bl-set-t">${t('billing.setEmailTitle')}</div>
+       <div class="bl-set-d">${t('billing.setEmailDesc')}</div>
+       <input class="fi" id="bl-set-email" type="email" value="${rsEsc(d.email || '')}"
+              placeholder="bokhald@fyrirtaeki.is">
+     </div></div>
+     <div class="bl-set"><div class="bl-set-main">
+       <div class="bl-set-t">${t('billing.setSendEmailTitle')}</div>
+       <div class="bl-set-d">${d.emailSwitchable ? t('billing.setSendEmailDesc') : t('billing.setNoRecurring')}</div>
+     </div>${sw(d.sendEmail, 'bl-sw-email', !d.emailSwitchable)}</div>
+     <div class="bl-set"><div class="bl-set-main">
+       <div class="bl-set-t">${t('billing.setEinvTitle')}</div>
+       <div class="bl-set-d">${t('billing.setEinvDesc')}</div>
+     </div>${sw(d.sendElectronicInvoices, 'bl-sw-einv', false)}</div>
+     <div class="bl-warn">${t('billing.setNeverBothOff')}</div>
+     <div class="bl-set-msg" id="bl-set-msg"></div>
+     <div style="margin-top:12px"><button class="btn btn-sm" onclick="saveBillingSettings()">${t('billing.save')}</button></div>`;
+}
+
+function blToggle(id) {
+  const el = document.getElementById(id);
+  if (!el || el.classList.contains('off-limits')) return;
+  const on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  el.setAttribute('aria-checked', String(on));
+  // Say it before the server does, but the server is what actually refuses.
+  const email = document.getElementById('bl-sw-email');
+  const einv = document.getElementById('bl-sw-einv');
+  const msg = document.getElementById('bl-set-msg');
+  const bothOff = email && einv && !email.classList.contains('on') && !einv.classList.contains('on');
+  if (msg) { msg.textContent = bothOff ? t('billing.setNeverBothOff') : ''; msg.className = 'bl-set-msg' + (bothOff ? ' bad' : ''); }
+}
+
+async function saveBillingSettings() {
+  const opId = blTargetOperator();
+  const msg = document.getElementById('bl-set-msg');
+  const body = {
+    email: document.getElementById('bl-set-email').value,
+    sendEmail: document.getElementById('bl-sw-email').classList.contains('on'),
+    sendElectronicInvoices: document.getElementById('bl-sw-einv').classList.contains('on'),
+  };
+  if (msg) { msg.textContent = t('billing.saving'); msg.className = 'bl-set-msg'; }
+  let r;
+  try { r = await API.put('/api/v1/operators/' + encodeURIComponent(opId) + '/billing-settings', body); }
+  catch (e) { if (msg) { msg.textContent = t('sec.noConnection'); msg.className = 'bl-set-msg bad'; } return; }
+  if (!r || !r.ok) {
+    if (msg) { msg.textContent = (r && r.message) || t('billing.saveFailed'); msg.className = 'bl-set-msg bad'; }
+    return;
+  }
+  // Re-read from Payday first, then say it saved: the re-render replaces this panel, so
+  // setting the message before it would wipe the confirmation the moment it appeared.
+  await renderBillingSettings();
+  const after = document.getElementById('bl-set-msg');
+  if (after) { after.textContent = t('billing.saved'); after.className = 'bl-set-msg good'; }
 }
 function blNum(n) { return Math.round(Number(n || 0)).toLocaleString('de-DE'); } // dot thousands
 function blKr(n) { return 'kr. ' + blNum(n); }
