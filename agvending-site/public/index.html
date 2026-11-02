@@ -374,6 +374,22 @@ h1 .highlight { position: relative; z-index: -1; }
 .ruled-list li small { font-size: var(--fs-small); font-weight: 500; color: var(--ink-soft); }
 .fine { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s-4) var(--s-6); margin-top: var(--s-7); font-size: var(--fs-small); color: var(--ink-soft); }
 
+/* The web admin ("Kerfið"): a demo-data screenshot with the phone view overlapping its corner,
+   beside the feature list. Screenshots come from snarl-sopi-backend/public/assets/shots. */
+.system { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: var(--s-7); align-items: start; }
+.system__shots { margin: 0; position: relative; background: var(--wall); border-top: var(--bar-card) solid var(--c-sky); padding: var(--s-5) var(--s-5) var(--s-7); }
+.system__desktop { width: 100%; height: auto; border: var(--rule); }
+.system__phone { position: absolute; right: var(--s-5); bottom: var(--s-5); width: 22%; height: auto; border: var(--rule); }
+.system__shots figcaption { margin-top: var(--s-3); font-size: var(--fs-small); color: var(--ink-soft); max-width: 70%; }
+.system__side { display: flex; flex-direction: column; gap: var(--s-6); }
+@media (max-width: 1000px) {
+  .system { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .system__shots { padding: var(--s-4) var(--s-4) var(--s-6); }
+  .system__phone { width: 30%; right: var(--s-4); bottom: var(--s-4); }
+}
+
 /* Two testimonials side by side, so the quote steps down a size. */
 .testimonial__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--s-7); }
 .testimonial figure { margin: 0; display: flex; flex-direction: column; gap: var(--s-5); }
@@ -416,6 +432,7 @@ h1 .highlight { position: relative; z-index: -1; }
     <nav class="nav" aria-label="Aðalvalmynd">
       <a href="#vorur">Sjálfsalar</a>
       <a href="#verd">Verðskrá</a>
+      <a href="#kerfid">Kerfið</a>
       <a href="#faq">Spurt og svarað</a>
       <a class="nav__login" href="https://admin.agvending.is">Innskráning</a>
       <a class="btn" href="#hafa-samband">Hafðu samband</a>
@@ -574,6 +591,39 @@ h1 .highlight { position: relative; z-index: -1; }
     </div>
   </div>
 </section>
+<section id="kerfid" class="section section--ruled">
+  <div class="wrap">
+    <div class="section__head">
+      <div>
+        <div class="kicker">Vefumsjónarkerfið</div>
+        <h2>Sjáðu allar vélarnar í rauntíma.</h2>
+        <p class="section__intro">Sama kerfi og við notum sjálf, alla daga. Á íslensku, í krónum, með íslenskum VSK — og innifalið í leigunni.</p>
+      </div>
+      <a class="link-accent" href="https://admin.agvending.is/features.html">Skoða kerfið nánar →</a>
+    </div>
+    <div class="system">
+      <figure class="system__shots">
+        <img class="system__desktop" src="assets/img/kerfid-dashboard.png" alt="Yfirlitið í vefumsjónarkerfinu: tekjur dagsins, vélar sem þarf að fylla á og viðvaranir" width="1440" height="900" loading="lazy" decoding="async" />
+        <img class="system__phone" src="assets/img/kerfid-simi.png" alt="Sama yfirlit í símanum" width="390" height="844" loading="lazy" decoding="async" />
+        <figcaption>Sýnigögn — raunverulegt viðmót, tilbúnar tölur.</figcaption>
+      </figure>
+      <div class="system__side">
+        <div class="ruled-list">
+          <h3 class="ruled-list__title">Allt sem reksturinn þarf</h3>
+          <ul>
+            <li><span>Sala í rauntíma<small>Tekjur á flotann og á hverja vél, niður í hverja færslu.</small></span></li>
+            <li><span>Lagerstaða<small>Hvað er eftir í hverri vél, niður í einstök hólf.</small></span></li>
+            <li><span>Áfyllingarlisti<small>Brýnast efst, raðað eftir þörf.</small></span></li>
+            <li><span>Viðvaranir<small>Vél dettur út, kælir hlýnar, hólf tæmist — á skjá og í tölvupósti.</small></span></li>
+            <li><span>Uppgjör og VSK<small>Tekjur, VSK og framlegð eftir vöru.</small></span></li>
+            <li><span>Fjarstýring<small>Opna hurð, stilla kælingu, taka úr sölu — án þess að fara á staðinn.</small></span></li>
+          </ul>
+        </div>
+        <div><a class="btn btn--lg" href="https://admin.agvending.is/features.html#demo">Fá kynningu af kerfinu</a></div>
+      </div>
+    </div>
+  </div>
+</section>
 <section class="testimonial" aria-label="Umsagnir">
   <div class="wrap">
     <div class="testimonial__grid">
@@ -667,6 +717,7 @@ h1 .highlight { position: relative; z-index: -1; }
     <nav aria-label="Fótur">
       <a href="#vorur">Sjálfsalar</a>
       <a href="#verd">Verðskrá</a>
+      <a href="#kerfid">Kerfið</a>
       <a href="#faq">Spurt og svarað</a>
       <a href="#hafa-samband">Hafðu samband</a>
       <a href="https://admin.agvending.is">Innskráning</a>
