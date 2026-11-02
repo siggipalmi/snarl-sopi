@@ -36,6 +36,8 @@ const PUBLIC = new Map([
     'Returns the callers own IP, which the caller already knows.'],
   ['POST /api/v1/demo-request',
     'The public marketing form on agvending.is.'],
+  ['POST /api/v1/site-enquiry',
+    'The contact form on agvending.is. Honeypot, and rate-limited per IP and in total in the handler.'],
   ['POST /api/v1/auth/login',
     'The sign-in itself. Rate-limited per IP and per email in the handler.'],
   ['POST /api/v1/auth/forgot-password',

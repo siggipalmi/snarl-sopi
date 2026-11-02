@@ -1,5 +1,17 @@
 [
  {
+  "component": "backend",
+  "version": "6.97.0",
+  "date": "2026-11-02",
+  "title": "The agvending.is contact form now reaches you.",
+  "notes": [
+   "New public endpoint POST /api/v1/site-enquiry for the contact form on agvending.is. Each enquiry is emailed as plain text to agvending@agvending.is (SITE_ENQUIRY_TO overrides it), with the customer as reply-to, so answering the email answers them.",
+   "The site is told it went through only once SendGrid has accepted the mail. If sending fails, the site shows its email-us fallback instead of the thank-you page, so no enquiry is lost silently.",
+   "Honeypot field, and the same rate limit as the demo form: 3 an hour per address, 30 an hour in total."
+  ],
+  "check": "Send the form on agvending.siggip.workers.dev with your own address: the mail arrives at agvending@agvending.is, and Reply goes to you."
+ },
+ {
   "component": "fridge",
   "version": "0.70.8",
   "versionCode": 174,
