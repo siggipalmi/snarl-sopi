@@ -770,6 +770,7 @@ async function handleSiteEnquiry(req, res) {
   const senderEmail = str(b.netfang, 200);
   const phone = str(b.simi, 40);
   const place = str(b.stadur, 160);
+  const machine = str(b.taeki, 80);   // the site's machine-type dropdown; free text, shown as sent
   const message = String(b.skilabod == null ? '' : b.skilabod).trim().slice(0, 2000);
 
   if (!name) return badRequest(res, 'nafn is required');
@@ -787,6 +788,7 @@ async function handleSiteEnquiry(req, res) {
     'Nafn:      ' + name,
     'Netfang:   ' + senderEmail,
     'Sími:      ' + (phone || '-'),
+    'Tæki:      ' + (machine || '-'),
     'Staðurinn: ' + (place || '-'),
     '',
     'Skilaboð:',
@@ -799,7 +801,7 @@ async function handleSiteEnquiry(req, res) {
   try {
     await email.send({
       to, replyTo: senderEmail, fromName: 'agvending.is',
-      subject: 'Fyrirspurn — ' + name + (place ? ' (' + place + ')' : ''), text,
+      subject: 'Fyrirspurn — ' + name + (place ? ' (' + place + ')' : '') + (machine ? ' · ' + machine : ''), text,
     });
   } catch (err) {
     console.error('[ENQUIRY] email failed for ' + senderEmail + ':', err && err.message);

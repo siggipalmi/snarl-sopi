@@ -1,6 +1,16 @@
 [
  {
   "component": "backend",
+  "version": "6.97.1",
+  "date": "2026-11-02",
+  "title": "agvending.is enquiries say which machine the customer wants.",
+  "notes": [
+   "The contact form on agvending.is has a machine-type list. The choice is in the enquiry email (a \"Tæki\" line) and at the end of its subject. It is optional; an enquiry without it reads \"Tæki: -\"."
+  ],
+  "check": "Send the form on agvending.siggip.workers.dev with a machine chosen: the subject ends with it and the email has a Tæki line."
+ },
+ {
+  "component": "backend",
   "version": "6.97.0",
   "date": "2026-11-02",
   "title": "The agvending.is contact form now reaches you.",

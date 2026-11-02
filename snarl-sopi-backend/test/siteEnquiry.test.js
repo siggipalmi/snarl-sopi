@@ -29,7 +29,7 @@ async function post(body, ip) {
   return { status, payload };
 }
 
-const valid = { nafn: 'Jón Jónsson', netfang: 'jon@example.is', simi: '555 1234', stadur: 'Íþróttahús', skilabod: 'Halló\nannað lína' };
+const valid = { nafn: 'Jón Jónsson', netfang: 'jon@example.is', simi: '555 1234', stadur: 'Íþróttahús', taeki: 'Sjálfsali með 55" snertiskjá', skilabod: 'Halló\nannað lína' };
 
 function captureSend() {
   const sent = [];
@@ -50,9 +50,21 @@ test('a valid enquiry is mailed to AG Vending with the sender as reply-to', asyn
     assert.strictEqual(m.to, 'agvending@agvending.is');
     assert.strictEqual(m.replyTo, 'jon@example.is');
     assert.match(m.subject, /Jón Jónsson \(Íþróttahús\)/);
+    assert.match(m.subject, /· Sjálfsali með 55" snertiskjá$/);
+    assert.match(m.text, /Tæki:\s+Sjálfsali með 55" snertiskjá/);
     assert.match(m.text, /Sími:\s+555 1234/);
     assert.match(m.text, /Halló\nannað lína/, 'the message keeps its line breaks');
     assert.strictEqual(m.html, undefined, 'plain text only');
+  } finally { cap.restore(); }
+});
+
+test('the machine type is optional', async () => {
+  const cap = captureSend();
+  try {
+    const { taeki, ...noMachine } = valid;
+    assert.strictEqual((await post(noMachine)).status, 200);
+    assert.match(cap.sent[0].text, /Tæki:\s+-/);
+    assert.doesNotMatch(cap.sent[0].subject, /·/);
   } finally { cap.restore(); }
 });
 

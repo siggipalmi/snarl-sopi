@@ -59,11 +59,14 @@ Worker — a different name deploys to a second, separate Worker.
    script are gone, so a missing image now shows as a broken icon.
 4. **Contact form endpoint — built (backend 6.97.0, 2 Nov).** The form posts JSON to
    `https://admin.agvending.is/api/v1/site-enquiry` (`handleSiteEnquiry` in
-   `snarl-sopi-backend/src/router.js`), which mails it as plain text to agvending@agvending.is
+   `snarl-sopi-backend/src/router.js`, fields nafn, netfang, simi, taeki, stadur, skilabod), which
+   mails it as plain text to agvending@agvending.is
    (`SITE_ENQUIRY_TO` overrides) with the customer as reply-to. It answers 200 only once SendGrid
    has taken the mail, so a failure shows the mailto fallback instead of /takk. Honeypot
    `bot-field`; rate limit shared with the demo form (3/h per IP, 30/h total). Send one real test
-   enquiry before DNS cutover.
+   enquiry before DNS cutover. **Done 2 Nov: Siggi's test arrived in the inbox.**
+   `taeki` is the machine-type dropdown; each "Leigja þetta tæki" link carries `data-taeki` and
+   pre-selects its machine, so a renamed product needs its option and its link renamed together.
 5. **Worker build root — fixed (28 Oct).** Builds failed because Root directory was `/`, where
    there is no `wrangler.toml`. Now `/agvending-site`; merging to `main` deploys (first good
    build 28 Oct 15:55 UTC). Include paths are still `*`, so every commit to the repo rebuilds the

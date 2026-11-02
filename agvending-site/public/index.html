@@ -386,6 +386,11 @@ h1 .highlight { position: relative; z-index: -1; }
 
 .contact__details { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
 .form .btn { justify-self: start; }
+/* Native select, squared off like the inputs, with a drawn chevron in place of the platform arrow. */
+.field select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 44px; }
+.field select, .field select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23111111' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center; background-size: 12px 8px; }
 .form__fallback[hidden] { display: none; }
 
 .site-footer nav { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); }
@@ -486,7 +491,7 @@ h1 .highlight { position: relative; z-index: -1; }
         <h2>Þrjár tegundir í útleigu</h2>
         <p class="section__intro">Leiguverð, greiðsluposi og aðgangur að vefumsjónarkerfi fylgir öllum tækjum.</p>
       </div>
-      <a class="link-accent" href="#hafa-samband">Sérhæfð tæki eftir forskrift →</a>
+      <a class="link-accent" href="#hafa-samband" data-taeki="Sérhæft tæki eftir forskrift">Sérhæfð tæki eftir forskrift →</a>
     </div>
     <div class="products">
       <article class="product">
@@ -500,7 +505,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Rafmagn</dt><dd>Venjuleg innstunga</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>55.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Leigja þetta tæki →</a></div>
+        <div class="price"><span>55.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband" data-taeki="Tvöfaldur snjallsjálfsali með kæli">Leigja þetta tæki →</a></div>
       </article>
       <article class="product">
         <div class="product__media"><img src="assets/img/machine-einfaldur.png" alt="Einfaldur snjallsjálfsali með kæli" loading="lazy" decoding="async" /></div>
@@ -513,7 +518,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Rafmagn</dt><dd>Venjuleg innstunga</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Leigja þetta tæki →</a></div>
+        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband" data-taeki="Einfaldur snjallsjálfsali með kæli">Leigja þetta tæki →</a></div>
       </article>
       <article class="product">
         <div class="product__media"><img src="assets/img/machine-snertiskjar.png" alt="Sjálfsali með 55&quot; snertiskjá" loading="lazy" decoding="async" /></div>
@@ -526,7 +531,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Efni</dt><dd>Kaldrúllað stál</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband">Leigja þetta tæki →</a></div>
+        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband" data-taeki="Sjálfsali með 55&quot; snertiskjá">Leigja þetta tæki →</a></div>
       </article>
     </div>
   </div>
@@ -638,6 +643,13 @@ h1 .highlight { position: relative; z-index: -1; }
           <label class="field" for="f-nafn">Nafn<input id="f-nafn" name="nafn" required autocomplete="name" /></label>
           <label class="field" for="f-email">Netfang<input id="f-email" type="email" name="netfang" required autocomplete="email" /></label>
           <label class="field" for="f-simi">Símanúmer<input id="f-simi" name="simi" inputmode="tel" autocomplete="tel" /></label>
+          <label class="field form__full" for="f-taeki">Tæki<select id="f-taeki" name="taeki">
+              <option value="">Veit ekki enn — hjálpið mér að velja</option>
+              <option>Tvöfaldur snjallsjálfsali með kæli</option>
+              <option>Einfaldur snjallsjálfsali með kæli</option>
+              <option>Sjálfsali með 55&quot; snertiskjá</option>
+              <option>Sérhæft tæki eftir forskrift</option>
+            </select></label>
           <label class="field form__full" for="f-stadur">Staðurinn<input id="f-stadur" name="stadur" placeholder="t.d. íþróttahús, skóli, hótel" /></label>
           <label class="field form__full" for="f-skilabod">Skilaboð<textarea id="f-skilabod" name="skilabod" rows="3"></textarea></label>
           <p class="form__fallback form__full" id="form-msg" role="alert" hidden>Ekki tókst að senda fyrirspurnina. Sendu okkur línu á <a href="mailto:agvending@agvending.is">agvending@agvending.is</a> og við svörum strax.</p>
@@ -681,6 +693,14 @@ h1 .highlight { position: relative; z-index: -1; }
   });
   track.classList.add("is-looped");
 })();
+
+/* "Leigja þetta tæki" and the custom-machine link pre-select their machine in the form. */
+document.querySelectorAll("[data-taeki]").forEach(function (a) {
+  a.addEventListener("click", function () {
+    var sel = document.getElementById("f-taeki");
+    if (sel) sel.value = a.getAttribute("data-taeki");
+  });
+});
 
 /* FAQ accordion — single-open, first item open by default. The +/− sign is
    drawn by CSS from aria-expanded (theme section 12). */
