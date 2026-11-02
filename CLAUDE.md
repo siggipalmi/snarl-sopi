@@ -304,6 +304,12 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   `public/index.html`.
 - Never ship real fleet data (machine names, codes, prices) inside `index.html`; the
   dashboard gets everything from the backend, scoped to the signed-in user.
+- **Public screenshots** (`public/assets/shots/`, and the web copies on agvending.is/kerfid) are
+  taken on invented data, never the real fleet: an empty database seeds the REAL machines.
+  `DB_PATH=/tmp/demo.db node tools/demo-data.js`, start the server on that file, sign in as
+  `demo@agvending.is` / `demo-screenshots` (an operator admin) with the dashboard in IS, and shoot
+  desktop 1440×900 @2x and phone 390×844 @3x. The site's copies get NEW file names (its /assets
+  is cached for a year).
 - **Coil releases build themselves**, like fridge: bump `versionCode` + `versionName` in
   `coil-app/app/build.gradle.kts` and merge. `.github/workflows/coil-release.yml` builds, refuses a
   build carrying a machine identity or signed with any key but the fleet's (cert `c3d1dfdb…`, the
