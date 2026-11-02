@@ -159,8 +159,11 @@ at 2×; a higher-resolution crest is worth asking for.
 
 - `ir.gif` has palette transparency; composite onto white (its `mul` flag expects that) — a naive
   RGB convert renders a solid grey tile.
-- `nordic-hostel.gif` (not on the rail yet) was a 100-frame 13.3 MB animation; ship frame 0 only.
-  A moving logo inside a moving marquee is noise.
+- Logos on a dark background get the background keyed out and the mark recoloured, never a dark
+  box on the white rail: `nordic-hostel.png` (olive), `oddsson.png` (navy, wordmark only),
+  `lava-show.png` and `thors-power-gym.png` (ink), `orkan-mark.png`, `macron-mark.png`.
+- Tækniskólinn and Airport Associates came off the rail on 2 Nov (Siggi). Goa is waiting for a
+  usable file: the `.ai` sent was saved without PDF content.
 - Cap at 600px longest edge; the tile content box is ~124×58 CSS px.
 
 ## Config

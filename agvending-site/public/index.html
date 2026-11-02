@@ -356,6 +356,8 @@ h1 .highlight { position: relative; z-index: -1; }
    Without the script the logos simply stand still. With motion off the track wraps, so the
    copies are hidden again. */
 .marquee__track:not(.is-looped) { animation: none; }
+/* The theme loops in 50s, sized for 16 logos; scale with the count so the speed stays the same. */
+.marquee__track { animation-duration: 70s; }
 @media (prefers-reduced-motion: reduce) {
   .marquee__track > [aria-hidden="true"] { display: none; }
 }
@@ -487,15 +489,21 @@ h1 .highlight { position: relative; z-index: -1; }
         <div class="logo-tile"><img src="assets/logos/grotta.png" alt="Grótta" title="Grótta" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/ir.gif" alt="ÍR" title="ÍR" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/sa.png" alt="Skautafélag Akureyrar" title="Skautafélag Akureyrar" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/taekniskolinn.png" alt="Tækniskólinn" title="Tækniskólinn" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/holaskoli.jpeg" alt="Háskólinn á Hólum" title="Háskólinn á Hólum" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/reykjalundur.png" alt="Reykjalundur" title="Reykjalundur" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/islandshotel.png" alt="Íslandshótel" title="Íslandshótel" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/airport-associates.png" alt="Airport Associates" title="Airport Associates" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/hotel-dyrholaey.png" alt="Hótel Dyrhólaey" title="Hótel Dyrhólaey" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/hotel-burfell.png" alt="Hótel Búrfell" title="Hótel Búrfell" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/skjol.jpg" alt="Skjól" title="Skjól" loading="lazy" decoding="async" /></div>
         <div class="logo-tile"><img src="assets/logos/macron-mark.png" alt="Macron" title="Macron" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/ikea.png" alt="IKEA" title="IKEA" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/lava-show.png" alt="Lava Show" title="Lava Show" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/hotel-ork.png" alt="Hótel Örk" title="Hótel Örk" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/hotel-vellir.png" alt="Hótel Vellir" title="Hótel Vellir" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/nordic-hostel.png" alt="Nordic Hostel" title="Nordic Hostel" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/oddsson.png" alt="Oddsson" title="Oddsson" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/gardlist.png" alt="Garðlist" title="Garðlist" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/thors-power-gym.png" alt="Thor&#39;s Power Gym" title="Thor&#39;s Power Gym" loading="lazy" decoding="async" /></div>
       </div>
     </div>
   </div>
