@@ -197,6 +197,13 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   receipt back with no timer. From fridge 0.70.7 (`StuckSession.kt`) a phase unchanged for 15 min
   stops blocking commands, post-payment screens return to idle by themselves, and the log says
   `STUCK on <phase>`. Below 0.70.7 only someone at the screen can clear it.
+- **A reader can hold decimal_place=2 while Nayax Core says 0 (Blue Hotel, 2026-11-02).** 716's reader
+  (serial 0434333224290734) reported `decimal_place=2` at every Marshall handshake after a guest reset
+  and a full config reload, while Core showed Decimal Place 0 and every other fridge reported 0. It
+  still charged correctly (350 sent, kr 350,00 in Nayax), and rebooting the reader did not change it.
+  **What fixed it: in Core, set Decimal Place to 2, push, then back to 0, push** (machine closed for
+  sale meanwhile). The next handshake read 0. The merchant ID it reports changed at the same time
+  (`d448` → `cbe4`) — check it against the other fridges after doing this.
 - Both sides timing out (`Marshall: Mac,Err: Rx timeout` on the reader, `no onReady … 90s` in the
   app) means reader config or cabling, never our port choice.
 - Technician codes are set in Nayax Core (VPOS Touch group attributes → Technician Code). Never

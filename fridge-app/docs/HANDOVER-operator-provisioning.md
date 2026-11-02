@@ -75,6 +75,10 @@ Every step below is currently manual and needs adb.
     `decimal_place=2`, and the app sends whole krónur, so a 350 kr basket would
     be charged as 3.50 kr. The app does not guard against this; this step is
     the control.
+    A reader can report `decimal_place=2` while Nayax Core shows 0 (Blue Hotel,
+    2026-11-02; it still charged whole krónur). Rebooting the reader does not
+    clear it; setting Decimal Place to 2 in Core, pushing, then back to 0 and
+    pushing again did. Close the machine for sale while you do it.
 
 ---
 
