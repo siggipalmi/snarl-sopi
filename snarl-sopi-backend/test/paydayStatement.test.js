@@ -102,6 +102,49 @@ test('an empty statement is a valid answer, not a failure', () => {
   assert.strictEqual(r.empty, true);
 });
 
+// ─── Order, which must not be assumed ─────────────────────────────────────────
+
+test('a newest-first statement with balances still closes at the newest balance', () => {
+  // This went wrong on the live page: reading newest-first while trusting the balance column
+  // took the OLDEST row's balance as the closing figure — 51.314 against a true 154.808.
+  const newestFirst = { rows: REAL.rows.slice().reverse() };
+  const r = parseStatement(newestFirst);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.closingBalance, 154808);
+});
+
+test('the same statement either way round gives the same balance', () => {
+  const a = parseStatement(REAL).closingBalance;
+  const b = parseStatement({ rows: REAL.rows.slice().reverse() }).closingBalance;
+  assert.strictEqual(a, b, 'row order must not change the answer');
+  assert.strictEqual(a, 154808);
+});
+
+test('rows shuffled into no order at all still sort by date', () => {
+  const shuffled = { rows: [REAL.rows[4], REAL.rows[0], REAL.rows[9], REAL.rows[2],
+                            REAL.rows[7], REAL.rows[1], REAL.rows[8], REAL.rows[3],
+                            REAL.rows[6], REAL.rows[5]] };
+  assert.strictEqual(parseStatement(shuffled).closingBalance, 154808);
+});
+
+test('a partial read is reported, so the caller can refuse it', () => {
+  // One row parsable out of two: on the real account a single parsed row produced 51.766,
+  // presented as Payday's own figure. The counts let the caller catch that.
+  const r = parseStatement({ rows: [
+    { date: '2026-07-01', description: '199', debit: 51766 },
+    { date: '2026-06-01', description: '184', someUnknownKey: 51728 },
+  ] });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.rowsSeen, 2);
+  assert.strictEqual(r.rowsRead, 1, 'the caller compares this against the invoice count');
+});
+
+test('a full read reports every row', () => {
+  const r = parseStatement(REAL);
+  assert.strictEqual(r.rowsSeen, 10);
+  assert.strictEqual(r.rowsRead, 10);
+});
+
 // ─── Refusing to guess ────────────────────────────────────────────────────────
 
 test('rows with no recognisable amount are refused, not invented', () => {
