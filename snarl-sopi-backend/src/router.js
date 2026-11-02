@@ -4445,8 +4445,15 @@ function handleDebugOrders(req, res) {
 // this device's orders (raw), to see whether the sync has anything to import.
 async function handleDebugPayday(req, res) {
   try {
-    const customerId = String(req.query.customerId || '').trim() || null;
+    let customerId = String(req.query.customerId || '').trim() || null;
     const ssn = String(req.query.ssn || '').trim() || null;
+    // The probe used to find a customer id inside its own scan results, which came back empty.
+    // An operator that is already linked is a far more reliable source: the Billing page works
+    // off exactly this id, so if the page can show invoices, the probe can reach the statement.
+    if (!customerId) {
+      const linked = Object.values(operators).find(o => o.paydayCustomerId);
+      if (linked) customerId = linked.paydayCustomerId;
+    }
     ok(res, await require('./payday').debugProbe(customerId, ssn));
   } catch (e) {
     ok(res, { error: String((e && e.message) || e) });

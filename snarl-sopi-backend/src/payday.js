@@ -384,8 +384,11 @@ async function debugProbe(customerId, ssn) {
   // the first row's keys and how our parser read it, so the live shape can be confirmed without
   // anyone pasting customer data around.
   try {
+    // The id passed in by the caller comes from an operator that is already linked, which is
+    // the one that is certain to exist. The scan is only a fallback for when none is.
     const cust = (out.customerScan || []).find(t => t.firstSample) || {};
-    const cid = cust.firstSample && (cust.firstSample.id || cust.firstSample.customerId);
+    const cid = customerId
+      || (cust.firstSample && (cust.firstSample.id || cust.firstSample.customerId));
     if (cid) {
       const raw = await getAccountStatement(cid);
       const parsed = parseStatement(raw);
@@ -398,7 +401,8 @@ async function debugProbe(customerId, ssn) {
                   closingBalance: parsed.closingBalance, carriedItsOwnBalance: !!parsed.hadBalance },
       };
     } else {
-      out.accountStatement = { note: 'no customer id to probe with' };
+      out.accountStatement = { note: 'no customer id to probe with — pass ?customerId=<guid>, '
+        + 'or link an operator to Payday first' };
     }
   } catch (e) {
     out.accountStatement = { error: String(e.message || e) };
