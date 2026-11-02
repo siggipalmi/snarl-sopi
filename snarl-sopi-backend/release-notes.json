@@ -1,6 +1,21 @@
 [
  {
   "component": "fridge",
+  "version": "0.70.8",
+  "versionCode": 174,
+  "date": "2026-11-02",
+  "title": "The relayed log no longer drops a line at every batch.",
+  "notes": [
+   "On Blue Hotel (8626020716) about one line per 5-minute batch never reached the dashboard, always where a batch began: a \"config poll: no change\" every five minutes, and the update check's outcome at 00:03, 00:33 and 01:03.",
+   "Cause: the app read the last 400 lines of its log, and those 400 were counted before the quiet lines (tray weights, poll timing, payment frames) were filtered out. The app writes more than that in five minutes, so the read no longer reached back to where the previous batch ended and the lines in between were skipped.",
+   "The app now reads from just before the last line it sent, by time, so nothing in between can be skipped. If the device's own log has already moved past it, the batch says so with a warning line instead of leaving a silent gap.",
+   "The \"--------- beginning of main\" line no longer appears in the relayed log; it was the sign of the problem, not a log line.",
+   "A busy five minutes is sent in several posts instead of being cut to the newest 400 lines."
+  ],
+  "check": "On the canary, machine page → logs: \"config poll: no change\" once a minute with no gaps, OtaScheduler every 30 minutes, and no \"beginning of main\" lines."
+ },
+ {
+  "component": "fridge",
   "version": "0.70.7",
   "versionCode": 173,
   "date": "2026-11-02",
