@@ -294,6 +294,8 @@ const routes = [
   { method:'DELETE', pattern:'/api/v1/deals/:id',                             handler: handleDeleteDeal, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices',         handler: handleOperatorInvoices, middleware:[requireAuth, requireOperatorAccess] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/ledger',           handler: handleOperatorLedger,   middleware:[requireAuth, requireOperatorAccess] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/billing-settings', handler: handleGetBillingSettings, middleware:[requireAuth, requireOperatorAccess, requireCap('billing')] },
+  { method:'PUT',  pattern:'/api/v1/operators/:operatorId/billing-settings', handler: handlePutBillingSettings, middleware:[requireAuth, requireOperatorAccess, requireCap('billing')] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices/:invoiceId/pdf', handler: handleOperatorInvoicePdf, middleware:[requireAuth, requireOperatorAccess] },
   // Signup automation: the leasing Zap calls this after creating the Payday customer.
   { method:'POST', pattern:'/api/v1/operators/provision',                     handler: handleProvisionOperator, middleware:[] },
@@ -7369,6 +7371,107 @@ async function handleOperatorInvoices(req, res) {
     ok(res, { configured: true, linked: true, error: String(e.message || e), invoices: [] });
   }
 }
+
+// ─── Invoice delivery settings ───────────────────────────────────────────────
+//
+// The operator's own: which address their invoices go to, and whether they arrive by email, as
+// an electronic invoice, or both. Gated on the billing capability, which only an operator_admin
+// holds, so a manager or a restocker cannot change how the company is invoiced.
+//
+// The Payday customer is resolved from the operator record, never from anything the browser
+// sends, so one operator cannot reach another's billing by changing an id in the request.
+
+async function _billingTarget(req, res) {
+  const payday = require('./payday');
+  if (!payday.paydayConfigured()) { ok(res, { configured: false, linked: false }); return null; }
+  const op = storage.getOperator(req.params.operatorId);
+  if (!op) { notFound(res, 'Operator not found'); return null; }
+  const customerId = await _paydayCustomerId(op);
+  if (!customerId) { ok(res, { configured: true, linked: false }); return null; }
+  return { payday, op, customerId };
+}
+
+/** What the current settings are, read from Payday rather than from anything we store. */
+async function handleGetBillingSettings(req, res) {
+  try {
+    const t = await _billingTarget(req, res);
+    if (!t) return;
+    const cust = await t.payday.getCustomer(t.customerId);
+    // sendEmail lives on the recurring invoice, not the customer. If a customer has several,
+    // they are reported as on only when every one of them is.
+    const recurring = await t.payday.recurringInvoicesFor(t.customerId);
+    const sendEmail = recurring.length > 0 && recurring.every(r => r.sendEmail === true);
+    ok(res, {
+      configured: true, linked: true,
+      email: cust.email || '',
+      sendEmail,
+      sendElectronicInvoices: !!cust.sendElectronicInvoices,
+      recurringCount: recurring.length,
+      // Without a recurring invoice there is nothing to turn the email on or off, and saying so
+      // beats showing a switch that silently does nothing.
+      emailSwitchable: recurring.length > 0,
+    });
+  } catch (e) {
+    ok(res, { configured: true, linked: true, error: String(e.message || e) });
+  }
+}
+
+/** Change them. Refuses anything that would leave the operator with no way to get an invoice. */
+async function handlePutBillingSettings(req, res) {
+  try {
+    const t = await _billingTarget(req, res);
+    if (!t) return;
+    const body = req.body || {};
+
+    const cust = await t.payday.getCustomer(t.customerId);
+    const recurring = await t.payday.recurringInvoicesFor(t.customerId);
+    const current = {
+      email: cust.email || '',
+      sendEmail: recurring.length > 0 && recurring.every(r => r.sendEmail === true),
+      sendElectronicInvoices: !!cust.sendElectronicInvoices,
+    };
+
+    const decided = t.payday.nextDeliverySettings(current, {
+      email: body.email, sendEmail: body.sendEmail,
+      sendElectronicInvoices: body.sendElectronicInvoices,
+    });
+    if (!decided.ok) {
+      return json(res, 400, { ok: false, error: decided.error,
+        message: BILLING_SETTING_ERRORS[decided.error] || decided.error });
+    }
+    const { next, changed } = decided;
+
+    if (changed.sendEmail && !recurring.length) {
+      return json(res, 400, { ok: false, error: 'no_recurring_invoice',
+        message: 'Engin fastur reikningur er skráður, svo ekki er hægt að breyta póstsendingu.' });
+    }
+
+    // Only what actually changed is written. The two settings live on different Payday objects,
+    // and rewriting a recurring invoice for no reason is not worth the risk.
+    if (changed.email || changed.sendElectronicInvoices) {
+      const patch = {};
+      if (changed.email) patch.email = next.email;
+      if (changed.sendElectronicInvoices) patch.sendElectronicInvoices = next.sendElectronicInvoices;
+      await t.payday.updateCustomer(t.customerId, patch);
+    }
+    if (changed.sendEmail) {
+      await t.payday.setRecurringInvoiceEmail(t.customerId, next.sendEmail);
+    }
+
+    console.log('[billing] ' + req.user.id + ' changed delivery for operator ' + t.op.id + ': '
+      + Object.entries(changed).filter(([, v]) => v).map(([k]) => k).join(', '));
+    ok(res, { ...next, changed });
+  } catch (e) {
+    console.warn('[billing] settings write failed:', e.message);
+    json(res, 502, { ok: false, error: 'payday_write_failed', message: String(e.message || e) });
+  }
+}
+
+const BILLING_SETTING_ERRORS = {
+  delivery_required: 'Ekki er hægt að slökkva á báðum. Þú verður að fá reikninginn einhvern veginn.',
+  email_required: 'Sláðu inn netfang til að senda reikninga á.',
+  email_invalid: 'Netfangið lítur ekki rétt út.',
+};
 
 // GET /operators/:operatorId/ledger
 async function handleOperatorLedger(req, res) {
