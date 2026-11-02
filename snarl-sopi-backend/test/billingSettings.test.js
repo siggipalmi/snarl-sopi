@@ -11,7 +11,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { nextDeliverySettings } = require('../src/payday');
+const { nextDeliverySettings, applyDeliveryChange } = require('../src/payday');
 
 const on = { email: 'bokhald@dæmi.is', sendEmail: true, sendElectronicInvoices: false };
 const eInvOnly = { email: '', sendEmail: false, sendElectronicInvoices: true };
@@ -127,4 +127,86 @@ test('truthy junk does not switch a route on', () => {
   const r = nextDeliverySettings(both, { sendEmail: 0, sendElectronicInvoices: '' });
   assert.strictEqual(r.ok, false, 'both coerce to off, which is refused');
   assert.strictEqual(r.error, 'delivery_required');
+});
+
+// ─── Write order ──────────────────────────────────────────────────────────────
+//
+// Payday checks at toggle time whether the recipient can receive electronic invoices, so
+// enabling sendElectronicInvoices is the call that can be refused. If that refusal landed after
+// the email had been switched off, the operator would be left with no delivery at all — the
+// exact outcome the never-both-off rule exists to prevent, arrived at by a different road.
+
+function recorder() {
+  const calls = [];
+  return {
+    calls,
+    writeCustomer: async (patch) => { calls.push(['customer', patch]); },
+    writeRecurring: async (on) => { calls.push(['recurring', on]); },
+  };
+}
+
+test('the customer is written before the recurring invoice', async () => {
+  const r = recorder();
+  await applyDeliveryChange({
+    next: { email: 'a@b.is', sendEmail: false, sendElectronicInvoices: true },
+    changed: { email: false, sendEmail: true, sendElectronicInvoices: true },
+    ...r,
+  });
+  assert.deepStrictEqual(r.calls.map(c => c[0]), ['customer', 'recurring']);
+});
+
+test('a refused e-invoice toggle leaves the email alone', async () => {
+  // The case that matters: switching e-invoice on and email off in one go, and Payday says the
+  // recipient cannot receive electronic invoices.
+  const r = recorder();
+  const refuse = async () => { throw new Error('Payday PUT /customers/x → HTTP 400: not capable'); };
+  await assert.rejects(() => applyDeliveryChange({
+    next: { email: 'a@b.is', sendEmail: false, sendElectronicInvoices: true },
+    changed: { email: false, sendEmail: true, sendElectronicInvoices: true },
+    writeCustomer: refuse, writeRecurring: r.writeRecurring,
+  }), /not capable/);
+  assert.deepStrictEqual(r.calls, [], 'the email must still be on afterwards');
+});
+
+test('nothing is written when nothing changed', async () => {
+  const r = recorder();
+  const wrote = await applyDeliveryChange({
+    next: { email: 'a@b.is', sendEmail: true, sendElectronicInvoices: true },
+    changed: { email: false, sendEmail: false, sendElectronicInvoices: false },
+    ...r,
+  });
+  assert.deepStrictEqual(r.calls, []);
+  assert.deepStrictEqual(wrote, { customer: false, recurring: false });
+});
+
+test('an email-only change never touches the recurring invoice', async () => {
+  // Rewriting a customer's monthly billing to change an address would be gratuitous risk.
+  const r = recorder();
+  await applyDeliveryChange({
+    next: { email: 'nytt@daemi.is', sendEmail: true, sendElectronicInvoices: true },
+    changed: { email: true, sendEmail: false, sendElectronicInvoices: false },
+    ...r,
+  });
+  assert.deepStrictEqual(r.calls, [['customer', { email: 'nytt@daemi.is' }]]);
+});
+
+test('switching email off alone never touches the customer', async () => {
+  const r = recorder();
+  await applyDeliveryChange({
+    next: { email: 'a@b.is', sendEmail: false, sendElectronicInvoices: true },
+    changed: { email: false, sendEmail: true, sendElectronicInvoices: false },
+    ...r,
+  });
+  assert.deepStrictEqual(r.calls, [['recurring', false]]);
+});
+
+test('only the fields that changed go in the customer patch', async () => {
+  const r = recorder();
+  await applyDeliveryChange({
+    next: { email: 'a@b.is', sendEmail: true, sendElectronicInvoices: true },
+    changed: { email: false, sendEmail: false, sendElectronicInvoices: true },
+    ...r,
+  });
+  assert.deepStrictEqual(r.calls, [['customer', { sendElectronicInvoices: true }]],
+    'the address is not resent when it did not change');
 });

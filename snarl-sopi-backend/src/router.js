@@ -7446,24 +7446,28 @@ async function handlePutBillingSettings(req, res) {
         message: 'Engin fastur reikningur er skráður, svo ekki er hægt að breyta póstsendingu.' });
     }
 
-    // Only what actually changed is written. The two settings live on different Payday objects,
-    // and rewriting a recurring invoice for no reason is not worth the risk.
-    if (changed.email || changed.sendElectronicInvoices) {
-      const patch = {};
-      if (changed.email) patch.email = next.email;
-      if (changed.sendElectronicInvoices) patch.sendElectronicInvoices = next.sendElectronicInvoices;
-      await t.payday.updateCustomer(t.customerId, patch);
-    }
-    if (changed.sendEmail) {
-      await t.payday.setRecurringInvoiceEmail(t.customerId, next.sendEmail);
-    }
+    // Only what actually changed is written, and the customer goes first: Payday refuses the
+    // e-invoice toggle when the recipient cannot receive one, and a refusal must not land after
+    // the email has already been switched off. applyDeliveryChange owns that order.
+    await t.payday.applyDeliveryChange({
+      next, changed,
+      writeCustomer: (patch) => t.payday.updateCustomer(t.customerId, patch),
+      writeRecurring: (on) => t.payday.setRecurringInvoiceEmail(t.customerId, on),
+    });
 
     console.log('[billing] ' + req.user.id + ' changed delivery for operator ' + t.op.id + ': '
       + Object.entries(changed).filter(([, v]) => v).map(([k]) => k).join(', '));
     ok(res, { ...next, changed });
   } catch (e) {
     console.warn('[billing] settings write failed:', e.message);
-    json(res, 502, { ok: false, error: 'payday_write_failed', message: String(e.message || e) });
+    // Payday checks at toggle time whether the recipient can receive electronic invoices, so a
+    // refusal here most often means they cannot. Say that, and keep Payday's own words too.
+    const triedEinvoice = (req.body || {}).sendElectronicInvoices === true;
+    json(res, 502, { ok: false, error: 'payday_write_failed',
+      message: (triedEinvoice ? 'Payday hafnaði breytingunni — viðtakandinn getur mögulega ekki '
+        + 'tekið við rafrænum reikningum. ' : 'Payday hafnaði breytingunni. ')
+        + String(e.message || e),
+      nothingChanged: true });
   }
 }
 
