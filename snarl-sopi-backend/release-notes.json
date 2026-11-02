@@ -1,6 +1,21 @@
 [
  {
   "component": "fridge",
+  "version": "0.70.7",
+  "versionCode": 173,
+  "date": "2026-11-02",
+  "title": "A customer screen nobody is using no longer locks out remote commands.",
+  "notes": [
+   "Blue Hotel (8626020716) sat on a customer screen for hours with nobody at the machine, and every dashboard command waited behind it, restart app included.",
+   "A screen that has not changed for 15 minutes now counts as stuck: dashboard commands run again, so restart app gets through.",
+   "A stuck screen that comes after the payment (receipt, complaint form, declined) returns to idle by itself. A screen during one (authorising, door open, settling) is only logged, never reset.",
+   "A charge result that arrives after the receipt timer has run out no longer puts the receipt back on screen without a timer.",
+   "The relayed log says which screen is holding commands back and for how long, and logs \"STUCK on …\" when the 15 minutes pass."
+  ],
+  "check": "Publish to 8626020716 first (once someone has cleared its screen). Normal sales are unchanged; the log line for a deferred command now names the screen."
+ },
+ {
+  "component": "fridge",
   "version": "0.70.6",
   "versionCode": 172,
   "date": "2026-11-01",

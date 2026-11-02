@@ -31,6 +31,8 @@ class CommandRunner(
     private val planogram: () -> Planogram?,
     /** True while a customer is mid-purchase. */
     private val isSessionActive: () -> Boolean,
+    /** Which screen is holding the commands back, for the log line. */
+    private val sessionLabel: () -> String = { "" },
     /** Runs a block with the weight poll held off the bus. */
     private val withBusQuiet: suspend (suspend () -> Unit) -> Unit,
     /** Enter restock for one cabinet: unlock it, stop charging, re-baseline on close. */
@@ -72,7 +74,7 @@ class CommandRunner(
         // Don't even start while someone is shopping — the bus and the door both
         // belong to them until they're done.
         if (isSessionActive()) {
-            Log.i(TAG, "${pending.size} command(s) waiting, but a customer session is live — deferring")
+            Log.i(TAG, "${pending.size} command(s) waiting, but a customer session is live (${sessionLabel()}) — deferring")
             return
         }
 

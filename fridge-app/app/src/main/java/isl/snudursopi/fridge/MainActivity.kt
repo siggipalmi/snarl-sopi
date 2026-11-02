@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import isl.snudursopi.fridge.hardware.MotorFridgeHardware
 import isl.snudursopi.fridge.hardware.PriceTagSync
-import isl.snudursopi.fridge.ui.state.isCustomerSession
 import isl.snudursopi.fridge.update.OtaScheduler
 import isl.snudursopi.fridge.update.UpdateResult
 import isl.snudursopi.fridge.hardware.TtyPermissions
@@ -423,7 +422,10 @@ class MainActivity : ComponentActivity() {
             hardware = realHardware,
             // Customer sessions only — a restock must NOT block commands, or a
             // stuck restock locks out the very commands that would recover it.
-            isSessionActive = { viewModel.ui.value.phase.isCustomerSession },
+            // ...and a customer screen stuck for 15 min stops blocking them too (StuckSession):
+            // Blue Hotel held restart_app back for hours behind a screen nobody was using.
+            isSessionActive = { viewModel.commandsBlocked() },
+            sessionLabel = { viewModel.phaseLabel() },
             withBusQuiet = { block -> viewModel.withBusQuiet(block) },
             beginRestock = { cabinet -> viewModel.beginRestock(cabinet) },
             // Lets the backend say "check for an update now" — the only remote

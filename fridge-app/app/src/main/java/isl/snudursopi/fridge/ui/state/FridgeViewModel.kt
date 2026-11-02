@@ -227,7 +227,60 @@ class FridgeViewModel(
         )
     }
 
+    @Volatile private var trackedPhase: FridgePhase = FridgePhase.IDLE
+    @Volatile private var phaseSinceMs: Long = System.currentTimeMillis()
+
+    /** How long the screen has shown its current phase. See [StuckSession]. */
+    fun phaseAgeMs(): Long = System.currentTimeMillis() - phaseSinceMs
+
+    /** The command gate: a live customer, unless the screen is stuck (see [StuckSession]). */
+    fun commandsBlocked(): Boolean = StuckSession.blocksCommands(_ui.value.phase, phaseAgeMs())
+
+    /** For the log line when a command waits: which screen, and for how long. */
+    fun phaseLabel(): String = "${_ui.value.phase} for ${phaseAgeMs() / 1000}s"
+
+    /**
+     * Notice a customer screen that never ends, say so in the relayed log, and clear it when no
+     * payment can be in flight. Started with the idle watch.
+     */
+    private fun startStuckWatch() {
+        viewModelScope.launch {
+            _ui.collect {
+                if (it.phase != trackedPhase) {
+                    trackedPhase = it.phase
+                    phaseSinceMs = System.currentTimeMillis()
+                }
+            }
+        }
+        viewModelScope.launch {
+            var reported: Long = -1L
+            while (isActive) {
+                delay(STUCK_CHECK_MS)
+                val phase = _ui.value.phase
+                val age = phaseAgeMs()
+                if (!StuckSession.isStuck(phase, age)) continue
+                if (StuckSession.mayReturnToIdle(phase, age)) {
+                    android.util.Log.e(
+                        "FridgeFlow",
+                        "STUCK on $phase for ${age / 60000} min with no customer timer — back to idle",
+                    )
+                    idleReturnJob?.cancel()
+                    _ui.value = freshIdle()
+                } else if (reported != phaseSinceMs) {
+                    // Once per stuck phase: a payment may be in flight, so leave it to a person.
+                    reported = phaseSinceMs
+                    android.util.Log.e(
+                        "FridgeFlow",
+                        "STUCK on $phase for ${age / 60000} min (order $orderId) — not touching a " +
+                            "payment; remote commands are allowed again, restart_app clears it",
+                    )
+                }
+            }
+        }
+    }
+
     fun startIdleWatch() {
+        startStuckWatch()
         viewModelScope.launch {
             while (true) {
                 // Skip the read entirely while a backend command owns the bus.
@@ -946,6 +999,17 @@ class FridgeViewModel(
                         result,
                         outcome = if (captured) "charged" else "pending_offline",
                     )
+                    // The receipt timer below was armed before this answer came. If it has
+                    // already fired, the machine is idle again (or the next customer is on it):
+                    // putting the receipt back now would leave it on screen with no timer.
+                    if (_ui.value.phase != FridgePhase.CALCULATING) {
+                        android.util.Log.w(
+                            "FridgeFlow",
+                            "charge result (captured=$captured) came after the receipt timer — " +
+                                "not showing it over ${_ui.value.phase}",
+                        )
+                        return@capture
+                    }
                     val phase = if (captured) FridgePhase.RECEIPT else FridgePhase.PENDING_OFFLINE
                     _ui.value = _ui.value.copy(
                         phase = phase,
@@ -976,6 +1040,9 @@ class FridgeViewModel(
                             )
                         },
                     )
+                    // Re-armed from here so the receipt always has a timer of its own, however
+                    // long the reader took to answer.
+                    autoReturnToIdle(afterMs = if (_ui.value.receiptsEnabled) RECEIPT_HOLD_MS else 6_000)
                 }
             }
             // The receipt screen stays up longer where an emailed receipt is on
@@ -1355,6 +1422,9 @@ private const val LATCH_QUERY_STEP_MS = 150L
 
 /** How often to refresh the resting snapshot while the machine is idle. */
 private const val IDLE_POLL_MS = 5_000L
+
+/** How often the stuck-screen watch looks. */
+private const val STUCK_CHECK_MS = 30_000L
 
 /**
  * How long to wait after silencing the weight poll before using the bus for a
