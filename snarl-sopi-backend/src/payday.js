@@ -293,6 +293,37 @@ function nextDeliverySettings(current, patch) {
   } };
 }
 
+/**
+ * Write a delivery change, customer first and recurring invoice second.
+ *
+ * The order is load-bearing, not incidental. Payday checks at toggle time whether the recipient
+ * can actually receive electronic invoices, so enabling sendElectronicInvoices is the call that
+ * can be refused. Doing it BEFORE switching the email off means a refusal leaves the operator
+ * exactly as they were, still getting invoices by email. The other order would switch the email
+ * off, have the e-invoice enable refused, and leave them with no delivery at all while the page
+ * showed a tidy error.
+ *
+ * The writers are passed in so this can be tested without touching Payday.
+ */
+async function applyDeliveryChange({ next, changed, writeCustomer, writeRecurring }) {
+  const wrote = { customer: false, recurring: false };
+
+  if (changed.email || changed.sendElectronicInvoices) {
+    const patch = {};
+    if (changed.email) patch.email = next.email;
+    if (changed.sendElectronicInvoices) patch.sendElectronicInvoices = next.sendElectronicInvoices;
+    await writeCustomer(patch);                 // throws on refusal; nothing below runs
+    wrote.customer = true;
+  }
+
+  if (changed.sendEmail) {
+    await writeRecurring(next.sendEmail);
+    wrote.recurring = true;
+  }
+
+  return wrote;
+}
+
 // ─── Payday's own account statement ───────────────────────────────────────────
 //
 // GET /customers/:id/accountStatement is the ledger Payday itself shows, and the only source
@@ -593,7 +624,7 @@ async function debugProbe(customerId, ssn) {
 module.exports = {
   invoiceState, invoiceIsLive, getAccountStatement, parseStatement,
   getCustomer, updateCustomer, recurringInvoicesFor, setRecurringInvoiceEmail,
-  nextDeliverySettings,
+  nextDeliverySettings, applyDeliveryChange,
   paydayConfigured, getCustomerInvoices, getCustomerPayments, findCustomerBySsn, getInvoicePdf, buildLedger, debugProbe,
   _meta: { API_BASE, TOKEN_URL, PATH_INVOICES, PATH_CUSTOMERS, PATH_INVOICE_PDF, CUSTOMER_PARAM },
 };
