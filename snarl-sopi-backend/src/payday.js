@@ -392,9 +392,21 @@ async function debugProbe(customerId, ssn) {
     if (cid) {
       const raw = await getAccountStatement(cid);
       const parsed = parseStatement(raw);
+      // Two things the one sample row cannot settle, and both would skew a balance:
+      //   - does the statement mix ledger accounts, or is it only receivables (3400)?
+      //   - are any rows fiscal-year closing entries rather than customer movements?
+      const codes = {};
+      let closers = 0;
+      for (const r of raw.rows) {
+        const c = r && (r.accountCode != null ? String(r.accountCode) : '?');
+        codes[c] = (codes[c] || 0) + 1;
+        if (r && r.closeFiscalYear === true) closers++;
+      }
       out.accountStatement = {
         path: PATH_ACCOUNT_STATEMENT, dateFrom: raw.dateFrom, dateTo: raw.dateTo,
         rowsFound: raw.rows.length,
+        accountCodes: codes,
+        closeFiscalYearRows: closers,
         firstKeys: raw.rows[0] ? Object.keys(raw.rows[0]) : [],
         firstSample: raw.rows[0] ? _redact(raw.rows[0]) : null,
         parsed: { ok: parsed.ok, reason: parsed.reason || null, movements: parsed.movements.length,

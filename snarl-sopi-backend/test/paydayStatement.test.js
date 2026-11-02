@@ -67,6 +67,69 @@ test('the seðilgjald survives, since losing it is the whole bug', () => {
   assert.strictEqual(fee.amount, -199);
 });
 
+// ─── The shape Payday actually returns ────────────────────────────────────────
+//
+// Read off the live API on 2026-11-02. There is no debit/credit pair at all: a movement is a
+// signed `amount` with a running `balance` beside it, the document number is `voucher`, and
+// every row carries the ledger account it belongs to. Pinned so a change in the response is a
+// failing test rather than a wrong balance on a customer's page.
+
+const LIVE_ROW = {
+  id: '923f6857-3d75-45e5-9aa9-bec8b7fdf554',
+  entryId: 'd278ea98-fc56-4b57-b58d-425ed0e37335',
+  date: '2025-12-02T00:00:00Z',
+  amount: 50032,
+  balance: 50032,
+  description: 'Reikningur nr. 102 - Alhliða Lausnir ehf.',
+  currency: 'ISK',
+  accountCode: '3400',
+  accountName: 'Viðskiptakröfur',
+  voucher: 'SR00000102',
+  reference: '',
+  created: '2025-12-02T17:01:19Z',
+  closeFiscalYear: false,
+};
+
+test('the live response shape is read, every field we rely on', () => {
+  const r = parseStatement({ rows: [LIVE_ROW] });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.rowsRead, 1);
+  const m = r.movements[0];
+  assert.strictEqual(m.amount, 50032, 'a signed amount, with no debit/credit pair');
+  assert.strictEqual(m.balance, 50032);
+  assert.strictEqual(m.ref, 'SR00000102', 'voucher is the document number');
+  assert.match(m.desc, /Reikningur nr\. 102/);
+  assert.strictEqual(m.ts, '2025-12-02T00:00:00Z');
+  assert.strictEqual(m.kind, 'invoice');
+});
+
+test('a payment in the live shape is a negative amount', () => {
+  const r = parseStatement({ rows: [
+    { ...LIVE_ROW, amount: 50032, balance: 50032 },
+    { ...LIVE_ROW, id: 'b', date: '2025-12-20T00:00:00Z', amount: -50032, balance: 0,
+      description: 'Greiðsla á reikning nr. 102', voucher: 'S000001234' },
+  ] });
+  assert.strictEqual(r.closingBalance, 0);
+  assert.strictEqual(r.movements[0].kind, 'payment');
+  assert.strictEqual(r.movements[0].amount, -50032);
+});
+
+test('Payday\'s own running balance is trusted, not recomputed', () => {
+  // If the two ever disagree, Payday is right: it is the ledger, we are reading it.
+  const r = parseStatement({ rows: [
+    { ...LIVE_ROW, amount: 1000, balance: 9000 },      // a balance that does not follow from
+    { ...LIVE_ROW, id: 'b', date: '2026-01-01T00:00:00Z', amount: 500, balance: 9500 },
+  ] });
+  assert.strictEqual(r.hadBalance, true);
+  assert.strictEqual(r.closingBalance, 9500, 'the column wins over our arithmetic');
+});
+
+test('a voucher-less row still reads, since ref is only for display', () => {
+  const r = parseStatement({ rows: [{ ...LIVE_ROW, voucher: '', reference: '' }] });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.movements[0].ref, '');
+});
+
 // ─── Shapes we have not seen ──────────────────────────────────────────────────
 
 test('Icelandic field names and formatted money are read', () => {
