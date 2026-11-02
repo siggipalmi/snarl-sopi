@@ -1560,7 +1560,7 @@ select.fi{cursor:pointer;}
     <!-- ═══ REPORTS ═══ -->
     <div class="page" id="page-reports">
       <div class="shd">
-        <div class="shd-sub">operational summary · all machines</div>
+        <div class="shd-sub" data-i18n="rep.sub">operational summary · all machines</div>
         <div class="tabs" id="report-period-tabs">
           <div class="tab"        data-days="7"  onclick="setReportPeriod(7,  this)">7D</div>
           <div class="tab active" data-days="30" onclick="setReportPeriod(30, this)">30D</div>
@@ -1571,22 +1571,22 @@ select.fi{cursor:pointer;}
 
       <div class="panel mb" id="profit-panel" style="margin-bottom:16px">
         <div class="ph" style="flex-wrap:wrap;gap:10px">
-          <div class="ph-title">VSK &amp; profit.</div>
+          <div class="ph-title" data-i18n="rep.vskProfit">VSK &amp; profit.</div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <span id="profit-operator-wrap"></span>
             <div class="tabs" id="profit-period-tabs">
               <div class="tab"        data-d="1"      onclick="setProfitDays(1,this)">1d</div>
               <div class="tab active" data-d="7"      onclick="setProfitDays(7,this)">7d</div>
               <div class="tab"        data-d="30"     onclick="setProfitDays(30,this)">30d</div>
-              <div class="tab"        data-d="custom" onclick="toggleProfitCustom(this)">custom</div>
+              <div class="tab"        data-d="custom" onclick="toggleProfitCustom(this)" data-i18n="rep.custom">custom</div>
             </div>
           </div>
         </div>
         <div id="profit-custom" style="display:none;padding:11px 18px 0;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="date" id="profit-from" class="fi" style="width:auto;padding:6px 9px">
-          <span style="color:var(--muted);font-size:12px">to</span>
+          <span style="color:var(--muted);font-size:12px" data-i18n="rep.to">to</span>
           <input type="date" id="profit-to" class="fi" style="width:auto;padding:6px 9px">
-          <button class="btn btn-sm" onclick="applyProfitCustom()">apply</button>
+          <button class="btn btn-sm" onclick="applyProfitCustom()" data-i18n="rep.apply">apply</button>
         </div>
         <div id="profit-range" style="padding:9px 18px 0;font-size:11px;color:var(--muted);font-family:var(--mono)"></div>
         <div id="profit-headline" style="padding:12px 18px 6px"></div>
@@ -1595,18 +1595,18 @@ select.fi{cursor:pointer;}
       </div>
 
       <div class="panel mb" style="margin-bottom:16px">
-        <div class="ph"><div class="ph-title">profit by product.</div><div class="ph-action" style="cursor:default;font-size:11px;color:var(--muted)">top 40 by revenue</div></div>
-        <div class="tw"><table><thead><tr><th>product</th><th>VSK</th><th>units</th><th>net sales</th><th>VSK kr</th><th>profit</th></tr></thead><tbody id="profit-products-table"></tbody></table></div>
+        <div class="ph"><div class="ph-title" data-i18n="rep.byProduct">profit by product.</div><div class="ph-action" style="cursor:default;font-size:11px;color:var(--muted)" data-i18n="rep.top40">top 40 by revenue</div></div>
+        <div class="tw"><table><thead><tr><th data-i18n="rep.product">product</th><th>VSK</th><th data-i18n="rep.units">units</th><th data-i18n="rep.netSales">net sales</th><th>VSK kr</th><th data-i18n="rep.profit">profit</th></tr></thead><tbody id="profit-products-table"></tbody></table></div>
       </div>
 
       <div class="g21" style="margin-bottom:16px">
         <div class="panel">
           <div class="ph"><div class="ph-title" id="top-products-title">top products (30d).</div></div>
-          <div class="tw"><table><thead><tr><th>product</th><th>units</th><th>revenue</th><th>machines</th></tr></thead><tbody id="top-products-table"></tbody></table></div>
+          <div class="tw"><table><thead><tr><th data-i18n="rep.product">product</th><th data-i18n="rep.units">units</th><th data-i18n="rep.revenue">revenue</th><th data-i18n="rep.machines">machines</th></tr></thead><tbody id="top-products-table"></tbody></table></div>
         </div>
         <div class="panel">
           <div class="ph"><div class="ph-title" id="slow-products-title">slow movers (30d).</div></div>
-          <div class="tw"><table><thead><tr><th>product</th><th>units</th><th>revenue</th></tr></thead><tbody id="slow-products-table"></tbody></table></div>
+          <div class="tw"><table><thead><tr><th data-i18n="rep.product">product</th><th data-i18n="rep.units">units</th><th data-i18n="rep.revenue">revenue</th></tr></thead><tbody id="slow-products-table"></tbody></table></div>
         </div>
       </div>
 
@@ -1621,16 +1621,16 @@ select.fi{cursor:pointer;}
       </div>
 
       <div class="panel">
-        <div class="ph"><div class="ph-title">revenue by machine.</div></div>
-        <div class="tw"><table><thead><tr><th>machine</th><th>location</th><th>orders</th><th>revenue</th><th>avg order</th></tr></thead><tbody id="report-table"></tbody></table></div>
+        <div class="ph"><div class="ph-title" data-i18n="rep.byMachine">revenue by machine.</div></div>
+        <div class="tw"><table><thead><tr><th data-i18n="rep.machine">machine</th><th data-i18n="rep.location">location</th><th data-i18n="rep.orders">orders</th><th data-i18n="rep.revenue">revenue</th><th data-i18n="rep.avgOrder">avg order</th></tr></thead><tbody id="report-table"></tbody></table></div>
       </div>
       <div style="margin-top:16px">
         <div class="panel">
-          <div class="ph"><div class="ph-title">export.</div></div>
+          <div class="ph"><div class="ph-title" data-i18n="rep.export">export.</div></div>
           <div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:11px">
-            <div class="rc" onclick="exportOrders()"><div class="rc-icon">📊</div><div class="rc-title">Sales CSV</div><div class="rc-sub">All orders with amounts and status</div></div>
-            <div class="rc" onclick="exportMachines()"><div class="rc-icon">📦</div><div class="rc-title">Machines JSON</div><div class="rc-sub">All machine settings and stock</div></div>
-            <div class="rc" onclick="exportAll()"><div class="rc-icon">💾</div><div class="rc-title">Full Backup</div><div class="rc-sub">All data as JSON — import later</div></div>
+            <div class="rc" onclick="exportOrders()"><div class="rc-icon">📊</div><div class="rc-title" data-i18n="rep.salesCsv">Sales CSV</div><div class="rc-sub" data-i18n="rep.salesCsvSub">All orders with amounts and status</div></div>
+            <div class="rc" onclick="exportMachines()"><div class="rc-icon">📦</div><div class="rc-title" data-i18n="rep.machinesJson">Machines JSON</div><div class="rc-sub" data-i18n="rep.machinesJsonSub">All machine settings and stock</div></div>
+            <div class="rc" onclick="exportAll()"><div class="rc-icon">💾</div><div class="rc-title" data-i18n="rep.fullBackup">Full Backup</div><div class="rc-sub" data-i18n="rep.fullBackupSub">All data as JSON — import later</div></div>
           </div>
         </div>
       </div>
@@ -2328,6 +2328,57 @@ const I18N = {
     'alert.offline.title':'Machine offline — {machine}',
     'alert.offline.detail':'{code} · offline since {since}',
     'dash.allOperators':'All operators','dash.operatorLabel':'operator:',
+    // Reports page and order list (2026-11-02)
+    'rep.sub':'operational summary · all machines',
+    'rep.revenue':'revenue',
+    'rep.orders':'orders',
+    'rep.avgOrder':'avg order',
+    'rep.refundRate':'refund rate',
+    'rep.vskProfit':'VSK &amp; profit.',
+    'rep.custom':'custom',
+    'rep.to':'to',
+    'rep.apply':'apply',
+    'rep.gross':'gross revenue',
+    'rep.net':'net of VSK',
+    'rep.vskCollected':'VSK collected',
+    'rep.profit':'profit',
+    'rep.margin':'margin',
+    'rep.noCosts':'no costs set',
+    'rep.items':'items',
+    'rep.vskBreakdown':'VSK breakdown — for your tax return',
+    'rep.rate':'rate',
+    'rep.grossCol':'gross',
+    'rep.netCol':'net',
+    'rep.of':'of',
+    'rep.haveCost':'items have a cost set',
+    'rep.unlinked':'not linked to a product',
+    'rep.byProduct':'profit by product.',
+    'rep.top40':'top 40 by revenue',
+    'rep.product':'product',
+    'rep.units':'units',
+    'rep.netSales':'net sales',
+    'rep.topProducts':'top products',
+    'rep.slowMovers':'slow movers',
+    'rep.heatmap':'hourly activity heatmap',
+    'rep.dispense':'dispense issues',
+    'rep.machines':'machines',
+    'rep.byMachine':'revenue by machine.',
+    'rep.machine':'machine',
+    'rep.location':'location',
+    'rep.noSalesPeriod':'No sales in this period yet',
+    'rep.noSales':'No sales recorded yet',
+    'rep.loading':'Loading…',
+    'rep.couldNotLoad':'Could not load.',
+    'rep.export':'export.',
+    'rep.salesCsv':'Sales CSV',
+    'rep.salesCsvSub':'All orders with amounts and status',
+    'rep.machinesJson':'Machines JSON',
+    'rep.machinesJsonSub':'All machine settings and stock',
+    'rep.fullBackup':'Full Backup',
+    'rep.fullBackupSub':'All data as JSON — import later',
+    'ord.item':'item',
+    'ord.itemsN':'items',
+    'ord.card':'Nayax card',
     'mch.addMachine':'+ add machine','mch.locations':'locations.','mch.mapCaption':'machine locations — Reykjavík area',
     'mch.allMachines':'all machines.','mch.populateWeimi':'＋ populate from Weimi','mch.syncWeimi':'⟳ sync all from Weimi',
     'nav.expiry':'Expiry','exp.title':'expiring soon.','exp.alertWithin':'show within','exp.days':'days','exp.today':'today','exp.expired':'expired',
@@ -2553,6 +2604,57 @@ const I18N = {
     'alert.offline.title':'Tæki ekki nettengt — {machine}',
     'alert.offline.detail':'{code} · sambandslaust síðan {since}',
     'dash.allOperators':'Allir rekstraraðilar','dash.operatorLabel':'rekstraraðili:',
+    // Reports page and order list (2026-11-02)
+    'rep.sub':'rekstraryfirlit · allar vélar',
+    'rep.revenue':'tekjur',
+    'rep.orders':'afgreiðslur',
+    'rep.avgOrder':'meðalafgreiðsla',
+    'rep.refundRate':'endurgreiðslur',
+    'rep.vskProfit':'VSK og hagnaður.',
+    'rep.custom':'sérsniðið',
+    'rep.to':'til',
+    'rep.apply':'sækja',
+    'rep.gross':'tekjur með VSK',
+    'rep.net':'tekjur án VSK',
+    'rep.vskCollected':'VSK innheimt',
+    'rep.profit':'hagnaður',
+    'rep.margin':'framlegð',
+    'rep.noCosts':'ekkert kostnaðarverð',
+    'rep.items':'vörur',
+    'rep.vskBreakdown':'VSK-sundurliðun — fyrir skattskilin',
+    'rep.rate':'hlutfall',
+    'rep.grossCol':'með VSK',
+    'rep.netCol':'án VSK',
+    'rep.of':'af',
+    'rep.haveCost':'vörum hafa kostnaðarverð',
+    'rep.unlinked':'ekki tengdar vöru',
+    'rep.byProduct':'hagnaður eftir vöru.',
+    'rep.top40':'40 tekjuhæstu',
+    'rep.product':'vara',
+    'rep.units':'stk.',
+    'rep.netSales':'sala án VSK',
+    'rep.topProducts':'söluhæstu vörur',
+    'rep.slowMovers':'hægseldar vörur',
+    'rep.heatmap':'sala eftir klukkustundum',
+    'rep.dispense':'afgreiðsluvillur',
+    'rep.machines':'vélar',
+    'rep.byMachine':'tekjur eftir vél.',
+    'rep.machine':'vél',
+    'rep.location':'staðsetning',
+    'rep.noSalesPeriod':'Engin sala á þessu tímabili enn',
+    'rep.noSales':'Engin sala skráð enn',
+    'rep.loading':'Hleð…',
+    'rep.couldNotLoad':'Tókst ekki að hlaða.',
+    'rep.export':'útflutningur.',
+    'rep.salesCsv':'Sala (CSV)',
+    'rep.salesCsvSub':'Allar afgreiðslur með upphæð og stöðu',
+    'rep.machinesJson':'Vélar (JSON)',
+    'rep.machinesJsonSub':'Allar stillingar og lager véla',
+    'rep.fullBackup':'Fullt afrit',
+    'rep.fullBackupSub':'Öll gögn sem JSON — til að lesa inn síðar',
+    'ord.item':'vara',
+    'ord.itemsN':'vörur',
+    'ord.card':'Nayax-kort',
     'mch.addMachine':'+ bæta við vél','mch.locations':'staðsetningar.','mch.mapCaption':'staðsetningar véla — Reykjavíkursvæðið',
     'mch.allMachines':'allar vélar.','mch.populateWeimi':'＋ sækja frá Weimi','mch.syncWeimi':'⟳ samstilla allt frá Weimi',
     'nav.expiry':'Síðasti söludagur','exp.title':'að renna út.','exp.alertWithin':'sýna innan','exp.days':'daga','exp.today':'í dag','exp.expired':'útrunnið',
@@ -9425,12 +9527,12 @@ function renderOrders() {
        </tr>`).join('');
     return `
     <tr style="cursor:pointer" onclick="toggleOrderDetail('${g.orderId}')">
-      <td class="rcard-head"><span class="tid">▸ ${g.orderId.slice(0,16)}…</span> <span style="color:var(--muted);font-size:10.5px">${g.lines.length} ${g.lines.length===1?'item':'items'}</span></td>
-      <td data-label="device"><span class="tname" style="font-weight:500">${rsEsc(mname)}</span></td>
-      <td data-label="amount" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
-      <td data-label="payment"><span class="pill pill-out">Nayax card</span></td>
-      <td data-label="status">${pill(g.status===1?'pill-up':g.status===2?'pill-dn':'pill-warn', g.statusLabel)}</td>
-      <td data-label="time" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtDateTimeS(g.createTime)}</td>
+      <td class="rcard-head"><span class="tid">▸ ${g.orderId.slice(0,16)}…</span> <span style="color:var(--muted);font-size:10.5px">${g.lines.length} ${g.lines.length===1?t('ord.item'):t('ord.itemsN')}</span></td>
+      <td data-label="${rsEsc(t('ord.th.device'))}"><span class="tname" style="font-weight:500">${rsEsc(mname)}</span></td>
+      <td data-label="${rsEsc(t('md.th.amount'))}" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
+      <td data-label="${rsEsc(t('ord.th.payment'))}"><span class="pill pill-out">${t('ord.card')}</span></td>
+      <td data-label="${rsEsc(t('md.th.status'))}">${pill(g.status===1?'pill-up':g.status===2?'pill-dn':'pill-warn', t('ord.f.' + g.statusLabel))}</td>
+      <td data-label="${rsEsc(t('md.th.time'))}" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtDateTimeS(g.createTime)}</td>
     </tr>
     <tr id="od-${g.orderId}" style="display:none;background:rgba(139,107,62,0.04)">
       <td colspan="6" style="padding:0">
@@ -9740,10 +9842,10 @@ function setReportPeriod(days, el) {
   _reportDays = days;
   document.querySelectorAll('#report-period-tabs .tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
-  document.getElementById('top-products-title').textContent  = 'top products (' + days + 'd).';
-  document.getElementById('slow-products-title').textContent = 'slow movers (' + days + 'd).';
-  document.getElementById('heatmap-title').textContent       = 'hourly activity heatmap (' + days + 'd).';
-  const dt = document.getElementById('dispense-title'); if (dt) dt.textContent = 'dispense issues (' + days + 'd).';
+  document.getElementById('top-products-title').textContent  = t('rep.topProducts') + ' (' + days + 'd).';
+  document.getElementById('slow-products-title').textContent = t('rep.slowMovers') + ' (' + days + 'd).';
+  document.getElementById('heatmap-title').textContent       = t('rep.heatmap') + ' (' + days + 'd).';
+  const dt = document.getElementById('dispense-title'); if (dt) dt.textContent = t('rep.dispense') + ' (' + days + 'd).';
   renderReports();
 }
 
@@ -9761,10 +9863,10 @@ async function renderReports() {
     if (r && r.ok) {
       const d = r.data;
       document.getElementById('report-stats').innerHTML =
-        '<div class="stat"><div class="stat-lbl">revenue · ' + _reportDays + 'd</div><div class="stat-val">' + formatKr(d.totalRevenueKr) + '</div></div>' +
-        '<div class="stat"><div class="stat-lbl">orders · ' + _reportDays + 'd</div><div class="stat-val">' + d.totalOrders + '</div></div>' +
-        '<div class="stat"><div class="stat-lbl">avg order</div><div class="stat-val">' + formatKr(d.avgOrderValueKr) + '</div></div>' +
-        '<div class="stat"><div class="stat-lbl">refund rate</div><div class="stat-val">' + d.refundRate + '%</div></div>';
+        '<div class="stat"><div class="stat-lbl">' + t('rep.revenue') + ' · ' + _reportDays + 'd</div><div class="stat-val">' + formatKr(d.totalRevenueKr) + '</div></div>' +
+        '<div class="stat"><div class="stat-lbl">' + t('rep.orders') + ' · ' + _reportDays + 'd</div><div class="stat-val">' + d.totalOrders + '</div></div>' +
+        '<div class="stat"><div class="stat-lbl">' + t('rep.avgOrder') + '</div><div class="stat-val">' + formatKr(d.avgOrderValueKr) + '</div></div>' +
+        '<div class="stat"><div class="stat-lbl">' + t('rep.refundRate') + '</div><div class="stat-val">' + d.refundRate + '%</div></div>';
       document.getElementById('report-table').innerHTML = (d.byMachine || []).map(m =>
         '<tr>' +
           '<td><div class="tname">' + rsEsc(m.machineName) + '</div></td>' +
@@ -9885,27 +9987,27 @@ async function renderProfit() {
     } else { opWrap.innerHTML = ''; }
   }
 
-  head.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
+  head.innerHTML = '<div style="color:var(--muted);font-size:12px">' + t('rep.loading') + '</div>';
   let qs = (_profitMode === 'custom' && _profitFrom && _profitTo)
     ? ('from=' + _profitFrom + '&to=' + _profitTo)
     : ('days=' + _profitDays);
   if (_profitOp) qs += '&operatorId=' + encodeURIComponent(_profitOp);
   try {
     const r = await API.get('/api/v1/reports/profit?' + qs);
-    if (!r || !r.ok) { head.innerHTML = '<div style="color:var(--alert);font-size:12px">Could not load.</div>'; return; }
+    if (!r || !r.ok) { head.innerHTML = '<div style="color:var(--alert);font-size:12px">' + t('rep.couldNotLoad') + '</div>'; return; }
     const d = r.data;
     const rangeEl = document.getElementById('profit-range');
     if (rangeEl) rangeEl.textContent = (d.fromUTC != null && d.toUTC != null) ? profitRangeLabel(d.fromUTC, d.toUTC) : '';
-    const t = d.totals, pf = d.profit;
+    const tot = d.totals, pf = d.profit;   // not `t`: that would shadow the translation function
     const card = (lbl, val, sub) =>
       '<div class="stat"><div class="stat-lbl">' + lbl + '</div><div class="stat-val">' + val + '</div>' +
       (sub ? '<div style="font-size:10.5px;color:var(--muted);margin-top:2px">' + sub + '</div>' : '') + '</div>';
     const margin = (pf.marginPct != null) ? pf.marginPct + '%' : '—';
     head.innerHTML = '<div class="g4">' +
-      card('gross revenue', formatKr(t.grossKr), t.orders + ' orders · ' + t.units + ' items') +
-      card('net of VSK', formatKr(t.netKr), null) +
-      card('VSK collected', formatKr(t.vskKr), null) +
-      card('profit', (pf.itemsWithCost ? formatKr(pf.profitKr) : '—'), (pf.itemsWithCost ? margin + ' margin' : 'no costs set')) +
+      card(t('rep.gross'), formatKr(tot.grossKr), tot.orders + ' ' + t('rep.orders') + ' · ' + tot.units + ' ' + t('rep.items')) +
+      card(t('rep.net'), formatKr(tot.netKr), null) +
+      card(t('rep.vskCollected'), formatKr(tot.vskKr), null) +
+      card(t('rep.profit'), (pf.itemsWithCost ? formatKr(pf.profitKr) : '—'), (pf.itemsWithCost ? margin + ' ' + t('rep.margin') : t('rep.noCosts'))) +
       '</div>';
 
     // VSK split 11 / 24
@@ -9919,22 +10021,22 @@ async function renderProfit() {
     };
     const rows11 = row('11', d.vsk['11']), rows24 = row('24', d.vsk['24']);
     vskEl.innerHTML = (rows11 || rows24)
-      ? '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">VSK breakdown — for your tax return</div>' +
+      ? '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">' + t('rep.vskBreakdown') + '</div>' +
         '<table style="width:100%;font-size:12.5px"><thead><tr style="text-align:left;color:var(--muted);font-size:10.5px">' +
-        '<th>rate</th><th>gross</th><th>net</th><th>VSK</th><th>items</th></tr></thead><tbody>' + rows11 + rows24 + '</tbody></table>'
+        '<th>' + t('rep.rate') + '</th><th>' + t('rep.grossCol') + '</th><th>' + t('rep.netCol') + '</th><th>VSK</th><th>' + t('rep.items') + '</th></tr></thead><tbody>' + rows11 + rows24 + '</tbody></table>'
       : '';
 
     // coverage / match health
     let cv = '';
     if (d.match.items) {
-      cv = pf.itemsWithCost + ' of ' + d.match.items + ' items have a cost set';
-      if (d.match.unmatched) cv += ' · ' + d.match.unmatched + ' not linked to a product';
+      cv = pf.itemsWithCost + ' ' + t('rep.of') + ' ' + d.match.items + ' ' + t('rep.haveCost');
+      if (d.match.unmatched) cv += ' · ' + d.match.unmatched + ' ' + t('rep.unlinked');
     }
     if (cov) cov.textContent = cv;
 
     // by product
     const bp = d.byProduct || [];
-    const empty = '<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">No sales in this period yet</td></tr>';
+    const empty = '<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">' + t('rep.noSalesPeriod') + '</td></tr>';
     tbody.innerHTML = bp.length ? bp.slice(0, 40).map(p =>
       '<tr>' +
         '<td><div class="tname">' + rsEsc(p.name || '(unknown)') + '</div></td>' +
@@ -9957,7 +10059,7 @@ async function renderTopProducts() {
     const top  = r.data.top || [];
     const slow = r.data.slow || [];
 
-    const empty = '<tr><td colspan="4" style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">No sales recorded yet</td></tr>';
+    const empty = '<tr><td colspan="4" style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">' + t('rep.noSales') + '</td></tr>';
     document.getElementById('top-products-table').innerHTML = top.length === 0 ? empty :
       top.slice(0, 12).map(p =>
         '<tr>' +

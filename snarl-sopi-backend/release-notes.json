@@ -1,6 +1,19 @@
 [
  {
   "component": "backend",
+  "version": "6.98.2",
+  "date": "2026-11-02",
+  "title": "Reports and orders in Icelandic; the public screenshots retaken in Icelandic.",
+  "notes": [
+   "The Reports page (Skýrslur) is now fully Icelandic: the summary tiles, VSK og hagnaður, the VSK breakdown, profit by product, top and slow products, revenue by machine and export. It was mostly English before.",
+   "The order list says 'tókst / mistókst / endurgreitt', 'vara / vörur' and 'Nayax-kort', and the field labels on the phone layout are Icelandic too.",
+   "The eight screenshots on the features page (and agvending.is/kerfid) are retaken in Icelandic, from an operator's view, on invented demo data.",
+   "New tools/demo-data.js fills an empty database with that demo data, so the screenshots can be retaken without touching the real fleet."
+  ],
+  "check": "Switch the dashboard to IS and open Rekstur → Skýrslur and Afgreiðslur: no English left on either page."
+ },
+ {
+  "component": "backend",
   "version": "6.98.1",
   "date": "2026-11-02",
   "title": "Demo requests are only confirmed once the email has gone out.",
