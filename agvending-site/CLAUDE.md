@@ -20,7 +20,13 @@ Updated 28 Oct 2026, from the claude.ai Project handover of 25 Aug.
 
 Fully static. Plain HTML/CSS/JS. No framework, no build step, no CMS, no npm dependencies.
 
-- **Pages:** `public/index.html` (the whole site, ~42 KB) + `takk.html` + `404.html` + `500.html`
+- **Pages:** `public/index.html` (the front page) + `kerfid.html` (the web admin, /kerfid) +
+  `takk.html` + `404.html` + `500.html`
+- **`kerfid.html` shares the front page's layout by copy:** its `<head>` style block (theme
+  sections 1–18), header and footer are `index.html`'s, with the in-page links pointing back to
+  `/#…`; only its section 19 and `<main>` are its own. Change a shared part in both files.
+  It replaces the backend's `admin.agvending.is/features.html` as the public page about the
+  system; redirect that to `https://agvending.is/kerfid` once the domain has moved.
 - **Host:** Cloudflare Worker `agvending` with static assets — NOT Pages, NOT Railway.
   Preview at `agvending.siggip.workers.dev`
 - **Config:** `wrangler.toml`, `public/_headers`, `public/_redirects`, `robots.txt`, `sitemap.xml`
@@ -159,8 +165,11 @@ at 2×; a higher-resolution crest is worth asking for.
 
 - `ir.gif` has palette transparency; composite onto white (its `mul` flag expects that) — a naive
   RGB convert renders a solid grey tile.
-- `nordic-hostel.gif` (not on the rail yet) was a 100-frame 13.3 MB animation; ship frame 0 only.
-  A moving logo inside a moving marquee is noise.
+- Logos on a dark background get the background keyed out and the mark recoloured, never a dark
+  box on the white rail: `nordic-hostel.png` (olive), `oddsson.png` (navy, wordmark only),
+  `lava-show.png` and `thors-power-gym.png` (ink), `orkan-mark.png`, `macron-mark.png`.
+- Tækniskólinn and Airport Associates came off the rail on 2 Nov (Siggi). Goa is waiting for a
+  usable file: the `.ai` sent was saved without PDF content.
 - Cap at 600px longest edge; the tile content box is ~124×58 CSS px.
 
 ## Config

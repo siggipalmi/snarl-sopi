@@ -1,6 +1,17 @@
 [
  {
   "component": "backend",
+  "version": "6.98.1",
+  "date": "2026-11-02",
+  "title": "Demo requests are only confirmed once the email has gone out.",
+  "notes": [
+   "The demo form (now on agvending.is/kerfid, and still on the features page here) is told it went through only after SendGrid has accepted the mail. A failed send shows the email-us fallback instead of a thank-you, so no request is lost silently.",
+   "Replying to a demo-request email now answers the person who asked."
+  ],
+  "check": "Send the demo form on agvending.siggip.workers.dev/kerfid with your own address: the mail arrives, and Reply goes to you."
+ },
+ {
+  "component": "backend",
   "version": "6.97.1",
   "date": "2026-11-02",
   "title": "agvending.is enquiries say which machine the customer wants.",
