@@ -2952,8 +2952,14 @@ function computeFleetHealth(now) {
       if (complaints) issues.push({ kind: 'complaints', level: 2, label: complaints + ' complaint' + (complaints === 1 ? '' : 's') });
       const behind = !!(target && vc != null && vc < target);
       const op = operators[m.operatorId];
+      // What kind of machine this is, so the fleet can be read and sorted by model rather than
+      // by which app line it happens to be on. A machine with no model gets no update at all
+      // (machineModels.js), so the page has to be able to show you which ones those are.
+      const mi = machineModels.modelInfo(m.model);
       return { deviceCode: m.deviceCode, name: m.deviceName || m.deviceCode, operatorId: m.operatorId,
                operatorName: (op && op.name) || m.operatorName || '', app, online: !!m.isOnline,
+               model: mi.model || null, modelLabel: mi.label || null, modelLabelEn: mi.labelEn || null,
+               modelKind: mi.kind, modelCatalogued: !!mi.catalogued,
                lastSeenAt: m.lastSeenAt || null, offlineMin, longOffline, appVersion: m.kioskVersion || null, versionCode: vc,
                selfTestAt: st ? st.receivedAt : null, closure,
                behind, issues, decimalPlace: pay && Number.isInteger(pay.decimalPlace) ? pay.decimalPlace : null,
