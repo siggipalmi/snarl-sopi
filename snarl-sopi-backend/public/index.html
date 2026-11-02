@@ -202,6 +202,8 @@ tr:hover td{background:rgba(240,232,218,.3);}
 /* A machine nobody has set a model on gets no app update at all, so it is flagged rather
    than left blank. */
 .no-model{background:var(--accent);color:var(--ink);font-weight:700;padding:1px 6px;}
+/* Cancelled or credited: not owed, so it must not read like a demand. */
+.bl-pill-void{background:var(--cream-deep);color:var(--muted);}
 .otp-fi{font-family:var(--mono);font-size:25px;font-weight:500;letter-spacing:.40em;text-align:center;
         padding:13px 0 13px .40em;color:var(--ink);}
 .otp-fi::placeholder{letter-spacing:.40em;color:var(--muted);opacity:.55;}
@@ -2245,6 +2247,7 @@ let LANG = (function(){ try { return localStorage.getItem(LANG_KEY) || 'en'; } c
 const I18N = {
   en: {
     'nav.security':'Security','title.security':'security.',
+    'billing.cancelled':'cancelled','billing.credited':'credited',
     'fleet.noModel':'no model set','fleet.noUpdates':'gets no updates',
     'alert.new_device_signin.title':'Sign-in from a new device',
     'alert.new_device_signin.detail':'{who} signed in from {device} ({ip}) on {date} at {time}. If this was not you, change the password and sign out everywhere else.',
@@ -2469,6 +2472,7 @@ const I18N = {
   },
   is: {
     'nav.security':'Öryggi','title.security':'öryggi.',
+    'billing.cancelled':'niðurfelldur','billing.credited':'kreditfærður',
     'fleet.noModel':'engin tegund skráð','fleet.noUpdates':'fær engar uppfærslur',
     'alert.new_device_signin.title':'Innskráning úr nýju tæki',
     'alert.new_device_signin.detail':'{who} skráði sig inn úr {device} ({ip}) {date} kl. {time}. Ef þetta varst ekki þú skaltu breyta lykilorðinu og skrá út öll önnur tæki.',
@@ -10313,7 +10317,7 @@ async function renderBilling() {
   const opMeta = _operatorsCache.find(o => o.id === opId) || { name: currentUser?.operatorName || '', id: opId };
   _blData = { opId, movements, opName: opMeta.name || '' };
 
-  const unpaid = invoices.filter(i => !blPaid(i));
+  const unpaid = invoices.filter(i => !blPaid(i) && !blVoid(i));
   const overdue = invoices.filter(i => blOverdue(i));
   const due = balance > 0;
   let sub;
@@ -10348,16 +10352,32 @@ async function renderBilling() {
     `<div class="bl-foot">${t('billing.foot')}</div>`;
 }
 
-function blPaid(i) { return /paid|greitt|settled/.test(i.status || ''); }
+// The backend sends state (cancelled | credited | paid | open), computed by the same function
+// the ledger uses, so the two views cannot drift apart again. The status fallbacks below are
+// only for an invoice cached from before that field existed.
+function blState(i) {
+  if (i.state) return i.state;
+  if (i.cancelledDate || /cancel/.test(i.status || '')) return 'cancelled';
+  if (i.creditDate || /credit|refund/.test(i.status || '') || Number(i.amount || 0) < 0) return 'credited';
+  if (/paid|greitt|settled/.test(i.status || '')) return 'paid';
+  return 'open';
+}
+function blPaid(i) { return blState(i) === 'paid'; }
+/** Neither owed nor collectable: withdrawn or credited. Never counts, never overdue. */
+function blVoid(i) { const st = blState(i); return st === 'cancelled' || st === 'credited'; }
 function blOverdue(i) {
-  if (blPaid(i)) return false;
+  // A cancelled invoice is not late, however old it is, and a credit note is money going the
+  // other way. Showing either as overdue tells an operator they owe what they do not.
+  if (blPaid(i) || blVoid(i)) return false;
   if (/overdue|vansk/.test(i.status || '')) return true;
   if (i.dueDate) { const d = new Date(i.dueDate); if (!isNaN(d) && d < new Date()) return true; }
   return false;
 }
 function blInvRow(opId, i) {
-  const paid = blPaid(i), over = blOverdue(i);
-  const pill = paid ? `<span class="bl-pill bl-pill-paid">${t('billing.paid')}</span>`
+  const state = blState(i), paid = blPaid(i), over = blOverdue(i);
+  const pill = state === 'cancelled' ? `<span class="bl-pill bl-pill-void">${t('billing.cancelled')}</span>`
+    : state === 'credited' ? `<span class="bl-pill bl-pill-void">${t('billing.credited')}</span>`
+    : paid ? `<span class="bl-pill bl-pill-paid">${t('billing.paid')}</span>`
     : over ? `<span class="bl-pill bl-pill-over">${t('billing.overdue')}</span>`
     : `<span class="bl-pill bl-pill-due">${t('billing.unpaid')}${i.dueDate ? ' · ' + t('billing.due') + ' ' + blDate(i.dueDate) : ''}</span>`;
   const late = i.lateFee > 0 ? ` · <span class="bl-late">${t('billing.lateFee').replace('{amt}', blKr(i.lateFee))}</span>` : '';

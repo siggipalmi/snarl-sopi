@@ -7313,12 +7313,20 @@ async function handleSetPaydayLink(req, res) {
 // tolerant + CONFIRM-able against a real response.
 function _normInvoice(inv) {
   const n = v => Number(v || 0);
+  const payday = require('./payday');
   return {
     id: inv.id,
     number: inv.number != null ? inv.number : inv.id,
     issuedAt: inv.invoiceDate || inv.created || null,
     dueDate: inv.finalDueDate || inv.dueDate || null,
     paidDate: inv.paidDate || null,
+    // Cancelled and credited used to be dropped here, so the page could not tell that an
+    // invoice had been withdrawn and showed it as overdue — while the ledger, which did check,
+    // left it out of the balance. The two views disagreed by the value of every cancelled
+    // invoice. Both now read the same state.
+    cancelledDate: inv.cancelledDate || null,
+    creditDate: inv.creditDate || inv.refundDate || null,
+    state: payday.invoiceState(inv),              // cancelled | credited | paid | open
     amount: n(inv.amountIncludingVat != null ? inv.amountIncludingVat : (inv.total || inv.amount)),
     lateFee: 0,                                   // Payday carries no discrete late-fee amount on the invoice
     status: String(inv.status || '').toLowerCase(),
