@@ -192,6 +192,16 @@ tr:hover td{background:rgba(240,232,218,.3);}
 .fi.mono{font-family:var(--mono);}
 /* The six-digit code field. One input rather than six boxes, so pasting a code from a password
    manager lands in it whole; the wide tracking is what gives it the look of separate cells. */
+/* Fleet table sorting. A plain text header that sorts needs to read as clickable, and the
+   arrow only ever sits on the column actually doing the sorting. */
+.fh-table th.srt{cursor:pointer;user-select:none;white-space:nowrap;}
+.fh-table th.srt:hover{color:var(--ink);}
+.fh-table th.srt.on{color:var(--ink);font-weight:800;}
+.fh-table th .arw{opacity:0;margin-left:5px;font-size:10px;}
+.fh-table th.srt.on .arw{opacity:1;}
+/* A machine nobody has set a model on gets no app update at all, so it is flagged rather
+   than left blank. */
+.no-model{background:var(--accent);color:var(--ink);font-weight:700;padding:1px 6px;}
 .otp-fi{font-family:var(--mono);font-size:25px;font-weight:500;letter-spacing:.40em;text-align:center;
         padding:13px 0 13px .40em;color:var(--ink);}
 .otp-fi::placeholder{letter-spacing:.40em;color:var(--muted);opacity:.55;}
@@ -631,7 +641,7 @@ select.fi{cursor:pointer;}
 .fh-table th{text-align:left;font-weight:500;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-top:1px solid var(--line);background:var(--cream)}
 .fh-table td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:middle}
 .fh-table td:first-child,.fh-table th:first-child{padding-left:16px;width:12px}
-.fh-table td b{font-weight:500;display:block}.fh-table td small{color:var(--muted);font-family:var(--mono);font-size:10.5px}
+.fh-table td b{font-weight:500;display:block}.fh-table td small{display:block;color:var(--muted);font-family:var(--mono);font-size:10.5px}
 .fh-table .ui-dot{display:inline-block}
 .fh-table td.mono{font-family:var(--mono);font-size:12px}
 .fh-table td .ui-tag:first-child{margin-left:0}
@@ -2235,6 +2245,7 @@ let LANG = (function(){ try { return localStorage.getItem(LANG_KEY) || 'en'; } c
 const I18N = {
   en: {
     'nav.security':'Security','title.security':'security.',
+    'fleet.noModel':'no model set','fleet.noUpdates':'gets no updates',
     'alert.new_device_signin.title':'Sign-in from a new device',
     'alert.new_device_signin.detail':'{who} signed in from {device} ({ip}) on {date} at {time}. If this was not you, change the password and sign out everywhere else.',
     'alert.recovery_code_used.title':'A recovery code was used to sign in',
@@ -2458,6 +2469,7 @@ const I18N = {
   },
   is: {
     'nav.security':'Öryggi','title.security':'öryggi.',
+    'fleet.noModel':'engin tegund skráð','fleet.noUpdates':'fær engar uppfærslur',
     'alert.new_device_signin.title':'Innskráning úr nýju tæki',
     'alert.new_device_signin.detail':'{who} skráði sig inn úr {device} ({ip}) {date} kl. {time}. Ef þetta varst ekki þú skaltu breyta lykilorðinu og skrá út öll önnur tæki.',
     'alert.recovery_code_used.title':'Neyðarkóði notaður við innskráningu',
@@ -11796,6 +11808,55 @@ async function renderFleetHealth() {
   drawFleetHealth();
 }
 function setFleetFilter(f) { _fleetFilter = f; drawFleetHealth(); }
+
+// Which column the fleet table is sorted by, and which way. null means the order the backend
+// sent: worst problems first, which is what the page has always opened on.
+let _fleetSort = null, _fleetSortDir = 1;
+
+/** The friendly name of a machine's model, in the reader's language. */
+function fleetModelLabel(m) {
+  if (!m.model) return null;
+  return (LANG === 'is' ? m.modelLabel : m.modelLabelEn) || m.model;
+}
+
+// How each sortable column compares. Everything falls back to the machine name so that rows
+// with equal keys keep a stable, readable order instead of shuffling.
+const FLEET_SORTS = {
+  name:     m => (m.name || '').toLowerCase(),
+  operator: m => (m.operatorName || '').toLowerCase(),
+  // Machines with no model sort to one end rather than scattering among the blanks.
+  model:    m => (m.model ? '1' + (fleetModelLabel(m) || '').toLowerCase() : '0'),
+  app:      m => (m.versionCode == null ? -1 : m.versionCode),
+  // Online first, then longest-offline last. offlineMin null means never seen at all.
+  seen:     m => (m.online ? -1 : (m.offlineMin == null ? Number.MAX_SAFE_INTEGER : m.offlineMin)),
+  issues:   m => -(m.issues ? m.issues.length : 0),
+};
+
+function sortFleet(col) {
+  if (_fleetSort === col) { _fleetSortDir = -_fleetSortDir; }
+  else { _fleetSort = col; _fleetSortDir = 1; }
+  drawFleetHealth();
+}
+
+function fleetSorted(list) {
+  if (!_fleetSort || !FLEET_SORTS[_fleetSort]) return list;
+  const key = FLEET_SORTS[_fleetSort];
+  // Copy first: the array is the loaded fleet, and sorting in place would make the backend's
+  // own worst-first order unrecoverable without refetching.
+  return list.slice().sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    let d = 0;
+    if (typeof ka === 'number' && typeof kb === 'number') d = ka - kb;
+    else d = String(ka).localeCompare(String(kb), 'is');
+    return (d || String(a.name).localeCompare(String(b.name), 'is')) * _fleetSortDir;
+  });
+}
+
+function fleetTh(col, label) {
+  const on = _fleetSort === col;
+  return '<th class="srt' + (on ? ' on' : '') + '" onclick="sortFleet(\'' + col + '\')">'
+    + label + '<span class="arw">' + (on && _fleetSortDir < 0 ? '▼' : '▲') + '</span></th>';
+}
 function drawFleetHealth() {
   const d = window._fleetHealth; if (!d) return;
   const all = d.machines || [];
@@ -11821,19 +11882,29 @@ function drawFleetHealth() {
   const ago = m => m.online ? 'online' : (m.offlineMin == null ? 'never seen' : m.offlineMin < 60 ? 'seen ' + m.offlineMin + ' min ago' : m.offlineMin < 2880 ? 'seen ' + Math.round(m.offlineMin / 60) + ' h ago' : 'seen ' + Math.round(m.offlineMin / 1440) + ' d ago');
   const tags = m => m.issues.map(i => ui.tag(i.label, i.level === 1)).join('') + (m.behind ? ui.tag('old app') : '');
   const dot = m => m.worst === 1 ? 'act' : m.worst >= 3 ? 'ok' : '';
+  // The Type cell: what the machine IS, not which app line it happens to be on. A machine with
+  // no model is offered no update at all, so it is flagged rather than shown as an empty cell.
+  const typeCell = m => m.model
+    ? `${rsEsc(fleetModelLabel(m))}<small>${rsEsc(m.model)}</small>`
+    : `<span class="no-model">${t('fleet.noModel')}</span><small>${t('fleet.noUpdates')}</small>`;
   if (wide) {
-    el.innerHTML = `<table class="fh-table"><thead><tr><th></th><th>Machine</th><th>Operator</th><th>Type</th><th>App</th><th>Last seen</th><th>Issues</th></tr></thead><tbody>`
-      + list.map(m => `<tr onclick="openMachineDetail('${rsEsc(m.deviceCode)}')"><td><span class="ui-dot ${dot(m)}"></span></td>
+    const rows = fleetSorted(list);
+    el.innerHTML = `<table class="fh-table"><thead><tr><th></th>`
+      + fleetTh('name', 'Machine') + fleetTh('operator', 'Operator') + fleetTh('model', 'Type')
+      + fleetTh('app', 'App') + fleetTh('seen', 'Last seen') + fleetTh('issues', 'Issues')
+      + `</tr></thead><tbody>`
+      + rows.map(m => `<tr onclick="openMachineDetail('${rsEsc(m.deviceCode)}')"><td><span class="ui-dot ${dot(m)}"></span></td>
           <td><b>${rsEsc(m.name)}</b><small>${rsEsc(m.deviceCode)}</small></td><td>${rsEsc(m.operatorName || '—')}</td>
-          <td>${m.app === 'fridge' ? 'fridge' : 'coil'}</td><td class="mono">${m.appVersion ? rsEsc(m.appVersion) : '—'}</td>
+          <td>${typeCell(m)}</td><td class="mono">${m.appVersion ? rsEsc(m.appVersion) : '—'}</td>
           <td>${ago(m)}</td><td>${tags(m) || '<span style="color:var(--muted)">—</span>'}</td></tr>`).join('')
       + `</tbody></table>`;
     return;
   }
   // Red only for "act now" (level 1: offline, update refused); alerts and complaints are tagged neutral.
-  el.innerHTML = list.map(m => ui.row({
+  el.innerHTML = fleetSorted(list).map(m => ui.row({
     dot: dot(m), title: m.name, tags: tags(m),
-    sub: (m.operatorName || '—') + ' · ' + (m.appVersion ? 'v' + m.appVersion : 'no app') + ' · ' + ago(m),
+    sub: (fleetModelLabel(m) || t('fleet.noModel')) + ' · ' + (m.operatorName || '—')
+       + ' · ' + (m.appVersion ? 'v' + m.appVersion : 'no app') + ' · ' + ago(m),
     onclick: `openMachineDetail('${rsEsc(m.deviceCode)}')`,
   })).join('');
 }
