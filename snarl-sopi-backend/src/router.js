@@ -7371,9 +7371,30 @@ async function handleOperatorLedger(req, res) {
     const op = storage.getOperator(req.params.operatorId);
     if (!op) return notFound(res, 'Operator not found');
     if (!(await _paydayCustomerId(op))) return ok(res, { configured: true, linked: false, movements: [], balance: 0 });
+    // Payday's own statement is the only source that is right: it carries the seðilgjald on
+    // each claim and any part-payment, neither of which is recoverable from invoice amounts.
+    // Its response shape is undocumented, so a parse that comes back not-ok falls through to
+    // the invoice-derived ledger rather than showing a figure nobody can stand behind. The
+    // answer says which was used, so the page can show where the number came from.
+    try {
+      const raw = await payday.getAccountStatement(op.paydayCustomerId, {
+        from: req.query && req.query.from, to: req.query && req.query.to,
+      });
+      const st = payday.parseStatement(raw);
+      if (st.ok) {
+        return ok(res, { configured: true, linked: true, source: 'payday-statement',
+          dateFrom: raw.dateFrom, dateTo: raw.dateTo,
+          movements: st.movements, balance: st.closingBalance });
+      }
+      console.warn('[payday] account statement unusable (' + st.reason + ') — deriving from invoices');
+    } catch (e) {
+      console.warn('[payday] account statement failed (' + e.message + ') — deriving from invoices');
+    }
+
     const inv = await payday.getCustomerInvoices(op.paydayCustomerId);
     const movements = payday.buildLedger(inv);
-    ok(res, { configured: true, linked: true, movements, balance: movements.length ? movements[0].balance : 0 });
+    ok(res, { configured: true, linked: true, source: 'derived',
+      movements, balance: movements.length ? movements[0].balance : 0 });
   } catch (e) {
     ok(res, { configured: true, linked: true, error: String(e.message || e), movements: [], balance: 0 });
   }
