@@ -1,5 +1,19 @@
 [
  {
+  "component": "coil",
+  "version": "0.80.20",
+  "versionCode": 176,
+  "date": "2026-11-02",
+  "title": "The relayed log no longer drops a line at every batch.",
+  "notes": [
+   "The coil app read its log the same way as the fridge app before 0.70.8 and lost lines the same way: roughly one per 5-minute batch, where each batch began, with \"--------- beginning of main\" in every batch.",
+   "The app now reads from just before the last line it sent, by time, so nothing in between can be skipped. If the device's own log has already moved past it, the batch says so with a warning line instead of leaving a silent gap.",
+   "A busy five minutes (a restock, a burst of motor errors) is sent in several posts instead of being cut to the newest 400 lines.",
+   "Same code as the fridge app now (shared LogCursor), so the two cannot drift apart again."
+  ],
+  "check": "On the canary, machine page → logs: no \"beginning of main\" lines, and the ProxyClient/VendingViewModel config lines arrive at their usual rhythm with no gap where one batch ends and the next begins."
+ },
+ {
   "component": "backend",
   "version": "6.98.2",
   "date": "2026-11-02",
