@@ -103,6 +103,7 @@ server.listen(PORT, () => {
   startWeimiAutoSync();
   startDailyDigest();
   startConfigHealthSweep();
+  require('./accounting').startScheduler();
   // Mirror any charged fridge settlement that predates the orders-analytics link, so revenue,
   // heatmap and top-products include fridge sales that were only recorded as settlements.
   try {

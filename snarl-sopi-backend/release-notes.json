@@ -1,6 +1,22 @@
 [
  {
   "component": "backend",
+  "version": "6.106.0",
+  "date": "2026-11-03",
+  "title": "Operators can send each day's sales to their own Payday.",
+  "notes": [
+   "New page Business → Accounting (operator admins and AG). An operator picks its accounting system, connects it and chooses three accounts: Nayax clearing, sales 11% and sales 24%.",
+   "Each morning from 06:00 the previous day goes over as one journal entry: sales including VAT, with their VAT type (Payday splits the VAT out itself), against the clearing account. Entries are drafts by default, so the bookkeeper posts them.",
+   "Payday is the first system. DK, Konto and Business Central are listed as coming.",
+   "Nothing is sent until an operator switches it on, and it never goes back before the first day chosen. A day goes over once. If its sales change later, the history shows the difference and a person sends it: an unposted draft is replaced, a posted entry gets a correction for the difference only.",
+   "A day that sold a product with no VAT rate is held, not guessed at. Lines the machine did not dispense are not counted as sales, the same rule as the reports.",
+   "Preview any day before sending. Logins are stored encrypted and never shown again. If a send times out, it is not retried by itself, since the entry may already be in Payday.",
+   "AG can point an operator at the Payday test company with the Railway test login (PAYDAY_CLIENT_ID_TEST / _SECRET_TEST), without pasting anything into the dashboard."
+  ],
+  "check": "Accounting → choose an operator → Payday → Login: Railway test login → Test connection: the test company's accounts load. Map the three accounts, preview yesterday, press 'Send this day now', and find the draft in Payday's test company under unposted journal entries."
+ },
+ {
+  "component": "backend",
   "version": "6.105.2",
   "date": "2026-11-03",
   "title": "The daily machine email has the dashboard's look.",
