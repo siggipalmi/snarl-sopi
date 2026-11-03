@@ -7451,7 +7451,10 @@ async function handleTestAccounting(req, res) {
     ok(res, await require('./accounting').testConnection(id));
   } catch (e) {
     if (e.code === 'no_credentials') return _acctErr(res, 400, 'no_credentials');
-    _acctErr(res, 502, 'connection_failed', String(e.message || e));
+    // 424, not 502: Railway's edge replaces an app's 502 with its own page, so Payday's words
+    // never reached the dashboard ("backend may be restarting", 2026-11-03).
+    console.warn(`[ACCOUNTING] connection test for ${id} failed: ${e.message}`);
+    _acctErr(res, 424, 'connection_failed', String(e.message || e));
   }
 }
 

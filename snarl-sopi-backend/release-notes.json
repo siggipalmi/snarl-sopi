@@ -1,6 +1,16 @@
 [
  {
   "component": "backend",
+  "version": "6.106.1",
+  "date": "2026-11-03",
+  "title": "Accounting: a failed connection test says what Payday answered.",
+  "notes": [
+   "When Test connection failed, the dashboard said \"Backend may be restarting (HTTP 502)\" instead of the reason. The backend now answers in a way Railway passes through, so the page shows Payday's own error (sign-in refused, or which call failed and why), and the server log records it as [ACCOUNTING]."
+  ],
+  "check": "Accounting → Railway test login → Test connection: either the accounts load, or the red line names Payday's error."
+ },
+ {
+  "component": "backend",
   "version": "6.106.0",
   "date": "2026-11-03",
   "title": "Operators can send each day's sales to their own Payday.",
