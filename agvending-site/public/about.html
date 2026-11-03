@@ -431,7 +431,10 @@ h1 .highlight { position: relative; z-index: -1; }
    19. /about only (this block is not in index.html; everything above is
        copied from it, so the pages share one layout).
    --------------------------------------------------------------------- */
-.about-media { min-height: 0; aspect-ratio: 1200 / 627; align-self: center; }
+.about-figure { flex: 1 1 420px; margin: 0; align-self: center; display: flex; flex-direction: column; gap: var(--s-3); }
+.about-figure figcaption { font-size: var(--fs-small); color: var(--ink-soft); }
+/* flex: none — inside the column figure, the theme's 420px flex-basis would set its height. */
+.about-media { flex: none; min-height: 0; aspect-ratio: 1200 / 627; }
 .about-text { display: flex; flex-direction: column; gap: var(--s-4); font-size: var(--fs-lead); max-width: 720px; }
 </style>
 </head>
@@ -463,9 +466,12 @@ h1 .highlight { position: relative; z-index: -1; }
         <a class="btn--text" href="/#hafa-samband">Hafðu samband</a>
       </div>
     </div>
-    <div class="hero__media about-media">
-      <img src="assets/img/um-sjalfsali.jpg" alt="Sjálfsali AG Vending með 55&quot; snertiskjá á staðnum" width="1200" height="627" />
-    </div>
+    <figure class="about-figure">
+      <div class="hero__media about-media">
+        <img src="assets/img/um-sjalfsali.jpg" alt="Fyrsti sjálfsali AG Vending, með 55&quot; snertiskjá, í Valsheimilinu" width="1200" height="627" />
+      </div>
+      <figcaption>Fyrsti sjálfsali AG Vending í Valsheimilinu 2022</figcaption>
+    </figure>
   </div>
 </section>
 
