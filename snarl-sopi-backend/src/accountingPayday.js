@@ -43,9 +43,18 @@ function httpsRequest(method, urlStr, headers, bodyStr) {
 
 /** Payday's own words from an error body, short enough for a log line and the history row. */
 function errText(status, body) {
+  // Payday's 400s do not always use message/error/title (the first journal test, 2026-11-03,
+  // came back with none of them and the reason was lost). Keep whatever it sent.
+  const raw = String(body || '').trim();
+  if (!raw) return `HTTP ${status} (empty reply)`;
   let msg = '';
-  try { const j = JSON.parse(body); msg = j.message || j.error || j.title || (j.errors && JSON.stringify(j.errors)) || ''; } catch (e) { msg = body; }
-  return `HTTP ${status}${msg ? ': ' + String(msg).slice(0, 300) : ''}`;
+  try {
+    const j = JSON.parse(raw);
+    const known = [j.message, j.error, j.title, j.detail, j.description, j.errorMessage,
+      j.errors && JSON.stringify(j.errors)].filter(Boolean).map(String);
+    msg = known.length ? known.join(' · ') : JSON.stringify(j);
+  } catch (e) { msg = raw; }
+  return `HTTP ${status}: ${msg.replace(/\s+/g, ' ').slice(0, 600)}`;
 }
 
 function client({ environment = 'live', clientId, clientSecret }) {

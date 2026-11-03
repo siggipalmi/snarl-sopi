@@ -1,6 +1,16 @@
 [
  {
   "component": "backend",
+  "version": "6.106.5",
+  "date": "2026-11-03",
+  "title": "Accounting: a refused send shows Payday's whole answer.",
+  "notes": [
+   "When Payday refused a journal entry, the page said only \"HTTP 400\": Payday's reason was in a field we did not read. The failure message and the History note now carry Payday's full answer, and the Railway log records the entry that was sent (account IDs and amounts, no login) next to it."
+  ],
+  "check": "Accounting → Send this day now on a day that failed: the red line says what Payday objected to."
+ },
+ {
+  "component": "backend",
   "version": "6.106.4",
   "date": "2026-11-03",
   "title": "Accounting: an account is saved the moment it is chosen.",

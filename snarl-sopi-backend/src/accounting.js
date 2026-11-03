@@ -490,6 +490,8 @@ async function createAndRecord({ operatorId, day, api, cfg, summary, ref, by, at
     const status = e.status ? 'failed' : 'uncertain';
     record(operatorId, day, { status, reason: String(e.message || e).slice(0, 500), attempts });
     console.warn(`[ACCOUNTING] ${operatorId} ${day}: ${status}: ${e.message}`);
+    // What was sent, so a refusal can be read against it. Ledger ids and amounts only, no login.
+    console.warn(`[ACCOUNTING] ${operatorId} ${day}: sent body ${JSON.stringify(journal)}`);
     return { outcome: status, reason: e.message, summary };
   }
 }
