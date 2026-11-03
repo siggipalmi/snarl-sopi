@@ -107,7 +107,8 @@ things the page has that the theme didn't cover. `takk`/`404`/`500` carry a subs
 - White page, `#111` type and 1px black rules; `--wall #F3F0EB` for the pricing band, image wells
   and form fields. The only dark areas are the testimonial band and the footer.
 - The logo is `assets/img/logo-ag-vending.svg` (Siggi's render, 2 Nov), black; the footer turns it
-  white with a CSS filter. `/favicon.svg` is its AG mark on white.
+  white with a CSS filter. The favicons are the dashboard's own: `/favicon_light.png` and `/favicon_dark.png` (copied
+  from `snarl-sopi-backend/public/`), chosen by the visitor's light/dark mode.
 - One typeface, Libre Franklin (500–900). No serif, no italics. Square corners, no shadows, no
   gradients. Black text on every colour.
 - Palette, accents only: yellow `--accent` (kicker squares, the one highlighted word, link
