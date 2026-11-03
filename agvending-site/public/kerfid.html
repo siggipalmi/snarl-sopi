@@ -368,6 +368,18 @@ h1 .highlight { position: relative; z-index: -1; }
 @keyframes marquee-reverse { from { transform: translateX(-50%); } to { transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) {
   .marquee__track > [aria-hidden="true"] { display: none; }
+  /* Standing still, the two rows become ONE grid (rows and tracks drop out of the layout with
+     display: contents). A wrapped row left ragged lines (8 + 6); 28 logos in 7 / 4 / 2 columns
+     fill every line. Keep the logo count even (two rows of equal length) for that to hold. */
+  .partners .wrap { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--s-5) var(--s-4); justify-items: center; }
+  .partners__label { grid-column: 1 / -1; justify-self: start; }
+  .marquee, .marquee__track { display: contents; }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 1000px) {
+  .partners .wrap { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 680px) {
+  .partners .wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Product card: category + per-day line above the name; price row with the CTA. */

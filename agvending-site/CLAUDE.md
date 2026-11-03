@@ -156,7 +156,8 @@ at 2×; a higher-resolution crest is worth asking for.
 1. Put the file in `public/assets/logos/`: PNG (transparent if you have it), longest edge ≤600px,
    a lowercase name. A white or very light logo needs a dark version — the rail is on white.
 2. Add **one line** to either row of the rail in `public/index.html` (two rows, below pricing;
-   keep them about even), copying a neighbour:
+   keep them **equal**, and the total a multiple of 14 is tidiest: with reduced motion the rail
+   stands still as one grid of 7 / 4 / 2 columns), copying a neighbour:
    `<div class="logo-tile"><img src="assets/logos/NAME.png" alt="Name" title="Name" loading="lazy" decoding="async" /></div>`
    Add `ag-mul` to the tile's class when the logo sits on a white box. The looping copy is made by
    script, so there is no second line to add.
