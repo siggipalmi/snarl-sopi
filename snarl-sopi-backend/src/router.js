@@ -603,7 +603,7 @@ function requireLeaseKey(req, res, next) {
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 
-// ── Demo requests from the public features page ───────────────────────────────
+// ── Demo requests from agvending.is/kerfid ────────────────────────────────────
 // Deliberately unauthenticated — it is a "talk to us" form on a page anyone can read. That makes it
 // the only route on this backend a stranger can POST to, so it is kept as small as possible: no
 // database write, no HTML in the mail, nothing echoed back that wasn't sent, and a hard cap on every
@@ -724,7 +724,7 @@ function handlePairExchange(req, res) {
   ok(res, { deviceCode: rec.deviceCode, deviceName: m.deviceName || rec.deviceCode, machineKey });
 }
 
-// Demo requests, from agvending.is/kerfid (and the older features page on this host). Waits for
+// Demo requests, from agvending.is/kerfid. Waits for
 // SendGrid like handleSiteEnquiry: the site treats 200 as "sent", so a failed mail must not be one.
 async function handleDemoRequest(req, res) {
   const b = req.body || {};

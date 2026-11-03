@@ -26,8 +26,9 @@ Fully static. Plain HTML/CSS/JS. No framework, no build step, no CMS, no npm dep
 - **`kerfid.html` and `about.html` share the front page's layout by copy:** its `<head>` style block (theme
   sections 1–18), header and footer are `index.html`'s, with the in-page links pointing back to
   `/#…`; only its section 19 and `<main>` are its own. Change a shared part in both files.
-  It replaces the backend's `admin.agvending.is/features.html` as the public page about the
-  system; redirect that to `https://agvending.is/kerfid` once the domain has moved.
+  It replaced the backend's `admin.agvending.is/features.html`, which now 301s here (6.106.9).
+- **Live on agvending.is and www since 2026-11-03** (Worker custom domains; Squarespace's A
+  records and www CNAME deleted; the zone export from before the move is in the session record).
 - **Host:** Cloudflare Worker `agvending` with static assets — NOT Pages, NOT Railway.
   Preview at `agvending.siggip.workers.dev`
 - **Config:** `wrangler.toml`, `public/_headers`, `public/_redirects`, `robots.txt`, `sitemap.xml`
