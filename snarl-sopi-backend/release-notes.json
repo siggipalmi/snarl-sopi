@@ -1,6 +1,18 @@
 [
  {
   "component": "backend",
+  "version": "6.105.2",
+  "date": "2026-11-03",
+  "title": "The daily machine email has the dashboard's look.",
+  "notes": [
+   "The morning machine email now looks like the dashboard: light grey background, white rows, the machine name in heavy black type, small mono section labels, and colour only on the status tags (pink for act now, beige for running low).",
+   "Alerts come first, then sold out, then running low. Each product sits on its own row with its slot and how many are left.",
+   "Same content and the same Icelandic subject as before; only the look changed. The plain-text version is unchanged."
+  ],
+  "check": "Tomorrow's morning email from a machine with notifications on, in Gmail and on a phone: grey background, white rows, pink and beige tags."
+ },
+ {
+  "component": "backend",
   "version": "6.105.1",
   "date": "2026-11-03",
   "title": "The daily machine email has an Icelandic subject line.",

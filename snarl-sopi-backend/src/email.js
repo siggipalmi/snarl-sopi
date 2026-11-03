@@ -379,34 +379,48 @@ ${out.length ? `UPPSELT (${out.length}):\n${listText(out)}\n\n` : ''}${low.lengt
 
 — ${OPERATOR_BRAND}`;
 
-  const row = (i, isOut) => `<tr>
-    <td style="padding:7px 0;border-bottom:.5px solid #E8E2D8">${escapeHtml(i.name)}${i.where ? ` <span style="color:#8A8275;font-family:monospace;font-size:11px">hólf ${escapeHtml(String(i.where))}</span>` : ''}</td>
-    <td style="padding:7px 0;border-bottom:.5px solid #E8E2D8;text-align:right;font-family:monospace;font-size:12px;color:${isOut ? '#B8471F' : '#8B6B3E'}">${i.stock} eftir</td>
-  </tr>`;
+  // Same look as the dashboard: grey ground, white rows, heavy black heading, small mono labels,
+  // and colour only in the status tags (pink = act now, beige = keep an eye on it). Tables and
+  // inline styles because mail clients ignore most CSS; fonts fall back to Arial where Libre
+  // Franklin and JetBrains Mono are not available.
+  const SANS = "'Libre Franklin',Arial,Helvetica,sans-serif";
+  const MONO = "'JetBrains Mono',Menlo,Consolas,monospace";
+  const PILL_HOT = 'background:#EC4F8C;color:#FFFFFF;';
+  const PILL_WARN = 'background:#F7F1E3;color:#7A4E1A;border:1px solid #E8DCC0;';
+  const pill = (label, hot) =>
+    `<span style="${hot ? PILL_HOT : PILL_WARN}font-family:${MONO};font-size:11px;padding:4px 9px;white-space:nowrap">${escapeHtml(label)}</span>`;
+  const label = (title, n) =>
+    `<tr><td style="padding:18px 4px 8px;font-family:${MONO};font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#555555">${title} (${n})</td></tr>`;
+  const item = (main, sub, tag) => `<tr><td style="padding:0 0 6px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF"><tr>
+        <td style="padding:13px 16px;font-family:${SANS};font-size:16px;font-weight:600;color:#111111">${escapeHtml(main)}${sub ? `<div style="font-family:${MONO};font-size:11px;font-weight:400;color:#777777;margin-top:2px">${escapeHtml(sub)}</div>` : ''}</td>
+        <td style="padding:13px 16px;text-align:right;white-space:nowrap">${tag}</td>
+      </tr></table></td></tr>`;
+  const stockRows = (arr, hot) => arr.map(i =>
+    item(i.name, i.where ? `hólf ${i.where}` : '', pill(`${i.stock} eftir`, hot))).join('');
 
-  const section = (title, arr, isOut) => arr.length ? `
-    <tr><td style="padding:20px 0 6px">
-      <div style="font-family:monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:${isOut ? '#B8471F' : '#8A8275'}">${title} (${arr.length})</div>
-    </td></tr>
-    <tr><td><table width="100%" cellpadding="0" cellspacing="0" style="font-size:13.5px">${arr.map(i => row(i, isOut)).join('')}</table></td></tr>` : '';
-
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#E8DFD0;color:#1A1A1A;line-height:1.6;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#E8DFD0;padding:32px 16px;"><tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FAF7F2;border-radius:14px;padding:26px;">
-  <tr><td>
-    <div style="font-family:Georgia,serif;font-style:italic;font-size:21px;font-weight:500">${escapeHtml(machineName)}</div>
-    <div style="font-family:monospace;font-size:11px;color:#8A8275;margin-top:3px">${escapeHtml(deviceCode)} · ${escapeHtml(statusBits.join(' · '))}</div>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"></head>
+<body style="margin:0;padding:0;background:#F2F2F2;color:#111111;font-family:${SANS};line-height:1.45;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F2F2F2;padding:24px 14px 32px;"><tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+  <tr><td style="padding:0 4px 14px">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="font-family:${SANS};font-size:20px;font-weight:900;letter-spacing:-.5px;color:#111111">${OPERATOR_BRAND}</td>
+      <td style="text-align:right;font-family:${MONO};font-size:10px;letter-spacing:.12em;color:#111111">DAGLEGT YFIRLIT</td>
+    </tr></table>
   </td></tr>
-  ${section('uppselt', out, true)}
-  ${section('að klárast', low, false)}
-  ${alerts.length ? `
-  <tr><td style="padding:20px 0 6px"><div style="font-family:monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#B8471F">athuga (${alerts.length})</div></td></tr>
-  ${alerts.map(a => `<tr><td style="padding:6px 0;border-bottom:.5px solid #E8E2D8;font-size:13.5px">${escapeHtml(a.title)}</td></tr>`).join('')}` : ''}
-  <tr><td style="padding:22px 0 0">
-    <a href="${dashboardUrl}" style="display:inline-block;background:#1A1A1A;color:#FAF7F2;text-decoration:none;padding:11px 20px;border-radius:8px;font-size:14px">Opna vélina</a>
+  <tr><td style="background:#FFFFFF;padding:18px 18px 16px">
+    <div style="font-family:${SANS};font-size:30px;line-height:1.05;font-weight:900;letter-spacing:-1px;color:#111111">${escapeHtml(machineName)}</div>
+    <div style="margin-top:6px;font-size:12px;color:#555555"><span style="font-family:${MONO}">${escapeHtml(deviceCode)}</span> · ${escapeHtml(statusBits.join(' · '))}</div>
   </td></tr>
-  <tr><td style="padding:18px 0 0;font-size:11px;color:#8A8275">${escapeHtml(operatorName)} — ${OPERATOR_BRAND}</td></tr>
+  ${alerts.length ? label('athuga', alerts.length) + alerts.map(a => item(a.title, '', pill('athuga', true))).join('') : ''}
+  ${out.length ? label('uppselt', out.length) + stockRows(out, true) : ''}
+  ${low.length ? label('að klárast', low.length) + stockRows(low, false) : ''}
+  <tr><td style="padding:14px 4px 0">
+    <a href="${dashboardUrl}" style="display:inline-block;background:#111111;color:#FFFFFF;text-decoration:none;padding:13px 20px;font-family:${SANS};font-size:15px;font-weight:600">Opna vélina &rarr;</a>
+  </td></tr>
+  <tr><td style="padding:16px 4px 0;font-family:${MONO};font-size:10px;color:#777777">${escapeHtml(operatorName)} · ${OPERATOR_BRAND}</td></tr>
 </table></td></tr></table></body></html>`;
 
   return send({ to, subject, text, html });
