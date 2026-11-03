@@ -356,9 +356,16 @@ h1 .highlight { position: relative; z-index: -1; }
    Without the script the logos simply stand still. With motion off the track wraps, so the
    copies are hidden again. */
 .marquee__track:not(.is-looped) { animation: none; }
-/* The theme loops in 50s, sized for 16 logos; scale with the count (about 3s a logo) so the
-   speed stays the same when logos are added. */
-.marquee__track { animation-duration: 80s; }
+/* Two rows, under the label, the second moving the other way. The theme loops in 50s, sized for
+   16 logos; about 3s a logo keeps the speed the same (13 a row: 40s). Row two has its own
+   keyframe rather than animation-direction: reverse, which would start it on the copied half. */
+/* flex-wrap: nowrap — the theme wraps this under 760px, and a wrapping column sizes each row to
+   all of its logos (3650px of sideways scroll on a phone). */
+.partners .wrap { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: var(--s-4); }
+.partners__label { white-space: normal; }
+.marquee__track { animation-duration: 40s; }
+.marquee--reverse .marquee__track { animation-name: marquee-reverse; }
+@keyframes marquee-reverse { from { transform: translateX(-50%); } to { transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) {
   .marquee__track > [aria-hidden="true"] { display: none; }
 }
@@ -426,7 +433,6 @@ h1 .highlight { position: relative; z-index: -1; }
   .nav { gap: var(--s-2) 18px; }
   .nav .nav__login { display: none; }   /* still in the footer */
 }
-
 /* ---------------------------------------------------------------------
    19. /kerfid only (this block is not in index.html; everything above is
        copied from it by the build, so the two pages share one layout).
@@ -505,15 +511,15 @@ h1 .highlight { position: relative; z-index: -1; }
     <div class="kerfid-grid">
       <div class="ruled-list">
         <ul>
-          <li><span>Sala í rauntíma<small>Tekjur dagsins, vikunnar og mánaðarins — á flotann og á hverja vél.</small></span></li>
+          <li><span>Sala í rauntíma<small>Tekjur flotans, í hverri vél niður á hverja færslu — dagsins, vikunnar og mánaðarins.</small></span></li>
           <li><span>Lagerstaða<small>Hvað er eftir í hverri vél, niður í einstök hólf, og hvað er uppselt núna.</small></span></li>
           <li><span>Áfyllingarlisti<small>Vélarnar raðaðar eftir því hverja er brýnast að heimsækja.</small></span></li>
-          <li><span>Viðvaranir<small>Vél sem dettur út, kælir sem hlýnar, hólf sem tæmist — á skjá og í tölvupósti.</small></span></li>
+          <li><span>Viðvaranir<small>Vél sem dettur út, kæling sem bilar, hólf sem tæmist — á skjá og í tölvupósti.</small></span></li>
         </ul>
       </div>
       <div class="ruled-list">
         <ul>
-          <li><span>Uppgjör og VSK<small>Tekjur, VSK og framlegð eftir vöru. Kvittanir og útflutningur í CSV.</small></span></li>
+          <li><span>Uppgjör og VSK<small>Tekjur, VSK og framlegð eftir vöru. Bókhaldstenging við Payday, DK, Konto og Business Central. Kvittanir og útflutningur í CSV.</small></span></li>
           <li><span>Fjarstýring<small>Opna hurð kælis, stilla kælingu, taka vél úr sölu — án þess að fara á staðinn.</small></span></li>
           <li><span>Kvartanir<small>Kvörtun kemur úr vélinni sjálfri; þú svarar og endurgreiðir úr sama viðmóti.</small></span></li>
           <li><span>Notendur og aðgangur<small>Starfsmaður sér aðeins sínar vélar. Rekstrarstjóri sér allt og býður öðrum aðgang.</small></span></li>
@@ -566,6 +572,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <li><span>VSK innheimt og tekjur án VSK</span></li>
           <li><span>Framlegð eftir vöru, ekki bara sala</span></li>
           <li><span>Mest sölu vörur og þær sem hreyfast ekki</span></li>
+          <li><span>Bókhaldstenging við Payday, DK, Konto og Business Central</span></li>
         </ul></div>
       </div>
       <figure class="split__main kerfid-shot">
@@ -615,7 +622,7 @@ h1 .highlight { position: relative; z-index: -1; }
       </div>
       <div class="split__main kerfid-grid">
         <div class="ruled-list"><ul>
-          <li><span>Viðvaranir í tölvupóst<small>Vél dettur út, kælir hlýnar of lengi, hólf tæmist — á skjánum og í pósti, ekki í loggskrá sem enginn opnar.</small></span></li>
+          <li><span>Viðvaranir í tölvupóst<small>Vél dettur út, kæling bilar, hólf tæmist — á skjánum og í pósti, ekki í loggskrá sem enginn opnar.</small></span></li>
           <li><span>Fjarstýring<small>Opna hurð kælis, stilla kælingu, taka vél úr sölu — án þess að fara á staðinn.</small></span></li>
         </ul></div>
         <div class="ruled-list"><ul>
