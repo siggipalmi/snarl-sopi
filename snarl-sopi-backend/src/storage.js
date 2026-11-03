@@ -639,6 +639,11 @@ ensureColumn('machines', 'nayaxLastSyncAt', 'TEXT');
 // The coil a kiosk sale line was vended from ("A35"), as the coil app reports it from 0.80.16.
 // NULL for older sales, Weimi-synced orders and fridge sales.
 ensureColumn('orders', 'aisle', 'TEXT');
+// Units on a sale line. The kiosk reports several of one product as ONE line with a qty and the
+// line total; without this the dashboard showed "1 item · Pepsi Max · 1180 kr" for two Pepsi Max
+// (Lava Show, 2026-11-02). NULL on rows from before it was stored — read as 1.
+ensureColumn('orders', 'quantity', 'INTEGER');
+ensureColumn('order_items', 'quantity', 'INTEGER');
 // Which session was last used when, for the signed-in-devices screen and for idle expiry.
 // Existing tokens get NULL and are read as "first seen now" rather than as idle since the epoch.
 ensureColumn('auth_tokens', 'lastUsedAt', 'INTEGER');
@@ -872,31 +877,33 @@ const stmts = {
       WHERE machineId=@machineId`),
 
   // Orders
-  insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime, aisle)
-                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime, @aisle)`),
+  insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime, aisle, quantity)
+                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime, @aisle, @quantity)`),
   getOrder:          db.prepare('SELECT * FROM orders WHERE tradeNo = ?'),
   // Fridge sales arrive as settlements, not Weimi orders, and a settlement can be replayed on
   // reconnect — so this must be an upsert or a repost would double-count revenue.
-  upsertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime)
-                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime)
+  upsertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime, quantity)
+                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime, @quantity)
                                  ON CONFLICT(tradeNo) DO UPDATE SET
                                    deviceCode=excluded.deviceCode, goodsId=excluded.goodsId, productName=excluded.productName,
                                    totalAmount=excluded.totalAmount, amountKr=excluded.amountKr,
-                                   status=excluded.status, statusLabel=excluded.statusLabel, createTime=excluded.createTime`),
+                                   status=excluded.status, statusLabel=excluded.statusLabel, createTime=excluded.createTime,
+                                   quantity=excluded.quantity`),
   listOrdersToday:   db.prepare('SELECT * FROM orders WHERE createTime >= ? AND createTime < ? AND status = 1'),
   listOrdersScoped:  db.prepare('SELECT * FROM orders WHERE deviceCode IN (SELECT value FROM json_each(?)) ORDER BY createTime DESC LIMIT ? OFFSET ?'),
   countOrdersScoped: db.prepare('SELECT COUNT(*) AS c FROM orders WHERE deviceCode IN (SELECT value FROM json_each(?))'),
 
   // Order line items (one per detailVOList entry)
   upsertOrderItem: db.prepare(`INSERT INTO order_items
-      (tradeNo, lineIndex, deviceCode, goodsId, productName, payAmount, shipmentStatus, createTime)
-      VALUES (@tradeNo, @lineIndex, @deviceCode, @goodsId, @productName, @payAmount, @shipmentStatus, @createTime)
+      (tradeNo, lineIndex, deviceCode, goodsId, productName, payAmount, shipmentStatus, createTime, quantity)
+      VALUES (@tradeNo, @lineIndex, @deviceCode, @goodsId, @productName, @payAmount, @shipmentStatus, @createTime, @quantity)
       ON CONFLICT(tradeNo, lineIndex) DO UPDATE SET
         goodsId=excluded.goodsId, productName=excluded.productName,
-        payAmount=excluded.payAmount, shipmentStatus=excluded.shipmentStatus`),
+        payAmount=excluded.payAmount, shipmentStatus=excluded.shipmentStatus,
+        quantity=COALESCE(excluded.quantity, order_items.quantity)`),
   // Report rows: delivered line items in a window, joined to our product attrs.
   reportItems: db.prepare(`
-    SELECT oi.tradeNo, oi.deviceCode, oi.goodsId, oi.payAmount, oi.createTime,
+    SELECT oi.tradeNo, oi.deviceCode, oi.goodsId, oi.payAmount, oi.createTime, oi.quantity,
            COALESCE(p.name, oi.productName) AS name,
            p.vatRate AS vatRate, p.costPriceIsk AS costPriceIsk, p.costPriceNetIsk AS costPriceNetIsk
     FROM order_items oi
@@ -1078,7 +1085,7 @@ const stmts = {
       FROM fridge_settlement_lines l JOIN fridge_settlements s ON s.deviceCode = l.deviceCode AND s.orderId = l.orderId
       WHERE l.deviceCode = ? AND s.outcome = 'charged' AND s.receivedAt >= ? AND l.productId IS NOT NULL
       GROUP BY l.productId`),
-  coilSoldSince: db.prepare(`SELECT goodsId AS productId, COUNT(*) AS units, SUM(payAmount) / 100 AS revenueIsk
+  coilSoldSince: db.prepare(`SELECT goodsId AS productId, SUM(COALESCE(quantity, 1)) AS units, SUM(payAmount) / 100 AS revenueIsk
       FROM order_items WHERE deviceCode = ? AND createTime >= ? AND goodsId IS NOT NULL GROUP BY goodsId`),
   openFridgeComplaints: db.prepare("SELECT COUNT(*) AS n, MAX(createdAt) AS latest FROM fridge_complaints WHERE deviceCode = ? AND status = 'open'"),
   openCoilComplaints: db.prepare("SELECT COUNT(*) AS n, MAX(createdAt) AS latest FROM complaints WHERE deviceCode = ? AND status = 'open'"),
@@ -1637,6 +1644,7 @@ const storage = {
       totalAmount: o.totalAmount || 0, amountKr: o.amountKr || 0,
       status: o.status, statusLabel: o.statusLabel || null,
       createTime: o.createTime, aisle: o.aisle || null,
+      quantity: Number.isInteger(o.quantity) && o.quantity > 0 ? o.quantity : null,
     });
   },
   // One-shot repair: settlements recorded before fridge sales were mirrored into `orders` have no
@@ -1687,6 +1695,10 @@ const storage = {
       status: 1,                                  // charged and handed over
       statusLabel: 'charged',
       createTime,
+      // Units, for a single-product sale (top products counts order rows). A multi-product sale
+      // is expanded into its lines wherever it is read, so it carries none here.
+      quantity: sold.length === 1 && !sold[0].soldByWeight && Number.isInteger(sold[0].quantity) && sold[0].quantity > 0
+        ? sold[0].quantity : null,
     });
     sold.forEach((l, i) => {
       stmts.upsertOrderItem.run({
@@ -1696,6 +1708,8 @@ const storage = {
         payAmount: Math.round((l.lineIsk != null ? l.lineIsk : 0) * 100),
         shipmentStatus: 1,
         createTime,
+        // A per-kg line is one item whatever it weighs.
+        quantity: l.soldByWeight ? 1 : (Number.isInteger(l.quantity) && l.quantity > 0 ? l.quantity : null),
       });
     });
   }),
@@ -1712,6 +1726,7 @@ const storage = {
       goodsId: it.goodsId || null, productName: it.productName || '',
       payAmount: it.payAmount || 0, shipmentStatus: it.shipmentStatus ? 1 : 0,
       createTime: it.createTime,
+      quantity: Number.isInteger(it.quantity) && it.quantity > 0 ? it.quantity : null,
     });
   },
   reportItems(sinceUTC, untilUTC, deviceCodes) {
