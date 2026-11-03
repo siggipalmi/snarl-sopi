@@ -26,8 +26,13 @@ const MIME = {
   '.ico':  'image/x-icon',
 };
 
+// The public page about the system moved to the marketing site on 2026-11-03 (agvending.is/kerfid).
+// Old links and bookmarks to it land there instead of on a 404.
+const MOVED = { '/features.html': 'https://agvending.is/kerfid', '/features': 'https://agvending.is/kerfid' };
+
 function serveStatic(req, res) {
   let urlPath = req.url.split('?')[0];
+  if (MOVED[urlPath]) { res.writeHead(301, { Location: MOVED[urlPath] }); res.end(); return true; }
   if (urlPath === '/') urlPath = '/index.html';
   const filePath = path.join(PUBLIC_DIR, urlPath);
   // Prevent directory traversal

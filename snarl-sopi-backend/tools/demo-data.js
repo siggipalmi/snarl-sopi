@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Fill an EMPTY database with invented demo data, for the public screenshots (the dashboard
- * images on agvending.is/kerfid and on public/features.html).
+ * images on agvending.is/kerfid).
  *
  *   DB_PATH=/tmp/demo.db node tools/demo-data.js
  *   DB_PATH=/tmp/demo.db PORT=3000 node src/server.js      # then sign in as below

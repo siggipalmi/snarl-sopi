@@ -1,6 +1,17 @@
 [
  {
   "component": "backend",
+  "version": "6.106.9",
+  "date": "2026-11-03",
+  "title": "The old features page now sends people to agvending.is/kerfid.",
+  "notes": [
+   "admin.agvending.is/features.html (and /features) answer with a permanent redirect to https://agvending.is/kerfid, the system page on the new company site, which went live on agvending.is today. The page itself is removed.",
+   "The link under the dashboard's sign-in box (\"Sjá hvað kerfið gerir\") goes straight to agvending.is/kerfid."
+  ],
+  "check": "Open admin.agvending.is/features.html: it should land on agvending.is/kerfid."
+ },
+ {
+  "component": "backend",
   "version": "6.106.8",
   "date": "2026-11-03",
   "title": "Diagnostic: where a machine's sales come from, and whether accounting sees them.",
