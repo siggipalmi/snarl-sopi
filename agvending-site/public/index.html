@@ -415,6 +415,8 @@ h1 .highlight { position: relative; z-index: -1; }
 .site-footer nav { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); }
 .site-footer nav a { text-decoration: none; }
 .site-footer nav a:hover { text-decoration: underline; color: var(--paper); }
+.site-footer .footer-about { color: var(--on-dark-soft); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.site-footer .footer-about:hover { color: var(--paper); }
 
 @media (max-width: 760px) {
   .partners__label { white-space: normal; }
@@ -726,7 +728,7 @@ h1 .highlight { position: relative; z-index: -1; }
 <footer class="site-footer">
   <div class="wrap">
     <a class="brand" href="#top"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" loading="lazy" /></a>
-    <span class="muted">AG Vending ehf. · kt. 590922-0800</span>
+    <span class="muted">AG Vending ehf. · kt. 590922-0800 · <a class="footer-about" href="/about">Um AG Vending ehf.</a></span>
     <nav aria-label="Fótur">
       <a href="#vorur">Sjálfsalar</a>
       <a href="#verd">Verðskrá</a>

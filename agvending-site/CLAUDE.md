@@ -21,8 +21,9 @@ Updated 28 Oct 2026, from the claude.ai Project handover of 25 Aug.
 Fully static. Plain HTML/CSS/JS. No framework, no build step, no CMS, no npm dependencies.
 
 - **Pages:** `public/index.html` (the front page) + `kerfid.html` (the web admin, /kerfid) +
-  `takk.html` + `404.html` + `500.html`
-- **`kerfid.html` shares the front page's layout by copy:** its `<head>` style block (theme
+  `about.html` (/about, "Um AG Vending ehf.", linked small from every footer) + `takk.html` +
+  `404.html` + `500.html`
+- **`kerfid.html` and `about.html` share the front page's layout by copy:** its `<head>` style block (theme
   sections 1–18), header and footer are `index.html`'s, with the in-page links pointing back to
   `/#…`; only its section 19 and `<main>` are its own. Change a shared part in both files.
   It replaces the backend's `admin.agvending.is/features.html` as the public page about the
@@ -196,4 +197,5 @@ at 2×; a higher-resolution crest is worth asking for.
   `object-fit: contain`) plus in-situ shots for the hero
 - Kiosk flow video: 8–12s silent MP4 loop composited into the machine screens — show the
   copy/storyboard for approval before producing it
-- `/about` and other Squarespace pages: port, fold into the homepage, or drop with a 301
+- ~~`/about` and other Squarespace pages~~ — decided 3 Nov: `/about` ported to the site at the
+  same address (no redirect needed); the footer links it as "Um AG Vending ehf.".
