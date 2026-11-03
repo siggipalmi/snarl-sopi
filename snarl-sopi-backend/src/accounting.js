@@ -151,11 +151,40 @@ function publicView(operatorId, { isAg } = {}) {
   };
 }
 
+/** A value pasted into Railway or the dashboard: surrounding whitespace and quotes are not part of it. */
+function cleanSecret(v) {
+  return String(v == null ? '' : v).trim().replace(/^(['"])(.*)\1$/s, '$2').trim();
+}
+
+/** What a credential looks like, never what it is: for diagnosing invalid_client. */
+function shapeOf(raw) {
+  const v = raw == null ? '' : String(raw);
+  const c = cleanSecret(v);
+  return { set: v.length > 0, length: c.length, guidShaped: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c),
+    hadWhitespace: v !== v.trim(), hadQuotes: /^\s*['"]/.test(v) };
+}
+
+/**
+ * AG-only: are the Railway test credentials well-formed, and which Payday accepts them?
+ * Only POST /auth/token is called, against test and live; nothing is read or written.
+ */
+async function diagnoseRailwayTest() {
+  const rawId = process.env.PAYDAY_CLIENT_ID_TEST, rawSecret = process.env.PAYDAY_CLIENT_SECRET_TEST;
+  const out = { clientId: shapeOf(rawId), clientSecret: shapeOf(rawSecret), signIn: {} };
+  for (const environment of ['test', 'live']) {
+    try {
+      await paydayLedger.client({ environment, clientId: cleanSecret(rawId), clientSecret: cleanSecret(rawSecret) }).accounts();
+      out.signIn[environment] = 'accepted';
+    } catch (e) { out.signIn[environment] = String(e.message || e).slice(0, 200); }
+  }
+  return out;
+}
+
 function credentialsFor(conn) {
   const cfg = conn.config;
   if (cfg.provider !== 'payday') return null;
   if (cfg.credentialSource === 'railway-test') {
-    const id = process.env.PAYDAY_CLIENT_ID_TEST, secret = process.env.PAYDAY_CLIENT_SECRET_TEST;
+    const id = cleanSecret(process.env.PAYDAY_CLIENT_ID_TEST), secret = cleanSecret(process.env.PAYDAY_CLIENT_SECRET_TEST);
     return id && secret ? { environment: 'test', clientId: id, clientSecret: secret } : null;
   }
   const o = conn.secretEnc && open(conn.secretEnc);
@@ -514,6 +543,6 @@ function startScheduler() {
 
 module.exports = {
   PROVIDERS, publicView, saveConnection, testConnection, preview, history, sendDay, startScheduler,
-  encryptionReady,
+  encryptionReady, diagnoseRailwayTest,
   _test: { summarize, dueDays, seal, open, addDays },
 };

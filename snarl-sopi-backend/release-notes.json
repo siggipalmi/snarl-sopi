@@ -1,6 +1,17 @@
 [
  {
   "component": "backend",
+  "version": "6.106.2",
+  "date": "2026-11-03",
+  "title": "Accounting: diagnose a refused Payday test login.",
+  "notes": [
+   "Spaces, line breaks or quotes around the Railway Payday test login are now ignored.",
+   "New AG-only check, /api/v1/debug/accounting-payday-login. It reports whether each test credential is set and how it is shaped (length, whether it looks like a Payday ID, whether it had spaces or quotes), never the value. It also tries signing in to Payday test and Payday live and says which one accepted it."
+  ],
+  "check": "Open /api/v1/debug/accounting-payday-login while signed in as AG: signIn.test should read 'accepted'."
+ },
+ {
+  "component": "backend",
   "version": "6.106.1",
   "date": "2026-11-03",
   "title": "Accounting: a failed connection test says what Payday answered.",

@@ -151,6 +151,8 @@ const routes = [
   // /debug/payday drives live calls into Payday and returns real invoice,
   // payment and customer rows — a company name and kennitala among them. It was
   // reachable by anyone who knew the path.
+  // Shape of the Railway Payday test login (never the values) and whether test or live accepts it.
+  { method:'GET',  pattern:'/api/v1/debug/accounting-payday-login',           handler: async (req, res) => { try { ok(res, await require('./accounting').diagnoseRailwayTest()); } catch (e) { serverError(res, e); } }, middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/debug/payday',                             handler: handleDebugPayday,    middleware:[requireAuth, requireAgAdmin] },
 
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/weimi/sync',         handler: handleWeimiSyncOne, middleware:[requireAuth, requireMachineAccess] },

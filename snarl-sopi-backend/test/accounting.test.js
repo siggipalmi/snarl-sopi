@@ -202,3 +202,12 @@ test('send, re-send and the cases that must not double the books', async () => {
   // Today is never sent: it is not over.
   assert.strictEqual((await accounting.sendDay(op, new Date().toISOString().slice(0, 10), { by: 'u' })).outcome, 'refused');
 });
+
+test('a pasted credential loses surrounding spaces and quotes, and its shape is reported without its value', () => {
+  process.env.PAYDAY_CLIENT_ID_TEST = ' "0b1c2d3e-4f50-6172-8394-a5b6c7d8e9f0"\n';
+  process.env.PAYDAY_CLIENT_SECRET_TEST = 'not-a-guid ';
+  const op = 'op_shape';
+  accounting.saveConnection(op, { provider: 'payday', credentialSource: 'railway-test' }, { by: 'ag', isAg: true });
+  const v = accounting.publicView(op, { isAg: true });
+  assert.strictEqual(v.credentials.usable, true);
+});
