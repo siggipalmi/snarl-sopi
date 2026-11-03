@@ -1,6 +1,16 @@
 [
  {
   "component": "backend",
+  "version": "6.106.4",
+  "date": "2026-11-03",
+  "title": "Accounting: an account is saved the moment it is chosen.",
+  "notes": [
+   "Choosing an account under Accounting → Accounts now saves it at once, and an open preview refreshes with the account names. Before, a chosen account was not stored until Save was pressed further down, so the page looked ready while the send refused with \"Choose all three accounts first\"."
+  ],
+  "check": "Accounting → choose an account: 'Saved' appears under the list, and the preview shows 1110 / 1100 / the clearing account by name."
+ },
+ {
+  "component": "backend",
   "version": "6.106.3",
   "date": "2026-11-03",
   "title": "Errors from Payday, Weimi, Nayax and email reach the dashboard instead of \"Backend may be restarting\".",

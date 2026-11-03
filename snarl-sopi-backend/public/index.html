@@ -10766,7 +10766,7 @@ function acDraw() {
       const lab = c.accountLabels[key];
       return `<select class="ac-in" id="ac-a-${key}" disabled><option>${curId ? rsEsc(lab || curId) : t('acct.pick')}</option></select>`;
     }
-    return `<select class="ac-in" id="ac-a-${key}"><option value="">${t('acct.pick')}</option>` +
+    return `<select class="ac-in" id="ac-a-${key}" onchange="acSaveAccount('${key}')"><option value="">${t('acct.pick')}</option>` +
       _acAccounts.map(a => `<option value="${rsEsc(a.id)}"${a.id === curId ? ' selected' : ''}>${rsEsc(a.code + ' ' + a.name)}</option>`).join('') + '</select>';
   };
   const accts = `<div class="ac-sec"><div class="ac-h">${t('acct.accounts')}</div><div class="ac-d">${t('acct.accountsD')}</div>
@@ -10774,7 +10774,7 @@ function acDraw() {
       <label>${t('acct.clearing')}</label>${sel('clearing')}
       <label>${t('acct.sales11')}</label>${sel('sales11')}
       <label>${t('acct.sales24')}</label>${sel('sales24')}
-    </div>${_acAccounts ? '' : `<div class="ac-d" style="margin-top:8px">${t('acct.loadFirst')}</div>`}</div>`;
+    </div>${_acAccounts ? '' : `<div class="ac-d" style="margin-top:8px">${t('acct.loadFirst')}</div>`}<div class="ac-msg" id="ac-acct-msg"></div></div>`;
 
   const send = `<div class="ac-sec"><div class="ac-h">${t('acct.send')}</div><div class="ac-d">${t('acct.sendD').replace('{h}', String(v.sendHourUtc).padStart(2, '0'))}</div>
     <div class="ac-grid">
@@ -10828,6 +10828,18 @@ async function acTest() {
   acDraw();
   const co = r.data.company && r.data.company.name ? ' — ' + r.data.company.name : '';
   acMsg('ac-conn-msg', t('acct.connected').replace('{company}', (r.data.environment === 'test' ? ' (test)' : '') + co).replace('{n}', _acAccounts.length), 'good');
+}
+// An account choice is saved the moment it is made. Leaving it to the Save button further down
+// meant a chosen-looking account that the preview and the send did not know about (2026-11-03).
+async function acSaveAccount(key) {
+  const el = document.getElementById('ac-a-' + key);
+  const id = el.value || null;
+  const a = (_acAccounts || []).find(x => x.id === id);
+  if (await acPut({ accounts: { [key]: id }, accountLabels: { [key]: a ? a.code + ' ' + a.name : '' } }, 'ac-acct-msg')) {
+    acMsg('ac-acct-msg', t('acct.saved'), 'good');
+    const pv = document.getElementById('ac-preview');
+    if (pv && pv.innerHTML.trim()) acPreview();
+  }
 }
 async function acSave() {
   const patch = {

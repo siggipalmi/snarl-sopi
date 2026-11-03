@@ -395,7 +395,7 @@ async function sendDay(operatorId, day, { by = 'scheduled', force = false } = {}
     const cfg = conn.config;
     if (cfg.provider !== 'payday') return { outcome: 'refused', reason: 'No accounting system is chosen.' };
     if (!cfg.accounts.clearing || !cfg.accounts.sales11 || !cfg.accounts.sales24) {
-      return { outcome: 'refused', reason: 'Choose all three accounts first.' };
+      return { outcome: 'refused', reason: 'No saved accounts: choose all three under Accounts (each is saved when chosen).' };
     }
     const prev = st.getExp.get(operatorId, day);
     // A 'sending' row outlives its send only if the process died mid-call: after ten minutes it
