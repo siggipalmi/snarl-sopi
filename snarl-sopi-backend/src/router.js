@@ -296,6 +296,13 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/ledger',           handler: handleOperatorLedger,   middleware:[requireAuth, requireOperatorAccess] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/billing-settings', handler: handleGetBillingSettings, middleware:[requireAuth, requireOperatorAccess, requireCap('billing')] },
   { method:'PUT',  pattern:'/api/v1/operators/:operatorId/billing-settings', handler: handlePutBillingSettings, middleware:[requireAuth, requireOperatorAccess, requireCap('billing')] },
+  // The operator's own accounting system: daily sales as one journal entry (src/accounting.js).
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/accounting',          handler: handleGetAccounting,     middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'PUT',  pattern:'/api/v1/operators/:operatorId/accounting',          handler: handlePutAccounting,     middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'POST', pattern:'/api/v1/operators/:operatorId/accounting/test',     handler: handleTestAccounting,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/accounting/preview',  handler: handlePreviewAccounting, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'POST', pattern:'/api/v1/operators/:operatorId/accounting/send',     handler: handleSendAccounting,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/accounting/history',  handler: handleAccountingHistory, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices/:invoiceId/pdf', handler: handleOperatorInvoicePdf, middleware:[requireAuth, requireOperatorAccess] },
   // Signup automation: the leasing Zap calls this after creating the Payday customer.
   { method:'POST', pattern:'/api/v1/operators/provision',                     handler: handleProvisionOperator, middleware:[] },
@@ -846,6 +853,7 @@ function handleHealth(req, res) {
       operatorProvisionKey: !!process.env.PROVISION_KEY,     // gates POST /operators/provision (the Zap)
       machineProvisionSecret: !!process.env.PROVISION_SECRET, // gates kiosk machine provisioning
       dbBackup: backup.backupConfig().problems.length === 0,   // daily encrypted copy to R2 (BACKUP_*)
+      accountingKey: !!process.env.ACCOUNTING_ENC_KEY && process.env.ACCOUNTING_ENC_KEY.length >= 32, // operators' accounting logins (encrypted)
       email: !!process.env.SENDGRID_API_KEY ? 'sendgrid' : 'console-only',
       emailFrom: process.env.EMAIL_FROM || 'hallo@snarlogsopi.is',
       appUrl: process.env.APP_URL || 'https://admin.agvending.is',
@@ -7392,6 +7400,86 @@ async function _billingTarget(req, res) {
 }
 
 /** What the current settings are, read from Payday rather than from anything we store. */
+// ── Operator accounting export (src/accounting.js) ──────────────────────────
+const ACCOUNTING_ERRORS = {   // [English, Icelandic]
+  unknown_provider: ['Unknown accounting system.', 'Óþekkt bókhaldskerfi.'],
+  provider_not_available: ['That accounting system is not connected yet.', 'Þetta bókhaldskerfi er ekki komið í samband enn.'],
+  ag_only: ['Only AG Vending can change the environment or use the test login.', 'Aðeins AG Vending getur breytt umhverfi eða notað prófunaraðganginn.'],
+  credentials_incomplete: ['Both the client ID and the secret are needed.', 'Bæði client ID og leyniorð (secret) þarf.'],
+  encryption_not_ready: ['Logins cannot be stored yet: ACCOUNTING_ENC_KEY is not set on the server.', 'Ekki hægt að vista aðgang enn: ACCOUNTING_ENC_KEY vantar á þjóninn.'],
+  bad_start_date: ['The start date must be YYYY-MM-DD.', 'Upphafsdagur þarf að vera á forminu ÁÁÁÁ-MM-DD.'],
+  no_provider: ['Choose an accounting system first.', 'Veldu bókhaldskerfi fyrst.'],
+  accounts_incomplete: ['Choose all three accounts before switching the daily send on.', 'Veldu alla þrjá bókhaldslyklana áður en dagleg sending er sett á.'],
+  accounts_overlap: ['The clearing account cannot also be a sales account.', 'Uppgjörslykillinn má ekki líka vera sölulykill.'],
+  no_credentials: ['Connect the accounting system first.', 'Tengdu bókhaldskerfið fyrst.'],
+};
+function _acctErr(res, status, code, fallback) {
+  const m = ACCOUNTING_ERRORS[code] || [fallback || code, fallback || code];
+  json(res, status, { ok: false, error: { code, messageEn: m[0], message: m[1] } });
+}
+function _accountingOp(req, res) {
+  const id = req.params.operatorId;
+  if (!operators[id]) { notFound(res, 'Operator not found'); return null; }
+  return id;
+}
+function _acctDay(req, res, raw) {
+  const day = String(raw || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || isNaN(Date.parse(day + 'T00:00:00Z'))) { badRequest(res, 'date must be YYYY-MM-DD'); return null; }
+  return day;
+}
+
+/** GET /operators/:id/accounting — settings without the secret. */
+function handleGetAccounting(req, res) {
+  const id = _accountingOp(req, res); if (!id) return;
+  ok(res, require('./accounting').publicView(id, { isAg: req.user.role === 'ag_admin' }));
+}
+
+/** PUT /operators/:id/accounting — save settings; credentials are write-only. */
+function handlePutAccounting(req, res) {
+  const id = _accountingOp(req, res); if (!id) return;
+  const r = require('./accounting').saveConnection(id, req.body || {}, { by: req.user.id, isAg: req.user.role === 'ag_admin' });
+  if (!r.ok) return _acctErr(res, 400, r.error);
+  const b = req.body || {};
+  console.log(`[ACCOUNTING] ${req.user.id} changed operator ${id}: ` + Object.keys(b).map(k => k === 'clientSecret' ? 'clientSecret(***)' : k).join(', '));
+  ok(res, r.view);
+}
+
+/** POST /operators/:id/accounting/test — sign in to their system and list its ledger accounts. */
+async function handleTestAccounting(req, res) {
+  const id = _accountingOp(req, res); if (!id) return;
+  try {
+    ok(res, await require('./accounting').testConnection(id));
+  } catch (e) {
+    if (e.code === 'no_credentials') return _acctErr(res, 400, 'no_credentials');
+    _acctErr(res, 502, 'connection_failed', String(e.message || e));
+  }
+}
+
+/** GET /operators/:id/accounting/preview?date=YYYY-MM-DD — what would be sent, nothing sent. */
+function handlePreviewAccounting(req, res) {
+  const id = _accountingOp(req, res); if (!id) return;
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const day = _acctDay(req, res, (req.query && req.query.date) || yesterday); if (!day) return;
+  ok(res, require('./accounting').preview(id, day));
+}
+
+/** POST /operators/:id/accounting/send {date, force?} — send (or re-send) one finished day now. */
+async function handleSendAccounting(req, res) {
+  const id = _accountingOp(req, res); if (!id) return;
+  const day = _acctDay(req, res, (req.body || {}).date); if (!day) return;
+  try {
+    const r = await require('./accounting').sendDay(id, day, { by: req.user.id, force: (req.body || {}).force === true });
+    console.log(`[ACCOUNTING] ${req.user.id} sent ${id} ${day} by hand: ${r.outcome}`);
+    ok(res, r);
+  } catch (e) { serverError(res, e); }
+}
+
+/** GET /operators/:id/accounting/history — the last 45 days sent, held or failed, with drift. */
+function handleAccountingHistory(req, res) {
+  const id = _accountingOp(req, res); if (!id) return;
+  ok(res, require('./accounting').history(id));
+}
+
 async function handleGetBillingSettings(req, res) {
   try {
     const t = await _billingTarget(req, res);

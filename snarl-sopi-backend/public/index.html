@@ -455,6 +455,32 @@ select.fi{cursor:pointer;}
 #page-billing .bl-actions{display:flex;justify-content:flex-end;margin-top:12px;}
 #page-billing .bl-state{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 20px;text-align:center;color:var(--muted);}
 #page-billing .bl-state .big{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);margin-bottom:6px;}
+#page-accounting .ac-sec{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 14px;}
+#page-accounting .ac-h{font-weight:700;font-size:15px;margin:0 0 4px;}
+#page-accounting .ac-d{font-size:13px;color:var(--muted);line-height:1.45;max-width:70ch;margin:0 0 10px;}
+#page-accounting .ac-prov{display:flex;flex-wrap:wrap;gap:8px;}
+#page-accounting .ac-prov button{font-family:var(--sans);font-size:13.5px;padding:8px 14px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;border-radius:999px;}
+#page-accounting .ac-prov button.on{background:var(--ink);color:var(--cream);border-color:var(--ink);}
+#page-accounting .ac-prov button[disabled]{opacity:.45;cursor:not-allowed;}
+#page-accounting .ac-grid{display:grid;grid-template-columns:minmax(150px,220px) 1fr;gap:9px 14px;align-items:center;max-width:720px;}
+#page-accounting .ac-grid label{font-size:13px;color:var(--muted);}
+#page-accounting input.ac-in,#page-accounting select.ac-in{font-family:var(--sans);font-size:14px;color:var(--ink);background:var(--cream-deep,#F1EFEA);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;max-width:420px;box-sizing:border-box;}
+#page-accounting .ac-row{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:12px;}
+#page-accounting .ac-msg{font-size:13px;min-height:18px;margin-top:8px;}
+#page-accounting .ac-msg.bad{color:var(--alert);} #page-accounting .ac-msg.good{color:var(--success);}
+#page-accounting .ac-warn{background:var(--accent);color:var(--ink);padding:10px 12px;font-size:13.5px;font-weight:600;margin:10px 0 0;}
+#page-accounting table.ac-t{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;}
+#page-accounting table.ac-t th{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px;font-weight:500;}
+#page-accounting table.ac-t td{padding:7px 8px;border-top:1px solid var(--cream-deep);vertical-align:top;}
+#page-accounting table.ac-t td.n,#page-accounting table.ac-t th.n{text-align:right;font-family:var(--mono);white-space:nowrap;}
+#page-accounting .ac-pill{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--cream-deep);}
+#page-accounting .ac-pill.sent{background:#EEF2E6;color:var(--success);}
+#page-accounting .ac-pill.held,#page-accounting .ac-pill.uncertain{background:var(--accent);color:var(--ink);}
+#page-accounting .ac-pill.failed{background:var(--alert);color:#fff;}
+#page-accounting .ac-drift{color:var(--alert);font-family:var(--mono);font-size:12px;}
+#page-accounting .ac-sw{display:inline-flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;}
+#page-accounting .ac-wrap{overflow-x:auto;}
+@media (max-width:640px){#page-accounting .ac-grid{grid-template-columns:1fr;}}
 #page-billing .bl-foot{font-size:11px;color:var(--muted);text-align:center;margin-top:22px;font-family:var(--mono);}
 /* ── discounts & deals ── */
 #page-deals .dl-gate{display:flex;gap:10px;background:#F6EEDD;border:1px solid #E7D7BC;border-radius:12px;padding:11px 13px;margin:0 0 14px;font-size:12.5px;color:#6f5a36;}
@@ -869,6 +895,7 @@ select.fi{cursor:pointer;}
       <div class="nav-item" data-cap="sales" onclick="go('reports',this)"><span class="nav-icon">◫</span> <span data-i18n="nav.reports">Reports</span></div>
       <div class="nav-item" data-cap="sales" onclick="go('receipts',this)"><span class="nav-icon">⛃</span> <span data-i18n="nav.receipts">Receipts</span></div>
       <div class="nav-item" data-cap="billing" onclick="go('billing',this)"><span class="nav-icon">▤</span> <span data-i18n="nav.billing">Billing</span></div>
+      <div class="nav-item" data-cap="billing" onclick="go('accounting',this)"><span class="nav-icon">⇄</span> <span data-i18n="nav.accounting">Accounting</span></div>
       <div class="nav-item" onclick="go('leases',this)" style="display:none"><span class="nav-icon">▣</span> <span data-i18n="nav.leases">Lease inventory</span></div>
     </div>
   </div>
@@ -922,6 +949,13 @@ select.fi{cursor:pointer;}
         <div id="billing-oppick"></div>
       </div>
       <div id="billing-body"></div>
+    </div>
+    <div class="page" id="page-accounting">
+      <div class="shd">
+        <div class="shd-sub" data-i18n="acct.sub">yesterday's sales, sent to your accounting system each morning</div>
+        <div id="acct-oppick"></div>
+      </div>
+      <div id="acct-body"></div>
     </div>
     <div class="page" id="page-deals">
       <div class="shd">
@@ -2319,6 +2353,7 @@ const I18N = {
     'billing.paid':'paid','billing.unpaid':'unpaid','billing.due':'due','billing.overdue':'overdue','billing.lateFee':'incl. {amt} late fee',
     'billing.issued':'issued','billing.lease':'Machine lease','billing.movement':'Movement','billing.amount':'Amount','billing.balance':'Balance',
     'billing.payment':'Payment received','billing.credit':'Credit / refund','billing.invoiceRow':'Invoice','billing.refresh':'Refresh','billing.statement':'Download statement','billing.pdf':'PDF',
+    'nav.accounting':'Accounting','title.accounting':'Accounting','acct.sub':'yesterday\'s sales, sent to your accounting system each morning','acct.loading':'Loading…','acct.system':'Accounting system','acct.systemD':'Choose the system your books are kept in. Sales go to it as one journal entry per day.','acct.none':'None','acct.soon':'coming','acct.conn':'Connection','acct.connD':'In Payday\'s company settings, create an API client ID and secret and paste them here. They are stored encrypted and never shown again.','acct.source':'Login','acct.srcOwn':'The operator\'s own','acct.srcTest':'Railway test login (Payday test)','acct.env':'Environment','acct.envLive':'Live','acct.envTest':'Test (api.test.payday.is)','acct.clientId':'Client ID','acct.secret':'Secret','acct.stored':'stored ({hint}) — type to replace','acct.saveLogin':'Save login','acct.forget':'Forget login','acct.confirmForget':'Forget the stored login? The daily send is switched off too.','acct.test':'Test connection','acct.testing':'Connecting…','acct.connected':'Connected{company} · {n} accounts loaded','acct.noKey':'The server has no ACCOUNTING_ENC_KEY yet, so a login cannot be stored.','acct.accounts':'Accounts','acct.accountsD':'Sales are booked including VAT, with their VAT type; the accounting system splits the VAT out itself. The clearing account takes the day\'s total until Nayax pays it out.','acct.clearing':'Nayax clearing (debit)','acct.sales11':'Sales, 11% VAT','acct.sales24':'Sales, 24% VAT','acct.pick':'— choose —','acct.loadFirst':'Test the connection to load the account list.','acct.send':'Daily send','acct.sendD':'Each morning from {h}:00 the previous day is sent once. A day already sent is never sent again by itself.','acct.enabled':'Send yesterday\'s sales every morning','acct.entryStatus':'Entry status','acct.draft':'Draft — the bookkeeper posts it','acct.post':'Posted straight to the ledger','acct.start':'First day to send','acct.save':'Save','acct.saved':'Saved','acct.preview':'Preview a day','acct.previewD':'What would be sent for a day. Nothing is sent until you press send.','acct.show':'Show','acct.sendNow':'Send this day now','acct.confirmSend':'Send {day} to {sys} now?','acct.account':'Account','acct.vat':'VAT','acct.amount':'Amount (+ debit, − credit)','acct.orders':'{o} sales · {u} items · {kr}','acct.unknownVat':'Held: these products have no VAT rate. Set it in the catalog and the day goes out on the next run.','acct.notDisp':'{n} paid lines were not dispensed ({kr}) and are not counted as sales.','acct.nothing':'No sales on this day.','acct.prevSent':'Already sent {when}.','acct.history':'History','acct.hDay':'Day','acct.hAmount':'Amount','acct.hStatus':'Status','acct.hNote':'Note','acct.empty':'Nothing sent yet.','acct.st.sent':'sent','acct.st.empty':'no sales','acct.st.held':'held','acct.st.failed':'failed','acct.st.uncertain':'unknown — check Payday','acct.st.sending':'sending','acct.drift':'sales changed since: {d}','acct.corrections':'{n} correction(s)','acct.resend':'Send difference','acct.retry':'Send again','acct.confirmForce':'The last send may already be in Payday. Check its drafts first. Send anyway?','acct.auto':'automatic','acct.out.sent':'Sent','acct.out.replaced':'Draft replaced with the new figures','acct.out.corrected':'Difference booked as a correction','acct.out.unchanged':'Nothing has changed since it was sent','acct.out.empty':'No sales that day — nothing to send','acct.out.held':'Held — products without a VAT rate','acct.out.failed':'Failed','acct.out.uncertain':'Outcome unknown — check Payday before sending again','acct.out.busy':'A send is already running','acct.out.refused':'Not sent',
     'billing.foot':'Read-only · invoices & ledger come from Payday','billing.loading':'Loading…',
     'billing.empty':'No invoices yet.','billing.emptySub':'Invoices appear here once Payday issues them.',
     'billing.notConfigured':'Billing isn’t connected yet.','billing.notConfiguredSub':'Payday credentials haven’t been set on the server.',
@@ -2603,6 +2638,7 @@ const I18N = {
     'billing.paid':'greitt','billing.unpaid':'ógreitt','billing.due':'eindagi','billing.overdue':'í vanskilum','billing.lateFee':'með {amt} dráttargjaldi',
     'billing.issued':'útgefið','billing.lease':'Vélaleiga','billing.movement':'Hreyfing','billing.amount':'Upphæð','billing.balance':'Staða',
     'billing.payment':'Innborgun','billing.credit':'Kredit / endurgreiðsla','billing.invoiceRow':'Reikningur','billing.refresh':'Endurhlaða','billing.statement':'Sækja yfirlit','billing.pdf':'PDF',
+    'nav.accounting':'Bókhald','title.accounting':'Bókhald','acct.sub':'sala gærdagsins, send í bókhaldskerfið á hverjum morgni','acct.loading':'Hleð…','acct.system':'Bókhaldskerfi','acct.systemD':'Veldu kerfið sem bókhaldið er fært í. Salan fer þangað sem ein dagbókarfærsla á dag.','acct.none':'Ekkert','acct.soon':'væntanlegt','acct.conn':'Tenging','acct.connD':'Í fyrirtækjastillingum Payday: búðu til API client ID og leyniorð (secret) og límdu hér. Þau eru geymd dulkóðuð og aldrei sýnd aftur.','acct.source':'Aðgangur','acct.srcOwn':'Eigin aðgangur rekstraraðila','acct.srcTest':'Prófunaraðgangur á Railway (Payday test)','acct.env':'Umhverfi','acct.envLive':'Raunumhverfi','acct.envTest':'Prófun (api.test.payday.is)','acct.clientId':'Client ID','acct.secret':'Leyniorð (secret)','acct.stored':'vistað ({hint}) — sláðu inn til að skipta út','acct.saveLogin':'Vista aðgang','acct.forget':'Gleyma aðgangi','acct.confirmForget':'Gleyma vistaða aðganginum? Dagleg sending er líka tekin af.','acct.test':'Prófa tengingu','acct.testing':'Tengist…','acct.connected':'Tengt{company} · {n} lyklar sóttir','acct.noKey':'Þjónninn hefur ekki ACCOUNTING_ENC_KEY enn, svo ekki er hægt að vista aðgang.','acct.accounts':'Bókhaldslyklar','acct.accountsD':'Salan er bókuð með VSK og VSK-tegund; bókhaldskerfið skilur VSK frá sjálft. Uppgjörslykillinn tekur heildarupphæð dagsins þar til Nayax greiðir út.','acct.clearing':'Nayax uppgjör (debet)','acct.sales11':'Sala, 11% VSK','acct.sales24':'Sala, 24% VSK','acct.pick':'— veldu —','acct.loadFirst':'Prófaðu tenginguna til að sækja lyklalistann.','acct.send':'Dagleg sending','acct.sendD':'Á hverjum morgni frá kl. {h}:00 er gærdagurinn sendur einu sinni. Dagur sem hefur verið sendur er aldrei sendur aftur sjálfkrafa.','acct.enabled':'Senda sölu gærdagsins á hverjum morgni','acct.entryStatus':'Staða færslu','acct.draft':'Drög — bókari bókar','acct.post':'Bókað beint','acct.start':'Fyrsti dagur','acct.save':'Vista','acct.saved':'Vistað','acct.preview':'Forskoða dag','acct.previewD':'Hvað yrði sent fyrir dag. Ekkert er sent fyrr en ýtt er á senda.','acct.show':'Sýna','acct.sendNow':'Senda þennan dag núna','acct.confirmSend':'Senda {day} í {sys} núna?','acct.account':'Lykill','acct.vat':'VSK','acct.amount':'Upphæð (+ debet, − kredit)','acct.orders':'{o} sölur · {u} vörur · {kr}','acct.unknownVat':'Í bið: þessar vörur hafa enga VSK-prósentu. Settu hana í vörulistanum og dagurinn fer í næstu keyrslu.','acct.notDisp':'{n} greiddar línur afgreiddust ekki ({kr}) og teljast ekki til sölu.','acct.nothing':'Engin sala þennan dag.','acct.prevSent':'Þegar sent {when}.','acct.history':'Saga','acct.hDay':'Dagur','acct.hAmount':'Upphæð','acct.hStatus':'Staða','acct.hNote':'Athugasemd','acct.empty':'Ekkert sent enn.','acct.st.sent':'sent','acct.st.empty':'engin sala','acct.st.held':'í bið','acct.st.failed':'mistókst','acct.st.uncertain':'óvíst — athugaðu Payday','acct.st.sending':'í sendingu','acct.drift':'salan breyttist síðan: {d}','acct.corrections':'{n} leiðrétting(ar)','acct.resend':'Senda mismun','acct.retry':'Senda aftur','acct.confirmForce':'Síðasta sending gæti þegar verið komin í Payday. Athugaðu drögin fyrst. Senda samt?','acct.auto':'sjálfvirkt','acct.out.sent':'Sent','acct.out.replaced':'Drögum skipt út fyrir nýjar tölur','acct.out.corrected':'Mismunur bókaður sem leiðrétting','acct.out.unchanged':'Ekkert hefur breyst síðan það var sent','acct.out.empty':'Engin sala þann dag — ekkert að senda','acct.out.held':'Í bið — vörur án VSK-prósentu','acct.out.failed':'Mistókst','acct.out.uncertain':'Óvíst hvort tókst — athugaðu Payday áður en sent er aftur','acct.out.busy':'Sending er þegar í gangi','acct.out.refused':'Ekki sent',
     'billing.foot':'Skrifvarið · reikningar og hreyfingar koma frá Payday','billing.loading':'Hleð…',
     'billing.empty':'Engir reikningar enn.','billing.emptySub':'Reikningar birtast hér þegar Payday gefur þá út.',
     'billing.notConfigured':'Innheimta ekki tengd enn.','billing.notConfiguredSub':'Payday-aðgangur hefur ekki verið settur á þjóninn.',
@@ -3706,7 +3742,7 @@ async function bootApp(user) {
 
   populateMachineSelects();
   // Open the page or machine named in the URL hash (so refresh returns here); else dashboard.
-  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','complaints','reports','users','settings','help','deals','leases'];
+  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','accounting','complaints','reports','users','settings','help','deals','leases'];
   const route = parseHash();
   if (route.page === 'machine' && route.param && DB.machines[route.param]) {
     openMachineDetail(route.param, true);
@@ -3726,7 +3762,7 @@ async function bootApp(user) {
 window.addEventListener('hashchange', () => {
   if (!currentUser) return;
   const route = parseHash();
-  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','complaints','reports','users','settings','help','deals','leases'];
+  const validPages = ['dashboard','machines','alerts','operators','catalog','hero','display','orders','billing','accounting','complaints','reports','users','settings','help','deals','leases'];
   if (route.page === 'machine' && route.param) {
     const onThis = _mdDeviceCode === route.param && document.getElementById('page-machinedetail').classList.contains('active');
     if (!onThis && DB.machines[route.param]) openMachineDetail(route.param, true);
@@ -3929,6 +3965,7 @@ window.addEventListener('load', () => {
 // ═══════════════════════════════════════════════════════════════
 
 const PAGE_TITLES = {
+  accounting:'accounting.',
   dashboard:'dashboard.', machines:'machines.', alerts:'alerts.',
   catalog:'catalog & slots.', hero:'hero & featured.', display:'display settings.',
   orders:'orders.', reports:'reports.', receipts:'receipts → costs.', users:'users.', settings:'fleet.',
@@ -4026,6 +4063,7 @@ function go(id, el) {
   if(id==='display')   renderDisplayPage();
   if(id==='expiry')    renderExpiry();
   if(id==='billing')   renderBilling();
+  if(id==='accounting') renderAccounting();
   if(id==='deals')     renderDeals();
   if(id==='leases')    renderLeases();
   if(id==='orders')    { fetchLiveOrders(); return; }
@@ -10651,6 +10689,236 @@ async function saveBillingSettings() {
   const after = document.getElementById('bl-set-msg');
   if (after) { after.textContent = t('billing.saved'); after.className = 'bl-set-msg good'; }
 }
+// ─── Accounting: daily sales to the operator's own accounting system ─────────
+// Backend: src/accounting.js. One journal entry per day; credentials are write-only here.
+let _acOpId = null;
+let _acView = null;          // GET /accounting
+let _acAccounts = null;      // ledger accounts from the last successful connection test
+let _acPreviewDay = null;
+
+function acTargetOperator() {
+  if (currentUser?.role === 'ag_admin') return _acOpId || (_operatorsCache[0] || {}).id || null;
+  return currentUser?.operatorId || null;
+}
+function acUrl(sfx) { return '/api/v1/operators/' + encodeURIComponent(acTargetOperator()) + '/accounting' + (sfx || ''); }
+function acKr(n) { n = Number(n || 0); return (n < 0 ? '−' : '') + blKr(Math.abs(n)); }
+function acYesterday() { return new Date(Date.now() - 86400000).toISOString().slice(0, 10); }
+function acMsg(id, text, kind) { const el = document.getElementById(id); if (el) { el.textContent = text || ''; el.className = 'ac-msg' + (kind ? ' ' + kind : ''); } }
+function acProvName(id) { const p = ((_acView && _acView.providers) || []).find(x => x.id === id); return p ? p.name : id; }
+
+function onAccountingOp(id) { _acOpId = id; _acAccounts = null; _acPreviewDay = null; renderAccounting(); }
+
+async function renderAccounting() {
+  const body = document.getElementById('acct-body');
+  const pick = document.getElementById('acct-oppick');
+  if (!body) return;
+  if (currentUser?.role === 'ag_admin') {
+    if (!_operatorsCache.length) { try { await loadOperators(); } catch (e) {} }
+    const cur = acTargetOperator(); _acOpId = cur;
+    if (pick) pick.innerHTML = '<div class="bl-oprow"><select class="bl-opsel" onchange="onAccountingOp(this.value)">' +
+      _operatorsCache.map(o => `<option value="${rsEsc(o.id)}"${o.id === cur ? ' selected' : ''}>${rsEsc(o.name)}</option>`).join('') +
+      '</select><span class="bl-opnote">' + t('billing.operator') + ' · AG</span></div>';
+  } else if (pick) pick.innerHTML = '';
+  if (!acTargetOperator()) { body.innerHTML = ''; return; }
+
+  body.innerHTML = `<div class="bl-state">${t('acct.loading')}</div>`;
+  const r = await API.get(acUrl('?_=' + Date.now()));
+  if (!r || !r.ok) { body.innerHTML = `<div class="bl-state">${rsEsc(apiErrText(r, 'error'))}</div>`; return; }
+  _acView = r.data;
+  acDraw();
+}
+
+function acDraw() {
+  const body = document.getElementById('acct-body');
+  const v = _acView, c = v.config, cr = v.credentials;
+  const isAg = currentUser?.role === 'ag_admin';
+  const prov = `<div class="ac-sec"><div class="ac-h">${t('acct.system')}</div><div class="ac-d">${t('acct.systemD')}</div>
+    <div class="ac-prov">
+      <button class="${c.provider === 'none' ? 'on' : ''}" onclick="acSetProvider('none')">${t('acct.none')}</button>
+      ${v.providers.map(p => `<button class="${c.provider === p.id ? 'on' : ''}" ${p.available ? '' : 'disabled'} onclick="acSetProvider('${p.id}')">${rsEsc(p.name)}${p.available ? '' : ' · ' + t('acct.soon')}</button>`).join('')}
+    </div><div class="ac-msg" id="ac-prov-msg"></div></div>`;
+  if (c.provider === 'none') { body.innerHTML = prov; return; }
+
+  const own = c.credentialSource !== 'railway-test';
+  const srcRow = (isAg && (v.railwayTestAvailable || !own)) ? `<label>${t('acct.source')}</label>
+      <select class="ac-in" id="ac-src" onchange="acSaveSource()">
+        <option value="own"${own ? ' selected' : ''}>${t('acct.srcOwn')}</option>
+        <option value="railway-test"${!own ? ' selected' : ''}>${t('acct.srcTest')}</option></select>` : '';
+  const envRow = (isAg && own) ? `<label>${t('acct.env')}</label>
+      <select class="ac-in" id="ac-env" onchange="acSaveEnv()">
+        <option value="live"${c.environment !== 'test' ? ' selected' : ''}>${t('acct.envLive')}</option>
+        <option value="test"${c.environment === 'test' ? ' selected' : ''}>${t('acct.envTest')}</option></select>` : '';
+  const ownRows = own ? `<label>${t('acct.clientId')}</label><input class="ac-in" id="ac-cid" autocomplete="off" placeholder="${cr.stored ? rsEsc(t('acct.stored').replace('{hint}', cr.clientIdHint || '…')) : ''}">
+      <label>${t('acct.secret')}</label><input class="ac-in" id="ac-sec" type="password" autocomplete="new-password" placeholder="${cr.stored ? '••••••••' : ''}">` : '';
+  const conn = `<div class="ac-sec"><div class="ac-h">${t('acct.conn')} · ${rsEsc(acProvName(c.provider))}</div>
+    ${own ? `<div class="ac-d">${t('acct.connD')}</div>` : ''}
+    ${own && !v.encryptionReady ? `<div class="ac-warn">${t('acct.noKey')}</div>` : ''}
+    <div class="ac-grid" style="margin-top:10px">${srcRow}${envRow}${ownRows}</div>
+    <div class="ac-row">
+      ${own ? `<button class="btn btn-sm" onclick="acSaveLogin()">${t('acct.saveLogin')}</button>` : ''}
+      <button class="btn btn-sm" onclick="acTest()" ${cr.usable ? '' : 'disabled'}>${t('acct.test')}</button>
+      ${own && cr.stored ? `<button class="btn btn-sm" style="background:transparent;color:var(--ink);border:1px solid var(--line)" onclick="acForget()">${t('acct.forget')}</button>` : ''}
+    </div><div class="ac-msg" id="ac-conn-msg"></div></div>`;
+
+  const sel = (key) => {
+    const curId = c.accounts[key];
+    if (!_acAccounts) {
+      const lab = c.accountLabels[key];
+      return `<select class="ac-in" id="ac-a-${key}" disabled><option>${curId ? rsEsc(lab || curId) : t('acct.pick')}</option></select>`;
+    }
+    return `<select class="ac-in" id="ac-a-${key}"><option value="">${t('acct.pick')}</option>` +
+      _acAccounts.map(a => `<option value="${rsEsc(a.id)}"${a.id === curId ? ' selected' : ''}>${rsEsc(a.code + ' ' + a.name)}</option>`).join('') + '</select>';
+  };
+  const accts = `<div class="ac-sec"><div class="ac-h">${t('acct.accounts')}</div><div class="ac-d">${t('acct.accountsD')}</div>
+    <div class="ac-grid">
+      <label>${t('acct.clearing')}</label>${sel('clearing')}
+      <label>${t('acct.sales11')}</label>${sel('sales11')}
+      <label>${t('acct.sales24')}</label>${sel('sales24')}
+    </div>${_acAccounts ? '' : `<div class="ac-d" style="margin-top:8px">${t('acct.loadFirst')}</div>`}</div>`;
+
+  const send = `<div class="ac-sec"><div class="ac-h">${t('acct.send')}</div><div class="ac-d">${t('acct.sendD').replace('{h}', String(v.sendHourUtc).padStart(2, '0'))}</div>
+    <div class="ac-grid">
+      <label>${t('acct.entryStatus')}</label><select class="ac-in" id="ac-status">
+        <option value="DRAFT"${c.entryStatus !== 'POST' ? ' selected' : ''}>${t('acct.draft')}</option>
+        <option value="POST"${c.entryStatus === 'POST' ? ' selected' : ''}>${t('acct.post')}</option></select>
+      <label>${t('acct.start')}</label><input class="ac-in" id="ac-start" type="date" value="${rsEsc(c.startDate || '')}">
+      <label></label><label class="ac-sw"><input type="checkbox" id="ac-enabled"${c.enabled ? ' checked' : ''}> ${t('acct.enabled')}</label>
+    </div>
+    <div class="ac-row"><button class="btn btn-sm" onclick="acSave()">${t('acct.save')}</button></div>
+    <div class="ac-msg" id="ac-save-msg"></div></div>`;
+
+  const day = _acPreviewDay || acYesterday();
+  const prev = `<div class="ac-sec"><div class="ac-h">${t('acct.preview')}</div><div class="ac-d">${t('acct.previewD')}</div>
+    <div class="ac-row" style="margin-top:0"><input class="ac-in" id="ac-day" type="date" style="max-width:180px" value="${day}" max="${acYesterday()}">
+      <button class="btn btn-sm" onclick="acPreview()">${t('acct.show')}</button></div>
+    <div id="ac-preview"></div></div>`;
+
+  const hist = `<div class="ac-sec"><div class="ac-h">${t('acct.history')}</div><div id="ac-history" class="ac-wrap">${t('acct.loading')}</div></div>`;
+  body.innerHTML = prov + conn + accts + send + prev + hist;
+  acHistory();
+}
+
+async function acPut(patch, msgId) {
+  const r = await API.put(acUrl(), patch);
+  if (!r || !r.ok) { acMsg(msgId, apiErrText(r, 'error'), 'bad'); return false; }
+  _acView = r.data; return true;
+}
+async function acSetProvider(id) {
+  if (_acView && _acView.config.provider === id) return;
+  _acAccounts = null;
+  if (await acPut({ provider: id }, 'ac-prov-msg')) acDraw();
+}
+async function acSaveSource() { _acAccounts = null; if (await acPut({ credentialSource: document.getElementById('ac-src').value }, 'ac-conn-msg')) acDraw(); }
+async function acSaveEnv() { _acAccounts = null; if (await acPut({ environment: document.getElementById('ac-env').value }, 'ac-conn-msg')) acDraw(); }
+async function acSaveLogin() {
+  const clientId = document.getElementById('ac-cid').value.trim(), clientSecret = document.getElementById('ac-sec').value.trim();
+  if (!clientId || !clientSecret) { acMsg('ac-conn-msg', t('acct.secret') + ' + ' + t('acct.clientId'), 'bad'); return; }
+  if (await acPut({ clientId, clientSecret }, 'ac-conn-msg')) { _acAccounts = null; acDraw(); acTest(); }
+}
+async function acForget() {
+  if (!confirm(t('acct.confirmForget'))) return;
+  _acAccounts = null;
+  if (await acPut({ forgetCredentials: true }, 'ac-conn-msg')) acDraw();
+}
+async function acTest() {
+  acMsg('ac-conn-msg', t('acct.testing'));
+  const r = await API.post(acUrl('/test'), {});
+  if (!r || !r.ok) { acMsg('ac-conn-msg', apiErrText(r, 'error'), 'bad'); return; }
+  _acAccounts = r.data.accounts || [];
+  acDraw();
+  const co = r.data.company && r.data.company.name ? ' — ' + r.data.company.name : '';
+  acMsg('ac-conn-msg', t('acct.connected').replace('{company}', (r.data.environment === 'test' ? ' (test)' : '') + co).replace('{n}', _acAccounts.length), 'good');
+}
+async function acSave() {
+  const patch = {
+    entryStatus: document.getElementById('ac-status').value,
+    startDate: document.getElementById('ac-start').value || null,
+    enabled: document.getElementById('ac-enabled').checked,
+  };
+  if (_acAccounts) {
+    patch.accounts = {}; patch.accountLabels = {};
+    for (const k of ['clearing', 'sales11', 'sales24']) {
+      const id = document.getElementById('ac-a-' + k).value || null;
+      const a = _acAccounts.find(x => x.id === id);
+      patch.accounts[k] = id; patch.accountLabels[k] = a ? a.code + ' ' + a.name : '';
+    }
+  }
+  if (await acPut(patch, 'ac-save-msg')) { acDraw(); acMsg('ac-save-msg', t('acct.saved'), 'good'); }
+}
+
+function acLabelFor(id) {
+  const c = _acView.config;
+  const a = (_acAccounts || []).find(x => x.id === id);
+  if (a) return a.code + ' ' + a.name;
+  for (const k of ['clearing', 'sales11', 'sales24']) if (c.accounts[k] === id && c.accountLabels[k]) return c.accountLabels[k];
+  return id || '—';
+}
+async function acPreview() {
+  const day = document.getElementById('ac-day').value;
+  if (!day) return;
+  _acPreviewDay = day;
+  const el = document.getElementById('ac-preview');
+  el.innerHTML = `<div class="ac-d" style="margin-top:10px">${t('acct.loading')}</div>`;
+  const r = await API.get(acUrl('/preview?date=' + encodeURIComponent(day)));
+  if (!r || !r.ok) { el.innerHTML = `<div class="ac-msg bad">${rsEsc(apiErrText(r, 'error'))}</div>`; return; }
+  const p = r.data, s = p.summary;
+  let h = `<div class="ac-d" style="margin-top:10px">${t('acct.orders').replace('{o}', s.orders).replace('{u}', s.units).replace('{kr}', blKr(s.grossKr))}</div>`;
+  if (s.unknownVat.length) {
+    h += `<div class="ac-warn">${t('acct.unknownVat')}<br>${s.unknownVat.map(u => rsEsc(u.name) + ' (' + u.units + ', ' + blKr(u.grossKr) + ')').join(' · ')}</div>`;
+  }
+  if (p.journal) {
+    const vatName = { ReducedVAT: '11%', StandardVAT: '24%' };
+    h += `<div class="ac-wrap"><table class="ac-t"><tr><th>${t('acct.account')}</th><th>${t('acct.vat')}</th><th class="n">${t('acct.amount')}</th></tr>` +
+      p.journal.lines.map(l => `<tr><td>${rsEsc(l.ledgerAccountId ? acLabelFor(l.ledgerAccountId) : t(l.vatPercentType === 'ReducedVAT' ? 'acct.sales11' : l.vatPercentType === 'StandardVAT' ? 'acct.sales24' : 'acct.clearing'))}</td><td>${vatName[l.vatPercentType] || ''}</td><td class="n">${acKr(l.amount)}</td></tr>`).join('') +
+      `</table></div><div class="ac-d" style="margin-top:6px;font-family:var(--mono);font-size:11px">${rsEsc(p.journal.description)} · ${p.journal.status}</div>`;
+  } else if (!s.grossKr) {
+    h += `<div class="ac-d">${t('acct.nothing')}</div>`;
+  }
+  if (s.notDispensed && s.notDispensed.count) h += `<div class="ac-d">${t('acct.notDisp').replace('{n}', s.notDispensed.count).replace('{kr}', blKr(s.notDispensed.grossKr))}</div>`;
+  if (p.previous && p.previous.sentAt) h += `<div class="ac-d">${t('acct.prevSent').replace('{when}', new Date(p.previous.sentAt).toLocaleString(LANG === 'is' ? 'is-IS' : 'en-GB'))}</div>`;
+  if (p.journal && _acView.credentials.usable) h += `<div class="ac-row"><button class="btn btn-sm" onclick="acSend('${day}')">${t('acct.sendNow')}</button></div>`;
+  h += `<div class="ac-msg" id="ac-send-msg"></div>`;
+  el.innerHTML = h;
+}
+async function acSend(day, force) {
+  if (!force && !confirm(t('acct.confirmSend').replace('{day}', day).replace('{sys}', acProvName(_acView.config.provider)))) return;
+  acMsg('ac-send-msg', t('acct.testing'));
+  const r = await API.post(acUrl('/send'), { date: day, force: !!force });
+  if (!r || !r.ok) { acMsg('ac-send-msg', apiErrText(r, 'error'), 'bad'); return; }
+  const o = r.data.outcome;
+  const text = t('acct.out.' + o) + (r.data.reason ? ' — ' + r.data.reason : '');
+  acMsg('ac-send-msg', text, ['sent', 'replaced', 'corrected', 'unchanged', 'empty'].includes(o) ? 'good' : 'bad');
+  if (typeof showToast === 'function') showToast(day + ': ' + t('acct.out.' + o));
+  acHistory();
+}
+function acResend(day, uncertain) {
+  if (uncertain) { if (!confirm(t('acct.confirmForce'))) return; return acSend(day, true); }
+  acSend(day, false);
+}
+async function acHistory() {
+  const el = document.getElementById('ac-history');
+  if (!el) return;
+  const r = await API.get(acUrl('/history?_=' + Date.now()));
+  if (!r || !r.ok) { el.innerHTML = `<div class="ac-msg bad">${rsEsc(apiErrText(r, 'error'))}</div>`; return; }
+  const rows = r.data || [];
+  if (!rows.length) { el.innerHTML = `<div class="ac-d">${t('acct.empty')}</div>`; return; }
+  el.innerHTML = `<table class="ac-t"><tr><th>${t('acct.hDay')}</th><th class="n">${t('acct.hAmount')}</th><th>${t('acct.hStatus')}</th><th>${t('acct.hNote')}</th><th></th></tr>` +
+    rows.map(h => {
+      const notes = [];
+      if (h.reason) notes.push(rsEsc(h.reason));
+      if (h.corrections && h.corrections.length) notes.push(t('acct.corrections').replace('{n}', h.corrections.length));
+      if (h.drift) notes.push(`<span class="ac-drift">${t('acct.drift').replace('{d}', (h.drift > 0 ? '+' : '') + acKr(h.drift))}</span>`);
+      if (h.sentBy === 'scheduled') notes.push(t('acct.auto'));
+      if (h.entryStatus) notes.push(h.entryStatus);
+      let action = '';
+      if (h.drift) action = `<button class="btn btn-sm" onclick="acResend('${h.day}')">${t('acct.resend')}</button>`;
+      else if (h.status === 'failed' || h.status === 'held') action = `<button class="btn btn-sm" onclick="acResend('${h.day}')">${t('acct.retry')}</button>`;
+      else if (h.status === 'uncertain') action = `<button class="btn btn-sm" onclick="acResend('${h.day}', true)">${t('acct.retry')}</button>`;
+      return `<tr><td style="font-family:var(--mono);white-space:nowrap">${h.day}</td><td class="n">${h.grossKr != null ? blKr(h.grossKr) : '—'}</td>
+        <td><span class="ac-pill ${h.status}">${t('acct.st.' + h.status)}</span></td><td>${notes.join(' · ')}</td><td>${action}</td></tr>`;
+    }).join('') + '</table>';
+}
+
 function blNum(n) { return Math.round(Number(n || 0)).toLocaleString('de-DE'); } // dot thousands
 function blKr(n) { return 'kr. ' + blNum(n); }
 function blKt(k) { k = String(k || '').replace(/\D/g, ''); return k.length === 10 ? k.slice(0, 6) + '-' + k.slice(6) : k; }
