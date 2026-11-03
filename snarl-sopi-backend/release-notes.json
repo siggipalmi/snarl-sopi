@@ -1,6 +1,18 @@
 [
  {
   "component": "backend",
+  "version": "6.106.6",
+  "date": "2026-11-03",
+  "title": "Orders show how many of a product were bought, not just the line total.",
+  "notes": [
+   "Buying two of the same product is one sale line with a quantity and the line total. The quantity was not kept, so the orders list showed \"1 item · Pepsi Max · 1180 kr\" for two Pepsi Max at 590 kr, which reads as one drink at 1180 kr (Lava Show, 2026-11-02). The amounts were always right; only the count was missing.",
+   "New sales now show \"Pepsi Max ×2\", and the item count on an order counts units. Top products, the VSK/profit report and the daily accounting summary count units the same way.",
+   "Sales recorded before this version have no stored quantity and still read as one unit per line; their amounts are unchanged."
+  ],
+  "check": "After the next multi-unit sale on a coil machine: Activity → view all orders shows the product with ×N and the order says N items."
+ },
+ {
+  "component": "backend",
   "version": "6.106.5",
   "date": "2026-11-03",
   "title": "Accounting: a refused send shows Payday's whole answer.",

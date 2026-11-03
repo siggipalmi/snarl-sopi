@@ -1401,6 +1401,12 @@ function saleAisle(v) {
   return /^[A-Z]?\d{1,4}$/.test(a) ? a : null;
 }
 
+// Units on a sale line, or null when the record does not say (read as 1 everywhere).
+function saleQty(v) {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 999 ? n : null;
+}
+
 // Accept both sales shapes:
 //   (a) canonical per-item: { tradeNo, goodsId, amountKr, timestamp, status, qty? }
 //   (b) kiosk checkout envelope: { saleId, at, totalIsk, lines:[{goodsId, qty, amountIsk}] }
@@ -1973,6 +1979,9 @@ function handleSalesIngest(req, res) {
       statusLabel:{1:'success',2:'failed',3:'refunded'}[r.status],
       createTime: r.timestamp,
       aisle:      saleAisle(r.aisle),
+      // Units on this line: amountKr is the LINE total, so two Pepsi Max read as one at 1180 kr
+      // until this was kept (Lava Show, 2026-11-02).
+      quantity:   saleQty(r.qty),
     });
     accepted.push(r.tradeNo);
 
@@ -5657,7 +5666,14 @@ function handleListOrders(req, res) {
     const machineName = machines[o.deviceCode]?.deviceName || o.deviceCode;
     const st = (o.goodsId == null && String(o.tradeNo).indexOf('#') < 0) ? storage.getFridgeSettlement(o.deviceCode, o.tradeNo) : null;
     const lines = st ? (st.lines || []).filter(l => (l.quantity || 0) > 0 && (l.lineIsk || 0) > 0) : [];
-    if (!lines.length) { rows.push({ ...o, machineName }); continue; }
+    if (!lines.length) {
+      // A kiosk line for several of one product carries the line total: name the units, the way
+      // the fridge lines below do, so it does not read as one unit at that price.
+      const q = o.quantity || 1;
+      rows.push({ ...o, machineName, quantity: q,
+        productName: q > 1 && o.productName ? `${o.productName} ×${q}` : o.productName });
+      continue;
+    }
     lines.forEach((l, i) => {
       const p = l.productId ? storage.getProduct(l.productId) : null;
       const name = (p && p.name) || l.productId || '—';
@@ -5910,7 +5926,7 @@ function handleTopProducts(req, res) {
         machineCount: new Set(),
       };
     }
-    byProduct[key].units++;
+    byProduct[key].units += o.quantity || 1;
     byProduct[key].revenueKr += o.amountKr;
     byProduct[key].machineCount.add(o.deviceCode);
   });
@@ -5980,9 +5996,10 @@ function handleProfitReport(req, res) {
     const vskC = grossC - netC;
     hasAttrs ? matched++ : unmatched++;
     orders.add(it.tradeNo);
+    const q = it.quantity || 1;   // a line can be several units; NULL on older rows
 
-    tot.grossC += grossC; tot.netC += netC; tot.vskC += vskC; tot.units++;
-    const bk = bucket[rate]; bk.grossC += grossC; bk.netC += netC; bk.vskC += vskC; bk.units++;
+    tot.grossC += grossC; tot.netC += netC; tot.vskC += vskC; tot.units += q;
+    const bk = bucket[rate]; bk.grossC += grossC; bk.netC += netC; bk.vskC += vskC; bk.units += q;
 
     // Prefer the net cost (already VSK-excluded, from confirmed receipts) when
     // present; fall back to the legacy gross cost, which we net down by the rate.
@@ -5998,11 +6015,11 @@ function handleProfitReport(req, res) {
 
     const gk = it.goodsId || ('_u_' + (it.name || ''));
     const p = byProduct[gk] || (byProduct[gk] = { goodsId: it.goodsId || null, name: it.name || '(unknown)', vatRate: hasAttrs ? rate : null, units: 0, grossC: 0, netC: 0, vskC: 0, profitC: 0, anyCost: false });
-    p.units++; p.grossC += grossC; p.netC += netC; p.vskC += vskC;
+    p.units += q; p.grossC += grossC; p.netC += netC; p.vskC += vskC;
     if (hasCost) { p.profitC += profitC; p.anyCost = true; }
 
     const mc = byMachine[it.deviceCode] || (byMachine[it.deviceCode] = { deviceCode: it.deviceCode, deviceName: nameByCode[it.deviceCode] || it.deviceCode, units: 0, grossC: 0, profitC: 0, anyCost: false });
-    mc.units++; mc.grossC += grossC;
+    mc.units += q; mc.grossC += grossC;
     if (hasCost) { mc.profitC += profitC; mc.anyCost = true; }
   });
 

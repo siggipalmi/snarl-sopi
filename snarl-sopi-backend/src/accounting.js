@@ -299,13 +299,14 @@ function summarize(day, rows, { notDispensed = [], nameByCode = {} } = {}) {
   let units = 0;
   for (const r of rows) {
     const c = Number(r.payAmount) || 0;
-    orders.add(r.tradeNo); units++;
+    const q = Number(r.quantity) > 0 ? Number(r.quantity) : 1;   // a line can be several units
+    orders.add(r.tradeNo); units += q;
     const m = byMachine[r.deviceCode] || (byMachine[r.deviceCode] = { deviceCode: r.deviceCode, name: nameByCode[r.deviceCode] || r.deviceCode, cents: 0, units: 0 });
-    m.cents += c; m.units++;
+    m.cents += c; m.units += q;
     if (r.vatRate === 11 || r.vatRate === 24) { cents[String(r.vatRate)] += c; continue; }
     const k = r.goodsId || ('_' + (r.name || ''));
     const u = unknown[k] || (unknown[k] = { goodsId: r.goodsId || null, name: r.name || '(unnamed)', units: 0, cents: 0 });
-    u.units++; u.cents += c;
+    u.units += q; u.cents += c;
   }
   const kr = c => Math.round(c / 100);
   const byRate = { '11': kr(cents['11']), '24': kr(cents['24']) };

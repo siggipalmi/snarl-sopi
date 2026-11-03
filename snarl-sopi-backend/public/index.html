@@ -6280,7 +6280,7 @@ async function renderMachineRecentOrders(code) {
       return `
       <tr style="cursor:pointer" onclick="toggleOrderDetail('md-${g.orderId}')">
         <td class="rcard-head"><span class="tid">▸ ${g.orderId.slice(0,14)}…</span></td>
-        <td data-label="items" style="font-family:var(--mono)">${g.lines.length}</td>
+        <td data-label="items" style="font-family:var(--mono)">${g.units}</td>
         ${isCoil ? `<td data-label="${rsEsc(t('md.th.coil'))}" style="font-family:var(--mono)${coils ? '' : ';color:var(--muted)'}">${rsEsc(coils || '—')}</td>` : ''}
         <td data-label="amount" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
         <td data-label="status">${pill(g.status===1?'pill-up':g.status===2?'pill-dn':'pill-warn', g.statusLabel)}</td>
@@ -9551,9 +9551,11 @@ function groupOrders(rows) {
   const groups = {};
   for (const o of rows) {
     const base = String(o.tradeNo).split('#')[0];
-    if (!groups[base]) groups[base] = { orderId: base, deviceCode: o.deviceCode, createTime: o.createTime, lines: [], totalKr: 0, statuses: new Set() };
+    if (!groups[base]) groups[base] = { orderId: base, deviceCode: o.deviceCode, createTime: o.createTime, lines: [], units: 0, totalKr: 0, statuses: new Set() };
     const g = groups[base];
     g.lines.push(o);
+    // A line can be several of one product (its amount is the line total), so count units, not lines.
+    g.units += (o.quantity > 0 ? o.quantity : 1);
     g.totalKr += (o.amountKr || 0);
     if (o.createTime > g.createTime) g.createTime = o.createTime;
     g.statuses.add(o.status);
@@ -9599,7 +9601,7 @@ function renderOrders() {
        </tr>`).join('');
     return `
     <tr style="cursor:pointer" onclick="toggleOrderDetail('${g.orderId}')">
-      <td class="rcard-head"><span class="tid">▸ ${g.orderId.slice(0,16)}…</span> <span style="color:var(--muted);font-size:10.5px">${g.lines.length} ${g.lines.length===1?t('ord.item'):t('ord.itemsN')}</span></td>
+      <td class="rcard-head"><span class="tid">▸ ${g.orderId.slice(0,16)}…</span> <span style="color:var(--muted);font-size:10.5px">${g.units} ${g.units===1?t('ord.item'):t('ord.itemsN')}</span></td>
       <td data-label="${rsEsc(t('ord.th.device'))}"><span class="tname" style="font-weight:500">${rsEsc(mname)}</span></td>
       <td data-label="${rsEsc(t('md.th.amount'))}" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
       <td data-label="${rsEsc(t('ord.th.payment'))}"><span class="pill pill-out">${t('ord.card')}</span></td>
