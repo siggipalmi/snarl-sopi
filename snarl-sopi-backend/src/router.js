@@ -4459,7 +4459,17 @@ function handleDebugOrders(req, res) {
     amountKr: o.amountKr,
     createTime: o.createTime ? new Date(o.createTime).toISOString() : null,
   }));
-  json(res, 200, { deviceCode, now: new Date().toISOString(), statusBreakdown, sample });
+  // ?days=N (default 14, max 90): where this machine's sales came from and which tables they
+  // reached — see src/salesSources.js. Read-only.
+  const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 14));
+  const toMs = Date.now(), fromMs = toMs - days * 86400000;
+  const sources = require('./salesSources').salesSources({
+    orders: storage.ordersInRangeAnyStatus(deviceCode, fromMs, toMs) || [],
+    items: storage.orderItemsInRange(deviceCode, fromMs, toMs) || [],
+    isFridgeOrder: o => !!storage.getFridgeSettlement(deviceCode, o.tradeNo),
+    fromMs, toMs, days,
+  });
+  json(res, 200, { deviceCode, now: new Date().toISOString(), statusBreakdown, sample, sources });
 }
 
 // GET /debug/weimi-orders?deviceCode=... — read-only: what Weimi returns for

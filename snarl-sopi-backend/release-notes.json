@@ -1,6 +1,16 @@
 [
  {
   "component": "backend",
+  "version": "6.106.7",
+  "date": "2026-11-03",
+  "title": "Diagnostic: where a machine's sales come from, and whether accounting sees them.",
+  "notes": [
+   "/api/v1/debug/orders?deviceCode=X&days=14 (AG only, read-only) now splits the machine's sales by source (our kiosk app, Weimi's order feed, fridge settlements). It counts how many kiosk sales have no line in the table the VSK/profit report and the accounting export read, and how many Weimi orders look like the same purchase as a kiosk sale (same total within 3 minutes). Nothing about sales or reports changes in this version; it is there to decide the fix."
+  ],
+  "check": "Open it for a kiosk-run coil machine (e.g. 62160492) and read sources.kioskSalesWithoutOrderItems and sources.weimiOrdersMatchingKioskSales."
+ },
+ {
+  "component": "backend",
   "version": "6.106.6",
   "date": "2026-11-03",
   "title": "Orders show how many of a product were bought, not just the line total.",
