@@ -37,7 +37,7 @@ test('a demo request is mailed with the sender as reply-to', async () => {
 test('a SendGrid failure is an error, never a 200', async () => {
   const real = email.send;
   email.send = async () => { throw new Error('boom'); };
-  try { assert.strictEqual(await post(valid), 502); } finally { email.send = real; }
+  try { assert.strictEqual(await post(valid), 424); } finally { email.send = real; }
 });
 
 test('a filled honeypot answers 200 and sends nothing', async () => {

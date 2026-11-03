@@ -91,7 +91,7 @@ test('a SendGrid failure is an error, never a 200', async () => {
   email.send = async () => { throw new Error('boom'); };
   try {
     const r = await post(valid);
-    assert.strictEqual(r.status, 502);
+    assert.strictEqual(r.status, 424);
     assert.strictEqual(r.payload.ok, false);
   } finally { email.send = real; }
 });
