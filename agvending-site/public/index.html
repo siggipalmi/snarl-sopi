@@ -356,11 +356,30 @@ h1 .highlight { position: relative; z-index: -1; }
    Without the script the logos simply stand still. With motion off the track wraps, so the
    copies are hidden again. */
 .marquee__track:not(.is-looped) { animation: none; }
-/* The theme loops in 50s, sized for 16 logos; scale with the count (about 3s a logo) so the
-   speed stays the same when logos are added. */
-.marquee__track { animation-duration: 80s; }
+/* Two rows, under the label, the second moving the other way. The theme loops in 50s, sized for
+   16 logos; about 3s a logo keeps the speed the same (14 a row: 42s). Row two has its own
+   keyframe rather than animation-direction: reverse, which would start it on the copied half. */
+/* flex-wrap: nowrap — the theme wraps this under 760px, and a wrapping column sizes each row to
+   all of its logos (3650px of sideways scroll on a phone). */
+.partners .wrap { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: var(--s-4); }
+.partners__label { white-space: normal; }
+.marquee__track { animation-duration: 42s; }
+.marquee--reverse .marquee__track { animation-name: marquee-reverse; }
+@keyframes marquee-reverse { from { transform: translateX(-50%); } to { transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) {
   .marquee__track > [aria-hidden="true"] { display: none; }
+  /* Standing still, the two rows become ONE grid (rows and tracks drop out of the layout with
+     display: contents). A wrapped row left ragged lines (8 + 6); 28 logos in 7 / 4 / 2 columns
+     fill every line. Keep the logo count even (two rows of equal length) for that to hold. */
+  .partners .wrap { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--s-5) var(--s-4); justify-items: center; }
+  .partners__label { grid-column: 1 / -1; justify-self: start; }
+  .marquee, .marquee__track { display: contents; }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 1000px) {
+  .partners .wrap { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 680px) {
+  .partners .wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Product card: category + per-day line above the name; price row with the CTA. */
@@ -415,6 +434,8 @@ h1 .highlight { position: relative; z-index: -1; }
 .site-footer nav { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); }
 .site-footer nav a { text-decoration: none; }
 .site-footer nav a:hover { text-decoration: underline; color: var(--paper); }
+.site-footer .footer-about { color: var(--on-dark-soft); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.site-footer .footer-about:hover { color: var(--paper); }
 
 @media (max-width: 760px) {
   .partners__label { white-space: normal; }
@@ -446,7 +467,7 @@ h1 .highlight { position: relative; z-index: -1; }
 <section id="top" class="wrap hero">
   <div class="hero__top">
     <div class="hero__copy">
-      <div class="kicker">Leiga á sjálfsölum · höfuðborgarsvæðið</div>
+      <div class="kicker">Leiga á sjálfsölum</div>
       <h1>Leigðu sjálfsala. Við sjáum um <span class="highlight">restina</span>.</h1>
       <p class="hero__lead">Sjálfsali á fjölförnum stað skapar tekjur og bætir þjónustu — án stofnkostnaðar. Þú leggur til rafmagn og nettengingu, við sjáum um tæki, uppsetningu og viðhald.</p>
       <div class="hero__actions">
@@ -476,43 +497,6 @@ h1 .highlight { position: relative; z-index: -1; }
     </div>
   </div>
 </section>
-<section class="partners" aria-label="Samstarfsaðilar">
-  <div class="wrap">
-    <div class="partners__label">Í rekstri hjá skólum, íþróttafélögum og fyrirtækjum um allt land</div>
-    <div class="marquee">
-      <div class="marquee__track">
-        <!-- One line per partner. File in assets/logos/ (≤600px, a NEW name to replace one: /assets
-             is cached for a year). Add class ag-mul to the tile when the logo sits on a white box. -->
-        <div class="logo-tile"><img src="assets/logos/orkan-mark.png" alt="Orkan" title="Orkan" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/icelandair.png" alt="Icelandair" title="Icelandair" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/valur.png" alt="Valur" title="Valur" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/kr.png" alt="KR" title="KR" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/grotta.png" alt="Grótta" title="Grótta" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/ir.gif" alt="ÍR" title="ÍR" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/sa.png" alt="Skautafélag Akureyrar" title="Skautafélag Akureyrar" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/holaskoli.jpeg" alt="Háskólinn á Hólum" title="Háskólinn á Hólum" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/reykjalundur.png" alt="Reykjalundur" title="Reykjalundur" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/islandshotel.png" alt="Íslandshótel" title="Íslandshótel" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/hotel-dyrholaey.png" alt="Hótel Dyrhólaey" title="Hótel Dyrhólaey" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/hotel-burfell.png" alt="Hótel Búrfell" title="Hótel Búrfell" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/skjol.jpg" alt="Skjól" title="Skjól" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/macron-mark.png" alt="Macron" title="Macron" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/ikea.png" alt="IKEA" title="IKEA" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/lava-show.png" alt="Lava Show" title="Lava Show" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/hotel-ork.png" alt="Hótel Örk" title="Hótel Örk" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/hotel-vellir.png" alt="Hótel Vellir" title="Hótel Vellir" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/nordic-hostel.png" alt="Nordic Hostel" title="Nordic Hostel" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/oddsson.png" alt="Oddsson" title="Oddsson" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/gardlist.png" alt="Garðlist" title="Garðlist" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/thors-power-gym.png" alt="Thor&#39;s Power Gym" title="Thor&#39;s Power Gym" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile ag-mul"><img src="assets/logos/keflavik.png" alt="Keflavík" title="Keflavík" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/fylkir.png" alt="Fylkir" title="Fylkir" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/goa.png" alt="Góa" title="Góa" loading="lazy" decoding="async" /></div>
-        <div class="logo-tile"><img src="assets/logos/hotel-boli.png" alt="Hótel Boli" title="Hótel Boli" loading="lazy" decoding="async" /></div>
-      </div>
-    </div>
-  </div>
-</section>
 <section id="vorur" class="section">
   <div class="wrap">
     <div class="section__head">
@@ -525,10 +509,10 @@ h1 .highlight { position: relative; z-index: -1; }
     </div>
     <div class="products">
       <article class="product">
-        <div class="product__media"><img src="assets/img/machine-tvofaldur.png" alt="Tvöfaldur snjallsjálfsali með kæli" loading="lazy" decoding="async" /></div>
+        <div class="product__media"><img src="assets/img/vel-tvofaldur.png" alt="Tvöfaldur snjallsjálfsali með kæli" loading="lazy" decoding="async" /></div>
         <div class="product__meta"><span>Snjallsjálfsali</span><span>1.833 kr/dag</span></div>
         <h3>Tvöfaldur snjallsjálfsali með kæli</h3>
-        <p class="product__text">Opnast með korti eða síma. Vogir og myndavélar nema hvað er tekið og skuldfæra sjálfkrafa við lokun.</p>
+        <p class="product__text">Opnast með korti eða síma. 32 vörukörfur. Vogir nema hvað er tekið og skuldfæra sjálfkrafa við lokun.</p>
         <dl class="specs">
           <dt>Stærð</dt><dd>1280 × 2000 × 680 mm</dd>
           <dt>Þyngd</dt><dd>240 kg</dd>
@@ -538,10 +522,10 @@ h1 .highlight { position: relative; z-index: -1; }
         <div class="price"><span>55.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband" data-taeki="Tvöfaldur snjallsjálfsali með kæli">Leigja þetta tæki →</a></div>
       </article>
       <article class="product">
-        <div class="product__media"><img src="assets/img/machine-einfaldur.png" alt="Einfaldur snjallsjálfsali með kæli" loading="lazy" decoding="async" /></div>
+        <div class="product__media"><img src="assets/img/vel-einfaldur.png" alt="Einfaldur snjallsjálfsali með kæli" loading="lazy" decoding="async" /></div>
         <div class="product__meta"><span>Snjallsjálfsali</span><span>1.333 kr/dag</span></div>
         <h3>Einfaldur snjallsjálfsali með kæli</h3>
-        <p class="product__text">Sama tækni í mjórri skáp. Auðveldur í áfyllingu og selur meira en hefðbundnir sjálfsalar.</p>
+        <p class="product__text">Sama tækni í mjórri skáp, með 16 vörukörfum. Auðveldur í áfyllingu og selur meira en hefðbundnir sjálfsalar.</p>
         <dl class="specs">
           <dt>Stærð</dt><dd>700 × 2000 × 680 mm</dd>
           <dt>Þyngd</dt><dd>185 kg</dd>
@@ -551,7 +535,7 @@ h1 .highlight { position: relative; z-index: -1; }
         <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband" data-taeki="Einfaldur snjallsjálfsali með kæli">Leigja þetta tæki →</a></div>
       </article>
       <article class="product">
-        <div class="product__media"><img src="assets/img/machine-snertiskjar.png" alt="Sjálfsali með 55&quot; snertiskjá" loading="lazy" decoding="async" /></div>
+        <div class="product__media"><img src="assets/img/vel-snertiskjar.png" alt="Sjálfsali með 55&quot; snertiskjá" loading="lazy" decoding="async" /></div>
         <div class="product__meta"><span>Snertiskjár</span><span>1.333 kr/dag</span></div>
         <h3>Sjálfsali með 55" snertiskjá</h3>
         <p class="product__text">Yfir 250 vörur og allt að 50 vörutegundir. Afgreiðir 5 vörur í einni færslu — það gerir enginn annar.</p>
@@ -604,6 +588,50 @@ h1 .highlight { position: relative; z-index: -1; }
     </div>
   </div>
 </section>
+<section class="partners" aria-label="Samstarfsaðilar">
+  <div class="wrap">
+    <div class="partners__label">Í rekstri hjá skólum, íþróttafélögum og fyrirtækjum um allt land</div>
+    <!-- Two rows moving in opposite directions. One line per partner, in either row (keep them about
+         even). File in assets/logos/ (≤600px, a NEW name to replace one: /assets is cached for a
+         year). Add class ag-mul to the tile when the logo sits on a white box. -->
+    <div class="marquee">
+      <div class="marquee__track">
+        <div class="logo-tile"><img src="assets/logos/orkan-mark.png" alt="Orkan" title="Orkan" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/valur.png" alt="Valur" title="Valur" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/grotta.png" alt="Grótta" title="Grótta" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/sa.png" alt="Skautafélag Akureyrar" title="Skautafélag Akureyrar" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/reykjalundur.png" alt="Reykjalundur" title="Reykjalundur" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/hotel-dyrholaey.png" alt="Hótel Dyrhólaey" title="Hótel Dyrhólaey" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/skjol.jpg" alt="Skjól" title="Skjól" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/ikea.png" alt="IKEA" title="IKEA" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/hotel-ork.png" alt="Hótel Örk" title="Hótel Örk" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/nordic-hostel.png" alt="Nordic Hostel" title="Nordic Hostel" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/gardlist.png" alt="Garðlist" title="Garðlist" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/keflavik.png" alt="Keflavík" title="Keflavík" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/goa.png" alt="Góa" title="Góa" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/blue-vacations.png" alt="Blue Vacations Iceland" title="Blue Vacations Iceland" loading="lazy" decoding="async" /></div>
+      </div>
+    </div>
+    <div class="marquee marquee--reverse">
+      <div class="marquee__track">
+        <div class="logo-tile ag-mul"><img src="assets/logos/icelandair.png" alt="Icelandair" title="Icelandair" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/kr.png" alt="KR" title="KR" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/ir.gif" alt="ÍR" title="ÍR" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/holaskoli.jpeg" alt="Háskólinn á Hólum" title="Háskólinn á Hólum" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/islandshotel.png" alt="Íslandshótel" title="Íslandshótel" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/hotel-burfell.png" alt="Hótel Búrfell" title="Hótel Búrfell" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/macron-mark.png" alt="Macron" title="Macron" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/lava-show.png" alt="Lava Show" title="Lava Show" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/hotel-vellir.png" alt="Hótel Vellir" title="Hótel Vellir" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/oddsson.png" alt="Oddsson" title="Oddsson" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/thors-power-gym.png" alt="Thor&#39;s Power Gym" title="Thor&#39;s Power Gym" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/fylkir.png" alt="Fylkir" title="Fylkir" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile"><img src="assets/logos/hotel-boli.png" alt="Hótel Boli" title="Hótel Boli" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/arctic-adventures.png" alt="Arctic Adventures" title="Arctic Adventures" loading="lazy" decoding="async" /></div>
+      </div>
+    </div>
+  </div>
+</section>
 <section id="kerfid" class="section section--ruled">
   <div class="wrap">
     <div class="section__head">
@@ -624,11 +652,11 @@ h1 .highlight { position: relative; z-index: -1; }
         <div class="ruled-list">
           <h3 class="ruled-list__title">Allt sem reksturinn þarf</h3>
           <ul>
-            <li><span>Sala í rauntíma<small>Tekjur á flotann og á hverja vél, niður í hverja færslu.</small></span></li>
+            <li><span>Sala í rauntíma<small>Tekjur flotans, í hverri vél niður á hverja færslu.</small></span></li>
             <li><span>Lagerstaða<small>Hvað er eftir í hverri vél, niður í einstök hólf.</small></span></li>
             <li><span>Áfyllingarlisti<small>Brýnast efst, raðað eftir þörf.</small></span></li>
-            <li><span>Viðvaranir<small>Vél dettur út, kælir hlýnar, hólf tæmist — á skjá og í tölvupósti.</small></span></li>
-            <li><span>Uppgjör og VSK<small>Tekjur, VSK og framlegð eftir vöru.</small></span></li>
+            <li><span>Viðvaranir<small>Vél dettur út, kæling bilar, hólf tæmist — á skjá og í tölvupósti.</small></span></li>
+            <li><span>Uppgjör og VSK<small>Tekjur, VSK og framlegð eftir vöru. Bókhaldstenging við Payday, DK, Konto og Business Central.</small></span></li>
             <li><span>Fjarstýring<small>Opna hurð, stilla kælingu, taka úr sölu — án þess að fara á staðinn.</small></span></li>
           </ul>
         </div>
@@ -726,7 +754,7 @@ h1 .highlight { position: relative; z-index: -1; }
 <footer class="site-footer">
   <div class="wrap">
     <a class="brand" href="#top"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" loading="lazy" /></a>
-    <span class="muted">AG Vending ehf. · kt. 590922-0800</span>
+    <span class="muted">AG Vending ehf. · kt. 590922-0800 · <a class="footer-about" href="/about">Um AG Vending ehf.</a></span>
     <nav aria-label="Fótur">
       <a href="#vorur">Sjálfsalar</a>
       <a href="#verd">Verðskrá</a>
@@ -744,10 +772,8 @@ h1 .highlight { position: relative; z-index: -1; }
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Er einhver aukakostnaður?","acceptedAnswer":{"@type":"Answer","text":"AG Vending innheimtir bara fast leiguverð. Innifalið í leiguverði er sjálfsali, greiðsluposi og aðgangur að vefumsjónarkerfi þar sem hægt er að fylgjast með sölu, búa til vörur, tilboð og fleira. Aukakostnaður við þjónustu þriðja aðila er á ábyrgð leigutaka: þjónustugjald posans, sem greitt er til Tæknivits, þjónustuaðila Nayax, færslu- og þjónustugjöld vegna greiðslukorta, nettenging o.þ.h."}},{"@type":"Question","name":"Tekur AG Vending prósentu af sölu?","acceptedAnswer":{"@type":"Answer","text":"Nei. Við rukkum fast gjald og tökum ekkert hlutfall af sölu — ef það gengur vel hjá þér þá græðir þú meira."}},{"@type":"Question","name":"Hver er leigutíminn?","acceptedAnswer":{"@type":"Answer","text":"Leigutímabilið er ótímabundið. Fyrstu þrjá mánuðina er eins mánaðar uppsagnarfrestur en þriggja mánaða uppsagnarfrestur að þeim tíma liðnum."}},{"@type":"Question","name":"Hvað ef tækið bilar?","acceptedAnswer":{"@type":"Answer","text":"AG Vending ábyrgist að tækið virki sem skyldi á meðan leigusambandi stendur. Við gerum við biluð tæki eða skiptum þeim út leigutaka að kostnaðarlausu."}},{"@type":"Question","name":"Hvað þarf ég að leggja til?","acceptedAnswer":{"@type":"Answer","text":"Venjulega innstungu og nettengingu (WiFi, LAN eða 4G). Við afhendum og setjum upp tækið án kostnaðar hvar sem er á höfuðborgarsvæðinu. Leigutaki þarf að vera með færsluhirðingu hjá Teya og við aðstoðum við umsókn."}}]}
 </script>
 <script>
-/* Partner rail: copy the tiles once for the seamless loop (see .is-looped in the styles). */
-(function () {
-  var track = document.querySelector(".marquee__track");
-  if (!track) return;
+/* Partner rail: copy each row's tiles once for the seamless loop (see .is-looped in the styles). */
+document.querySelectorAll(".marquee__track").forEach(function (track) {
   Array.prototype.slice.call(track.children).forEach(function (tile) {
     var copy = tile.cloneNode(true);
     copy.setAttribute("aria-hidden", "true");
@@ -756,7 +782,7 @@ h1 .highlight { position: relative; z-index: -1; }
     track.appendChild(copy);
   });
   track.classList.add("is-looped");
-})();
+});
 
 /* "Leigja þetta tæki" and the custom-machine link pre-select their machine in the form. */
 document.querySelectorAll("[data-taeki]").forEach(function (a) {

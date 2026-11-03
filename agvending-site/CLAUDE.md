@@ -21,8 +21,9 @@ Updated 28 Oct 2026, from the claude.ai Project handover of 25 Aug.
 Fully static. Plain HTML/CSS/JS. No framework, no build step, no CMS, no npm dependencies.
 
 - **Pages:** `public/index.html` (the front page) + `kerfid.html` (the web admin, /kerfid) +
-  `takk.html` + `404.html` + `500.html`
-- **`kerfid.html` shares the front page's layout by copy:** its `<head>` style block (theme
+  `about.html` (/about, "Um AG Vending ehf.", linked small from every footer) + `takk.html` +
+  `404.html` + `500.html`
+- **`kerfid.html` and `about.html` share the front page's layout by copy:** its `<head>` style block (theme
   sections 1–18), header and footer are `index.html`'s, with the in-page links pointing back to
   `/#…`; only its section 19 and `<main>` are its own. Change a shared part in both files.
   It replaces the backend's `admin.agvending.is/features.html` as the public page about the
@@ -154,7 +155,9 @@ at 2×; a higher-resolution crest is worth asking for.
 
 1. Put the file in `public/assets/logos/`: PNG (transparent if you have it), longest edge ≤600px,
    a lowercase name. A white or very light logo needs a dark version — the rail is on white.
-2. Add **one line** to the rail in `public/index.html`, copying a neighbour:
+2. Add **one line** to either row of the rail in `public/index.html` (two rows, below pricing;
+   keep them **equal**, and the total a multiple of 14 is tidiest: with reduced motion the rail
+   stands still as one grid of 7 / 4 / 2 columns), copying a neighbour:
    `<div class="logo-tile"><img src="assets/logos/NAME.png" alt="Name" title="Name" loading="lazy" decoding="async" /></div>`
    Add `ag-mul` to the tile's class when the logo sits on a white box. The looping copy is made by
    script, so there is no second line to add.
@@ -196,4 +199,5 @@ at 2×; a higher-resolution crest is worth asking for.
   `object-fit: contain`) plus in-situ shots for the hero
 - Kiosk flow video: 8–12s silent MP4 loop composited into the machine screens — show the
   copy/storyboard for approval before producing it
-- `/about` and other Squarespace pages: port, fold into the homepage, or drop with a 301
+- ~~`/about` and other Squarespace pages~~ — decided 3 Nov: `/about` ported to the site at the
+  same address (no redirect needed); the footer links it as "Um AG Vending ehf.".
