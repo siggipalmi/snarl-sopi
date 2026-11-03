@@ -74,6 +74,7 @@ const routes = [
   { method:'GET',  pattern:'/whatismyip',                                    handler: handleWhatIsMyIp },
   { method:'GET',  pattern:'/api/v1/proxy/status',                           handler: handleProxyStatus, middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/debug/outbound-ip',                       handler: handleOutboundIp },
+  { method:'GET',  pattern:'/api/v1/debug/status-probe',                      handler: handleStatusProbe },
   { method:'GET',  pattern:'/api/v1/debug/weimi-test',                        handler: handleWeimiTest },
   { method:'GET',  pattern:'/api/v1/debug/weimi-orders',                      handler: handleWeimiOrdersTest },
   { method:'GET',  pattern:'/api/v1/debug/weimi-device',                      handler: handleWeimiDeviceDigest },
@@ -7937,6 +7938,24 @@ async function handleWeimiSync(req, res) {
 function handleProxyStatus(req, res) {
   const proxy = require('./proxy');
   ok(res, proxy.status());
+}
+
+/**
+ * GET /api/v1/debug/status-probe?code=503  (AG only, like every /debug route)
+ *
+ * Answers with the status asked for and a fixed JSON body, and does nothing else. It exists to
+ * find out which error statuses Railway's edge passes through and which it replaces with its own
+ * page: 502 is replaced (2026-11-03), so upstream failures answer 424. If the body comes back with
+ * `marker` intact, that status is safe for the backend to use. Only 400–599 are accepted.
+ */
+const STATUS_PROBE_MARKER = 'snarl-sopi-status-probe';
+function handleStatusProbe(req, res) {
+  const code = Number(req.query?.code);
+  if (!Number.isInteger(code) || code < 400 || code > 599) {
+    return json(res, 400, { ok: false, error: 'pass ?code= with a status from 400 to 599' });
+  }
+  res.setHeader('X-Status-Probe', String(code));
+  json(res, code, { ok: false, probe: true, marker: STATUS_PROBE_MARKER, sentStatus: code, at: new Date().toISOString() });
 }
 
 /**

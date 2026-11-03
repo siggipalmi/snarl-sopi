@@ -1,13 +1,23 @@
 [
  {
   "component": "backend",
-  "version": "6.106.7",
+  "version": "6.106.8",
   "date": "2026-11-03",
   "title": "Diagnostic: where a machine's sales come from, and whether accounting sees them.",
   "notes": [
    "/api/v1/debug/orders?deviceCode=X&days=14 (AG only, read-only) now splits the machine's sales by source (our kiosk app, Weimi's order feed, fridge settlements). It counts how many kiosk sales have no line in the table the VSK/profit report and the accounting export read, and how many Weimi orders look like the same purchase as a kiosk sale (same total within 3 minutes). Nothing about sales or reports changes in this version; it is there to decide the fix."
   ],
   "check": "Open it for a kiosk-run coil machine (e.g. 62160492) and read sources.kioskSalesWithoutOrderItems and sources.weimiOrdersMatchingKioskSales."
+ },
+ {
+  "component": "backend",
+  "version": "6.106.7",
+  "date": "2026-11-03",
+  "title": "AG-only test route to find which error codes Railway lets through.",
+  "notes": [
+   "New /api/v1/debug/status-probe?code=503 (AG only). It answers with the status you ask for (400–599) and a fixed JSON body, and does nothing else. If the body arrives, Railway passes that status through and the dashboard can show the backend's own error message. If Railway's page arrives instead, the backend must not use that status for errors (502 is already known to be replaced; upstream failures use 424 since 6.106.3)."
+  ],
+  "check": "Run the console snippet for 424, 502, 503 and 504 while signed in as AG: 424 should arrive intact and 502 should not. The result for 503 and 504 decides whether the backend keeps using 503."
  },
  {
   "component": "backend",
