@@ -999,6 +999,9 @@ const stmts = {
                                       WHERE deviceCode = ? AND createTime >= ? AND createTime <= ?
                                       ORDER BY createTime ASC`),
   listFridgeLines: db.prepare('SELECT * FROM fridge_settlement_lines WHERE deviceCode = ? AND orderId = ?'),
+  orderItemsInRange: db.prepare(`SELECT * FROM order_items
+                                 WHERE deviceCode = ? AND createTime >= ? AND createTime <= ?
+                                 ORDER BY createTime ASC`),
   setProductImage: db.prepare(`UPDATE products SET imgUrl=@imgUrl, imageHasBackground=@imageHasBackground,
       weimiImgUrl=COALESCE(@weimiImgUrl, weimiImgUrl), imageNormalizedAt=@imageNormalizedAt,
       imageClearedPct=@imageClearedPct, imageSrcW=@imageSrcW, imageSrcH=@imageSrcH, updatedAt=@updatedAt
@@ -1900,6 +1903,9 @@ const storage = {
   },
   ordersInRangeAnyStatus(deviceCode, fromMs, toMs) {
     return stmts.ordersInRangeAnyStatus.all(deviceCode, fromMs, toMs);
+  },
+  orderItemsInRange(deviceCode, fromMs, toMs) {
+    return stmts.orderItemsInRange.all(deviceCode, fromMs, toMs);
   },
   listFridgeSettlements(deviceCode, lim = 100) {
     return stmts.listFridgeSettlements.all(deviceCode, { lim: Math.max(1, Math.min(lim, 500)) });
