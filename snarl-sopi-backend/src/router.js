@@ -766,7 +766,7 @@ async function handleDemoRequest(req, res) {
     await email.send({ to, replyTo: senderEmail, subject: 'Demo request — ' + name + (company ? ' (' + company + ')' : ''), text, fromName: 'AG Vending site' });
   } catch (err) {
     console.error('[DEMO] email failed for ' + senderEmail + ':', err && err.message);
-    return json(res, 502, { ok: false, error: 'Could not send the request. Please email agvending@agvending.is.' });
+    return json(res, 424, { ok: false, error: 'Could not send the request. Please email agvending@agvending.is.' });
   }
   console.log('[DEMO] request from ' + senderEmail + (company ? ' (' + company + ')' : ''));
 
@@ -822,7 +822,7 @@ async function handleSiteEnquiry(req, res) {
     });
   } catch (err) {
     console.error('[ENQUIRY] email failed for ' + senderEmail + ':', err && err.message);
-    return json(res, 502, { ok: false, error: 'Ekki tókst að senda fyrirspurnina.' });
+    return json(res, 424, { ok: false, error: 'Ekki tókst að senda fyrirspurnina.' });
   }
   console.log('[ENQUIRY] from ' + senderEmail + (place ? ' (' + place + ')' : ''));
   ok(res, { received: true });
@@ -951,7 +951,7 @@ async function handleLeaseNotify(req, res) {
     await email.send({ to, subject, text, fromName: 'AG Vending skráning' });
     ok(res, { sent: true, to: to.length });
   } catch (e) {
-    json(res, 502, { ok: false, error: 'email failed: ' + e.message });
+    json(res, 424, { ok: false, error: 'email failed: ' + e.message });
   }
 }
 
@@ -1079,11 +1079,11 @@ function handleWhatIsMyIp(req, res) {
           note: 'This is the outgoing IP Weimi sees when this backend calls their API. Give this IP to Weimi support for whitelisting.',
         });
       } catch {
-        json(res, 502, { ok: false, error: 'Could not parse ipify response', raw: data });
+        json(res, 424, { ok: false, error: 'Could not parse ipify response', raw: data });
       }
     });
   }).on('error', err => {
-    json(res, 502, { ok: false, error: 'Could not reach ipify', detail: err.message });
+    json(res, 424, { ok: false, error: 'Could not reach ipify', detail: err.message });
   });
 }
 
@@ -1639,7 +1639,7 @@ async function handleFridgeReceipt(req, res) {
   } catch (e) {
     console.error(`[RECEIPT] ${deviceCode} order ${orderId}: ${e.message}`);
     // A 5xx so the machine keeps the request and retries; SendGrid hiccups are transient.
-    json(res, 502, { ok: false, error: 'receipt email failed: ' + e.message });
+    json(res, 424, { ok: false, error: 'receipt email failed: ' + e.message });
   }
 }
 
@@ -2360,7 +2360,7 @@ async function handleReplyComplaint(req, res) {
     });
   } catch (err) {
     console.error('[COMPLAINT] reply email failed:', err.message);
-    return json(res, 502, { ok: false, error: 'Failed to send reply email', detail: err.message });
+    return json(res, 424, { ok: false, error: 'Failed to send reply email', detail: err.message });
   }
 
   storage.markComplaintReplied(c.id, replyText.trim(), req.user.name);
@@ -6707,7 +6707,7 @@ async function handleImagesFromWeimiDevice(req, res) {
   }
   let info;
   try { info = await weimi.deviceInfo({ endpoint: 'prod' }, code); }
-  catch (e) { return json(res, 502, { ok: false, error: 'weimi_unreachable', message: e.message }); }
+  catch (e) { return json(res, 424, { ok: false, error: 'weimi_unreachable', message: e.message }); }
 
   // Every product in the layout with a picture, keyed by id and by name.
   const norm = t => String(t || '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -7556,7 +7556,7 @@ async function handlePutBillingSettings(req, res) {
     // Payday checks at toggle time whether the recipient can receive electronic invoices, so a
     // refusal here most often means they cannot. Say that, and keep Payday's own words too.
     const triedEinvoice = (req.body || {}).sendElectronicInvoices === true;
-    json(res, 502, { ok: false, error: 'payday_write_failed',
+    json(res, 424, { ok: false, error: 'payday_write_failed',
       message: (triedEinvoice ? 'Payday hafnaði breytingunni — viðtakandinn getur mögulega ekki '
         + 'tekið við rafrænum reikningum. ' : 'Payday hafnaði breytingunni. ')
         + String(e.message || e),
@@ -7629,7 +7629,7 @@ async function handleOperatorInvoicePdf(req, res) {
     res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="invoice-${req.params.invoiceId}.pdf"` });
     res.end(pdf);
   } catch (e) {
-    json(res, 502, { ok: false, error: String(e.message || e) });
+    json(res, 424, { ok: false, error: String(e.message || e) });
   }
 }
 
@@ -7766,7 +7766,7 @@ async function handleUpdateOperator(req, res) {
   }
   if (req.body.logoBase64) {
     try { op.logoUrl = await uploadBase64Image(req.body.logoBase64, req.body.logoType, `operators/${op.id}`); }
-    catch (e) { return json(res, 502, { error: 'logo upload failed: ' + e.message }); }
+    catch (e) { return json(res, 424, { error: 'logo upload failed: ' + e.message }); }
   }
   storage.upsertOperator(op);
   // Name, contact and logo all reach the fridges (info screen, receipts).
@@ -7785,7 +7785,7 @@ async function handleCreateOperator(req, res) {
   let logoUrl = '';
   if (req.body.logoBase64) {
     try { logoUrl = await uploadBase64Image(req.body.logoBase64, req.body.logoType, `operators/${id}`); }
-    catch (e) { return json(res, 502, { error: 'logo upload failed: ' + e.message }); }
+    catch (e) { return json(res, 424, { error: 'logo upload failed: ' + e.message }); }
   }
   operators[id] = {
     id, name, isAGVending: false,
@@ -7841,7 +7841,7 @@ async function handleWeimiDevices(req, res) {
     ok(res, profiles, { synced: profiles.length, via: 'kiosk-proxy' });
   } catch (err) {
     console.error('[Weimi] deviceProfile:', err.message);
-    const status = err.code === 'NO_PROXY_AVAILABLE' ? 503 : 502;
+    const status = err.code === 'NO_PROXY_AVAILABLE' ? 503 : 424;
     json(res, status, { ok: false, error: 'Weimi proxy error', detail: err.message, code: err.code });
   }
 }
@@ -7861,7 +7861,7 @@ async function handleWeimiDevice(req, res) {
     ok(res, { deviceCode, productCount: products.length, products, via: 'kiosk-proxy' });
   } catch (err) {
     console.error('[Weimi] deviceInfo:', err.message);
-    const status = err.code === 'NO_PROXY_AVAILABLE' ? 503 : 502;
+    const status = err.code === 'NO_PROXY_AVAILABLE' ? 503 : 424;
     json(res, status, { ok: false, error: 'Weimi proxy error', detail: err.message, code: err.code });
   }
 }
@@ -7873,7 +7873,7 @@ async function handleWeimiOrders(req, res) {
     ok(res, records.map(o => ({ ...o, statusLabel: {1:'success',2:'failed',3:'refunded'}[o.status]||'unknown', amountKr: Math.round((o.totalAmount||0)/100), machineName: machines[o.deviceCode]?.deviceName || o.deviceCode })), { via: 'kiosk-proxy' });
   } catch (err) {
     console.error('[Weimi] queryOrders:', err.message);
-    const status = err.code === 'NO_PROXY_AVAILABLE' ? 503 : 502;
+    const status = err.code === 'NO_PROXY_AVAILABLE' ? 503 : 424;
     json(res, status, { ok: false, error: 'Weimi proxy error', detail: err.message, code: err.code });
   }
 }
@@ -7902,7 +7902,7 @@ async function handleWeimiSync(req, res) {
     ok(res, { deviceCode, deviceName: m.deviceName, isOnline: m.isOnline, productCount: products.length, totalStock: m.totalCurrStock, syncedAt: m.updatedAt, via: 'kiosk-proxy' });
   } catch (err) {
     console.error('[Weimi] sync:', err.message);
-    const status = err.code === 'NO_PROXY_AVAILABLE' ? 503 : 502;
+    const status = err.code === 'NO_PROXY_AVAILABLE' ? 503 : 424;
     json(res, status, { ok: false, error: 'Weimi proxy error', detail: err.message, code: err.code });
   }
 }
@@ -8271,7 +8271,7 @@ async function handleWeimiSyncAll(req, res) {
     ok(res, report);
   } catch (e) {
     console.error('[WEIMI] sync-all failed:', e.message);
-    json(res, 502, { ok: false, error: e.message });
+    json(res, 424, { ok: false, error: e.message });
   }
 }
 
@@ -8285,7 +8285,7 @@ async function handleWeimiSyncOne(req, res) {
     ok(res, result);
   } catch (e) {
     console.error('[WEIMI] sync one failed:', e.message);
-    json(res, 502, { ok: false, error: e.message });
+    json(res, 424, { ok: false, error: e.message });
   }
 }
 
@@ -8365,11 +8365,11 @@ function handleSetBayConfig(req, res) {
  * Returns { ok, status, operationStatus?, error?, message? }.
  *   code 200 + operationStatus 0/1/2 → success
  *   code 4003                         → machine offline (409)
- *   anything else / network error     → upstream failure (502)
+ *   anything else / network error     → upstream failure (424 — not 502, which Railway replaces with its own page)
  */
 function interpretWeimiWrite(result) {
   if (!result || result.error) {
-    return { ok: false, status: 502, error: 'weimi_unreachable', message: result?.error || 'no response' };
+    return { ok: false, status: 424, error: 'weimi_unreachable', message: result?.error || 'no response' };
   }
   if (result.weimiCode === 200) {
     let operationStatus = null;
@@ -8379,7 +8379,7 @@ function interpretWeimiWrite(result) {
   if (result.weimiCode === 4003) {
     return { ok: false, status: 409, error: 'machine_offline', message: 'The machine is offline — Weimi can only apply changes while it is online.' };
   }
-  return { ok: false, status: 502, error: 'weimi_error', code: result.weimiCode, message: result.weimiMsg || 'write rejected' };
+  return { ok: false, status: 424, error: 'weimi_error', code: result.weimiCode, message: result.weimiMsg || 'write rejected' };
 }
 
 /**
@@ -8418,7 +8418,7 @@ async function handleSlotStock(req, res) {
   try {
     result = await weimi.updateAisleStock({ endpoint: 'prod' }, code, clean);
   } catch (e) {
-    return json(res, 502, { ok: false, error: 'weimi_unreachable', message: e.message });
+    return json(res, 424, { ok: false, error: 'weimi_unreachable', message: e.message });
   }
   const verdict = interpretWeimiWrite(result);
   if (!verdict.ok) {
@@ -8459,7 +8459,7 @@ async function handleSlotPrice(req, res) {
   // Need each slot's current product id → read fresh device-info.
   let info;
   try { info = await weimi.deviceInfo({ endpoint: 'prod' }, code); }
-  catch (e) { return json(res, 502, { ok: false, error: 'weimi_unreachable', message: e.message }); }
+  catch (e) { return json(res, 424, { ok: false, error: 'weimi_unreachable', message: e.message }); }
   const byCode = {};
   (info.cabinets || []).forEach(cab => (cab.layers || []).forEach(l => (l.aisles || []).forEach(a => { if (a.code) byCode[a.code] = a; })));
 
@@ -8485,15 +8485,15 @@ async function handleSlotPrice(req, res) {
     const g = byGoods[gid];
     let r;
     try { r = await weimi.updateAisleGoods({ endpoint: 'prod' }, code, g.aisleCodes, gid, g.price); }
-    catch (e) { if (!firstErr) firstErr = { status: 502, error: 'weimi_unreachable', message: e.message }; continue; }
+    catch (e) { if (!firstErr) firstErr = { status: 424, error: 'weimi_unreachable', message: e.message }; continue; }
     const v = interpretWeimiWrite(r);
     if (v.ok) applied += g.aisleCodes.length;
     else if (!firstErr) firstErr = v;
   }
 
   if (applied === 0) {
-    const e = firstErr || { status: 502, error: 'weimi_error', message: 'price update rejected' };
-    return json(res, e.status || 502, { ok: false, error: e.error, message: e.message, code: e.code });
+    const e = firstErr || { status: 424, error: 'weimi_error', message: 'price update rejected' };
+    return json(res, e.status || 424, { ok: false, error: e.error, message: e.message, code: e.code });
   }
 
   try { await require('./weimiSync').syncMachine(code, { orders: false }); } catch (e) { /* non-fatal */ }
@@ -8620,7 +8620,7 @@ async function handleUpdateProduct(req, res) {
       const norm = await normalizeAndHost(buf, goodsId, { knockoutWhite: !!b.knockoutWhite });
       newImgUrl = norm.url; imageHasBackground = norm.hasBackground; clearedPct = norm.clearedPct; imgSrcW = norm.srcW; imgSrcH = norm.srcH;
       if (norm.note) warnings.push(norm.note);
-    } catch (e) { return json(res, 502, { ok: false, stage: 'image_upload', error: e.message }); }
+    } catch (e) { return json(res, 424, { ok: false, stage: 'image_upload', error: e.message }); }
   }
 
   // ── 2. Persist OUR image straight away ──────────────────────────────────
@@ -9166,7 +9166,7 @@ async function handleQuickProduct(req, res) {
     if (!buf.length || buf.length > 8 * 1024 * 1024) return badRequest(res, 'image must be under 8 MB');
     const ext = /png/.test(type) ? 'png' : /webp/.test(type) ? 'webp' : 'jpg';
     try { imgUrl = await r2.putObject(`products/${goodsId}.${ext}`, buf, type); }
-    catch (e) { return json(res, 502, { ok: false, stage: 'image_upload', error: e.message }); }
+    catch (e) { return json(res, 424, { ok: false, stage: 'image_upload', error: e.message }); }
   }
   try {
     storage.upsertProduct({ goodsId, weimiId: null, goodsCode: goodsId, customCode: goodsId, name,
@@ -9216,7 +9216,7 @@ async function handleCreateProduct(req, res) {
 
   let imgUrl;
   try { imgUrl = await r2.putObject(key, buf, contentType); }
-  catch (e) { return json(res, 502, { ok: false, stage: 'image_upload', error: e.message }); }
+  catch (e) { return json(res, 424, { ok: false, stage: 'image_upload', error: e.message }); }
 
   const fields = {
     goodsName: goodsName.slice(0, 200),
@@ -9229,12 +9229,12 @@ async function handleCreateProduct(req, res) {
 
   let result;
   try { result = await weimi.saveGoodsRaw({ endpoint: 'prod' }, fields); }
-  catch (e) { return json(res, 502, { ok: false, stage: 'save_goods', error: e.message, imgUrl }); }
+  catch (e) { return json(res, 424, { ok: false, stage: 'save_goods', error: e.message, imgUrl }); }
 
   let goodsId = null;
   try { goodsId = JSON.parse(result.bodyPreview)?.data?.goodsId || null; } catch {}
   if (result.weimiCode !== 200 || !goodsId) {
-    return json(res, 502, { ok: false, stage: 'save_goods', error: weimi.fixMojibake(result.weimiMsg || 'create failed'), imgUrl });
+    return json(res, 424, { ok: false, stage: 'save_goods', error: weimi.fixMojibake(result.weimiMsg || 'create failed'), imgUrl });
   }
 
   // Resolve the product code (goodsCode) — that's the id machines and orders use,
@@ -9635,7 +9635,7 @@ async function handleSlotProduct(req, res) {
   // 1) Assign the new product + price to this one slot.
   let r;
   try { r = await weimi.updateAisleGoods({ endpoint: 'prod' }, code, [aisleCode], goodsId, priceCents); }
-  catch (e) { return json(res, 502, { ok: false, error: 'weimi_unreachable', message: e.message }); }
+  catch (e) { return json(res, 424, { ok: false, error: 'weimi_unreachable', message: e.message }); }
   const v = interpretWeimiWrite(r);
   if (!v.ok) return json(res, v.status, { ok: false, error: v.error, message: v.message, code: v.code });
 
@@ -9661,7 +9661,7 @@ async function handleWeimiPopulate(req, res) {
     ok(res, result);
   } catch (e) {
     console.error('[WEIMI] populate failed:', e.message);
-    json(res, 502, { ok: false, error: e.message });
+    json(res, 424, { ok: false, error: e.message });
   }
 }
 
@@ -9717,7 +9717,7 @@ async function handleWeimiWriteTest(req, res) {
     }
     ok(res, out);
   } catch (e) {
-    json(res, 502, { ok: false, error: e.message });
+    json(res, 424, { ok: false, error: e.message });
   }
 }
 
@@ -9897,10 +9897,10 @@ function pickFirst(obj, keys) {
 function nayaxErrorResponse(res, e) {
   const map = {
     NAYAX_NOT_CONFIGURED: 400,
-    NAYAX_AUTH:           502,
+    NAYAX_AUTH:           424,
     NAYAX_RATE_LIMITED:   429,
-    NAYAX_NETWORK:        502,
-    NAYAX_API_ERROR:      502,
+    NAYAX_NETWORK:        424,
+    NAYAX_API_ERROR:      424,
   };
   const status = map[e.code] || 500;
   console.error('[NAYAX]', e.code, e.message);

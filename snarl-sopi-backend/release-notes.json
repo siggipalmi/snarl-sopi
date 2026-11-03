@@ -1,6 +1,16 @@
 [
  {
   "component": "backend",
+  "version": "6.106.3",
+  "date": "2026-11-03",
+  "title": "Errors from Payday, Weimi, Nayax and email reach the dashboard instead of \"Backend may be restarting\".",
+  "notes": [
+   "Every place the backend reported an outside service failing (Payday billing settings, Weimi stock, price, goods and image writes, Nayax, sending emails and replies, the ipify lookup, the Weimi proxy) used HTTP 502. Railway replaces an app's 502 with its own page, so the dashboard showed \"Backend may be restarting (HTTP 502)\" and the real reason was lost. These now answer 424 with the same message, the way the Accounting connection test has since 6.106.1."
+  ],
+  "check": "Trigger a known upstream failure (e.g. a Weimi write to an offline-for-Weimi machine on Weimi stock, or Billing settings with Payday refusing): the red line names the real error, not \"Backend may be restarting\"."
+ },
+ {
+  "component": "backend",
   "version": "6.106.2",
   "date": "2026-11-03",
   "title": "Accounting: diagnose a refused Payday test login.",
