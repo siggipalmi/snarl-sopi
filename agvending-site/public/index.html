@@ -357,13 +357,13 @@ h1 .highlight { position: relative; z-index: -1; }
    copies are hidden again. */
 .marquee__track:not(.is-looped) { animation: none; }
 /* Two rows, under the label, the second moving the other way. The theme loops in 50s, sized for
-   16 logos; about 3s a logo keeps the speed the same (13 a row: 40s). Row two has its own
+   16 logos; about 3s a logo keeps the speed the same (14 a row: 42s). Row two has its own
    keyframe rather than animation-direction: reverse, which would start it on the copied half. */
 /* flex-wrap: nowrap — the theme wraps this under 760px, and a wrapping column sizes each row to
    all of its logos (3650px of sideways scroll on a phone). */
 .partners .wrap { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: var(--s-4); }
 .partners__label { white-space: normal; }
-.marquee__track { animation-duration: 40s; }
+.marquee__track { animation-duration: 42s; }
 .marquee--reverse .marquee__track { animation-name: marquee-reverse; }
 @keyframes marquee-reverse { from { transform: translateX(-50%); } to { transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) {
@@ -597,6 +597,7 @@ h1 .highlight { position: relative; z-index: -1; }
         <div class="logo-tile"><img src="assets/logos/gardlist.png" alt="Garðlist" title="Garðlist" loading="lazy" decoding="async" /></div>
         <div class="logo-tile ag-mul"><img src="assets/logos/keflavik.png" alt="Keflavík" title="Keflavík" loading="lazy" decoding="async" /></div>
         <div class="logo-tile"><img src="assets/logos/goa.png" alt="Góa" title="Góa" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/blue-vacations.png" alt="Blue Vacations Iceland" title="Blue Vacations Iceland" loading="lazy" decoding="async" /></div>
       </div>
     </div>
     <div class="marquee marquee--reverse">
@@ -614,6 +615,7 @@ h1 .highlight { position: relative; z-index: -1; }
         <div class="logo-tile"><img src="assets/logos/thors-power-gym.png" alt="Thor&#39;s Power Gym" title="Thor&#39;s Power Gym" loading="lazy" decoding="async" /></div>
         <div class="logo-tile"><img src="assets/logos/fylkir.png" alt="Fylkir" title="Fylkir" loading="lazy" decoding="async" /></div>
         <div class="logo-tile"><img src="assets/logos/hotel-boli.png" alt="Hótel Boli" title="Hótel Boli" loading="lazy" decoding="async" /></div>
+        <div class="logo-tile ag-mul"><img src="assets/logos/arctic-adventures.png" alt="Arctic Adventures" title="Arctic Adventures" loading="lazy" decoding="async" /></div>
       </div>
     </div>
   </div>
