@@ -359,8 +359,8 @@ async function sendMachineDigest({ to, operatorName, machineName, deviceCode, st
   const out = lowStock.filter(i => i.soldOut);
   const low = lowStock.filter(i => !i.soldOut);
   const headline = out.length
-    ? `${out.length} sold out, ${low.length} low`
-    : (low.length ? `${low.length} item${low.length === 1 ? '' : 's'} low` : 'all stocked');
+    ? `${out.length} uppselt${low.length ? `, ${low.length} að klárast` : ''}`
+    : (low.length ? `${low.length} ${low.length === 1 ? 'vara' : 'vörur'} að klárast` : 'allt á lager');
   const subject = `${machineName} — ${headline}`;
 
   const statusBits = [];

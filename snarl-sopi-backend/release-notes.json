@@ -1,5 +1,16 @@
 [
  {
+  "component": "backend",
+  "version": "6.105.1",
+  "date": "2026-11-03",
+  "title": "The daily machine email has an Icelandic subject line.",
+  "notes": [
+   "The morning machine email's subject now reads e.g. \"Íþróttahús — 1 uppselt, 2 að klárast\" or \"… — 3 vörur að klárast\", instead of \"1 sold out, 2 low\". The body was already Icelandic.",
+   "A sold-out count with nothing else running low no longer says \", 0 low\"."
+  ],
+  "check": "The next morning email from a machine with notifications on: the subject is in Icelandic."
+ },
+ {
   "component": "coil",
   "version": "0.80.20",
   "versionCode": 176,
