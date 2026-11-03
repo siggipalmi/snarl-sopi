@@ -522,7 +522,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Rafmagn</dt><dd>Venjuleg innstunga</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>55.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband" data-taeki="Tvöfaldur snjallsjálfsali með kæli">Leigja þetta tæki →</a></div>
+        <div class="price"><span>55.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="https://skraning.agvending.is/?tvofaldur=1">Leigja þetta tæki →</a></div>
       </article>
       <article class="product">
         <div class="product__media"><img src="assets/img/vel-einfaldur.png" alt="Einfaldur snjallsjálfsali með kæli" loading="lazy" decoding="async" /></div>
@@ -536,7 +536,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Rafmagn</dt><dd>Venjuleg innstunga</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband" data-taeki="Einfaldur snjallsjálfsali með kæli">Leigja þetta tæki →</a></div>
+        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="https://skraning.agvending.is/?einfaldur=1">Leigja þetta tæki →</a></div>
       </article>
       <article class="product">
         <div class="product__media"><img src="assets/img/vel-snertiskjar.png" alt="Sjálfsali með 55&quot; snertiskjá" loading="lazy" decoding="async" /></div>
@@ -549,7 +549,7 @@ h1 .highlight { position: relative; z-index: -1; }
           <dt>Efni</dt><dd>Kaldrúllað stál</dd>
           <dt>Posi</dt><dd>Nayax vPOS touch</dd>
         </dl>
-        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="#hafa-samband" data-taeki="Sjálfsali með 55&quot; snertiskjá">Leigja þetta tæki →</a></div>
+        <div class="price"><span>40.000 kr <small>á mánuði + vsk</small></span><a class="link-accent" href="https://skraning.agvending.is/?skjar=1">Leigja þetta tæki →</a></div>
       </article>
     </div>
   </div>
@@ -788,7 +788,8 @@ document.querySelectorAll(".marquee__track").forEach(function (track) {
   track.classList.add("is-looped");
 });
 
-/* "Leigja þetta tæki" and the custom-machine link pre-select their machine in the form. */
+/* The custom-machine link pre-selects its option in the form. ("Leigja þetta tæki" goes to
+   skraning.agvending.is with that machine already chosen.) */
 document.querySelectorAll("[data-taeki]").forEach(function (a) {
   a.addEventListener("click", function () {
     var sel = document.getElementById("f-taeki");
