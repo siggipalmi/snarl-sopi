@@ -3476,13 +3476,8 @@ document.getElementById('login-2fa-code').addEventListener('keydown', e => {
 // Its own localStorage key, not part of DB: signing out should not untrust the browser, and
 // DB is cleared on every sign-in. Wrapped because storage throws in a locked-down browser.
 
-const SEC_DATE_OPTS = { day: '2-digit', month: '2-digit', year: 'numeric' };
 /** dd/mm/yyyy, which is what the rest of the dashboard uses. */
-function secDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return isNaN(d) ? '—' : d.toLocaleDateString('en-GB', SEC_DATE_OPTS).replace(/-/g, '/');
-}
+function secDate(iso) { return iso ? (dmy(iso) || '—') : '—'; }
 
 // ─── Security page ──────────────────────────────────────────────────────────
 
@@ -10936,8 +10931,31 @@ async function acHistory() {
 function blNum(n) { return Math.round(Number(n || 0)).toLocaleString('de-DE'); } // dot thousands
 function blKr(n) { return 'kr. ' + blNum(n); }
 function blKt(k) { k = String(k || '').replace(/\D/g, ''); return k.length === 10 ? k.slice(0, 6) + '-' + k.slice(6) : k; }
-function blDate(s) { const d = new Date(s); if (isNaN(d)) return rsEsc(String(s)); return d.toLocaleDateString(LANG === 'is' ? 'is-IS' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
-function blMonth(s) { const d = new Date(s); if (isNaN(d)) return ''; return d.toLocaleDateString(LANG === 'is' ? 'is-IS' : 'en-GB', { month: 'long', year: 'numeric' }); }
+// Dates are built here rather than handed to toLocaleDateString. Asking for 'is-IS' produced
+// "Jul 1, 2026" on an Icelandic page — the browser's Icelandic date data is not guaranteed to
+// be present — and no locale gives dd/mm/yyyy anyway, which is the format asked for.
+const MONTHS_IS = ['janúar', 'febrúar', 'mars', 'apríl', 'maí', 'júní',
+                   'júlí', 'ágúst', 'september', 'október', 'nóvember', 'desember'];
+const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June',
+                   'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** dd/mm/yyyy, the same in both languages. */
+function dmy(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
+/** "júlí 2026" / "July 2026" — a period heading, where a month name reads better than digits. */
+function monthYear(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d)) return '';
+  return (LANG === 'is' ? MONTHS_IS : MONTHS_EN)[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function blDate(s) { return dmy(s) || rsEsc(String(s)); }
+function blMonth(s) { return monthYear(s); }
 async function blDownloadPdf(opId, invoiceId) {
   try {
     const r = await fetch(API_BASE + '/api/v1/operators/' + encodeURIComponent(opId) + '/invoices/' + encodeURIComponent(invoiceId) + '/pdf', { headers: { ...(API_TOKEN ? { Authorization: 'Bearer ' + API_TOKEN } : {}), ...viewAsHdr() } });
