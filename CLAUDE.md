@@ -300,6 +300,15 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   `shared/build` is one directory, so build the two apps one after the other, not at once.
 
 - Bump `snarl-sopi-backend/package.json` version on every change; Health shows it.
+- **Never answer an error with 502 or 504.** Something in front of the backend swaps those for its
+  own HTML page, so the dashboard shows "Backend may be restarting (HTTP 502)" and the real message
+  is lost. Use **424** when an outside service (Payday, Weimi, Nayax, email) failed; **503** is safe
+  too. Measured from `admin.agvending.is` on 2026-11-04 (backend 6.106.7): 424 and 503 arrived
+  intact, 502 and 504 were replaced. The page starts like Cloudflare's error template, so it is
+  probably Cloudflare on the custom domain rather than Railway (not checked on `up.railway.app`).
+  Repeat the test after any hosting change: `GET /api/v1/debug/status-probe?code=N` (AG only)
+  answers status N with a body containing `"marker":"snarl-sopi-status-probe"`; if the marker
+  arrives, that status passes through.
 - Check: `node --check` on changed `src/*.js`, and parse the `<script>` blocks of
   `public/index.html`.
 - Never ship real fleet data (machine names, codes, prices) inside `index.html`; the
