@@ -1,5 +1,18 @@
 [
  {
+  "component": "fridge",
+  "version": "0.70.9",
+  "versionCode": 175,
+  "date": "2026-11-04",
+  "title": "The relayed log keeps every line on tablets with a short log memory.",
+  "notes": [
+   "The app reads its log every 30 seconds instead of every 5 minutes, and still sends it to the dashboard every 5 minutes. On Hótel Vellir (0.70.8) the tablet's log memory held less than 5 minutes, so every batch began with \"the last relayed line is no longer in the device log\" and a line went missing every few batches.",
+   "Once at start the log shows the tablet's log memory size (\"LogRelay: log buffers: …\"), so machines can be compared.",
+   "Lines that were never relayed now are: the 15-minute self-test outcome (\"SelfTest: self-test reported\"), automatic time and Tailscale enforcement at start, screen watchdog restarts, the idle guard and kiosk lockdown."
+  ],
+  "check": "Canary 8626020623 (Hótel Vellir): machine page → logs, an hour after the update. No \"the last relayed line is no longer in the device log\" notes, one config poll a minute with none missing, a SelfTest line every 15 minutes, and one \"log buffers:\" line after start."
+ },
+ {
   "component": "backend",
   "version": "6.107.1",
   "date": "2026-11-04",

@@ -44,29 +44,74 @@ class LogRelay(
     private val mapper = jacksonObjectMapper()
 
     /**
-     * The last line we shipped. logcat has no cursor, so we re-read the buffer
-     * from just before it and drop anything we have already sent ([LogCursor]).
+     * The last line READ into [pending]. logcat has no cursor, so we re-read the buffer
+     * from just before it and drop anything we already have ([LogCursor]).
      * The alternative is a persistent read process that dies with the app.
      */
     private var lastSeen: String = ""
 
+    /** Lines read but not yet posted, oldest first. Lost if the app dies before a post. */
+    private val pending = ArrayList<String>()
+
+    private var lastPostAt = 0L
+
+    /**
+     * *** READ EVERY 30 s, POST EVERY 5 MIN (Hótel Vellir 8626020623, 0.70.8, 2026-11-04).
+     * 0.70.8 made the read reach back by time, but on Vellir every batch still opened with
+     * "the last relayed line is no longer in the device log" and a config poll went missing
+     * every few batches (09:50, 10:25). That note only appears after a 20,000-line read also
+     * misses the line shipped five minutes earlier: the tablet's log ring (shared by every app
+     * on it) holds less than five minutes. Reading often and holding the lines here closes the
+     * gap without posting any more often than before.
+     */
     fun start(scope: CoroutineScope) {
         scope.launch(Dispatchers.IO) {
             // Let the app finish booting; the interesting lines come after.
             delay(30_000)
+            runCatching { logBufferSizes() }
             while (isActive) {
-                runCatching { flushOnce() }
-                    .onFailure { Log.w(TAG, "relay failed: ${it.message}") }
-                delay(INTERVAL_MS)
+                runCatching { collect() }
+                    .onFailure { Log.w(TAG, "log read failed: ${it.message}") }
+                val now = System.currentTimeMillis()
+                if (pending.isNotEmpty() && (lastPostAt == 0L || now - lastPostAt >= INTERVAL_MS)) {
+                    lastPostAt = now
+                    runCatching { flushOnce() }
+                        .onFailure { Log.w(TAG, "relay failed: ${it.message}") }
+                }
+                delay(READ_INTERVAL_MS)
             }
         }
     }
 
+    /** Reads what is new since the last read into [pending], capped so a failing post cannot grow it without bound. */
+    private fun collect() {
+        val fresh = freshLines()
+        if (fresh.isEmpty()) return
+        pending.addAll(fresh)
+        lastSeen = fresh.last()
+        if (pending.size > MAX_PER_FLUSH) {
+            val capped = LogCursor.cap(pending.toList(), MAX_PER_FLUSH, ::note)
+            pending.clear()
+            pending.addAll(capped)
+        }
+    }
+
+    /**
+     * The size of each log ring, once per start, so machines can be compared: a small ring is
+     * why a line can scroll out between two reads. App processes may run `logcat -g`.
+     */
+    private fun logBufferSizes() {
+        val proc = ProcessBuilder(listOf("logcat", "-g")).redirectErrorStream(true).start()
+        val out = BufferedReader(InputStreamReader(proc.inputStream)).use { it.readLines() }
+        proc.waitFor()
+        Log.i(TAG, "log buffers: " + out.filter { it.isNotBlank() }.joinToString(" | ").ifEmpty { "(no answer)" })
+    }
+
     private suspend fun flushOnce() {
-        val lines = freshLines()
-        // Posted in chunks the backend accepts (it keeps 400 per post), oldest first, and the
-        // cursor moves after each one: a failed post leaves the rest for the next flush.
-        for (chunk in lines.chunked(MAX_LINES)) {
+        // Posted in chunks the backend accepts (it keeps 400 per post), oldest first, and each
+        // chunk leaves [pending] only once posted: a failed post keeps the rest for the next one.
+        while (pending.isNotEmpty()) {
+            val chunk = pending.take(MAX_LINES)
             val body = mapper.writeValueAsString(
                 mapOf(
                     "kioskAppVersion" to isl.snudursopi.shared.AppVersion.name,
@@ -77,12 +122,12 @@ class LogRelay(
                 ),
             )
             http.postRawJson("/api/v1/machines/$deviceCode/logs", body)
-            lastSeen = chunk.last()
+            pending.subList(0, chunk.size).clear()
         }
     }
 
     /**
-     * Everything logged since [lastSeen], read so that nothing in between can be skipped.
+     * Everything logged since [lastSeen] (the last line read), read so that nothing in between can be skipped.
      *
      * *** NOT `-t 400` (lost a line per batch on Blue Hotel, 2026-11-01). logd counts `-t N`
      * over all of the app's output before the tag filter, so the silenced tray-weight and
@@ -154,7 +199,11 @@ class LogRelay(
                 // had to that machine. A payment link that cannot be diagnosed
                 // remotely is a machine that cannot sell and cannot be fixed.
                 "MarshallPay:I", "MarshallSerial:I",
-                "MotorFridgeHW:W", "FridgePoll:W", "LogRelay:W",
+                // Low-volume diagnostics that were not relayed until 0.70.9: the 15-minute
+                // self-test outcome, clock and VPN enforcement at start, the screen watchdog's
+                // restarts, the idle guard and kiosk lockdown. Each logs a handful of lines.
+                "SelfTest:I", "ClockGuard:I", "TailscaleVpn:I", "ScreenWatchdog:I", "IdleGuard:I", "KioskManager:I",
+                "MotorFridgeHW:W", "FridgePoll:W", "LogRelay:I",
                 "AndroidRuntime:E", "*:S",
             ),
         ).redirectErrorStream(true).start()
@@ -167,16 +216,19 @@ class LogRelay(
 
     private companion object {
         /**
-         * Five minutes. Frequent enough that a fault is visible while it is
+         * Posts every five minutes. Frequent enough that a fault is visible while it is
          * still happening, infrequent enough to be invisible against the
          * per-minute config poll.
          */
         const val INTERVAL_MS = 5L * 60L * 1000L
 
+        /** Reads every 30 s, well inside the shortest log ring seen (under 5 min on Vellir). */
+        const val READ_INTERVAL_MS = 30_000L
+
         /** Lines per post: what the backend keeps from one request. */
         const val MAX_LINES = 400
 
-        /** Cap per flush, so a log storm cannot mail the whole buffer. */
+        /** Cap on lines held between posts, so a log storm (or a long outage) cannot mail the whole buffer. */
         const val MAX_PER_FLUSH = 2000
 
         /** The first read after start: recent history, counted before the tag filter. */
