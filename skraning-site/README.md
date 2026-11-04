@@ -237,3 +237,10 @@ Prices and contract wording for each machine type are in `MACHINES` at the top o
 ```sh
 npm test   # contract fields, kennitala check digit, dates, vísitala parsing
 ```
+
+## Cookie consent, Meta Pixel and fonts
+
+`public/consent.js` is a byte-identical copy of `agvending-site/public/consent.js` (copy it after any
+change there). It shows the cookie banner and loads the Meta Pixel only after "Samþykkja"; the
+answer is a cookie on `.agvending.is`, so a visitor who answered on agvending.is is not asked again
+here. A finished registration fires `Lead`. Fonts are served from `public/fonts/`, not Google.
