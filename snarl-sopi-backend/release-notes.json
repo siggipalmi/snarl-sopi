@@ -26,6 +26,18 @@
  },
  {
   "component": "backend",
+  "version": "6.107.1",
+  "date": "2026-11-04",
+  "title": "\"No sales for N h\" now sees sales made through our coil app.",
+  "notes": [
+   "The silent-machine check (Fleet → Health and the 07:45 email) read coil sales from the Weimi order feed only. Sales made through our own coil app were not counted, so both Grótta machines read \"no sales for 430 h\" while selling every day (137 sales on vinstri since 21 Oct). It now counts completed sales from both sources, once each.",
+   "KR, Leiknir and Valur II stay flagged: no sales from them have reached the backend since 17 Oct, because Weimi's order feed now returns nothing for them. That is a separate problem.",
+   "Accounting is not changed by this version: the VSK/profit report and the accounting export still miss our coil app's sales."
+  ],
+  "check": "Fleet → Health: Grótta vinstri and hægri no longer show \"no sales\"; tomorrow's 07:45 email agrees."
+ },
+ {
+  "component": "backend",
   "version": "6.106.10",
   "date": "2026-11-04",
   "title": "Code comments: the 502/504 page comes from the edge, probably Cloudflare.",
