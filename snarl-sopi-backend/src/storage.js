@@ -2698,10 +2698,16 @@ const storage = {
   },
   // Fleet health (2026-10-19): sale timestamps for the "no sales for longer than usual" check, and
   // a fridge's latest purchase outcomes for "failed purchases in a row".
+  // Coil: our coil app's sales (POST /sales) land in `orders` only, never in order_items, so a
+  // machine selling through our app read as silent (both Grótta machines, 2026-11-04: "no sales for
+  // 430 h" with 137 sales on record). Read completed orders as well; UNION drops the duplicate
+  // timestamps a Weimi order leaves in both tables and the lines of one kiosk sale share.
   saleTimesSince(deviceCode, sinceMs, isFridge) {
     const rows = isFridge
       ? db.prepare("SELECT receivedAt AS t FROM fridge_settlements WHERE deviceCode = ? AND outcome = 'charged' AND receivedAt >= ?").all(deviceCode, sinceMs)
-      : db.prepare('SELECT DISTINCT createTime AS t FROM order_items WHERE deviceCode = ? AND createTime >= ?').all(deviceCode, sinceMs);
+      : db.prepare(`SELECT createTime AS t FROM orders WHERE deviceCode = ? AND status = 1 AND createTime >= ?
+                    UNION
+                    SELECT createTime AS t FROM order_items WHERE deviceCode = ? AND createTime >= ?`).all(deviceCode, sinceMs, deviceCode, sinceMs);
     return rows.map(r => Number(r.t)).filter(Number.isFinite);
   },
   recentFridgeOutcomes(deviceCode, n) {
