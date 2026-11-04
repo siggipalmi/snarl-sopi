@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Persónuvernd · AG Vending</title>
+<meta name="description" content="Hvaða upplýsingar AG Vending ehf. fær í gegnum agvending.is og skraning.agvending.is, til hvers, hverjir vinna með þær og hver réttindi þín eru." />
+<link rel="canonical" href="https://agvending.is/personuvernd" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="is_IS" />
+<meta property="og:site_name" content="AG Vending" />
+<meta property="og:title" content="Persónuvernd · AG Vending" />
+<meta property="og:description" content="Hvaða upplýsingar AG Vending ehf. fær í gegnum agvending.is og skraning.agvending.is, til hvers, hverjir vinna með þær og hver réttindi þín eru." />
+<meta property="og:url" content="https://agvending.is/personuvernd" />
+<meta property="og:image" content="https://agvending.is/assets/img/hero-sjalfsali.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="theme-color" content="#FFFFFF" />
+<link rel="icon" type="image/png" href="/favicon_light.png" media="(prefers-color-scheme: light)" />
+<link rel="icon" type="image/png" href="/favicon_dark.png" media="(prefers-color-scheme: dark)" />
+<link rel="apple-touch-icon" href="/favicon_light.png" />
+<link rel="preload" href="/assets/fonts/libre-franklin-latin-v1.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="/assets/fonts/fonts-v1.css" />
+<style>
+/* =====================================================================
+   agvending.is — marketing site theme ("colour as accent", Oct 2026)
+   ---------------------------------------------------------------------
+   NOTES FOR WHOEVER IMPLEMENTS THIS
+   - Replaces the cream / bronze / Cormorant look. White page, black type,
+     black hairline rules. Colour is an ACCENT only: a small square, a thin
+     top bar, one highlighted word. Never fill a large area with a palette
+     colour. The one dark area is the testimonial band and the footer.
+   - One typeface: Libre Franklin (Google Fonts, SIL OFL, full Icelandic
+     support). No serif anywhere, no italics.
+   - Square corners everywhere (radius 0). No shadows. No gradients.
+   - Black text on every colour.
+   - Everything the old brief protects still holds: products -> pricing -> FAQ
+     order, price ON the product card, the partner logo rail (mono, colour on
+     hover of the individual tile), 0% of sales in hero + pricing + FAQ,
+     prefers-reduced-motion respected.
+   - Inline in index.html, as the site's only stylesheet. The legacy-alias
+     block (old section 2) is gone: nothing references the cream/bronze
+     names now. Libre Franklin is loaded by a <link> in <head>.
+   - The real FAQ is a JS accordion (single item open, first open by
+     default). Section 12 styles it via [aria-expanded]; plain <details>
+     works too.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Tokens
+   --------------------------------------------------------------------- */
+:root {
+  /* Neutrals */
+  --ink:        #111111;   /* all text, rules, primary buttons, dark bands */
+  --ink-soft:   #555555;   /* secondary text (4.5:1+ on white and wall) */
+  --on-dark-soft: #D0D0D0; /* secondary text on the black bands */
+  --paper:      #FFFFFF;   /* page background */
+  --wall:       #F3F0EB;   /* pricing band, image wells, form fields */
+
+  /* Palette — accents only */
+  --c-yellow:   #FFC72C;   /* THE accent: headline highlight, kicker square, link underline */
+  --c-pink:     #F48FB8;
+  --c-sky:      #3FC3E6;
+  --c-green:    #22B05A;   /* "included" ticks */
+  --c-salmon:   #F7AE94;
+  --c-teal:     #8DCFC7;
+  --c-magenta:  #EC4F8C;   /* form errors */
+
+  --accent:     var(--c-yellow);
+
+  /* Type */
+  --font: "Libre Franklin", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs-h1:      clamp(48px, 6.4vw, 88px);
+  --fs-h2:      56px;
+  --fs-h3:      28px;
+  --fs-stat:    52px;
+  --fs-quote:   clamp(30px, 3.6vw, 48px);
+  --fs-lead:    20px;
+  --fs-body:    17px;
+  --fs-small:   15px;
+
+  /* Spacing */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 24px;
+  --s-6: 32px; --s-7: 48px; --s-8: 80px;
+
+  --rule:       1px solid var(--ink);
+  --rule-heavy: 3px solid var(--ink);
+  --bar:        6px;    /* colour bar over hero stats */
+  --bar-card:   10px;   /* colour bar over product cards */
+  --mark:       14px;
+
+  --page-max:   1280px;
+  --gutter:     32px;
+}
+
+/* ---------------------------------------------------------------------
+   3. Base
+   --------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; border-radius: 0; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+h1, h2, h3, h4 { margin: 0; font-family: var(--font); font-style: normal; color: inherit; }
+h1 { font-size: var(--fs-h1); font-weight: 900; line-height: 0.95; letter-spacing: -3px; }
+h2 { font-size: var(--fs-h2); font-weight: 900; line-height: 1; letter-spacing: -2px; }
+h3 { font-size: var(--fs-h3); font-weight: 800; line-height: 1.1; letter-spacing: -0.6px; }
+p  { margin: 0; }
+
+a { color: var(--ink); text-underline-offset: 5px; text-decoration-thickness: 2px; }
+a:hover { color: var(--ink-soft); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+img { max-width: 100%; display: block; }
+
+/* ---------------------------------------------------------------------
+   4. Layout
+   --------------------------------------------------------------------- */
+.wrap { max-width: var(--page-max); margin: 0 auto; padding-inline: var(--gutter); }
+.section { padding-block: var(--s-8); }
+.section--wall { background: var(--wall); }
+.section--ruled { border-top: var(--rule); }
+
+/* Heading on the left, content on the right (pricing, FAQ, contact) */
+.split { display: flex; flex-wrap: wrap; gap: var(--s-7); }
+.split__aside { flex: 1 1 300px; display: flex; flex-direction: column; gap: var(--s-4); }
+.split__main  { flex: 2 1 560px; min-width: 0; }
+
+/* ---------------------------------------------------------------------
+   5. Accent pieces — the only places colour appears
+   --------------------------------------------------------------------- */
+.kicker { display: flex; align-items: center; gap: var(--s-3); font-size: 17px; font-weight: 700; }
+.kicker::before { content: ""; width: var(--mark); height: var(--mark); background: var(--accent); flex-shrink: 0; }
+
+.highlight { background: var(--accent); padding: 0 .1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+/* Rule: one highlighted word per page. */
+
+.link-accent { font-weight: 700; text-decoration-color: var(--accent); text-decoration-thickness: 4px; text-underline-offset: 4px; }
+
+/* ---------------------------------------------------------------------
+   6. Header + nav
+   --------------------------------------------------------------------- */
+.site-header { border-bottom: var(--rule); background: var(--paper); }
+.site-header .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 40px; padding-block: 18px; }
+.brand { font-size: 26px; font-weight: 900; letter-spacing: -0.8px; text-decoration: none; color: var(--ink); flex-grow: 1; }
+.nav { display: flex; flex-wrap: wrap; gap: var(--s-2) 28px; font-size: 16px; font-weight: 700; }
+.nav a { text-decoration: none; }
+.nav a:hover, .nav a[aria-current="true"] {
+  color: var(--ink);
+  text-decoration: underline; text-decoration-color: var(--accent);
+  text-decoration-thickness: 4px; text-underline-offset: 8px;
+}
+
+/* ---------------------------------------------------------------------
+   7. Buttons
+   --------------------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  min-height: 44px; padding: 12px 20px;
+  font-family: var(--font); font-size: var(--fs-small); font-weight: 800;
+  background: var(--ink); color: var(--paper);
+  border: 2px solid var(--ink); text-decoration: none; cursor: pointer;
+}
+.btn:hover { background: #333333; border-color: #333333; color: var(--paper); }
+.btn--lg { padding: 16px 26px; font-size: var(--fs-body); }
+.btn--text { background: none; border: 0; padding: 0; min-height: 0; color: var(--ink); font-size: var(--fs-body); font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.btn--text:hover { background: none; color: var(--ink-soft); }
+
+/* ---------------------------------------------------------------------
+   8. Hero
+   --------------------------------------------------------------------- */
+.hero { padding-block: 72px 56px; display: flex; flex-direction: column; gap: 56px; }
+.hero__top { display: flex; flex-wrap: wrap; gap: var(--s-7); align-items: stretch; }
+.hero__copy { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 26px; }
+.hero__lead { font-size: var(--fs-lead); max-width: 560px; }
+.hero__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-4) 28px; }
+.hero__media { flex: 1 1 420px; min-height: 420px; background: var(--wall); overflow: hidden; }
+.hero__media img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Hero stats — number under a colour bar */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-5); }
+.stat { border-top: var(--bar) solid var(--accent); padding-top: var(--s-4); display: flex; flex-direction: column; gap: 6px; }
+.stat:nth-child(2) { border-top-color: var(--c-pink); }
+.stat:nth-child(3) { border-top-color: var(--c-sky); }
+.stat__value { font-size: var(--fs-stat); font-weight: 900; letter-spacing: -1.5px; line-height: 1; }
+.stat__label { font-weight: 600; }
+
+/* ---------------------------------------------------------------------
+   9. Partner logo rail — mono, full colour on hover of the single tile
+   --------------------------------------------------------------------- */
+.partners { border-top: var(--rule); border-bottom: var(--rule); }
+.partners .wrap { display: flex; align-items: center; gap: var(--s-4) var(--s-6); padding-block: 22px; }
+.partners__label { font-size: var(--fs-small); font-weight: 700; white-space: nowrap; }
+.marquee { flex-grow: 1; overflow: hidden; min-width: 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+.marquee__track { display: flex; gap: var(--s-6); width: max-content; animation: marquee 50s linear infinite; }
+.marquee:hover .marquee__track { animation-play-state: paused; }
+.logo-tile { width: 124px; height: 58px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-tile img { max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(1); opacity: .7; transition: filter .2s, opacity .2s; }
+.logo-tile:hover img { filter: none; opacity: 1; }
+.logo-tile.ag-mul img { mix-blend-mode: multiply; }   /* white-backed logos, e.g. ir.gif */
+@keyframes marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .marquee { -webkit-mask-image: none; mask-image: none; }
+  .marquee__track { animation: none; flex-wrap: wrap; width: auto; }
+}
+
+/* ---------------------------------------------------------------------
+   10. Products — colour bar, photo well, copy, specs, price on the card
+   --------------------------------------------------------------------- */
+.products { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; }
+.product { display: flex; flex-direction: column; gap: var(--s-4); }
+.product::before { content: ""; height: var(--bar-card); background: var(--c-teal); }
+.product:nth-child(2)::before { background: var(--c-salmon); }
+.product:nth-child(3)::before { background: var(--c-yellow); }
+.product__media { height: 300px; background: var(--wall); display: flex; align-items: center; justify-content: center; padding: var(--s-4); }
+.product__media img { width: 100%; height: 100%; object-fit: contain; }  /* studio cut-outs on white */
+.product__text { font-size: var(--fs-body); }
+
+/* Spec block — dense on purpose, operators care about dimensions */
+.specs { display: grid; grid-template-columns: auto 1fr; gap: 0 var(--s-4); margin: 0; font-size: var(--fs-small); border-top: var(--rule); }
+.specs dt, .specs dd { margin: 0; padding: 8px 0; border-bottom: 1px solid #D6D2CB; }
+.specs dt { font-weight: 700; }
+.specs dd { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.price { margin-top: auto; border-top: var(--rule); padding-top: var(--s-3); font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.price small { font-size: var(--fs-small); font-weight: 600; }
+
+/* ---------------------------------------------------------------------
+   11. Pricing — two ruled lists on the wall band
+   --------------------------------------------------------------------- */
+.pricing__lead { font-size: var(--fs-lead); max-width: 440px; }
+.pricing__lists { display: flex; flex-wrap: wrap; gap: 40px; }
+.ruled-list { flex: 1 1 220px; margin: 0; padding: 0; list-style: none; }
+.ruled-list__title { font-size: 20px; font-weight: 900; padding-bottom: var(--s-3); border-bottom: var(--rule-heavy); }
+.ruled-list li { display: flex; align-items: center; gap: var(--s-3); padding: 14px 0; border-bottom: var(--rule); font-weight: 600; }
+.ruled-list--included li::before { content: ""; width: 10px; height: 10px; background: var(--c-green); flex-shrink: 0; }
+
+/* ---------------------------------------------------------------------
+   12. FAQ accordion
+   --------------------------------------------------------------------- */
+.faq { border-top: var(--rule-heavy); }
+.faq__item { border-bottom: var(--rule); }
+.faq__q {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--s-4);
+  width: 100%; padding: 20px 0; background: none; border: 0; text-align: left; cursor: pointer;
+  font-family: var(--font); font-size: 22px; font-weight: 800; color: var(--ink);
+  list-style: none;
+}
+.faq__q::-webkit-details-marker { display: none; }
+.faq__q::after {
+  content: "+"; width: 32px; height: 32px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 700; line-height: 1;
+  border: 2px solid var(--ink); transition: background .15s;
+}
+.faq__q[aria-expanded="true"]::after,
+details[open] > .faq__q::after { content: "−"; background: var(--accent); }
+.faq__a { padding: 0 0 20px; max-width: 640px; line-height: 1.5; }
+.faq__a[hidden] { display: none; }
+
+/* ---------------------------------------------------------------------
+   13. Testimonial band (dark)
+   --------------------------------------------------------------------- */
+.testimonial { background: var(--ink); color: var(--paper); }
+.testimonial .wrap { padding-block: 88px; display: flex; flex-direction: column; gap: var(--s-5); }
+.testimonial .wrap::before { content: ""; width: 40px; height: 8px; background: var(--c-pink); }
+.testimonial blockquote { margin: 0; font-size: var(--fs-quote); line-height: 1.1; font-weight: 800; letter-spacing: -1.2px; max-width: 980px; }
+.testimonial cite { font-style: normal; font-weight: 600; color: var(--on-dark-soft); }
+.testimonial a { color: var(--paper); }
+
+/* ---------------------------------------------------------------------
+   14. Contact form
+   --------------------------------------------------------------------- */
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px 20px; }
+.form__full { grid-column: 1 / -1; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-small); font-weight: 700; }
+.field input, .field textarea, .field select {
+  font-family: var(--font); font-size: var(--fs-body); font-weight: 500; color: var(--ink);
+  background: var(--wall); border: 0; border-bottom: 2px solid var(--ink);
+  padding: 14px; min-height: 48px; width: 100%;
+}
+.field textarea { resize: vertical; min-height: 120px; }
+.field input:focus, .field textarea:focus, .field select:focus { outline: none; background: var(--paper); box-shadow: inset 0 0 0 2px var(--ink); }
+.field--error input, .field--error textarea { border-bottom-color: var(--c-magenta); }
+.field__error { display: flex; align-items: center; gap: var(--s-2); font-weight: 700; }
+.field__error::before { content: ""; width: 10px; height: 10px; background: var(--c-magenta); flex-shrink: 0; }
+.form__fallback { border-top: var(--bar) solid var(--c-magenta); padding-top: var(--s-3); font-weight: 600; }  /* fetch failed -> mailto */
+.bot-field { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }  /* honeypot */
+
+/* ---------------------------------------------------------------------
+   15. Footer (dark)
+   --------------------------------------------------------------------- */
+.site-footer { background: var(--ink); color: var(--paper); }
+.site-footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-3) var(--s-6); padding-block: 28px; font-size: var(--fs-small); font-weight: 600; }
+.site-footer .brand { color: var(--paper); font-size: 18px; flex-grow: 0; }
+.site-footer a { color: var(--paper); }
+.site-footer .muted { color: var(--on-dark-soft); }
+
+/* ---------------------------------------------------------------------
+   16. takk / 404 / 500 — one big line and a way back
+   --------------------------------------------------------------------- */
+.status-page { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; gap: var(--s-5); padding-block: var(--s-8); }
+.status-page .code { font-size: var(--fs-small); font-weight: 700; display: flex; align-items: center; gap: var(--s-3); }
+.status-page .code::before { content: ""; width: var(--mark); height: var(--mark); background: var(--accent); }
+
+/* ---------------------------------------------------------------------
+   17. Breakpoints (same points as the current site)
+   --------------------------------------------------------------------- */
+@media (max-width: 1000px) {
+  :root { --fs-h2: 46px; --s-8: 64px; }
+}
+@media (max-width: 760px) {
+  .partners .wrap { flex-wrap: wrap; }
+  .hero__media { min-height: 300px; }
+}
+@media (max-width: 680px) {
+  :root { --fs-h2: 38px; --fs-h3: 24px; --fs-stat: 42px; --fs-lead: 18px; --gutter: 16px; --s-8: 56px; }
+  h1 { letter-spacing: -2px; }
+  .hero { padding-block: 48px 40px; gap: 40px; }
+  .faq__q { font-size: 19px; }
+  .product__media { height: 240px; }
+}
+
+/* ---------------------------------------------------------------------
+   18. Site addendum — what this page has that the theme above does not
+       cover. Same rules: no radius, no shadow, colour only as accent.
+   --------------------------------------------------------------------- */
+.brand { display: inline-flex; }
+.brand img { height: 40px; width: auto; }
+/* The logo file is black; on the dark footer it is turned white. */
+.site-footer .brand img { height: 32px; filter: brightness(0) invert(1); }
+.nav { align-items: center; }
+/* The highlight block would cover the descenders of the line above (h1
+   line-height .95), so it paints behind the heading's text. */
+h1 .highlight { position: relative; z-index: -1; }
+.nav .btn { min-height: 40px; padding: 9px 16px; color: var(--paper); text-decoration: none; }
+.nav .btn:hover { color: var(--paper); }
+
+.section__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-6); margin-bottom: var(--s-6); }
+.section__head > div { display: flex; flex-direction: column; gap: var(--s-4); max-width: 720px; }
+.section__intro { font-size: var(--fs-lead); }
+
+/* Each logo is ONE tile in the markup. A script appends an aria-hidden copy of the set and
+   adds .is-looped, and only then does the track move (the -50% keyframe needs both halves).
+   Without the script the logos simply stand still. With motion off the track wraps, so the
+   copies are hidden again. */
+.marquee__track:not(.is-looped) { animation: none; }
+/* Two rows, under the label, the second moving the other way. The theme loops in 50s, sized for
+   16 logos; about 3s a logo keeps the speed the same (14 a row: 42s). Row two has its own
+   keyframe rather than animation-direction: reverse, which would start it on the copied half. */
+/* flex-wrap: nowrap — the theme wraps this under 760px, and a wrapping column sizes each row to
+   all of its logos (3650px of sideways scroll on a phone). */
+.partners .wrap { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: var(--s-4); }
+.partners__label { white-space: normal; }
+.marquee__track { animation-duration: 42s; }
+.marquee--reverse .marquee__track { animation-name: marquee-reverse; }
+@keyframes marquee-reverse { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track > [aria-hidden="true"] { display: none; }
+  /* Standing still, the two rows become ONE grid (rows and tracks drop out of the layout with
+     display: contents). A wrapped row left ragged lines (8 + 6); 28 logos in 7 / 4 / 2 columns
+     fill every line. Keep the logo count even (two rows of equal length) for that to hold. */
+  .partners .wrap { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--s-5) var(--s-4); justify-items: center; }
+  .partners__label { grid-column: 1 / -1; justify-self: start; }
+  .marquee, .marquee__track { display: contents; }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 1000px) {
+  .partners .wrap { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 680px) {
+  .partners .wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Product card: category + per-day line above the name; price row with the CTA. */
+.product__meta { display: flex; justify-content: space-between; gap: var(--s-3); font-size: var(--fs-small); font-weight: 700; }
+.product__meta span:last-child { font-weight: 600; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.price { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+.price a { font-size: var(--fs-small); font-weight: 700; }
+
+/* Pricing: the title is an h3 above the list; items carry a short note. */
+.ruled-list ul { margin: 0; padding: 0; list-style: none; }
+.ruled-list li { align-items: flex-start; }
+.ruled-list--included li::before { margin-top: .45em; }
+.ruled-list li > span { display: flex; flex-direction: column; gap: 2px; }
+.ruled-list li small { font-size: var(--fs-small); font-weight: 500; color: var(--ink-soft); }
+.fine { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s-4) var(--s-6); margin-top: var(--s-7); font-size: var(--fs-small); color: var(--ink-soft); }
+
+/* The web admin ("Kerfið"): a demo-data screenshot with the phone view overlapping its corner,
+   beside the feature list. Screenshots come from snarl-sopi-backend/public/assets/shots. */
+.system { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: var(--s-7); align-items: start; }
+.system__shots { margin: 0; position: relative; background: var(--wall); border-top: var(--bar-card) solid var(--c-sky); padding: var(--s-5) var(--s-5) var(--s-7); }
+.system__desktop { width: 100%; height: auto; border: var(--rule); }
+.system__phone { position: absolute; right: var(--s-5); bottom: var(--s-5); width: 22%; height: auto; border: var(--rule); }
+.system__shots figcaption { margin-top: var(--s-3); font-size: var(--fs-small); color: var(--ink-soft); max-width: 70%; }
+.system__side { display: flex; flex-direction: column; gap: var(--s-6); }
+@media (max-width: 1000px) {
+  .system { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .system__shots { padding: var(--s-4) var(--s-4) var(--s-6); }
+  .system__phone { width: 30%; right: var(--s-4); bottom: var(--s-4); }
+}
+
+/* Two testimonials side by side, so the quote steps down a size. */
+.testimonial__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--s-7); }
+.testimonial figure { margin: 0; display: flex; flex-direction: column; gap: var(--s-5); }
+.testimonial__grid blockquote { font-size: clamp(24px, 2.4vw, 34px); letter-spacing: -0.8px; }
+.testimonial cite { display: flex; align-items: center; gap: var(--s-3); margin-top: auto; }
+.testimonial cite img { width: 48px; height: 48px; object-fit: cover; flex-shrink: 0; }
+.testimonial cite b { display: block; color: var(--paper); font-weight: 800; }
+
+.faq__a p + p { margin-top: var(--s-3); }
+
+.contact__details { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.form .btn { justify-self: start; }
+/* Native select, squared off like the inputs, with a drawn chevron in place of the platform arrow. */
+.field select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 44px; }
+.field select, .field select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23111111' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center; background-size: 12px 8px; }
+.form__fallback[hidden] { display: none; }
+
+.site-footer nav { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); }
+.site-footer nav a { text-decoration: none; }
+.site-footer nav a:hover { text-decoration: underline; color: var(--paper); }
+.site-footer .footer-about { color: var(--on-dark-soft); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.site-footer .footer-about:hover { color: var(--paper); }
+.site-footer .footer-consent { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+
+@media (max-width: 760px) {
+  .partners__label { white-space: normal; }
+}
+@media (max-width: 680px) {
+  .testimonial__grid { grid-template-columns: 1fr; }
+  .nav { gap: var(--s-2) 18px; }
+  .nav .nav__login { display: none; }   /* still in the footer */
+}
+
+/* ---------------------------------------------------------------------
+   19. /personuvernd only (this block is not in index.html; everything above is
+       copied from it, so the pages share one layout).
+   --------------------------------------------------------------------- */
+.legal-hero { flex: none; max-width: 860px; }   /* .hero__copy alone in the column hero would grow to its 520px basis */
+.legal-hero h1 { font-size: clamp(40px, 5vw, 64px); }
+.legal-updated { font-size: var(--fs-small); color: var(--ink-soft); font-weight: 600; }
+.legal-text { display: flex; flex-direction: column; gap: var(--s-4); max-width: 720px; }
+.legal-text h3 { font-size: 20px; font-weight: 900; letter-spacing: -.2px; margin-top: var(--s-3); }
+.legal-text h3:first-child { margin-top: 0; }
+.legal-text code { font-size: .9em; background: var(--wall); padding: 1px 5px; }
+.legal-note { margin-top: var(--s-4); font-size: var(--fs-small); color: var(--ink-soft); max-width: 720px; }
+</style>
+<script src="/consent.js" defer></script>
+</head>
+<body>
+<!-- AG Vending: privacy notice (/personuvernd). Head styles, header and footer are index.html's;
+     change those parts in index.html, kerfid.html, about.html and here together. -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" /></a>
+    <nav class="nav" aria-label="Aðalvalmynd">
+      <a href="/#vorur">Sjálfsalar</a>
+      <a href="/#verd">Verðskrá</a>
+      <a href="/kerfid">Kerfið</a>
+      <a href="/#faq">Spurt og svarað</a>
+      <a class="nav__login" href="https://admin.agvending.is">Innskráning</a>
+      <a class="btn" href="/#hafa-samband">Hafðu samband</a>
+    </nav>
+  </div>
+</header>
+<main>
+<section class="wrap hero" id="top">
+  <div class="hero__copy legal-hero">
+    <div class="kicker">Persónuvernd</div>
+    <h1>Hvernig við förum með <span class="highlight">upplýsingar</span>.</h1>
+    <p class="hero__lead">Hér segir hvaða upplýsingar AG Vending ehf. fær í gegnum agvending.is og skraning.agvending.is, til hvers þær eru notaðar, hverjir vinna með þær og hver réttindi þín eru.</p>
+    <p class="legal-updated">Síðast uppfært 4. nóvember 2026</p>
+  </div>
+</section>
+
+<section class="section section--ruled">
+  <div class="wrap">
+    <div class="split">
+      <div class="split__aside">
+        <div class="kicker">Ábyrgðaraðili</div>
+        <h2>Hver ber ábyrgð</h2>
+      </div>
+      <div class="split__main legal-text">
+        <p>AG Vending ehf., kt. 590922-0800, ber ábyrgð á vinnslu persónuupplýsinga sem lýst er hér. Fyrirspurnir og beiðnir um persónuvernd sendist á <a href="mailto:agvending@agvending.is">agvending@agvending.is</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--ruled">
+  <div class="wrap">
+    <div class="split">
+      <div class="split__aside">
+        <div class="kicker">Upplýsingar</div>
+        <h2>Hvað við fáum og hvers vegna</h2>
+      </div>
+      <div class="split__main legal-text">
+        <h3>Fyrirspurnarform á agvending.is</h3>
+        <p>Nafn, netfang, sími, staður, tegund tækis og skilaboð. Við notum þetta eingöngu til að svara fyrirspurninni og fylgja henni eftir. Grundvöllur: lögmætir hagsmunir okkar af því að svara þeim sem hafa samband, og ráðstafanir að beiðni þinni áður en samningur er gerður.</p>
+        <h3>Skráning á leigu (skraning.agvending.is)</h3>
+        <p>Upplýsingar um fyrirtækið (kennitala, nafn og lögheimili, sótt í fyrirtækjaskrá), staðsetning tækis, tengiliður og sá sem undirritar samninginn (nafn, netfang, sími) og fjöldi tækja. Við notum þetta til að útbúa leigusamning, senda hann til rafrænnar undirritunar, stofna aðgang að stjórnborði, afhenda tækin og innheimta leigu. Grundvöllur: gerð og efndir samnings.</p>
+        <h3>Vafrakökur og Meta Pixel</h3>
+        <p>Aðeins ef þú samþykkir: Meta Pixel skráir heimsóknir á síðurnar og hvort fyrirspurn eða skráning hafi verið send, svo við getum mælt og sniðið auglýsingar á Facebook og Instagram. Meta fær þá m.a. IP-tölu, upplýsingar um vafra og síður sem skoðaðar eru. Grundvöllur: samþykki þitt, sem þú getur dregið til baka hvenær sem er.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--ruled">
+  <div class="wrap">
+    <div class="split">
+      <div class="split__aside">
+        <div class="kicker">Vinnsluaðilar</div>
+        <h2>Hverjir vinna með gögnin</h2>
+        <p class="section__intro">Við seljum aldrei persónuupplýsingar. Þessir aðilar vinna með þær fyrir okkar hönd og aðeins í þeim tilgangi sem lýst er hér.</p>
+      </div>
+      <div class="split__main">
+        <div class="ruled-list">
+          <ul>
+            <li><span>Cloudflare<small>Hýsing vefjanna og geymsla skráninga</small></span></li>
+            <li><span>Twilio SendGrid<small>Sending tölvupósts frá vefnum</small></span></li>
+            <li><span>Railway<small>Hýsing stjórnborðsins og bakenda</small></span></li>
+            <li><span>Google Workspace<small>Tölvupóstur og leigusamningar</small></span></li>
+            <li><span>Zapier<small>Flytur skráningu yfir í samning og bókhald</small></span></li>
+            <li><span>Payday<small>Reikningagerð og bókhald</small></span></li>
+            <li><span>Meta Platforms<small>Auglýsingamælingar, aðeins með samþykki</small></span></li>
+          </ul>
+        </div>
+        <p class="legal-note">Sumir þessara aðila eru í Bandaríkjunum. Flutningur þangað byggir á gagnaverndarramma ESB og Bandaríkjanna (Data Privacy Framework) eða stöðluðum samningsákvæðum framkvæmdastjórnar ESB.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--ruled">
+  <div class="wrap">
+    <div class="split">
+      <div class="split__aside">
+        <div class="kicker">Varðveisla</div>
+        <h2>Hversu lengi</h2>
+      </div>
+      <div class="split__main">
+        <div class="ruled-list">
+          <ul>
+            <li><span>Fyrirspurnir<small>Eytt tveimur árum eftir síðustu samskipti, nema þær leiði til samnings</small></span></li>
+            <li><span>Skráningar og leigusamningar<small>Á meðan samningurinn gildir og sjö ár eftir lok hans, vegna laga um bókhald nr. 145/1994</small></span></li>
+            <li><span>Aðgangur að stjórnborði<small>Á meðan aðgangurinn er virkur</small></span></li>
+            <li><span>Val um vafrakökur<small>Sex mánuðir, þá spyrjum við aftur</small></span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--ruled" id="vafrakokur">
+  <div class="wrap">
+    <div class="split">
+      <div class="split__aside">
+        <div class="kicker">Vafrakökur</div>
+        <h2>Þitt val</h2>
+      </div>
+      <div class="split__main legal-text">
+        <p>Án samþykkis setjum við aðeins eina vafraköku, <code>ag_consent</code>, sem man valið þitt í sex mánuði. Ef þú samþykkir setur Meta einnig sínar vafrakökur (<code>_fbp</code>, <code>_fbc</code>). Ef þú hafnar eða dregur samþykki til baka er Meta Pixel ekki hlaðið og vafrakökum Meta eytt.</p>
+        <p>Leturgerðir vefsins eru hýstar hjá okkur sjálfum, svo heimsókn sendir ekkert til Google.</p>
+        <div><button type="button" class="btn" data-consent-open>Breyta vali um vafrakökur</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--ruled">
+  <div class="wrap">
+    <div class="split">
+      <div class="split__aside">
+        <div class="kicker">Réttindi</div>
+        <h2>Réttindi þín</h2>
+      </div>
+      <div class="split__main legal-text">
+        <p>Þú átt rétt á að fá að vita hvaða upplýsingar við höfum um þig og fá afrit af þeim, fá þær leiðréttar eða þeim eytt, andmæla vinnslu eða takmarka hana, og fá þær afhentar á tölvutæku formi. Sendu beiðni á <a href="mailto:agvending@agvending.is">agvending@agvending.is</a> og við svörum innan mánaðar.</p>
+        <p>Telji þú að ekki sé farið rétt með upplýsingar þínar getur þú kvartað til Persónuverndar, <a href="https://www.personuvernd.is">personuvernd.is</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" loading="lazy" /></a>
+    <span class="muted">AG Vending ehf. · kt. 590922-0800 · <a class="footer-about" href="/about">Um AG Vending ehf.</a> · <a class="footer-about" href="/personuvernd" aria-current="true">Persónuvernd</a> · <button type="button" class="footer-about footer-consent" data-consent-open>Vafrakökur</button></span>
+    <nav aria-label="Fótur">
+      <a href="/#vorur">Sjálfsalar</a>
+      <a href="/#verd">Verðskrá</a>
+      <a href="/kerfid">Kerfið</a>
+      <a href="/#faq">Spurt og svarað</a>
+      <a href="/#hafa-samband">Hafðu samband</a>
+      <a href="https://admin.agvending.is">Innskráning</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

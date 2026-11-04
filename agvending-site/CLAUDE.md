@@ -21,14 +21,28 @@ Updated 28 Oct 2026, from the claude.ai Project handover of 25 Aug.
 Fully static. Plain HTML/CSS/JS. No framework, no build step, no CMS, no npm dependencies.
 
 - **Pages:** `public/index.html` (the front page) + `kerfid.html` (the web admin, /kerfid) +
-  `about.html` (/about, "Um AG Vending ehf.", linked small from every footer) + `takk.html` +
-  `404.html` + `500.html`
+  `about.html` (/about, "Um AG Vending ehf.", linked small from every footer) +
+  `personuvernd.html` (/personuvernd, the privacy notice) + `takk.html` + `404.html` + `500.html`
 - **`kerfid.html` and `about.html` share the front page's layout by copy:** its `<head>` style block (theme
   sections 1–18), header and footer are `index.html`'s, with the in-page links pointing back to
   `/#…`; only its section 19 and `<main>` are its own. Change a shared part in both files.
   It replaced the backend's `admin.agvending.is/features.html`, which now 301s here (6.106.9).
 - **Live on agvending.is and www since 2026-11-03** (Worker custom domains; Squarespace's A
   records and www CNAME deleted; the zone export from before the move is in the session record).
+- **Cookie consent and the Meta Pixel (4 Nov):** `public/consent.js`, loaded `defer` on every page,
+  and a byte-identical copy in `skraning-site/public/consent.js`. Nothing that tracks loads before
+  "Samþykkja": the answer is the cookie `ag_consent` on `.agvending.is` (one answer covers both
+  sites, 6 months), only "granted" loads Meta's script, a later "Hafna" revokes and deletes `_fbp`/
+  `_fbc`, and Meta's `<noscript>` image is left out on purpose (it fires without asking). Pages fire
+  events with `agTrack(name)`: `Contact` on /takk, `Lead` on a finished skraning registration.
+  **Any new tracker goes through consent.js, is named in the banner and on /personuvernd, and bumps
+  `VERSION`** so everyone is asked again. "Vafrakökur" in every footer (`data-consent-open`)
+  reopens the choice.
+- **Fonts are served from the site** (`assets/fonts/`, Libre Franklin as one variable woff2 per
+  character set), never from Google: loading them from Google sends every visitor's IP there.
+- **/personuvernd states facts that must stay true:** the processors (Cloudflare, SendGrid,
+  Railway, Google Workspace, Zapier, Payday, Meta) and the retention periods. A new service that
+  sees personal data, or a change in how long anything is kept, changes that page too.
 - **Host:** Cloudflare Worker `agvending` with static assets — NOT Pages, NOT Railway.
   Preview at `agvending.siggip.workers.dev`
 - **Config:** `wrangler.toml`, `public/_headers`, `public/_redirects`, `robots.txt`, `sitemap.xml`
@@ -73,8 +87,9 @@ Worker — a different name deploys to a second, separate Worker.
    has taken the mail, so a failure shows the mailto fallback instead of /takk. Honeypot
    `bot-field`; rate limit shared with the demo form (3/h per IP, 30/h total). Send one real test
    enquiry before DNS cutover. **Done 2 Nov: Siggi's test arrived in the inbox.**
-   `taeki` is the machine-type dropdown; each "Leigja þetta tæki" link carries `data-taeki` and
-   pre-selects its machine, so a renamed product needs its option and its link renamed together.
+   `taeki` is the machine-type dropdown. Since 3 Nov "Leigja þetta tæki" goes to skraning with the
+   machine chosen (`?tvofaldur=1`, `?einfaldur=1`, `?skjar=1`, keys from `skraning-site/src/lib.js`);
+   only the custom-machine link still pre-selects a dropdown option (`data-taeki`).
 5. **Worker build root — fixed (28 Oct).** Builds failed because Root directory was `/`, where
    there is no `wrangler.toml`. Now `/agvending-site`; merging to `main` deploys (first good
    build 28 Oct 15:55 UTC). Include paths are still `*`, so every commit to the repo rebuilds the

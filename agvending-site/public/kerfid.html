@@ -18,9 +18,8 @@
 <link rel="icon" type="image/png" href="/favicon_light.png" media="(prefers-color-scheme: light)" />
 <link rel="icon" type="image/png" href="/favicon_dark.png" media="(prefers-color-scheme: dark)" />
 <link rel="apple-touch-icon" href="/favicon_light.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="preload" href="/assets/fonts/libre-franklin-latin-v1.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="/assets/fonts/fonts-v1.css" />
 <style>
 /* =====================================================================
    agvending.is — marketing site theme ("colour as accent", Oct 2026)
@@ -438,6 +437,7 @@ h1 .highlight { position: relative; z-index: -1; }
 .site-footer nav a:hover { text-decoration: underline; color: var(--paper); }
 .site-footer .footer-about { color: var(--on-dark-soft); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
 .site-footer .footer-about:hover { color: var(--paper); }
+.site-footer .footer-consent { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
 
 @media (max-width: 760px) {
   .partners__label { white-space: normal; }
@@ -472,6 +472,7 @@ h1 .highlight { position: relative; z-index: -1; }
   .kerfid-phones { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); }
 }
 </style>
+<script src="/consent.js" defer></script>
 </head>
 <body>
 <!-- AG Vending: the web admin (vefumsjónarkerfið). Built from index.html (head, styles,
@@ -696,7 +697,7 @@ h1 .highlight { position: relative; z-index: -1; }
 <footer class="site-footer">
   <div class="wrap">
     <a class="brand" href="/"><img src="assets/img/logo-ag-vending.svg" alt="AG Vending" width="476" height="207" loading="lazy" /></a>
-    <span class="muted">AG Vending ehf. · kt. 590922-0800 · <a class="footer-about" href="/about">Um AG Vending ehf.</a></span>
+    <span class="muted">AG Vending ehf. · kt. 590922-0800 · <a class="footer-about" href="/about">Um AG Vending ehf.</a> · <a class="footer-about" href="/personuvernd">Persónuvernd</a> · <button type="button" class="footer-about footer-consent" data-consent-open>Vafrakökur</button></span>
     <nav aria-label="Fótur">
       <a href="/#vorur">Sjálfsalar</a>
       <a href="/#verd">Verðskrá</a>

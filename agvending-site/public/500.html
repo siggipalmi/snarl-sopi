@@ -8,9 +8,8 @@
 <link rel="icon" type="image/png" href="/favicon_light.png" media="(prefers-color-scheme: light)" />
 <link rel="icon" type="image/png" href="/favicon_dark.png" media="(prefers-color-scheme: dark)" />
 <link rel="apple-touch-icon" href="/favicon_light.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="preload" href="/assets/fonts/libre-franklin-latin-v1.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="/assets/fonts/fonts-v1.css" />
 <style>
 /* Subset of the site theme (index.html, sections 1, 3, 5, 7, 16), so this
    page stands on its own. */
@@ -123,12 +122,15 @@ img { max-width: 100%; display: block; }
 .status-page { max-width: 640px; margin: 0 auto; padding-inline: var(--gutter); }
 .status-page p { font-size: var(--fs-lead); }
 .status-links { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); padding-top: var(--s-5); border-top: var(--rule); font-size: var(--fs-small); font-weight: 700; }
-.status-links a { text-decoration: none; }
+.status-links a, .status-links button { text-decoration: none; }
+.status-links button { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.status-links button:hover { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 4px; }
 .status-links a:hover { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 4px; }
 .status-logo { display: inline-flex; align-self: flex-start; margin-bottom: var(--s-5); }
 .status-logo img { height: 40px; width: auto; }
 @media (max-width: 680px) { :root { --gutter: 16px; } }
 </style>
+<script src="/consent.js" defer></script>
 </head>
 <body>
 <main class="status-page">
@@ -143,6 +145,8 @@ img { max-width: 100%; display: block; }
     <a href="/#faq">Spurt og svarað</a>
     <a href="/#hafa-samband">Hafðu samband</a>
     <a href="mailto:agvending@agvending.is">agvending@agvending.is</a>
+    <a href="/personuvernd">Persónuvernd</a>
+    <button type="button" class="status-consent" data-consent-open>Vafrakökur</button>
   </nav>
 </main>
 </body>
