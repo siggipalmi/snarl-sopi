@@ -7481,7 +7481,7 @@ async function handleTestAccounting(req, res) {
     ok(res, await require('./accounting').testConnection(id));
   } catch (e) {
     if (e.code === 'no_credentials') return _acctErr(res, 400, 'no_credentials');
-    // 424, not 502: Railway's edge replaces an app's 502 with its own page, so Payday's words
+    // 424, not 502: the edge in front of us (probably Cloudflare) replaces a 502 with its own page, so Payday's words
     // never reached the dashboard ("backend may be restarting", 2026-11-03).
     console.warn(`[ACCOUNTING] connection test for ${id} failed: ${e.message}`);
     _acctErr(res, 424, 'connection_failed', String(e.message || e));
@@ -7944,8 +7944,9 @@ function handleProxyStatus(req, res) {
  * GET /api/v1/debug/status-probe?code=503  (AG only, like every /debug route)
  *
  * Answers with the status asked for and a fixed JSON body, and does nothing else. It exists to
- * find out which error statuses Railway's edge passes through and which it replaces with its own
- * page: 502 is replaced (2026-11-03), so upstream failures answer 424. If the body comes back with
+ * find out which error statuses the edge in front of us passes through and which it replaces with
+ * its own page. Measured from admin.agvending.is on 2026-11-04: 424 and 503 pass, 502 and 504 are
+ * replaced by a page that looks like Cloudflare's. So upstream failures answer 424. If the body comes back with
  * `marker` intact, that status is safe for the backend to use. Only 400–599 are accepted.
  */
 const STATUS_PROBE_MARKER = 'snarl-sopi-status-probe';
@@ -8411,7 +8412,7 @@ function handleSetBayConfig(req, res) {
  * Returns { ok, status, operationStatus?, error?, message? }.
  *   code 200 + operationStatus 0/1/2 → success
  *   code 4003                         → machine offline (409)
- *   anything else / network error     → upstream failure (424 — not 502, which Railway replaces with its own page)
+ *   anything else / network error     → upstream failure (424 — not 502, which the edge replaces with its own page)
  */
 function interpretWeimiWrite(result) {
   if (!result || result.error) {
