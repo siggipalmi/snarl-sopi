@@ -4079,7 +4079,7 @@ function closeSidebar()  { document.getElementById('sidebar').classList.remove('
 // ═══════════════════════════════════════════════════════════════
 
 function pill(cls,text) { return `<span class="pill ${cls}">${text}</span>`; }
-function fmtDate(ts) { return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); }
+function fmtDate(ts) { return dm(ts); }
 // Order rows carry a date as well as a clock time. A bare time is ambiguous the moment a list spans
 // midnight, which the orders page (up to 100 rows) almost always does, and these rows get reconciled
 // against Nayax days later. Seconds stay because that is what matches a card transaction. The year is
@@ -4092,12 +4092,11 @@ function fmtDateTimeParts(ts, withSeconds) {
   if (!ts) return '\u2014';
   const d = new Date(ts);
   if (isNaN(d.getTime())) return '\u2014';
-  const dateOpts = { day: '2-digit', month: 'short' };
-  if (d.getFullYear() !== new Date().getFullYear()) dateOpts.year = 'numeric';
-  const timeOpts = withSeconds
-    ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }
-    : { hour: '2-digit', minute: '2-digit' };
-  return d.toLocaleDateString('en-GB', dateOpts) + ' ' + d.toLocaleTimeString('en-GB', timeOpts);
+  // Built rather than localised: this browser family has no Icelandic date data at all
+  // (Intl.DateTimeFormat.supportedLocalesOf(['is-IS']) is empty and resolves to en-US), so a
+  // locale request silently returns American formatting. dd/mm/yyyy is what is wanted anyway.
+  const datePart = (d.getFullYear() !== new Date().getFullYear()) ? dmy(d) : dm(d);
+  return datePart + ' ' + hm(d, withSeconds);
 }
 // Order rows keep seconds: that is what matches a Nayax card transaction when reconciling.
 function fmtDateTimeS(ts) { return fmtDateTimeParts(ts, true); }
@@ -4797,7 +4796,7 @@ function lastVisitCell(lastVisitAt) {
   else if (days <= 7) { label = days + ' ' + t('cell.daysAgo'); color = 'var(--ink)'; }
   else if (days <= 14){ label = days + ' ' + t('cell.daysAgo'); color = '#B8860B'; }
   else                { label = days + ' ' + t('cell.daysAgo'); color = 'var(--alert)'; }
-  return '<span style="font-family:var(--mono);font-size:11.5px;color:' + color + '" title="Last restock detected ' + new Date(Number(lastVisitAt)).toLocaleString('is-IS') + '">' + label + '</span>';
+  return '<span style="font-family:var(--mono);font-size:11.5px;color:' + color + '" title="Last restock detected ' + dmy(Number(lastVisitAt)) + ' ' + hm(Number(lastVisitAt)) + '">' + label + '</span>';
 }
 
 let machineSort = 'restock';
@@ -6304,7 +6303,7 @@ window._expBatches = [];
 
 function expEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function expToday(){ return new Date().toISOString().slice(0,10); }
-function expFmt(s){ try{ return new Date(s+'T00:00:00').toLocaleDateString(LANG==='is'?'is-IS':'en-GB',{day:'2-digit',month:'short'}); }catch(e){ return s; } }
+function expFmt(s){ try{ return dm(new Date(s+'T00:00:00')) || s; }catch(e){ return s; } }
 function expColor(st){ return st==='expired'?'var(--alert)':(st==='critical'||st==='soon')?'#C2861C':'var(--success)'; }
 
 async function renderExpiry(){
@@ -6846,7 +6845,7 @@ async function renderMachineTemp(code) {
   const yThr = sy(thr).toFixed(1);
   const gl = [yMin, (yMin + yMax) / 2, yMax].map(v =>
     `<line x1="${padL}" y1="${sy(v).toFixed(1)}" x2="${W - padR}" y2="${sy(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${padL - 6}" y="${(sy(v) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)" font-family="var(--mono)">${v.toFixed(0)}</text>`).join('');
-  const fmtX = t => new Date(t).toLocaleString('en-GB', _mdTempHours > 48 ? { day: '2-digit', month: 'short' } : { hour: '2-digit', minute: '2-digit' });
+  const fmtX = t => _mdTempHours > 48 ? dm(t) : hm(t);
   const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block">
     ${gl}
     <line x1="${padL}" y1="${yThr}" x2="${W - padR}" y2="${yThr}" stroke="var(--alert)" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
@@ -6953,7 +6952,7 @@ async function renderCommandHistory(code) {
     el.innerHTML = head + cmds.map(c => {
       const reason = (c.result && c.result.detail) ? c.result.detail : '';
       const when = c.completedAt || c.issuedAt || '';
-      const t = when ? new Date(when).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+      const t = when ? dm(when) + ' ' + hm(when) : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
         <span style="flex:1;font-size:12px">${rsEsc(label(c.type))}</span>
         ${reason ? `<span style="font-size:10.5px;color:var(--muted);font-family:var(--mono)">${rsEsc(reason)}</span>` : ''}
@@ -7847,7 +7846,7 @@ function fpStockBadge(b) {
   }
   if (txt === '–') color = 'var(--muted)';
   const big = !b.soldByWeight && b.stockUnits != null;
-  return `<div title="${b.stockAt ? 'counted by the scales ' + new Date(b.stockAt).toLocaleString('is-IS') : 'no count from the machine yet'}"
+  return `<div title="${b.stockAt ? 'counted by the scales ' + dmy(b.stockAt) + ' ' + hm(b.stockAt) : 'no count from the machine yet'}"
     style="position:absolute;top:3px;right:6px;font-family:var(--serif);font-style:italic;font-weight:600;font-size:${big ? 17 : 11}px;line-height:1;color:${color}">${txt}</div>`;
 }
 
@@ -10283,7 +10282,7 @@ function showComplaintModal(c) {
 
     <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12px;color:var(--muted);margin-bottom:16px">
       <div>Customer</div><div style="color:var(--ink);font-family:var(--mono);font-size:11px">${rsEsc(c.customerEmail)}</div>
-      <div>Submitted</div><div style="color:var(--ink);font-family:var(--mono);font-size:11px">${new Date(c.timestampMs).toLocaleString()}</div>
+      <div>Submitted</div><div style="color:var(--ink);font-family:var(--mono);font-size:11px">${dmy(c.timestampMs)} ${hm(c.timestampMs)}</div>
       <div>Trade no.</div><div style="color:var(--ink);font-family:var(--mono);font-size:10.5px">${rsEsc(c.tradeNo)}</div>
       ${c.refundedAt ? `<div>Refunded</div><div style="color:var(--ink)">${c.refundedAmount} kr · by ${rsEsc(c.refundedBy)} · ${timeAgo(c.refundedAt)}</div>` : ''}
       ${c.repliedAt ? `<div>Replied</div><div style="color:var(--ink)">by ${rsEsc(c.repliedBy)} · ${timeAgo(c.repliedAt)}</div>` : ''}
@@ -10884,7 +10883,7 @@ async function acPreview() {
     h += `<div class="ac-d">${t('acct.nothing')}</div>`;
   }
   if (s.notDispensed && s.notDispensed.count) h += `<div class="ac-d">${t('acct.notDisp').replace('{n}', s.notDispensed.count).replace('{kr}', blKr(s.notDispensed.grossKr))}</div>`;
-  if (p.previous && p.previous.sentAt) h += `<div class="ac-d">${t('acct.prevSent').replace('{when}', new Date(p.previous.sentAt).toLocaleString(LANG === 'is' ? 'is-IS' : 'en-GB'))}</div>`;
+  if (p.previous && p.previous.sentAt) h += `<div class="ac-d">${t('acct.prevSent').replace('{when}', (dmy(p.previous.sentAt) + ' ' + hm(p.previous.sentAt)))}</div>`;
   if (p.journal && _acView.credentials.usable) h += `<div class="ac-row"><button class="btn btn-sm" onclick="acSend('${day}')">${t('acct.sendNow')}</button></div>`;
   h += `<div class="ac-msg" id="ac-send-msg"></div>`;
   el.innerHTML = h;
@@ -10945,6 +10944,23 @@ function dmy(value) {
   if (isNaN(d)) return '';
   const p = n => String(n).padStart(2, '0');
   return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
+/** dd/mm, for a chart axis or a compact row where the year is obvious from context. */
+function dm(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1);
+}
+
+/** HH:MM on a 24-hour clock, which is how the time is read in Iceland. */
+function hm(value, withSeconds) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes())
+    + (withSeconds ? ':' + p(d.getSeconds()) : '');
 }
 
 /** "júlí 2026" / "July 2026" — a period heading, where a month name reads better than digits. */
