@@ -32,7 +32,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import isl.snudursopi.vending.R
 import isl.snudursopi.vending.domain.ConnectionState
+import isl.snudursopi.vending.domain.Language
+import isl.snudursopi.vending.ui.util.localized
 import isl.snudursopi.vending.ui.components.ClockWarning
 import isl.snudursopi.vending.ui.components.StatusBar
 import isl.snudursopi.vending.ui.theme.AppColors
@@ -59,6 +62,7 @@ fun ErrorScreen(
     error: Throwable,
     deviceCode: String?,
     machineName: String,
+    language: Language,
     currentTime: String,
     connectionState: ConnectionState,
     retryAttempts: Int,
@@ -93,7 +97,7 @@ fun ErrorScreen(
                 onExit = onExitOperator,
             )
         } else {
-            CustomerView(nextRetryAtMillis = nextRetryAtMillis)
+            CustomerView(language = language, nextRetryAtMillis = nextRetryAtMillis)
         }
     }
 }
@@ -101,7 +105,7 @@ fun ErrorScreen(
 // ---------- Customer view ----------
 
 @Composable
-private fun CustomerView(nextRetryAtMillis: Long) {
+private fun CustomerView(language: Language, nextRetryAtMillis: Long) {
     // Tick every second so the countdown updates live.
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -140,7 +144,7 @@ private fun CustomerView(nextRetryAtMillis: Long) {
         Spacer(Modifier.height(28.dp))
 
         Text(
-            text = "vélin er ekki\ntiltæk í augnablikinu.",
+            text = localized(language, R.string.error_unavailable_title),
             fontFamily = AppFonts.Cormorant,
             fontStyle = FontStyle.Italic,
             fontWeight = FontWeight.Medium,
@@ -152,7 +156,7 @@ private fun CustomerView(nextRetryAtMillis: Long) {
         Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "við vinnum að lausn.",
+            text = localized(language, R.string.error_working_on_it),
             fontFamily = AppFonts.Cormorant,
             fontStyle = FontStyle.Italic,
             fontSize = 18.sp,
@@ -164,7 +168,7 @@ private fun CustomerView(nextRetryAtMillis: Long) {
         if (secondsRemaining > 0L) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "að reyna aftur í ${secondsRemaining}s",
+                    text = localized(language, R.string.error_retry_in, secondsRemaining),
                     fontFamily = AppFonts.Geist,
                     fontSize = 12.sp,
                     color = AppColors.Bronze,
@@ -177,7 +181,7 @@ private fun CustomerView(nextRetryAtMillis: Long) {
             // No retry scheduled (or window elapsed waiting for the retry to fire)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "athugar tengingu",
+                    text = localized(language, R.string.error_checking),
                     fontFamily = AppFonts.Geist,
                     fontSize = 12.sp,
                     color = AppColors.Bronze,

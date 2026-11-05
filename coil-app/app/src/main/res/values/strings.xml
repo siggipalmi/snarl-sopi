@@ -145,4 +145,15 @@
     <string name="admin_pin_wrong">rangur kóði · %1$d tilraunir eftir</string>
     <string name="admin_pin_locked">læst · reyndu aftur eftir %1$d mín</string>
 
+    <!-- Payment: savings line -->
+    <string name="pay_you_save">Þú sparar</string>
+
+    <!-- Loading and error, shown before a language is chosen -->
+    <string name="loading_connecting">tengist vél…</string>
+    <string name="loading_machine_number">vélarnúmer · %1$s</string>
+    <string name="error_unavailable_title">vélin er ekki\ntiltæk í augnablikinu.</string>
+    <string name="error_working_on_it">við vinnum að lausn.</string>
+    <string name="error_retry_in">að reyna aftur í %1$ds</string>
+    <string name="error_checking">athugar tengingu</string>
+
 </resources>
