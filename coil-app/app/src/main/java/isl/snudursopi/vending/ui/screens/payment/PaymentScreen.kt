@@ -169,7 +169,7 @@ fun PaymentScreen(
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     Text(
-                        text = if (language == Language.English) "You save" else "Þú sparar",
+                        text = localized(language, R.string.pay_you_save),
                         fontFamily = AppFonts.Geist,
                         fontSize = 16.sp,
                         color = AppColors.Alert,

@@ -53,7 +53,7 @@ fun NavGraph(viewModel: VendingViewModel) {
 
     // Top-level phase routing — these phases override the normal NavHost flow.
     when (state.phase) {
-        Phase.Bootstrap -> LoadingScreen(deviceCode = null)
+        Phase.Bootstrap -> LoadingScreen(deviceCode = null, language = state.language)
         Phase.Setup -> SetupScreen(
             connectionState = state.connectionState,
             currentTime = state.currentTime,
@@ -67,7 +67,7 @@ fun NavGraph(viewModel: VendingViewModel) {
             onTestKey = viewModel::testMachineKey,
             onPair = viewModel::pairWithCode,
         )
-        Phase.Loading -> LoadingScreen(deviceCode = state.deviceCode)
+        Phase.Loading -> LoadingScreen(deviceCode = state.deviceCode, language = state.language)
         Phase.Error -> {
             val err = state.fatalError ?: RuntimeException("Unknown error")
             // Local UI state — separate from viewModel because it's purely about
@@ -80,6 +80,7 @@ fun NavGraph(viewModel: VendingViewModel) {
                 error = err,
                 deviceCode = state.deviceCode,
                 machineName = state.machineName,
+                language = state.language,
                 currentTime = state.currentTime,
                 connectionState = state.connectionState,
                 retryAttempts = state.retryAttempts,

@@ -133,4 +133,15 @@
     <string name="admin_pin_wrong">wrong code · %1$d tries left</string>
     <string name="admin_pin_locked">locked · try again in %1$d min</string>
 
+    <!-- Payment: savings line -->
+    <string name="pay_you_save">You save</string>
+
+    <!-- Loading and error, shown before a language is chosen -->
+    <string name="loading_connecting">connecting to the machine…</string>
+    <string name="loading_machine_number">machine number · %1$s</string>
+    <string name="error_unavailable_title">the machine is\nunavailable right now.</string>
+    <string name="error_working_on_it">we are working on it.</string>
+    <string name="error_retry_in">retrying in %1$ds</string>
+    <string name="error_checking">checking the connection</string>
+
 </resources>

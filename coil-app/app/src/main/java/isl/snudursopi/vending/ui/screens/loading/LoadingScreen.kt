@@ -24,11 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import isl.snudursopi.vending.R
+import isl.snudursopi.vending.domain.Language
 import isl.snudursopi.vending.ui.theme.AppColors
+import isl.snudursopi.vending.ui.util.localized
 import isl.snudursopi.vending.ui.theme.AppTypography
 
 @Composable
-fun LoadingScreen(deviceCode: String?) {
+fun LoadingScreen(deviceCode: String?, language: Language = Language.Icelandic) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -49,7 +52,7 @@ fun LoadingScreen(deviceCode: String?) {
         )
         Spacer(Modifier.height(40.dp))
         Text(
-            text = "tengist vél…",
+            text = localized(language, R.string.loading_connecting),
             fontSize = 16.sp,
             color = AppColors.MutedSoft,
             letterSpacing = 1.sp,
@@ -57,7 +60,7 @@ fun LoadingScreen(deviceCode: String?) {
         if (deviceCode != null) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "vélarnúmer · $deviceCode",
+                text = localized(language, R.string.loading_machine_number, deviceCode),
                 fontSize = 12.sp,
                 color = AppColors.Muted,
                 letterSpacing = 1.sp,

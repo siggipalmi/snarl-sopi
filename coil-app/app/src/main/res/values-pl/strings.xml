@@ -1,10 +1,152 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Polish. Only the strings below are translated so far; everything else falls back to
-     Icelandic (res/values), as it did before this folder existed. -->
+<!-- Polish. The complete customer table (coil 0.80.16); keep it in step with res/values
+     (Icelandic, the source) and res/values-en. Staff-only screens stay Icelandic. -->
 <resources>
+    <string name="app_name">Snarl og Sopi</string>
+
+    <!-- Grid header -->
+    <string name="greeting_day">dzień dobry.</string>
+    <string name="greeting_evening">dobry wieczór.</string>
+    <string name="greeting_sub_empty">%1$d przekąsek, wszystkie gotowe</string>
+    <string name="greeting_sub_with_basket">%1$s w koszyku</string>
+    <string name="action_contact">kontakt</string>
+    <string name="action_basket">koszyk</string>
+    <string name="action_language">język</string>
+
+    <!-- Tiles -->
+    <string name="card_in_basket">w koszyku</string>
+    <string name="card_sold_out">wyprzedane</string>
+
+    <!-- Product info -->
+    <string name="detail_back">wstecz</string>
+    <string name="detail_price_label">cena</string>
+    <string name="detail_slot_label">pozycja %1$s</string>
+    <string name="detail_buy_now">kup teraz</string>
+    <string name="detail_add_to_basket">dodaj do koszyka</string>
+
+    <!-- Basket -->
+    <string name="basket_back">kontynuuj</string>
+    <string name="basket_title">twój koszyk</string>
+    <string name="basket_count">%1$d z %2$d produktów</string>
+    <string name="basket_total_label">razem</string>
+    <string name="basket_pay">zapłać</string>
+    <string name="basket_add_more">dodaj kolejny produkt</string>
+    <string name="basket_empty">koszyk jest pusty</string>
+
+    <!-- Payment -->
+    <string name="payment_cancel">anuluj</string>
+    <string name="payment_to_complete">do zakończenia</string>
+    <string name="payment_instruction">przyłóż kartę lub telefon do czytnika po prawej</string>
+    <string name="payment_waiting">czekam na czytnik</string>
+
+    <!-- Success -->
+    <string name="success_hero">dziękujemy.</string>
+    <string name="success_sub">twoje produkty są w drodze</string>
+    <string name="success_farewell">do zobaczenia.</string>
+
+    <!-- Errors -->
+    <string name="error_generic">Przepraszamy, coś poszło nie tak.</string>
+    <string name="error_sold_out">Wyprzedane.</string>
+    <string name="error_payment_failed">Nie udało się pobrać płatności.</string>
+    <string name="error_dispense_failed">Produkt nie został wydany. Nie obciążono twojej karty.</string>
+    <string name="error_offline">Automat jest offline. Spróbuj ponownie później.</string>
+
+    <!-- Setup (staff) -->
+    <string name="setup_title">automat nie jest skonfigurowany</string>
+    <string name="setup_subtitle">wpisz numer automatu, aby zacząć</string>
+    <string name="setup_input_label">numer automatu</string>
+    <string name="setup_continue">dalej</string>
+    <string name="setup_invalid">numer automatu powinien mieć 8 cyfr</string>
+
+    <!-- Admin PIN -->
+    <string name="admin_pin_prompt">kod dostępu</string>
+    <string name="admin_pin_hint">wpisz 6-cyfrowy kod</string>
+    <string name="admin_use_recovery">użyj kodu odzyskiwania</string>
+    <string name="admin_invalid">zły kod, spróbuj ponownie</string>
+    <string name="admin_too_many_attempts">zbyt wiele prób, odczekaj 5 minut</string>
+
+    <string name="price_with_unit">%1$s kr</string>
+
+    <!-- Product info sections -->
+    <string name="detail_allergens">alergeny</string>
+    <string name="detail_may_contain">może zawierać</string>
+    <string name="detail_nutrition">wartość odżywcza</string>
+    <string name="detail_ingredients">składniki</string>
+    <string name="detail_nutrition_typical">wartości typowe</string>
+    <string name="nutrition_energy">energia</string>
+    <string name="nutrition_fat">tłuszcz</string>
+    <string name="nutrition_saturates">w tym kwasy nasycone</string>
+    <string name="nutrition_carbs">węglowodany</string>
+    <string name="nutrition_sugars">w tym cukry</string>
+    <string name="nutrition_protein">białko</string>
+    <string name="nutrition_fibre">błonnik</string>
+    <string name="nutrition_salt">sól</string>
+
+    <!-- Contact overlay -->
+    <string name="contact_title">kontakt.</string>
+    <string name="contact_operated_by">Ten automat obsługuje %1$s. Skontaktuj się, jeśli coś jest nie tak.</string>
+    <string name="contact_operated_by_generic">Skontaktuj się, jeśli coś jest nie tak.</string>
+    <string name="contact_email_label">e-mail</string>
+    <string name="contact_machine_label">numer automatu</string>
+    <string name="contact_partner_divider">we współpracy z</string>
+    <string name="contact_ad_pitch">To urządzenie jest wynajmowane od AG Vending.</string>
+    <string name="contact_ad_sub">Skontaktuj się, jeśli chcesz wynająć automat.</string>
+    <string name="contact_ad_qr_caption">zeskanuj, aby dowiedzieć się więcej</string>
+    <string name="contact_close">zamknij</string>
+
+    <!-- Payment list and reader zone -->
+    <string name="payment_tap_card">przyłóż kartę lub telefon do czytnika</string>
+    <string name="payment_waiting_dots">czekam na czytnik…</string>
+    <string name="payment_items_count">%1$d produktów</string>
+    <string name="payment_items_count_cap">%1$d / %2$d produktów</string>
+    <string name="payment_basket_full">koszyk jest pełny</string>
+    <string name="payment_add_item">+ dodaj produkt</string>
+    <string name="combo_nudge_eyebrow">snarl combo</string>
+    <string name="combo_nudge_add_for">dodaj jeden produkt za</string>
+    <string name="pay_reader_live">przyłóż kartę lub telefon do czytnika</string>
+    <string name="pay_arming">aktualizuję kwotę na czytniku…</string>
+    <string name="pay_dispensing">wydaję…</string>
+    <string name="pay_declined">płatność anulowana — spróbuj ponownie</string>
+    <string name="pay_reader_down_title">czytnik kart niedostępny</string>
+    <string name="pay_reader_down_body">czytnik kart łączy się ponownie. chwila…</string>
+    <string name="pay_reader_down_note">sam automat działa. zniknie samo, gdy czytnik odpowie.</string>
+    <string name="pay_charged_only">obciążono cię tylko za to, co zostało wydane.</string>
+    <string name="pay_you_save">Oszczędzasz</string>
+
+    <!-- Success -->
+    <string name="success_takk">dziękujemy</string>
+    <string name="success_in_bin">twoje produkty są w okienku odbioru.</string>
+    <string name="success_corner_advisory">pamiętaj, że produkty mogą wpaść w rogi okienka odbioru.</string>
+    <string name="success_missing_item">brakuje produktu?</string>
+
+    <!-- Complaint -->
+    <string name="complaint_title_single">brakuje produktu.</string>
+    <string name="complaint_title_multi">brakuje produktów.</string>
+    <string name="complaint_subtitle">pomożemy to wyjaśnić.</string>
+    <string name="complaint_which_single">produkt, który nie został wydany</string>
+    <string name="complaint_email_label">e-mail do odpowiedzi</string>
+    <string name="complaint_which_multi">które produkty nie zostały wydane?</string>
+    <string name="complaint_note_label">uwaga — opcjonalnie</string>
+    <string name="complaint_note_placeholder">coś jeszcze, o czym powinniśmy wiedzieć?</string>
+    <string name="complaint_email_placeholder">ty@email.com</string>
+    <string name="complaint_email_note">e-mail użyjemy tylko do odpowiedzi.</string>
+    <string name="complaint_send_failed">nie udało się wysłać. spróbuj ponownie za chwilę.</string>
+    <string name="complaint_cancel">anuluj</string>
+    <string name="complaint_send">wyślij zgłoszenie</string>
+    <string name="complaint_received">zgłoszenie przyjęte.</string>
+    <string name="complaint_received_sub">odpowiemy e-mailem jak najszybciej.</string>
+
     <!-- Admin PIN pad -->
     <string name="admin_pin_title">kod dostępu</string>
     <string name="admin_pin_subtitle">kod personelu · 6 cyfr</string>
     <string name="admin_pin_wrong">zły kod · pozostało prób: %1$d</string>
     <string name="admin_pin_locked">zablokowane · spróbuj za %1$d min</string>
+
+    <!-- Loading and error, shown before a language is chosen -->
+    <string name="loading_connecting">łączę z automatem…</string>
+    <string name="loading_machine_number">numer automatu · %1$s</string>
+    <string name="error_unavailable_title">automat jest chwilowo\nniedostępny.</string>
+    <string name="error_working_on_it">pracujemy nad rozwiązaniem.</string>
+    <string name="error_retry_in">ponowna próba za %1$ds</string>
+    <string name="error_checking">sprawdzam połączenie</string>
 </resources>

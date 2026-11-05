@@ -1,5 +1,17 @@
 [
  {
+  "component": "coil",
+  "version": "0.80.21",
+  "versionCode": 177,
+  "date": "2026-11-05",
+  "title": "Polish on every customer screen.",
+  "notes": [
+   "Polish was only on the PIN pad; a Polish customer saw Icelandic everywhere else. The whole customer table is now in Polish, and the loading and error screens, which were Icelandic only, follow the chosen language too.",
+   "No change for Icelandic or English."
+  ],
+  "check": "Cycle the language pill to PL: the grid, a product page, payment and the success screen must read in Polish."
+ },
+ {
   "component": "backend",
   "version": "6.107.1",
   "date": "2026-11-04",
