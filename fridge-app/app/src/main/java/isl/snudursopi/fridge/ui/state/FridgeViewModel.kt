@@ -1247,6 +1247,12 @@ class FridgeViewModel(
                 selectedLines = _ui.value.receiptLines.indices.toSet(),
             ),
         )
+        autoReturnToIdle(afterMs = COMPLAINT_FORM_IDLE_MS)
+    }
+
+    /** A tap or a keystroke on the form: the inactivity return starts over. */
+    private fun touchComplaintForm() {
+        if (_ui.value.phase == FridgePhase.COMPLAINT) autoReturnToIdle(afterMs = COMPLAINT_FORM_IDLE_MS)
     }
 
     fun toggleComplaintLine(index: Int) {
@@ -1254,18 +1260,22 @@ class FridgeViewModel(
         val next = if (index in d.selectedLines) d.selectedLines - index
         else d.selectedLines + index
         _ui.value = _ui.value.copy(complaint = d.copy(selectedLines = next))
+        touchComplaintForm()
     }
 
     fun setComplaintReason(reason: ComplaintReason) {
         _ui.value = _ui.value.copy(complaint = _ui.value.complaint.copy(reason = reason))
+        touchComplaintForm()
     }
 
     fun setComplaintNote(note: String) {
         _ui.value = _ui.value.copy(complaint = _ui.value.complaint.copy(note = note))
+        touchComplaintForm()
     }
 
     fun setComplaintEmail(email: String) {
         _ui.value = _ui.value.copy(complaint = _ui.value.complaint.copy(email = email))
+        touchComplaintForm()
     }
 
     /** Abandon: straight back to idle, no partial complaint sent. */
@@ -1289,6 +1299,9 @@ class FridgeViewModel(
         }
         val d = state.complaint
         if (d.sending || d.selectedLines.isEmpty()) return
+        // Never time out mid-send: the answer decides what the customer sees next.
+        idleReturnJob?.cancel()
+        idleReturnJob = null
         _ui.value = state.copy(complaint = d.copy(sending = true, error = false))
 
         viewModelScope.launch {
@@ -1327,6 +1340,14 @@ class FridgeViewModel(
 
         /** The address form returns to idle after this long with no typing. */
         const val RECEIPT_FORM_IDLE_MS = 60_000L
+
+        /**
+         * The complaint form returns to idle after this long with no tap or keystroke. Before
+         * 0.70.9 it had no inactivity return at all, so a customer who opened it and walked away
+         * left the machine on a form with a keyboard until the next person found "hætta við"
+         * (seen on the coil machines, 2026-10-29). Every edit re-arms it; sending cancels it.
+         */
+        const val COMPLAINT_FORM_IDLE_MS = 60_000L
 
         /** Enough to catch a missing @ or domain; the backend has the final say. */
         val EMAIL_SHAPE = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$")
