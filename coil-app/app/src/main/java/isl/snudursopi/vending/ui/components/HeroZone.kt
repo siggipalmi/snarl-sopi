@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.components
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -117,7 +119,7 @@ private fun HeroTile(
     Box(
         modifier = modifier
             .aspectRatio(1.8f)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.rounded(14.dp))
             .background(product.category.tileColor())
             .clickable(onClick = onImageClick),
         contentAlignment = Alignment.Center,
@@ -188,14 +190,14 @@ private fun HeroTile(
         if (hero.tag.isNotBlank()) {
             Text(
                 text = hero.tag.lowercase(),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 17.sp,
                 color = AppColors.Cream,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .clip(RoundedCornerShape(topEnd = 12.dp))
+                    .clip(AppShapes.rounded(topEnd = 12.dp))
                     .background(AppColors.Alert)
                     .padding(start = 14.dp, end = 16.dp, top = 5.dp, bottom = 6.dp),
             )
@@ -220,7 +222,7 @@ private fun HeroCaption(
         )
         Text(
             text = Money(product.priceIsk).format(),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 18.sp,
             lineHeight = 20.sp,
             fontWeight = FontWeight.Medium,

@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.components
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
@@ -54,14 +56,14 @@ fun ClockWarning(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(WarnBg, RoundedCornerShape(10.dp))
-            .border(0.5.dp, WarnAccent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+            .background(WarnBg, AppShapes.rounded(10.dp))
+            .border(0.5.dp, WarnAccent.copy(alpha = 0.35f), AppShapes.rounded(10.dp))
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Text(
             text = "klukkan í vélinni er röng",
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
             fontSize = 22.sp,
             color = WarnAccent,
         )
@@ -69,7 +71,7 @@ fun ClockWarning(modifier: Modifier = Modifier) {
         Text(
             text = "hún sýnir ${ClockGuard.shownAs(now)}. á meðan klukkan er röng nær vélin " +
                 "hvorki í vörulistann né í bakendann.",
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 13.sp,
             lineHeight = 18.sp,
             color = AppColors.Ink,
@@ -77,7 +79,7 @@ fun ClockWarning(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(6.dp))
         Text(
             text = "lagað í Settings → System → Date & time → kveikja á „Automatic date & time“.",
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 13.sp,
             lineHeight = 18.sp,
             color = AppColors.Ink,

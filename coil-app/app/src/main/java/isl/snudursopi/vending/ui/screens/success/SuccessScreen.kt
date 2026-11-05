@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.success
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -130,16 +132,16 @@ private fun AdvisoryBlock(language: Language) {
             .fillMaxWidth()
             .background(
                 color = Color(0x148B6B3E),  // ~8% bronze
-                shape = RoundedCornerShape(14.dp),
+                shape = AppShapes.rounded(14.dp),
             )
             .padding(horizontal = 24.dp, vertical = 18.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = localized(language, R.string.success_corner_advisory),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 18.sp,
             lineHeight = 24.sp,
             color = Color(0xFF5A4628),  // muted bronze ink
@@ -169,17 +171,18 @@ private fun ComplaintEntry(language: Language, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 // Bronze ring with italic !
+                val ring = AppColors.Bronze
                 androidx.compose.foundation.Canvas(modifier = Modifier.size(36.dp)) {
                     drawCircle(
-                        color = AppColors.Bronze,
+                        color = ring,
                         radius = (size.minDimension / 2) - 1.dp.toPx(),
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
                     )
                 }
                 Text(
                     text = "!",
-                    fontFamily = AppFonts.Cormorant,
-                    fontStyle = FontStyle.Italic,
+                    fontFamily = AppFonts.Display,
+                    fontStyle = AppFonts.DisplayStyle,
                     fontSize = 20.sp,
                     color = AppColors.Bronze,
                 )
@@ -188,7 +191,7 @@ private fun ComplaintEntry(language: Language, onClick: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(
             text = localized(language, R.string.success_missing_item),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 12.sp,
             color = AppColors.Bronze,
             letterSpacing = 0.3.sp,

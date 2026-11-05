@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.setup
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -433,8 +435,8 @@ private fun KeyInputBlock(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color = AppColors.White, shape = RoundedCornerShape(12.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(12.dp))
+            .background(color = AppColors.White, shape = AppShapes.rounded(12.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(12.dp))
             .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
         BasicTextField(
@@ -444,7 +446,7 @@ private fun KeyInputBlock(
                 fontSize = 16.sp,
                 color = AppColors.Ink,
                 fontWeight = FontWeight.Medium,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
             ),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Text,
@@ -458,7 +460,7 @@ private fun KeyInputBlock(
                 text = "mk_live_…",
                 fontSize = 16.sp,
                 color = AppColors.MutedSoft,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
             )
         }
     }
@@ -500,9 +502,9 @@ private fun PairInputBlock(
             .fillMaxWidth()
             .background(
                 color = if (locked) AppColors.Cream else AppColors.White,
-                shape = RoundedCornerShape(12.dp),
+                shape = AppShapes.rounded(12.dp),
             )
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(12.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(12.dp))
             .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
         BasicTextField(
@@ -517,7 +519,7 @@ private fun PairInputBlock(
                 color = if (locked) AppColors.MutedSoft else AppColors.Ink,
                 letterSpacing = 8.sp,
                 fontWeight = FontWeight.Medium,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
             ),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
@@ -534,7 +536,7 @@ private fun PairInputBlock(
             text = "parar vél…",
             fontSize = 12.sp,
             color = AppColors.MutedSoft,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
         )
     }
 
@@ -543,7 +545,7 @@ private fun PairInputBlock(
         text = "slá inn vélarnúmer og lykil handvirkt →",
         fontSize = 12.sp,
         color = AppColors.MutedSoft,
-        fontFamily = AppFonts.Geist,
+        fontFamily = AppFonts.Body,
         modifier = Modifier.clickable(enabled = !locked, onClick = onManual),
     )
 }
@@ -568,9 +570,9 @@ private fun InputBlock(
             .fillMaxWidth()
             .background(
                 color = if (locked) AppColors.Cream else AppColors.White,
-                shape = RoundedCornerShape(12.dp),
+                shape = AppShapes.rounded(12.dp),
             )
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(12.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(12.dp))
             .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
         BasicTextField(
@@ -585,7 +587,7 @@ private fun InputBlock(
                 color = if (locked) AppColors.MutedSoft else AppColors.Ink,
                 letterSpacing = 3.sp,
                 fontWeight = FontWeight.Medium,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
             ),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
@@ -602,7 +604,7 @@ private fun InputBlock(
             text = "athugar tengingu og vélarnúmer…",
             fontSize = 12.sp,
             color = AppColors.MutedSoft,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
         )
     }
 }
@@ -612,8 +614,8 @@ private fun ConfirmCard(deviceName: String, code: String, label: String = "vél 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppColors.White, RoundedCornerShape(12.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(12.dp))
+            .background(AppColors.White, AppShapes.rounded(12.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(12.dp))
             .padding(20.dp),
     ) {
         Column {
@@ -640,8 +642,8 @@ private fun ConfirmCard(deviceName: String, code: String, label: String = "vél 
             Spacer(Modifier.height(6.dp))
             Text(
                 text = deviceName.ifBlank { "—" },
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Medium,
                 color = AppColors.Ink,
@@ -652,13 +654,13 @@ private fun ConfirmCard(deviceName: String, code: String, label: String = "vél 
                 text = code,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
             )
             Spacer(Modifier.height(18.dp))
             Text(
                 text = "áfram með þessa vél?",
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 18.sp,
                 color = AppColors.Ink,
             )
@@ -671,7 +673,7 @@ private fun ErrorCard(icon: String, title: String, description: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFFDE8E0), RoundedCornerShape(12.dp))
+            .background(Color(0xFFFDE8E0), AppShapes.rounded(12.dp))
             .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
         Column {
@@ -695,14 +697,14 @@ private fun ErrorCard(icon: String, title: String, description: String) {
                     color = Color(0xFF8A2C0A),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                 )
             }
             Spacer(Modifier.height(10.dp))
             Text(
                 text = description,
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 14.sp,
                 color = Color(0xFF8A2C0A),
                 lineHeight = 19.sp,
@@ -724,7 +726,7 @@ private fun PrimaryButton(
             .height(56.dp)
             .background(
                 color = if (enabled) AppColors.Ink else AppColors.Clay,
-                shape = RoundedCornerShape(12.dp),
+                shape = AppShapes.rounded(12.dp),
             )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -734,7 +736,7 @@ private fun PrimaryButton(
             color = AppColors.Cream,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
         )
     }
 }
@@ -749,8 +751,8 @@ private fun SecondaryButton(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
-            .background(AppColors.Cream, RoundedCornerShape(12.dp))
-            .border(0.5.dp, AppColors.Ink, RoundedCornerShape(12.dp))
+            .background(AppColors.Cream, AppShapes.rounded(12.dp))
+            .border(0.5.dp, AppColors.Ink, AppShapes.rounded(12.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -759,7 +761,7 @@ private fun SecondaryButton(
             color = AppColors.Ink,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
         )
     }
 }
@@ -770,7 +772,7 @@ private fun LoadingButton(label: String) {
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
-            .background(AppColors.Ink.copy(alpha = 0.75f), RoundedCornerShape(12.dp)),
+            .background(AppColors.Ink.copy(alpha = 0.75f), AppShapes.rounded(12.dp)),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -787,7 +789,7 @@ private fun LoadingButton(label: String) {
                 color = AppColors.Cream,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
             )
         }
     }

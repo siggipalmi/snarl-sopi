@@ -59,7 +59,7 @@ fun ClosedScreen(
                 Spacer(Modifier.height(18.dp))
                 Text(
                     "Lokað tímabundið",
-                    fontFamily = AppFonts.Cormorant, fontStyle = FontStyle.Italic, fontWeight = FontWeight.SemiBold,
+                    fontFamily = AppFonts.Display, fontStyle = AppFonts.DisplayStyle, fontWeight = FontWeight.SemiBold,
                     fontSize = 60.sp, lineHeight = 64.sp, color = AppColors.Ink, textAlign = TextAlign.Center,
                 )
                 reason?.let {

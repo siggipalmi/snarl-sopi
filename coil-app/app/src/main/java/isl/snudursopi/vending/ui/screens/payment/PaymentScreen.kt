@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.payment
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -144,14 +146,14 @@ fun PaymentScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp)
-                    .border(1.dp, AppColors.Clay, RoundedCornerShape(12.dp))
+                    .border(1.dp, AppColors.Clay, AppShapes.rounded(12.dp))
                     .clickable(onClick = onAddMore)
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = localized(language, R.string.payment_add_item),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 18.sp,
                     color = AppColors.Bronze,
                 )
@@ -170,13 +172,13 @@ fun PaymentScreen(
                 ) {
                     Text(
                         text = localized(language, R.string.pay_you_save),
-                        fontFamily = AppFonts.Geist,
+                        fontFamily = AppFonts.Body,
                         fontSize = 16.sp,
                         color = AppColors.Alert,
                     )
                     Text(
                         text = Money(saved).format(),
-                        fontFamily = AppFonts.Geist,
+                        fontFamily = AppFonts.Body,
                         fontWeight = FontWeight.Medium,
                         fontSize = 18.sp,
                         color = AppColors.Alert,
@@ -192,14 +194,14 @@ fun PaymentScreen(
             ) {
                 Text(
                     text = localized(language, R.string.basket_total_label),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 16.sp,
                     color = AppColors.Muted,
                 )
                 Text(
                     text = displayTotal.format(),
-                    fontFamily = AppFonts.Cormorant,
-                    fontStyle = FontStyle.Italic,
+                    fontFamily = AppFonts.Display,
+                    fontStyle = AppFonts.DisplayStyle,
                     fontSize = 40.sp,
                     color = AppColors.Ink,
                 )
@@ -220,7 +222,7 @@ fun PaymentScreen(
             ) {
                 Text(
                     text = localized(language, R.string.payment_cancel),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 16.sp,
                     color = AppColors.Muted,
                 )
@@ -239,15 +241,15 @@ private fun ComboNudgeCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.rounded(12.dp))
             .background(AppColors.Alert.copy(alpha = 0.05f))
-            .border(1.dp, AppColors.Alert.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+            .border(1.dp, AppColors.Alert.copy(alpha = 0.35f), AppShapes.rounded(12.dp))
             .padding(horizontal = 11.dp, vertical = 11.dp),
     ) {
         // Eyebrow: the deal name (e.g. "snarl combo")
         Text(
             text = nudge.label.ifBlank { localized(language, R.string.combo_nudge_eyebrow) },
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontWeight = FontWeight.Medium,
             fontSize = 11.sp,
             color = AppColors.Alert,
@@ -257,7 +259,7 @@ private fun ComboNudgeCard(
         Text(
             text = localized(language, R.string.combo_nudge_add_for) + " " +
                 Money(nudge.addOnPriceIsk).format(),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 15.sp,
             color = AppColors.Ink,
         )
@@ -284,7 +286,7 @@ private fun CandidateChip(product: Product, onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(62.dp)
-                .clip(RoundedCornerShape(9.dp))
+                .clip(AppShapes.rounded(9.dp))
                 .background(product.category.tileColor()),
             contentAlignment = Alignment.Center,
         ) {
@@ -302,7 +304,7 @@ private fun CandidateChip(product: Product, onClick: () -> Unit) {
         Spacer(Modifier.height(4.dp))
         Text(
             text = product.name,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 12.sp,
             color = AppColors.Ink,
             maxLines = 1,
@@ -326,13 +328,13 @@ private fun OrderRow(line: BasketLine, quoteLine: QuoteLine?, onInc: () -> Unit,
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = line.product.name,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 20.sp,
                 color = AppColors.Ink,
             )
             Text(
                 text = if (hasDiscount && dealName != null) dealName else "hólf ${line.product.slot}",
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 13.sp,
                 fontWeight = if (hasDiscount && dealName != null) FontWeight.Medium else FontWeight.Normal,
                 color = if (hasDiscount && dealName != null) AppColors.Alert else AppColors.Muted,
@@ -342,7 +344,7 @@ private fun OrderRow(line: BasketLine, quoteLine: QuoteLine?, onInc: () -> Unit,
             StepButton("−", onDec)
             Text(
                 text = line.quantity.toString(),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 20.sp,
                 color = AppColors.Ink,
                 modifier = Modifier.padding(horizontal = 14.dp),
@@ -356,7 +358,7 @@ private fun OrderRow(line: BasketLine, quoteLine: QuoteLine?, onInc: () -> Unit,
             if (hasDiscount) {
                 Text(
                     text = Money(quoteLine!!.lineTotalIsk).format(),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Medium,
                     color = AppColors.Ink,
@@ -364,7 +366,7 @@ private fun OrderRow(line: BasketLine, quoteLine: QuoteLine?, onInc: () -> Unit,
                 )
                 Text(
                     text = Money(quoteLine.lineBaseIsk).format(),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 14.sp,
                     color = AppColors.Muted,
                     textDecoration = TextDecoration.LineThrough,
@@ -373,7 +375,7 @@ private fun OrderRow(line: BasketLine, quoteLine: QuoteLine?, onInc: () -> Unit,
             } else {
                 Text(
                     text = Money(line.product.priceIsk * line.quantity).format(),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 20.sp,
                     color = AppColors.InkSoft,
                     textAlign = TextAlign.End,
@@ -392,7 +394,7 @@ private fun StepButton(symbol: String, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(symbol, fontFamily = AppFonts.Geist, fontSize = 22.sp, color = AppColors.Bronze)
+        Text(symbol, fontFamily = AppFonts.Body, fontSize = 22.sp, color = AppColors.Bronze)
     }
 }
 
@@ -407,7 +409,7 @@ private fun ReaderZone(phase: PaymentPhase, totalLabel: String, language: Langua
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, AppColors.Bronze, RoundedCornerShape(14.dp))
+            .border(1.dp, AppColors.Bronze, AppShapes.rounded(14.dp))
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -416,15 +418,15 @@ private fun ReaderZone(phase: PaymentPhase, totalLabel: String, language: Langua
         Column {
             Text(
                 text = msg,
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 20.sp,
                 color = AppColors.InkSoft,
             )
             if (phase == PaymentPhase.AwaitingCard || phase == PaymentPhase.Declined) {
                 Text(
                     text = totalLabel,
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 15.sp,
                     color = AppColors.Muted,
                 )
@@ -475,14 +477,14 @@ private fun DeclinedBanner(language: Language) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppColors.CreamShadow, RoundedCornerShape(12.dp))
-            .border(1.dp, AppColors.Alert, RoundedCornerShape(12.dp))
+            .background(AppColors.CreamShadow, AppShapes.rounded(12.dp))
+            .border(1.dp, AppColors.Alert, AppShapes.rounded(12.dp))
             .padding(12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = localized(language, R.string.pay_declined),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 14.sp,
             color = AppColors.Alert,
             textAlign = TextAlign.Center,
@@ -507,8 +509,8 @@ private fun ReaderDownScreen(
         ) {
             Text(
                 text = localized(language, R.string.pay_reader_down_title),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 26.sp,
                 color = AppColors.Alert,
                 textAlign = TextAlign.Center,
@@ -516,7 +518,7 @@ private fun ReaderDownScreen(
             Spacer(Modifier.height(14.dp))
             Text(
                 text = localized(language, R.string.pay_reader_down_body),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 15.sp,
                 color = AppColors.InkSoft,
                 textAlign = TextAlign.Center,
@@ -526,7 +528,7 @@ private fun ReaderDownScreen(
             Spacer(Modifier.height(20.dp))
             Text(
                 text = localized(language, R.string.pay_reader_down_note),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 12.sp,
                 color = AppColors.Muted,
                 textAlign = TextAlign.Center,

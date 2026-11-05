@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.attract
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -219,8 +221,8 @@ private fun ComboHero(card: IdleCard, language: Language) {
                     Text(
                         text = "+",
                         color = AppColors.Cream,
-                        fontFamily = AppFonts.Cormorant,
-                        fontStyle = FontStyle.Italic,
+                        fontFamily = AppFonts.Display,
+                        fontStyle = AppFonts.DisplayStyle,
                         fontSize = 80.sp,
                     )
                 }
@@ -240,7 +242,7 @@ private fun ProductTile(item: IdleItem?, big: Boolean) {
     Box(
         modifier = Modifier
             .size(side)
-            .clip(RoundedCornerShape(20.dp))
+            .clip(AppShapes.rounded(20.dp))
             .background(AppColors.White),
         contentAlignment = Alignment.Center,
     ) {
@@ -257,7 +259,7 @@ private fun ProductTile(item: IdleItem?, big: Boolean) {
             Text(
                 text = item?.name.orEmpty(),
                 color = AppColors.Ink,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 28.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(12.dp),
@@ -281,7 +283,7 @@ private fun MoreLine(card: IdleCard, shownCount: Int, language: Language) {
         Text(
             text = str(language, "+$extra fleiri vörur", "+$extra more items"),
             color = AppColors.Cream.copy(alpha = 0.85f),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 28.sp,
         )
     }
@@ -292,9 +294,9 @@ private fun BigNumber(text: String) {
     Text(
         text = text,
         color = AppColors.Cream,
-        fontFamily = AppFonts.Cormorant,
-        fontStyle = FontStyle.Italic,
-        fontWeight = FontWeight.Medium,
+        fontFamily = AppFonts.Display,
+        fontStyle = AppFonts.DisplayStyle,
+        fontWeight = AppFonts.DisplayWeight,
         fontSize = 120.sp,
         textAlign = TextAlign.Center,
     )
@@ -306,7 +308,7 @@ private fun ProductName(name: String) {
     Text(
         text = name,
         color = AppColors.Cream,
-        fontFamily = AppFonts.Geist,
+        fontFamily = AppFonts.Body,
         fontWeight = FontWeight.Medium,
         fontSize = 44.sp,
         textAlign = TextAlign.Center,
@@ -320,14 +322,14 @@ private fun PriceRow(priceIsk: Int?, discountedPriceIsk: Int?) {
             Text(
                 text = kr(priceIsk),
                 color = AppColors.Cream.copy(alpha = 0.6f),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 38.sp,
                 textDecoration = TextDecoration.LineThrough,
             )
             Text(
                 text = kr(discountedPriceIsk),
                 color = AppColors.Cream,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontWeight = FontWeight.Medium,
                 fontSize = 52.sp,
             )
@@ -337,7 +339,7 @@ private fun PriceRow(priceIsk: Int?, discountedPriceIsk: Int?) {
                 Text(
                     text = kr(p),
                     color = AppColors.Cream,
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontWeight = FontWeight.Medium,
                     fontSize = 52.sp,
                 )
@@ -381,8 +383,8 @@ private fun PlainAttract(onExit: () -> Unit, language: Language) {
             Text(
                 text = "snarl & sopi",
                 color = AppColors.Cream,
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 52.sp,
             )
             Spacer(Modifier.height(20.dp))

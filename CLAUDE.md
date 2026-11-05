@@ -337,3 +337,22 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   marks each app build with how many of the caller's machines run it and whether it is the
   published release (canary / all); the backend tab (AG only) marks the version Railway is running
   as live. Operators see the two app tabs for their own machines.
+
+## Skins (2026-11-05)
+
+- **The kiosk's look is a skin, chosen in the dashboard** (AG only): per operator in the operator's
+  settings, per machine under Controls → Skin (the canary switch). Two exist: `classic` (cream,
+  Cormorant, the fleet's look so far, the default) and `franklin` (the 2026 redesign: white, black
+  hairlines, Libre Franklin, square corners, no brand line). The config carries `skin` and
+  `skinSource`; the app applies it at the next poll, no restart. Coil 0.80.22+ (`ui/theme/Skin.kt`);
+  the fridge is to get the same plumbing.
+- **A skin is tokens, not a second UI.** `AppColors`, `AppFonts`, `AppTypography` and
+  `AppShapes.rounded(r)` read from `LocalSkin`; the legacy colour names are roles (in Franklin
+  "Bronze" is ink and "Cream" is white). Screen structure, timers, strings and the reader states are
+  shared by both skins. When restyling a screen for Franklin, prefer the role tokens (`Accent`,
+  `Advisory`, `Wall`, `WallDeep`, `TilePalette`) and keep classic looking as it did; a structural
+  difference between the two is a flag on `Skin` (like `showBrandLine`), and the list of flags
+  stays short.
+- The redesign handover (Nov 2026) is applied step by step behind the Franklin switch: theme
+  tokens (0.80.22), then status bar and grid tiles, payment and reader states, success and
+  complaint, overlays, staff screens. Canary 62160480 first, one machine at a time.

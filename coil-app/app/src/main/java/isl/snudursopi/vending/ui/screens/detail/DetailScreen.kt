@@ -1,5 +1,8 @@
 package isl.snudursopi.vending.ui.screens.detail
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+import isl.snudursopi.vending.ui.theme.AppFonts
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -211,7 +214,7 @@ private fun ColumnScope.DetailedBody(
                     Text(
                         text = it,
                         fontSize = 11.sp,
-                        fontStyle = FontStyle.Italic,
+                        fontStyle = AppFonts.DisplayStyle,
                         color = AppColors.Muted,
                         lineHeight = 16.sp,
                     )
@@ -222,7 +225,7 @@ private fun ColumnScope.DetailedBody(
                     Text(
                         text = it,
                         fontSize = 11.sp,
-                        fontStyle = FontStyle.Italic,
+                        fontStyle = AppFonts.DisplayStyle,
                         color = AppColors.Muted,
                         lineHeight = 16.sp,
                     )
@@ -267,7 +270,7 @@ private fun ProductPhoto(product: Product, big: Boolean) {
         Box(
             modifier = Modifier
                 .size(width = if (big) 140.dp else 110.dp, height = if (big) 340.dp else 150.dp)
-                .background(AppColors.Ink.copy(alpha = 0.7f), RoundedCornerShape(12.dp)),
+                .background(AppColors.Ink.copy(alpha = 0.7f), AppShapes.rounded(12.dp)),
         )
     }
 }
@@ -310,9 +313,9 @@ private fun Pill(text: String) {
         color = AppColors.Muted,
         letterSpacing = 0.5.sp,
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(AppShapes.rounded(20.dp))
             .background(AppColors.White)
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(20.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(20.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp),
     )
 }
@@ -326,7 +329,7 @@ private fun AllergenChip(text: String, solid: Boolean) {
             fontWeight = FontWeight.SemiBold,
             color = AppColors.White,
             modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
+                .clip(AppShapes.rounded(6.dp))
                 .background(AppColors.Alert)
                 .padding(horizontal = 10.dp, vertical = 5.dp),
         )
@@ -337,9 +340,9 @@ private fun AllergenChip(text: String, solid: Boolean) {
             fontWeight = FontWeight.Medium,
             color = AppColors.Alert,
             modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
+                .clip(AppShapes.rounded(6.dp))
                 .background(AppColors.White)
-                .border(1.dp, AppColors.Alert, RoundedCornerShape(6.dp))
+                .border(1.dp, AppColors.Alert, AppShapes.rounded(6.dp))
                 .padding(horizontal = 10.dp, vertical = 5.dp),
         )
     }
@@ -366,8 +369,8 @@ private fun NutritionSection(nutrition: Nutrition, basis: String?, language: Lan
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(12.dp))
+            .clip(AppShapes.rounded(12.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(12.dp))
             .background(AppColors.White),
     ) {
         Row(

@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.state
 
+import isl.snudursopi.shared.SkinId
+
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -709,6 +711,7 @@ class VendingViewModel(
                     adminPin = config.adminPin,
                     outOfService = config.outOfService,
                     outOfServiceReason = config.outOfServiceReason,
+                    skin = config.skin,
                     settings = it.settings.copy(
                         operatorName = operatorName,
                         supportEmail = supportEmail,
@@ -2499,6 +2502,7 @@ class VendingViewModel(
                             adminPin = config.adminPin,
                             outOfService = config.outOfService,
                             outOfServiceReason = config.outOfServiceReason,
+                            skin = config.skin,
                             settings = it.settings.copy(
                                 featured = config.featured,
                                 operatorName = opName,
@@ -2572,6 +2576,7 @@ class VendingViewModel(
         val idleGuard: Boolean = false,
         val idleGuardThreads: Int = 1,
         val idleGuardUs: Int = 500,
+        val skin: SkinId = SkinId.Classic,
     ) {
         companion object {
             val EMPTY = ConfigResult(emptyList(), emptyList(), emptyMap(), null)
@@ -2657,6 +2662,7 @@ class VendingViewModel(
                         idleGuard = result.idleGuard,
                         idleGuardThreads = result.idleGuardThreads,
                         idleGuardUs = result.idleGuardUs,
+                        skin = result.skin,
                     )
                     lastConfig = cfg  // remember for the next 304
                     cfg
@@ -2941,6 +2947,8 @@ data class VendingState(
     /** Closed for sale (config.outOfService): the screen shows ClosedScreen and nothing sells. */
     val outOfService: Boolean = false,
     val outOfServiceReason: String? = null,
+    /** Which look the screens draw (config.skin, AG-set per operator or machine). */
+    val skin: SkinId = SkinId.Classic,
     val language: Language = Language.Icelandic,
     val currentTime: String = "—:—",
     val isEvening: Boolean = false,
