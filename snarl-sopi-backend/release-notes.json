@@ -22,6 +22,21 @@
  },
  {
   "component": "coil",
+  "version": "0.80.23",
+  "versionCode": 179,
+  "date": "2026-11-05",
+  "title": "Portrait posters play full screen while the machine is idle.",
+  "notes": [
+   "A poster that is taller than wide (1080×1920 for the 55\" screen) now plays full screen when nobody has touched the machine for the idle time, each for its own duration, then round again. A touch anywhere goes straight to the shop.",
+   "Upload them in the dashboard like any poster: machine → Screen posters. The upload will say the image is not 16:9; that is expected for these.",
+   "Landscape posters and videos keep playing in the strip above the products, as before. Portrait ones never appear there.",
+   "When a machine has portrait posters, they are its idle screen; deal cards show on machines without them, as before.",
+   "Shown from the copy kept on the machine, so nothing streams. The relayed log says \"idle → attract (N posters, M deal cards)\"."
+  ],
+  "check": "On the canary: upload the coil-55-tommu posters to that machine only, wait ~2 min for the config, leave it untouched for the idle time (30 s by default): the posters cycle full screen; a tap opens the shop."
+ },
+ {
+  "component": "coil",
   "version": "0.80.22",
   "versionCode": 178,
   "date": "2026-11-05",
