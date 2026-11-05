@@ -1,5 +1,17 @@
 [
  {
+  "component": "coil",
+  "version": "0.80.24",
+  "versionCode": 180,
+  "date": "2026-11-05",
+  "title": "A machine on a network cable, or behind Tailscale, can be set up and shows as online.",
+  "notes": [
+   "The app only counted Wi-Fi and mobile data as a connection. On a network cable (or when Tailscale's VPN sat in front of a link it didn't name) it showed \"ekkert net\", and the setup screen refused to even try pairing — \"Engin internettenging\" while the machine was plainly online. Found setting up a coil machine at the trade show, 2026-11-05.",
+   "Any link Android says reaches the internet now counts. The status corner shows \"LAN\" for it; diagnostics says \"snúra / vpn\"."
+  ],
+  "check": "On a machine with a network cable plugged in: the corner shows LAN, not ekkert net."
+ },
+ {
   "component": "fridge",
   "version": "0.70.10",
   "versionCode": 176,
