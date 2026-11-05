@@ -90,8 +90,8 @@ fun ComplaintConfirmationScreen(
                     text = "✓",
                     color = AppColors.Bronze,
                     fontSize = 32.sp,
-                    fontFamily = AppFonts.Cormorant,
-                    fontStyle = FontStyle.Italic,
+                    fontFamily = AppFonts.Display,
+                    fontStyle = AppFonts.DisplayStyle,
                 )
             }
 
@@ -99,9 +99,9 @@ fun ComplaintConfirmationScreen(
 
             Text(
                 text = localized(language, R.string.complaint_received),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.Medium,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
+                fontWeight = AppFonts.DisplayWeight,
                 fontSize = 40.sp,
                 color = AppColors.Ink,
                 lineHeight = 44.sp,
@@ -111,8 +111,8 @@ fun ComplaintConfirmationScreen(
 
             Text(
                 text = localized(language, R.string.complaint_received_sub),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 18.sp,
                 color = AppColors.MutedSoft,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,

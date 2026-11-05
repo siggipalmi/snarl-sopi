@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.hardware
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -148,18 +150,18 @@ fun HardwareTestScreen(
         ) {
             Text(
                 text = "vélbúnaðarpróf",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontWeight = FontWeight.Medium,
                 fontSize = 28.sp,
                 color = AppColors.Ink,
             )
             Box(
                 modifier = Modifier
-                    .border(0.5.dp, AppColors.MutedSoft, RoundedCornerShape(20.dp))
+                    .border(0.5.dp, AppColors.MutedSoft, AppShapes.rounded(20.dp))
                     .clickable(onClick = onExit)
                     .padding(horizontal = 18.dp, vertical = 8.dp),
             ) {
-                Text("loka", fontFamily = AppFonts.Geist, fontSize = 13.sp, color = AppColors.MutedSoft)
+                Text("loka", fontFamily = AppFonts.Body, fontSize = 13.sp, color = AppColors.MutedSoft)
             }
         }
 
@@ -184,7 +186,7 @@ fun HardwareTestScreen(
             ) {
                 Text(
                     "opna líka nayax port (marshall)",
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 13.sp,
                     color = AppColors.Ink,
                 )
@@ -395,7 +397,7 @@ fun HardwareTestScreen(
             Text(
                 text = "keyrir alvöru nayax marshall sdk sem hýsil. lokaðu posa-forriti fyrst. " +
                     "smelltu á start og fylgstu með hvort 'onReady' birtist (þá hreinsast V00).",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
@@ -435,13 +437,13 @@ fun HardwareTestScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(AppColors.CreamShadow, RoundedCornerShape(10.dp))
+                        .background(AppColors.CreamShadow, AppShapes.rounded(10.dp))
                         .padding(12.dp),
                 ) {
                     marshallLog.forEach { line ->
                         Text(
                             text = line,
-                            fontFamily = AppFonts.Geist,
+                            fontFamily = AppFonts.Body,
                             fontSize = 12.sp,
                             color = AppColors.Ink,
                             modifier = Modifier.padding(vertical = 1.dp),
@@ -455,7 +457,7 @@ fun HardwareTestScreen(
             Text(
                 text = "hleður kort en SKAMMTAR EKKI vöru. notar lágt verð. " +
                     "connect fyrst (bíð eftir onReady), svo charge og leggðu kort á posann.",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
@@ -515,7 +517,7 @@ fun HardwareTestScreen(
                 text = "opnar mótor (ttyS1) OG marshall (ttyS3) samtímis. við samþykkt greiðslu " +
                     "skammtar hólf; mótor snýst → true (rukkað), annars false (endurgreitt). " +
                     "PRÓFAR alvöru kort OG alvöru vöru.",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
@@ -594,7 +596,7 @@ fun HardwareTestScreen(
                 text = "3 vörur (2 virk hólf + 1 dautt) á sama verði. posi sýnir HEILDINA, " +
                     "tappar einu sinni. skammtar hvert; rukkar AÐEINS það sem skilaði sér. " +
                     "vænting: 2×verð rukkað, ekki 3×.",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
@@ -664,7 +666,7 @@ fun HardwareTestScreen(
             Text(
                 text = "óstaðfest: SDK skjölun vantar fyrir nayax. prófaðu með " +
                     "lágri upphæð, posa-forrit lokað. fylgstu með hvort posinn vaknar.",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
@@ -716,7 +718,7 @@ fun HardwareTestScreen(
             // --- keep-alive experiment (the V00 test) ---
             Text(
                 text = "lyklaprófun: heldur posanum lifandi? (V00). str = nota /dev/ttyS3.",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
@@ -769,7 +771,7 @@ fun HardwareTestScreen(
             Text(
                 text = "óstaðfest: aðeins lestur. virkar bara ef vélin er með orkubretti " +
                     "(kæling). prófaðu á kældri vél.",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
@@ -809,8 +811,8 @@ fun HardwareTestScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(AppColors.White, RoundedCornerShape(10.dp))
-                    .border(0.5.dp, AppColors.Line, RoundedCornerShape(10.dp))
+                    .background(AppColors.White, AppShapes.rounded(10.dp))
+                    .border(0.5.dp, AppColors.Line, AppShapes.rounded(10.dp))
                     .padding(16.dp),
             ) {
                 Text(
@@ -824,7 +826,7 @@ fun HardwareTestScreen(
             Text(
                 text = "athugið: nayax-hlutinn er tilraun. niðurstaðan segir okkur " +
                     "hvort greiðsla virkar gegnum sdk eða þarf aðra leið.",
-                fontFamily = AppFonts.Cormorant,
+                fontFamily = AppFonts.Display,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
             )
@@ -840,7 +842,7 @@ fun HardwareTestScreen(
 private fun SectionLabel(text: String) {
     Text(
         text = text.uppercase(),
-        fontFamily = AppFonts.Geist,
+        fontFamily = AppFonts.Body,
         fontSize = 11.sp,
         letterSpacing = 1.5.sp,
         fontWeight = FontWeight.Medium,
@@ -857,13 +859,13 @@ private fun LabeledField(
     keyboardType: KeyboardType,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-        Text(label, fontFamily = AppFonts.Geist, fontSize = 11.sp, color = AppColors.MutedSoft)
+        Text(label, fontFamily = AppFonts.Body, fontSize = 11.sp, color = AppColors.MutedSoft)
         Spacer(Modifier.height(4.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AppColors.White, RoundedCornerShape(8.dp))
-                .border(0.5.dp, AppColors.Line, RoundedCornerShape(8.dp))
+                .background(AppColors.White, AppShapes.rounded(8.dp))
+                .border(0.5.dp, AppColors.Line, AppShapes.rounded(8.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
         ) {
             BasicTextField(
@@ -890,13 +892,13 @@ private fun LabeledFieldCompact(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
-        Text(label, fontFamily = AppFonts.Geist, fontSize = 11.sp, color = AppColors.MutedSoft)
+        Text(label, fontFamily = AppFonts.Body, fontSize = 11.sp, color = AppColors.MutedSoft)
         Spacer(Modifier.height(4.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AppColors.White, RoundedCornerShape(8.dp))
-                .border(0.5.dp, AppColors.Line, RoundedCornerShape(8.dp))
+                .background(AppColors.White, AppShapes.rounded(8.dp))
+                .border(0.5.dp, AppColors.Line, AppShapes.rounded(8.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
         ) {
             BasicTextField(
@@ -936,14 +938,14 @@ private fun TestButton(
     Box(
         modifier = modifier
             .height(50.dp)
-            .background(bg, RoundedCornerShape(25.dp))
+            .background(bg, AppShapes.rounded(25.dp))
             .then(
-                if (!primary && enabled) Modifier.border(0.5.dp, AppColors.MutedSoft, RoundedCornerShape(25.dp))
+                if (!primary && enabled) Modifier.border(0.5.dp, AppColors.MutedSoft, AppShapes.rounded(25.dp))
                 else Modifier
             )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontFamily = AppFonts.Geist, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = fg)
+        Text(label, fontFamily = AppFonts.Body, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = fg)
     }
 }

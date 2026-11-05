@@ -1,5 +1,26 @@
 [
  {
+  "component": "coil",
+  "version": "0.80.22",
+  "versionCode": 178,
+  "date": "2026-11-05",
+  "title": "Two skins: Classic and Franklin.",
+  "notes": [
+   "Every colour, typeface and corner on the screens now comes from a skin chosen in the dashboard. Classic is the look the fleet has run so far and is the default; nothing changes unless AG switches a machine.",
+   "Franklin is the first step of the 2026 redesign: white page, black type and rules, one typeface (Libre Franklin), square corners, no brand line in the status bar. The screen layouts are unchanged in this build; the redesign of each screen follows behind the same switch."
+  ],
+  "check": "On the canary set Skin = Franklin: within two minutes the grid turns white with black type and square tiles. Set it back to Classic: the cream look returns. Prices and the reader states must stay readable in both."
+ },
+ {
+  "component": "backend",
+  "version": "6.108.0",
+  "date": "2026-11-05",
+  "title": "Skins: pick the look a kiosk draws.",
+  "notes": [
+   "AG can set a skin per operator (operator settings) and override it per machine (machine → Controls → Skin). Two exist: Classic, the cream look so far, and Franklin, the 2026 redesign. The machine applies it within two minutes, no restart; coil 0.80.22 or newer."
+  ]
+ },
+ {
   "component": "fridge",
   "version": "0.70.9",
   "versionCode": 175,

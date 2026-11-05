@@ -6782,6 +6782,15 @@ async function saveIdleGuard(code) {
   } catch (e) { showToast('error: ' + e.message); }
 }
 
+async function saveSkin(code) {
+  const v = document.getElementById('skin-sel').value;
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/settings', { skin: v || null });
+    if (r && r.ok) { showToast(v ? 'Skin ' + v + ' — the machine applies it within two minutes' : "Skin follows the operator's choice"); if (DB.machines[code]) DB.machines[code].settings = Object.assign({}, DB.machines[code].settings, { skin: v || null }); }
+    else showToast((r && r.error) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
 async function saveAdRegion() {
   const on = document.getElementById('ads-region').checked;
   try {
@@ -6889,6 +6898,18 @@ function renderMachineControls(code) {
         <button class="btn btn-sm" onclick="saveIdleGuard('${code}')">save</button>
       </div>
       <div style="margin-top:7px;font-size:11px;color:var(--muted)">Workaround for a board that stops executing in deep idle until an outside interrupt wakes it (Grótta vinstri, 2026-10-27/28: twice 44 minutes). A thread waking every 500 µs keeps its core in the light idle state, whose timer works. Coil 0.80.12+, fridge 0.70.5+; applies within two minutes. Measure with the kernel heartbeat gaps before and after.</div>
+    </div>` : ''}
+    ${currentUser?.role === 'ag_admin' ? `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;margin-bottom:8px">SKIN · AG</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <select id="skin-sel" class="fi" style="width:auto">
+          <option value="" ${!(m.settings && m.settings.skin) ? 'selected' : ''}>operator's choice</option>
+          <option value="classic" ${m.settings && m.settings.skin === 'classic' ? 'selected' : ''}>Classic</option>
+          <option value="franklin" ${m.settings && m.settings.skin === 'franklin' ? 'selected' : ''}>Franklin</option>
+        </select>
+        <button class="btn btn-sm" onclick="saveSkin('${code}')">save</button>
+      </div>
+      <div style="margin-top:7px;font-size:11px;color:var(--muted)">Which look this kiosk draws (coil 0.80.22+). Classic is the cream look the fleet has run so far; Franklin is the 2026 redesign. The machine applies it within two minutes, no restart. Set it here on one machine first; the operator's default is in the operator's settings.</div>
     </div>` : ''}
     <div style="display:none">
     </div>
@@ -11553,6 +11574,8 @@ function operatorFormHtml(mode, op) {
       <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Idle screen <span style="text-transform:none;letter-spacing:0">· applies to all this operator’s machines</span></div>
       <div class="field"><div class="fl">card rotation <span style="color:var(--muted);font-weight:400">· seconds each deal card shows · 3–30</span></div><input class="fi" id="op-idle-rotation" type="number" min="3" max="30" step="1" value="${(op.idleConfig && op.idleConfig.rotationSeconds) || 6}"></div>
       <div class="field"><div class="fl">attract timeout <span style="color:var(--muted);font-weight:400">· seconds of inactivity before the attract loop · 10–120</span></div><input class="fi" id="op-idle-attract" type="number" min="10" max="120" step="1" value="${(op.idleConfig && op.idleConfig.attractTimeoutSeconds) || 30}"></div>
+      ${currentUser?.role === 'ag_admin' ? `<div class="field"><div class="fl">skin <span style="color:var(--muted);font-weight:400">· AG · the look every machine of this operator draws unless a machine overrides it</span></div>
+        <select class="fi" id="op-skin"><option value="classic" ${(op.skin || 'classic') === 'classic' ? 'selected' : ''}>Classic</option><option value="franklin" ${op.skin === 'franklin' ? 'selected' : ''}>Franklin</option></select></div>` : ''}
     </div>` : ''}
     ${mode === 'edit' ? `
     <div style="border-top:.5px solid var(--line);margin:14px 0 10px;padding-top:12px">
@@ -11619,6 +11642,8 @@ function operatorBody() {
   const att = document.getElementById('op-idle-attract');
   if (rot && rot.value !== '') body.idleRotationSeconds = Number(rot.value);
   if (att && att.value !== '') body.idleAttractTimeoutSeconds = Number(att.value);
+  const sk = document.getElementById('op-skin');
+  if (sk) body.skin = sk.value;
   return body;
 }
 

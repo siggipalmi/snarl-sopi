@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.error
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -134,8 +136,8 @@ private fun CustomerView(language: Language, nextRetryAtMillis: Long) {
         ) {
             Text(
                 text = "!",
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 28.sp,
                 color = AppColors.Bronze.copy(alpha = 0.6f),
             )
@@ -145,9 +147,9 @@ private fun CustomerView(language: Language, nextRetryAtMillis: Long) {
 
         Text(
             text = localized(language, R.string.error_unavailable_title),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 40.sp,
             color = AppColors.Ink,
             lineHeight = 44.sp,
@@ -157,8 +159,8 @@ private fun CustomerView(language: Language, nextRetryAtMillis: Long) {
 
         Text(
             text = localized(language, R.string.error_working_on_it),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
             fontSize = 18.sp,
             color = AppColors.MutedSoft,
         )
@@ -169,7 +171,7 @@ private fun CustomerView(language: Language, nextRetryAtMillis: Long) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = localized(language, R.string.error_retry_in, secondsRemaining),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 12.sp,
                     color = AppColors.Bronze,
                     letterSpacing = 0.5.sp,
@@ -182,7 +184,7 @@ private fun CustomerView(language: Language, nextRetryAtMillis: Long) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = localized(language, R.string.error_checking),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 12.sp,
                     color = AppColors.Bronze,
                     letterSpacing = 0.5.sp,
@@ -255,7 +257,7 @@ private fun OperatorView(
     ) {
         Text(
             text = "TÆKNILEGAR UPPLÝSINGAR",
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 11.sp,
             color = OperatorAccent,
             letterSpacing = 1.5.sp,
@@ -266,9 +268,9 @@ private fun OperatorView(
         // Friendly user-side summary (what the customer sees)
         Text(
             text = "ekki tókst að sækja vörulistann frá vefþjónustu",
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 24.sp,
             color = AppColors.Ink,
             lineHeight = 26.sp,
@@ -293,14 +295,14 @@ private fun OperatorView(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AppColors.White, RoundedCornerShape(8.dp))
+                .background(AppColors.White, AppShapes.rounded(8.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 text = "sjálfvirk endurtilraun",
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 12.sp,
                 color = AppColors.MutedSoft,
             )
@@ -323,8 +325,8 @@ private fun OperatorView(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(AppColors.White, RoundedCornerShape(8.dp))
-                .border(0.5.dp, OperatorAccent.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                .background(AppColors.White, AppShapes.rounded(8.dp))
+                .border(0.5.dp, OperatorAccent.copy(alpha = 0.3f), AppShapes.rounded(8.dp))
                 .padding(14.dp),
         ) {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -378,14 +380,14 @@ private fun SolidButton(label: String, onClick: () -> Unit, modifier: Modifier =
     Box(
         modifier = modifier
             .height(48.dp)
-            .background(AppColors.Ink, RoundedCornerShape(10.dp))
+            .background(AppColors.Ink, AppShapes.rounded(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             color = AppColors.Cream,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
         )
@@ -397,14 +399,14 @@ private fun OutlinedButton(label: String, onClick: () -> Unit, modifier: Modifie
     Box(
         modifier = modifier
             .height(48.dp)
-            .border(0.5.dp, AppColors.Ink, RoundedCornerShape(10.dp))
+            .border(0.5.dp, AppColors.Ink, AppShapes.rounded(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             color = AppColors.Ink,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
         )
@@ -416,14 +418,14 @@ private fun DangerOutlinedButton(label: String, onClick: () -> Unit, modifier: M
     Box(
         modifier = modifier
             .height(48.dp)
-            .border(0.5.dp, OperatorAccent, RoundedCornerShape(10.dp))
+            .border(0.5.dp, OperatorAccent, AppShapes.rounded(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             color = OperatorAccent,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
         )

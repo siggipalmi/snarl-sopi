@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.complaint
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -133,9 +135,9 @@ fun ComplaintFormScreen(
             // Title
             Text(
                 text = if (isSingleItem) localized(language, R.string.complaint_title_single) else localized(language, R.string.complaint_title_multi),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.Medium,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
+                fontWeight = AppFonts.DisplayWeight,
                 fontSize = 44.sp,
                 color = AppColors.Ink,
                 lineHeight = 48.sp,
@@ -143,8 +145,8 @@ fun ComplaintFormScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = localized(language, R.string.complaint_subtitle),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 18.sp,
                 color = AppColors.MutedSoft,
             )
@@ -205,8 +207,8 @@ fun ComplaintFormScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = localized(language, R.string.complaint_email_note),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
             )
@@ -217,13 +219,13 @@ fun ComplaintFormScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0x1AC4501A), RoundedCornerShape(10.dp))
+                        .background(Color(0x1AC4501A), AppShapes.rounded(10.dp))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Text(
                         text = localized(language, R.string.complaint_send_failed),
-                        fontFamily = AppFonts.Cormorant,
-                        fontStyle = FontStyle.Italic,
+                        fontFamily = AppFonts.Display,
+                        fontStyle = AppFonts.DisplayStyle,
                         fontSize = 14.sp,
                         color = Color(0xFF8B2C0A),
                     )
@@ -266,7 +268,7 @@ fun ComplaintFormScreen(
 private fun FieldLabel(text: String) {
     Text(
         text = text.uppercase(),
-        fontFamily = AppFonts.Geist,
+        fontFamily = AppFonts.Body,
         fontSize = 11.sp,
         letterSpacing = 1.5.sp,
         fontWeight = FontWeight.Medium,
@@ -286,11 +288,11 @@ private fun ItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 6.dp)
-            .background(AppColors.White, RoundedCornerShape(10.dp))
+            .background(AppColors.White, AppShapes.rounded(10.dp))
             .border(
                 width = 0.5.dp,
                 color = if (selected) AppColors.Ink else AppColors.Line,
-                shape = RoundedCornerShape(10.dp),
+                shape = AppShapes.rounded(10.dp),
             )
             .clickable(enabled = !locked, onClick = onToggle)
             .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -301,12 +303,12 @@ private fun ItemRow(
                 .size(18.dp)
                 .background(
                     color = if (selected) AppColors.Ink else Color.Transparent,
-                    shape = RoundedCornerShape(4.dp),
+                    shape = AppShapes.rounded(4.dp),
                 )
                 .border(
                     width = 1.dp,
                     color = if (selected) AppColors.Ink else AppColors.MutedSoft,
-                    shape = RoundedCornerShape(4.dp),
+                    shape = AppShapes.rounded(4.dp),
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -322,7 +324,7 @@ private fun ItemRow(
         Spacer(Modifier.size(12.dp))
         Text(
             text = item.name,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 15.sp,
             color = AppColors.Ink,
             modifier = Modifier.weight(1f),
@@ -346,15 +348,15 @@ private fun TextArea(
         modifier = Modifier
             .fillMaxWidth()
             .height(72.dp)
-            .background(AppColors.White, RoundedCornerShape(10.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(10.dp))
+            .background(AppColors.White, AppShapes.rounded(10.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(10.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         if (value.isEmpty()) {
             Text(
                 text = placeholder,
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 14.sp,
                 color = AppColors.MutedSoft,
             )
@@ -365,7 +367,7 @@ private fun TextArea(
             textStyle = TextStyle(
                 fontSize = 15.sp,
                 color = AppColors.Ink,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
             ),
             modifier = Modifier.fillMaxSize(),
         )
@@ -384,14 +386,14 @@ private fun TextLine(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppColors.White, RoundedCornerShape(10.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(10.dp))
+            .background(AppColors.White, AppShapes.rounded(10.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(10.dp))
             .padding(horizontal = 14.dp, vertical = 14.dp),
     ) {
         if (value.isEmpty()) {
             Text(
                 text = placeholder,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 15.sp,
                 color = AppColors.MutedSoft,
             )
@@ -402,7 +404,7 @@ private fun TextLine(
             textStyle = TextStyle(
                 fontSize = 15.sp,
                 color = AppColors.Ink,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
             ),
             singleLine = true,
             keyboardOptions = KeyboardOptions(
@@ -420,15 +422,15 @@ private fun SecondaryButton(label: String, onClick: () -> Unit, modifier: Modifi
     Box(
         modifier = modifier
             .height(52.dp)
-            .background(AppColors.Cream, RoundedCornerShape(26.dp))
-            .border(0.5.dp, AppColors.MutedSoft, RoundedCornerShape(26.dp))
+            .background(AppColors.Cream, AppShapes.rounded(26.dp))
+            .border(0.5.dp, AppColors.MutedSoft, AppShapes.rounded(26.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             color = AppColors.MutedSoft,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
         )
@@ -448,7 +450,7 @@ private fun SubmitButton(
             .height(52.dp)
             .background(
                 if (enabled) AppColors.Ink else AppColors.Clay,
-                RoundedCornerShape(26.dp),
+                AppShapes.rounded(26.dp),
             )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -463,7 +465,7 @@ private fun SubmitButton(
             Text(
                 text = label,
                 color = AppColors.Cream,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
             )

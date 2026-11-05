@@ -133,7 +133,7 @@ private fun NoConnectionIcon() {
         }
         Text(
             text = "ekkert net",
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 11.sp,
             color = Color(0xFFC4501A),
             fontWeight = FontWeight.Medium,

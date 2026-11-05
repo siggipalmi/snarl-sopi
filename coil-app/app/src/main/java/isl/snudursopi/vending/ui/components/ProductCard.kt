@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.components
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,9 +67,9 @@ fun ProductCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(AppShapes.rounded(16.dp))
                 .background(AppColors.White)
-                .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
+                .border(borderWidth, borderColor, AppShapes.rounded(16.dp))
                 .padding(12.dp),
         ) {
             // Image — primary tap target
@@ -75,7 +77,7 @@ fun ProductCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(AppShapes.rounded(10.dp))
                     .background(product.category.tileColor())
                     .clickable(enabled = !outOfStock, onClick = onImageClick),
                 contentAlignment = Alignment.Center,
@@ -102,7 +104,7 @@ fun ProductCard(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .padding(10.dp)
-                            .background(AppColors.Ink, RoundedCornerShape(6.dp))
+                            .background(AppColors.Ink, AppShapes.rounded(6.dp))
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
@@ -263,7 +265,7 @@ private fun ProductSilhouette(product: Product) {
                 width = (sizes.first * scale).dp,
                 height = (sizes.second * scale).dp,
             )
-            .background(color, RoundedCornerShape(6.dp)),
+            .background(color, AppShapes.rounded(6.dp)),
     )
 }
 

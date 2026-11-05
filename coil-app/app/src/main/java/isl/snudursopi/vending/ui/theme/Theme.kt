@@ -1,39 +1,31 @@
 package isl.snudursopi.vending.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Color
 
-private val LightColors = lightColorScheme(
-    primary = AppColors.Ink,
-    onPrimary = AppColors.Cream,
-    secondary = AppColors.Bronze,
-    onSecondary = AppColors.Cream,
-    background = AppColors.Cream,
-    onBackground = AppColors.Ink,
-    surface = AppColors.White,
-    onSurface = AppColors.Ink,
-    surfaceVariant = AppColors.CreamShadow,
-    onSurfaceVariant = AppColors.InkSoft,
-    outline = AppColors.Line,
-    error = AppColors.Alert,
-    onError = AppColors.Cream,
-)
-
-/** Local access to our extended palette beyond Material3's defaults. */
-val LocalAppColors = staticCompositionLocalOf { AppColors }
-
+/** Applies a [Skin] to everything below: Material's scheme and type, and [LocalSkin] for our own tokens. */
 @Composable
-fun SnudurSopiTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = LightColors,
-        typography = AppMaterialTypography,
-    ) {
-        CompositionLocalProvider(LocalAppColors provides AppColors) {
-            content()
-        }
+fun SnudurSopiTheme(skin: Skin = Skins.Classic, content: @Composable () -> Unit) {
+    val c = skin.colors
+    val scheme = lightColorScheme(
+        primary = c.Ink, onPrimary = c.Cream,
+        secondary = c.Bronze, onSecondary = c.Cream,
+        background = c.Cream, onBackground = c.Ink,
+        surface = c.White, onSurface = c.Ink,
+        surfaceVariant = c.CreamShadow, onSurfaceVariant = c.InkSoft,
+        outline = c.Line,
+        error = c.Alert, onError = c.Cream,
+    )
+    val t = skin.type
+    val typography = Typography(
+        displayLarge = t.DisplayLarge, displayMedium = t.DisplayMedium, displaySmall = t.DisplaySmall,
+        bodyLarge = t.BodyLarge, bodyMedium = t.BodyMedium, bodySmall = t.BodySmall,
+        labelLarge = t.Label, labelMedium = t.Label, labelSmall = t.LabelSmall,
+    )
+    CompositionLocalProvider(LocalSkin provides skin) {
+        MaterialTheme(colorScheme = scheme, typography = typography, content = content)
     }
 }

@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.contact
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -70,7 +72,7 @@ fun ContactOverlay(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                .clip(AppShapes.rounded(topStart = 32.dp, topEnd = 32.dp))
                 .background(AppColors.Cream)
                 .clickable(enabled = false) {}
                 .verticalScroll(rememberScrollState())
@@ -80,7 +82,7 @@ fun ContactOverlay(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .size(width = 56.dp, height = 5.dp)
-                    .background(AppColors.Clay, RoundedCornerShape(3.dp)),
+                    .background(AppColors.Clay, AppShapes.rounded(3.dp)),
             )
             Spacer(Modifier.height(28.dp))
 
@@ -149,7 +151,7 @@ fun ContactOverlay(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(62.dp)
-                    .background(AppColors.Ink, RoundedCornerShape(16.dp))
+                    .background(AppColors.Ink, AppShapes.rounded(16.dp))
                     .clickable(onClick = onClose),
                 contentAlignment = Alignment.Center,
             ) {
@@ -169,7 +171,7 @@ private fun AgVendingAd(language: Language) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(AppShapes.rounded(20.dp))
             .background(
                 Brush.linearGradient(
                     colors = listOf(AppColors.CreamShadow, AppColors.Clay),
@@ -201,8 +203,8 @@ private fun AgVendingAd(language: Language) {
 
         Text(
             text = localized(language, R.string.contact_ad_pitch),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
             fontWeight = FontWeight.SemiBold,
             fontSize = 21.sp,
             lineHeight = 26.sp,
@@ -222,7 +224,7 @@ private fun AgVendingAd(language: Language) {
             Box(
                 modifier = Modifier
                     .size(96.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(AppShapes.rounded(12.dp))
                     .background(AppColors.White)
                     .padding(7.dp),
                 contentAlignment = Alignment.Center,
@@ -259,8 +261,8 @@ private fun ContactField(label: String, value: String, accent: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppColors.White, RoundedCornerShape(16.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(16.dp))
+            .background(AppColors.White, AppShapes.rounded(16.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(16.dp))
             .padding(horizontal = 22.dp, vertical = 16.dp),
     ) {
         Text(

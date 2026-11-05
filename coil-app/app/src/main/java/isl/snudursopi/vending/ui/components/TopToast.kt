@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.components
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -42,7 +44,7 @@ fun TopToast(
         ) {
             Box(
                 modifier = Modifier
-                    .background(AppColors.Ink, RoundedCornerShape(999.dp))
+                    .background(AppColors.Ink, AppShapes.rounded(999.dp))
                     .padding(horizontal = 22.dp, vertical = 12.dp),
             ) {
                 Text(

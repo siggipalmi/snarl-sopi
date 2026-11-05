@@ -603,6 +603,11 @@ function buildConfigResponse(machine) {
     idleGuard: cfg.idleGuard === true,
     idleGuardThreads: Number.isFinite(Number(cfg.idleGuardThreads)) ? Number(cfg.idleGuardThreads) : 1,
     idleGuardUs: Number.isFinite(Number(cfg.idleGuardUs)) ? Number(cfg.idleGuardUs) : 500,
+    // Skin: which look the kiosk draws — 'classic' (cream, Cormorant) or 'franklin' (the 2026
+    // redesign). The machine's own setting wins, else its operator's, else classic. AG sets both
+    // in the dashboard; the app applies it at its next config poll, no restart (coil 0.80.22+).
+    skin: resolveSkin(machine).skin,
+    skinSource: resolveSkin(machine).source,
     deals: storage.activeDealsForMachine(machine.deviceCode) || [],
     idle: storage.resolveIdleForMachine(machine.deviceCode) || { rotationSeconds: 6, attractTimeoutSeconds: 30, cards: [] },
     offers: storage.offersForMachine(machine.deviceCode) || [],
@@ -719,6 +724,20 @@ function ledPolicy(machine) {
 // own posters shows those instead (override, not merge), so a one-machine operator keeps working
 // exactly as before and a multi-machine operator sets posters once. Stored as meta, like the
 // operator's idle config, and served through buildConfigResponse.
+const SKINS = ['classic', 'franklin'];
+/** The skin a machine draws and where the choice came from: its own setting, its operator's, or the default. */
+function resolveSkin(machine) {
+  const own = machine && machine.settings && machine.settings.skin;
+  if (SKINS.includes(own)) return { skin: own, source: 'machine' };
+  const op = machine && machine.operatorId ? storage.getMeta('skin:' + machine.operatorId) : null;
+  if (SKINS.includes(op)) return { skin: op, source: 'operator' };
+  return { skin: 'classic', source: 'default' };
+}
+function operatorSkin(operatorId) {
+  const op = storage.getMeta('skin:' + operatorId);
+  return SKINS.includes(op) ? op : 'classic';
+}
+
 function operatorAds(operatorId) {
   if (!operatorId) return [];
   try { const v = JSON.parse(storage.getMeta('opads:' + operatorId) || '[]'); return Array.isArray(v) ? v : []; }
@@ -746,7 +765,7 @@ function touchConfig(machine) {
   } catch (e) { console.error('[MIGRATE] fridge config bump failed:', e.message); }
 })();
 
-module.exports = { machineClosure,
+module.exports = { machineClosure, resolveSkin, operatorSkin, SKINS,
   operators, machines, alerts: alertsProxy, orders: ordersProxy,
   users: usersProxy, authTokens, apiConfig,
   storage,

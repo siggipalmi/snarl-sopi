@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.admin
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -89,8 +91,8 @@ fun DiagnosticsScreen(
         ) {
             Text(
                 text = "stillingar.",
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 40.sp,
                 color = AppColors.Ink,
                 lineHeight = 42.sp,
@@ -98,8 +100,8 @@ fun DiagnosticsScreen(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "tækjastjórnun · aðeins fyrir starfsmenn",
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
                 fontSize = 13.sp,
                 color = AppColors.Muted,
             )
@@ -269,7 +271,7 @@ fun DiagnosticsScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(AppShapes.rounded(28.dp))
                     .background(AppColors.Ink)
                     .clickable(onClick = onExit)
                     .padding(vertical = 16.dp),
@@ -344,7 +346,7 @@ private fun InfoRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 6.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(AppShapes.rounded(8.dp))
             .background(AppColors.White)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -367,7 +369,7 @@ private fun ActionRow(label: String, trailing: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 6.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(AppShapes.rounded(8.dp))
             .background(AppColors.White)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 14.dp),
@@ -385,7 +387,7 @@ private fun DangerActionRow(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 6.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(AppShapes.rounded(8.dp))
             .background(DangerBg)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 14.dp),
@@ -440,6 +442,9 @@ private fun openSettings(context: Context, action: String) {
     }
 }
 
+/** Plain functions cannot read the skin; the diagnostics screen is staff-only and keeps one muted ink. */
+private val DiagMuted = Color(0xFF8A8275)
+
 private fun formatConnection(state: ConnectionState): Pair<String, Color?> {
     return when (state) {
         is ConnectionState.Wifi -> "wifi · ${state.bars}/4" to OkInk
@@ -449,7 +454,7 @@ private fun formatConnection(state: ConnectionState): Pair<String, Color?> {
 }
 
 private fun formatLastFetch(epochMs: Long): Pair<String, Color?> {
-    if (epochMs <= 0L) return "—" to AppColors.Muted
+    if (epochMs <= 0L) return "—" to DiagMuted
     val now = System.currentTimeMillis()
     val ageMs = now - epochMs
     val ageMinutes = ageMs / 60_000
@@ -471,8 +476,8 @@ private fun appVersionLabel(): String {
 
 private fun formatProxyStatus(state: ProxyState): Pair<String, Color?> {
     return when (state.status) {
-        ProxyState.Status.Disabled -> "óvirkt" to AppColors.Muted
-        ProxyState.Status.Idle -> "ekki tengt" to AppColors.Muted
+        ProxyState.Status.Disabled -> "óvirkt" to DiagMuted
+        ProxyState.Status.Idle -> "ekki tengt" to DiagMuted
         ProxyState.Status.Connecting -> "tengist…" to WarnInk
         ProxyState.Status.Connected -> "tengt" to OkInk
         ProxyState.Status.Reconnecting -> "endurtengist (${state.reconnectAttempts})" to WarnInk

@@ -18,6 +18,11 @@ import isl.snudursopi.vending.ui.state.VendingViewModel
 import isl.snudursopi.vending.ui.state.VendingViewModelFactory
 import isl.snudursopi.vending.ui.theme.AppColors
 import isl.snudursopi.vending.ui.theme.SnudurSopiTheme
+import isl.snudursopi.vending.ui.theme.Skins
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import isl.snudursopi.shared.ClockGuard
 import isl.snudursopi.shared.Liveness
 import isl.snudursopi.shared.RecoveryGuard
@@ -66,7 +71,10 @@ class MainActivity : ComponentActivity() {
         SystemBarController.hideSystemBars(window)
 
         setContent {
-            SnudurSopiTheme {
+            // The skin comes from the config (dashboard, AG only) and can change at any poll.
+            val skinId by viewModel.state.map { it.skin }.distinctUntilChanged()
+                .collectAsState(initial = isl.snudursopi.shared.SkinId.Classic)
+            SnudurSopiTheme(skin = Skins.of(skinId)) {
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()

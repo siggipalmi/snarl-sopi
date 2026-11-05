@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.browse
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -162,7 +164,7 @@ private fun CheckoutPill(
 ) {
     Row(
         modifier = Modifier
-            .background(AppColors.Ink, RoundedCornerShape(28.dp))
+            .background(AppColors.Ink, AppShapes.rounded(28.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -173,7 +175,7 @@ private fun CheckoutPill(
         Box(
             modifier = Modifier
                 .size(28.dp)
-                .background(AppColors.Cream.copy(alpha = 0.18f), RoundedCornerShape(50)),
+                .background(AppColors.Cream.copy(alpha = 0.18f), AppShapes.rounded(50)),
             contentAlignment = Alignment.Center,
         ) {
             Text(

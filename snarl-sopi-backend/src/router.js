@@ -37,8 +37,7 @@ const {
   buildConfigResponse, machineClosure, touchConfig, fridgeSpec, machineFridgeSpec, weightLineIsk, isSoldByWeight, BY_WEIGHT_MIN_G, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
-  invitations, createInvitation, getInvitation, consumeInvitation,
-} = require('./db');
+  invitations, createInvitation, getInvitation, consumeInvitation, resolveSkin, operatorSkin, SKINS } = require('./db');
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
 const twoFactor = require('./twoFactor');
@@ -5424,7 +5423,7 @@ function handleUpdateSettings(req, res) {
   if (!valid) return badRequest(res, 'Validation failed', errors);
   const allowed = ['showAdRegion','showLeftHero','showRightHero','showIdleScreen','idleTimeoutSeconds','defaultLanguage','availableLanguages','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','motorSerialPort','controlBoardAddress',
                    'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort','led','basketsPerCabinet',
-                   'idleGuard','idleGuardThreads','idleGuardUs'];
+                   'idleGuard','idleGuardThreads','idleGuardUs','skin'];
   // Refuse a payment port that collides with this machine's bus — same reasoning as the
   // set_payment_port command guard: a second reader on the bus corrupts both at once.
   // Hardware wiring is AG-only, on the same reasoning as the set_payment_port command: these three
@@ -5441,6 +5440,15 @@ function handleUpdateSettings(req, res) {
   const IDLE_KEYS = ['idleGuard', 'idleGuardThreads', 'idleGuardUs'];
   if (IDLE_KEYS.some(k => req.body[k] !== undefined) && req.user?.role !== 'ag_admin') {
     return json(res, 403, { ok: false, error: 'Forbidden \u2014 the idle guard is an AG Vending admin setting.' });
+  }
+  // The skin (which look the kiosk draws) is AG-only on both levels, like the idle guard: it is
+  // the rollout switch for the redesign, canaried one machine at a time. Empty means "the
+  // operator's choice".
+  if (req.body.skin !== undefined) {
+    if (req.user?.role !== 'ag_admin') return json(res, 403, { ok: false, error: 'Forbidden \u2014 the skin is an AG Vending admin setting.' });
+    const v = (req.body.skin === null || req.body.skin === '' || req.body.skin === 'inherit') ? null : String(req.body.skin).trim().toLowerCase();
+    if (v !== null && !SKINS.includes(v)) return badRequest(res, `skin must be one of ${SKINS.join(', ')} or empty`);
+    req.body.skin = v;
   }
   if (req.body.idleGuard !== undefined) req.body.idleGuard = req.body.idleGuard === true;
   if (req.body.idleGuardThreads !== undefined) {
@@ -6645,7 +6653,7 @@ function handleListOperators(req, res) {
     machineCount: Object.values(machines).filter(m => m.operatorId === o.id).length,
     userCount:    users.filter(u => u.operatorId === o.id).length,
   }));
-  ok(res, list, { total: list.length });
+  ok(res, list.map(o => ({ ...o, skin: operatorSkin(o.id) })), { total: list.length });
 }
 
 function handleGetOperator(req, res) {
@@ -6653,7 +6661,7 @@ function handleGetOperator(req, res) {
   if (!op) return notFound(res, 'Operator not found');
   const opMachines = Object.values(machines).filter(m => m.operatorId === op.id);
   const opUsers    = users.filter(u => u.operatorId === op.id).map(publicUser);
-  ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id), machines: opMachines.map(machineSummary), users: opUsers });
+  ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id), skin: operatorSkin(op.id), machines: opMachines.map(machineSummary), users: opUsers });
 }
 
 // Upload a base64 image to R2 and return its public URL (used for operator logos).
@@ -7792,6 +7800,14 @@ async function handleUpdateOperator(req, res) {
     if (!Number.isFinite(att) || att < 10 || att > 120) return badRequest(res, 'idleAttractTimeoutSeconds must be an integer 10–120');
     storage.setOperatorIdleConfig(op.id, { rotationSeconds: rot, attractTimeoutSeconds: att });
   }
+  // Per-operator skin (AG only): the look every machine of this operator draws unless a machine
+  // overrides it. Stored as meta so the operator row stays as it was.
+  if (req.body.skin !== undefined) {
+    if (req.user?.role !== 'ag_admin') return json(res, 403, { ok: false, error: 'Forbidden \u2014 the skin is an AG Vending admin setting.' });
+    const v = String(req.body.skin || 'classic').trim().toLowerCase();
+    if (!SKINS.includes(v)) return badRequest(res, `skin must be one of ${SKINS.join(', ')}`);
+    storage.setMeta('skin:' + op.id, v);
+  }
   if (req.body.logoBase64) {
     try { op.logoUrl = await uploadBase64Image(req.body.logoBase64, req.body.logoType, `operators/${op.id}`); }
     catch (e) { return json(res, 424, { error: 'logo upload failed: ' + e.message }); }
@@ -7799,7 +7815,7 @@ async function handleUpdateOperator(req, res) {
   storage.upsertOperator(op);
   // Name, contact and logo all reach the fridges (info screen, receipts).
   touchOperatorMachines(op.id);
-  ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id) });
+  ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id), skin: operatorSkin(op.id) });
 }
 
 async function handleCreateOperator(req, res) {

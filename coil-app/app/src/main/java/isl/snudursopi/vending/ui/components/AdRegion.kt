@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.components
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedContent
@@ -173,7 +175,7 @@ private fun OverlayContent(overlay: AdOverlay) {
             Spacer(Modifier.height(16.dp))
             Box(
                 modifier = Modifier
-                    .background(AppColors.Ink, RoundedCornerShape(28.dp))
+                    .background(AppColors.Ink, AppShapes.rounded(28.dp))
                     .padding(horizontal = 20.dp, vertical = 10.dp),
             ) {
                 Text(
@@ -280,7 +282,7 @@ private fun ProgressDots(
             val active = i == activeIndex
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(3.dp))
+                    .clip(AppShapes.rounded(3.dp))
                     .background(
                         if (active) AppColors.Cream.copy(alpha = 0.95f)
                         else AppColors.Cream.copy(alpha = 0.4f)

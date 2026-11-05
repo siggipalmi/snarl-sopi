@@ -1,5 +1,11 @@
 package isl.snudursopi.vending.ui.components
 
+import androidx.compose.foundation.layout.width
+
+import androidx.compose.foundation.layout.Spacer
+
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +37,7 @@ import androidx.compose.ui.text.font.FontFamily
 import isl.snudursopi.vending.domain.ConnectionState
 import isl.snudursopi.vending.ui.theme.AppColors
 import isl.snudursopi.vending.ui.theme.AppFonts
+import isl.snudursopi.vending.ui.theme.LocalSkin
 
 @Composable
 fun StatusBar(
@@ -48,15 +55,20 @@ fun StatusBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = brand,
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
-            fontSize = 22.sp,
-            color = AppColors.Ink,
-            letterSpacing = (-0.2).sp,
-        )
+        // The brand line is a skin choice: Franklin leaves the status bar to the connection and the clock.
+        if (LocalSkin.current.showBrandLine) {
+            Text(
+                text = brand,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
+                fontWeight = AppFonts.DisplayWeight,
+                fontSize = 22.sp,
+                color = AppColors.Ink,
+                letterSpacing = (-0.2).sp,
+            )
+        } else {
+            Spacer(Modifier.width(1.dp))
+        }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -127,8 +139,8 @@ fun LanguagePill(
     Box(
         modifier = modifier
             .height(64.dp)
-            .background(AppColors.White, RoundedCornerShape(32.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(32.dp))
+            .background(AppColors.White, AppShapes.rounded(32.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(32.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 22.dp),
         contentAlignment = Alignment.Center,

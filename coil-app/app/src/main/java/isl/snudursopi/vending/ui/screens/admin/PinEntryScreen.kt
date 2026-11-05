@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.admin
 
+import isl.snudursopi.vending.ui.theme.AppShapes
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -134,16 +136,16 @@ fun PinEntryScreen(
     ) {
         Text(
             text = title,
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
             fontSize = 36.sp,
             color = if (wrong || lockedMs > 0) AppColors.Alert else AppColors.Cream,
         )
         Spacer(Modifier.height(4.dp))
         Text(
             text = localized(language, R.string.admin_pin_subtitle),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
             fontSize = 14.sp,
             color = AppColors.Cream.copy(alpha = 0.55f),
         )
@@ -265,8 +267,8 @@ private fun RowScope.CancelKey(onClick: () -> Unit) {
         Text(
             text = "hætta við",
             color = AppColors.Cream.copy(alpha = 0.55f),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
             fontSize = 15.sp,
         )
     }
@@ -290,7 +292,7 @@ private fun RowScope.KeyBase(onClick: () -> Unit, content: @Composable () -> Uni
         modifier = Modifier
             .weight(1f)
             .aspectRatio(1.5f)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.rounded(14.dp))
             .background(AppColors.Cream.copy(alpha = 0.08f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,

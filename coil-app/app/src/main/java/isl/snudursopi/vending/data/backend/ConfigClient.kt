@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.data.backend
 
+import isl.snudursopi.shared.SkinId
+
 import com.fasterxml.jackson.databind.JsonNode
 import isl.snudursopi.vending.domain.FeaturedProduct
 import isl.snudursopi.vending.domain.IdleCard
@@ -220,6 +222,8 @@ class ConfigClient(
         val idleGuard = data.get("idleGuard")?.takeIf { it.isBoolean }?.asBoolean() ?: false
         val idleGuardThreads = data.get("idleGuardThreads")?.takeIf { it.isNumber }?.asInt() ?: 1
         val idleGuardUs = data.get("idleGuardUs")?.takeIf { it.isNumber }?.asInt() ?: 500
+        // skin: which look to draw (see ui/theme/Skin.kt). Unknown → classic.
+        val skin = SkinId.parse(data.get("skin")?.takeIf { it.isTextual }?.asText())
         // adminPin: this machine's own admin PIN as a PBKDF2 hash (never the PIN). Absent → the
         // fleet's shared code still opens the admin screens, so a machine keeps working through
         // the rollout. Checked offline by the shared AdminPin.
@@ -254,6 +258,7 @@ class ConfigClient(
             idleGuard = idleGuard,
             idleGuardThreads = idleGuardThreads,
             idleGuardUs = idleGuardUs,
+            skin = skin,
         )
     }
 
@@ -365,6 +370,8 @@ class ConfigClient(
             val idleGuard: Boolean = false,
             val idleGuardThreads: Int = 1,
             val idleGuardUs: Int = 500,
+            /** Which look to draw; the dashboard's choice for this machine or its operator. */
+            val skin: SkinId = SkinId.Classic,
         ) : Result()
     }
 }
