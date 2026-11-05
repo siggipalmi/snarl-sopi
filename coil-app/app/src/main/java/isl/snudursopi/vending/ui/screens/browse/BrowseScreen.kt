@@ -1,5 +1,6 @@
 package isl.snudursopi.vending.ui.screens.browse
 
+import isl.snudursopi.vending.domain.stripAds
 import isl.snudursopi.vending.ui.theme.AppShapes
 
 import androidx.compose.foundation.background
@@ -70,9 +71,11 @@ fun BrowseScreen(
                 onClockLongPress = onClockLongPress,
             )
 
-            if (state.settings.showAdRegion && state.settings.ads.isNotEmpty()) {
+            // Portrait posters belong to the idle screen, not this 16:9 strip.
+            val stripAds = state.settings.ads.stripAds()
+            if (state.settings.showAdRegion && stripAds.isNotEmpty()) {
                 AdRegion(
-                    ads = state.settings.ads,
+                    ads = stripAds,
                     config = state.settings.adRotation,
                 )
             }

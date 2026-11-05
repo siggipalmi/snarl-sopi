@@ -32,6 +32,12 @@ sealed class AdSlot {
         val overlay: AdOverlay? = null,
         /** How long to show it, from the backend's durationSec; null → the global interval. */
         val durationSeconds: Int? = null,
+        /**
+         * Taller than wide (read from the cached file). A portrait poster is made for the whole
+         * 55" portrait screen: it plays full screen while the machine is idle ([idlePosters]),
+         * never in the 16:9 strip above the grid, where it would be cut to a band.
+         */
+        val portrait: Boolean = false,
     ) : AdSlot()
 
     /**
@@ -72,3 +78,11 @@ data class AdRotationConfig(
     /** If true, show progress dots at bottom of the ad zone. */
     val showProgressDots: Boolean = true,
 )
+
+/** Portrait image posters: shown full screen, in turn, while the machine is idle. */
+fun List<AdSlot>.idlePosters(): List<AdSlot.Image> =
+    filterIsInstance<AdSlot.Image>().filter { it.portrait }
+
+/** Everything else: the 16:9 strip above the product grid. */
+fun List<AdSlot>.stripAds(): List<AdSlot> =
+    filterNot { it is AdSlot.Image && it.portrait }

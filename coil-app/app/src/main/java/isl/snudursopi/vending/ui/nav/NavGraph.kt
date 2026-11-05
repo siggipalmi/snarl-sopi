@@ -1,5 +1,6 @@
 package isl.snudursopi.vending.ui.nav
 
+import isl.snudursopi.vending.domain.idlePosters
 import android.app.Activity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -166,9 +167,13 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
     }
     var lastTouchMs by remember { mutableStateOf(System.currentTimeMillis()) }
     val attractEligible = currentRoute == Routes.Browse || currentRoute == Routes.Detail
-    LaunchedEffect(lastTouchMs, attractEligible, state.idleCards.size, state.idleAttractTimeoutSeconds) {
-        if (!attractEligible || state.idleCards.isEmpty()) return@LaunchedEffect
+    // Portrait posters (from the machine's poster list) go idle too, deal cards or not.
+    val idlePosters = state.settings.ads.idlePosters()
+    val hasIdleContent = state.idleCards.isNotEmpty() || idlePosters.isNotEmpty()
+    LaunchedEffect(lastTouchMs, attractEligible, hasIdleContent, state.idleAttractTimeoutSeconds) {
+        if (!attractEligible || !hasIdleContent) return@LaunchedEffect
         kotlinx.coroutines.delay(state.idleAttractTimeoutSeconds.coerceAtLeast(5) * 1000L)
+        android.util.Log.i("Nav", "idle → attract (${idlePosters.size} posters, ${state.idleCards.size} deal cards)")
         viewModel.resetForAttract()
         navController.navigate(Routes.Attract) { launchSingleTop = true }
     }
@@ -254,16 +259,21 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
             }
 
             composable(Routes.Attract) {
-                // Leave the loop the moment cards drain to empty (e.g. a deal
-                // expired on the periodic refresh while the loop was showing).
-                LaunchedEffect(state.idleCards.isEmpty()) {
-                    if (state.idleCards.isEmpty()) {
+                // Leave the loop the moment there is nothing left to show (a deal expired, or the
+                // posters were removed, on the periodic refresh while the loop was showing).
+                // Read from `state` here, not from values computed outside the graph: the graph's
+                // destinations can outlive a recomposition of this function.
+                val attractPosters = state.settings.ads.idlePosters()
+                val attractHasContent = state.idleCards.isNotEmpty() || attractPosters.isNotEmpty()
+                LaunchedEffect(attractHasContent) {
+                    if (!attractHasContent) {
                         navController.navigate(Routes.Browse) {
                             popUpTo(Routes.Browse) { inclusive = true }
                         }
                     }
                 }
                 AttractScreen(
+                    posters = attractPosters,
                     cards = state.idleCards,
                     rotationSeconds = state.idleRotationSeconds,
                     language = state.language,

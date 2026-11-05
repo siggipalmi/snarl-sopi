@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import isl.snudursopi.vending.domain.AdSlot
 import isl.snudursopi.vending.domain.IdleCard
 import isl.snudursopi.vending.domain.IdleCardType
 import isl.snudursopi.vending.domain.IdleItem
@@ -66,7 +67,14 @@ fun AttractScreen(
     rotationSeconds: Int,
     language: Language,
     onExit: () -> Unit,
+    posters: List<AdSlot.Image> = emptyList(),
 ) {
+    // The operator's own full-screen posters come first: when a machine has them, they are
+    // the idle screen. A tap anywhere goes to the shop, as with the deal cards.
+    if (posters.isNotEmpty()) {
+        PosterLoop(posters = posters, onExit = onExit)
+        return
+    }
     // Caller only routes here when cards are non-empty, but guard anyway.
     if (cards.isEmpty()) {
         PlainAttract(onExit = onExit, language = language)
@@ -369,6 +377,42 @@ private fun FooterLabel(text: String) {
         letterSpacing = 2.sp,
     )
 }
+
+/**
+ * Full-screen portrait posters, each for its own durationSec (8 s if none), then round again.
+ * Drawn from the local copies AdCache keeps, so nothing streams. Cropped to fill, which is
+ * exact for a 1080×1920 poster on the 55" portrait screen.
+ */
+@Composable
+private fun PosterLoop(posters: List<AdSlot.Image>, onExit: () -> Unit) {
+    var index by remember(posters) { mutableStateOf(0) }
+    LaunchedEffect(posters) {
+        if (posters.size <= 1) return@LaunchedEffect
+        while (true) {
+            val secs = (posters.getOrNull(index)?.durationSeconds ?: POSTER_DEFAULT_SECONDS).coerceIn(3, 120)
+            delay(secs * 1000L)
+            index = (index + 1) % posters.size
+        }
+    }
+    val poster = posters.getOrNull(index) ?: posters.first()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .noRippleTap(onExit),
+    ) {
+        Crossfade(targetState = poster, animationSpec = tween(600), label = "idle-poster") { p ->
+            AsyncImage(
+                model = p.imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+private const val POSTER_DEFAULT_SECONDS = 8
 
 @Composable
 private fun PlainAttract(onExit: () -> Unit, language: Language) {

@@ -1,6 +1,7 @@
 package isl.snudursopi.vending.data.ads
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Log
 import isl.snudursopi.vending.data.backend.RemoteAd
@@ -42,6 +43,7 @@ class AdCache(context: Context) {
                 imageUrl = local,
                 overlay = ad.overlayText?.let { AdOverlay(eyebrow = "", titleLines = listOf(it)) },
                 durationSeconds = ad.durationSec,
+                portrait = isPortrait(f),
             )
         }
     }
@@ -101,6 +103,13 @@ class AdCache(context: Context) {
             conn.disconnect()
             if (part.exists()) part.delete()
         }
+    }
+
+    /** Taller than wide, read from the file's header only (no pixels decoded). */
+    private fun isPortrait(f: File): Boolean {
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(f.path, o)
+        return o.outWidth > 0 && o.outHeight > o.outWidth
     }
 
     /** Stable name per URL, so an unchanged ad is never fetched twice. */
