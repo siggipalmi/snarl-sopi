@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -69,7 +71,7 @@ fun RestockScreen(state: FridgeUiState) {
         Spacer(Modifier.height(14.dp))
         Text(
             localized(state.language, R.string.restock_footer),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 15.sp,
             color = AppColors.Muted,
         )
@@ -85,9 +87,9 @@ private fun Header(state: FridgeUiState) {
         Column(Modifier.weight(1f)) {
             Text(
                 localized(state.language, R.string.restock_title),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.SemiBold,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
+                fontWeight = AppFonts.DisplayWeight,
                 fontSize = 56.sp,
                 color = AppColors.Ink,
             )
@@ -95,7 +97,7 @@ private fun Header(state: FridgeUiState) {
             // wrong side is the easy mistake and it's silent when it happens.
             Text(
                 localized(state.language, R.string.restock_door_open, letter),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 20.sp,
                 color = AppColors.Bronze,
             )
@@ -103,7 +105,7 @@ private fun Header(state: FridgeUiState) {
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 localized(state.language, R.string.restock_no_charging),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 17.sp,
                 color = AppColors.MutedSoft,
             )
@@ -132,7 +134,7 @@ private fun PulsingDot() {
     Box(
         Modifier
             .size(22.dp)
-            .clip(RoundedCornerShape(999.dp))
+            .clip(AppShapes.rounded(999.dp))
             .background(AppColors.Bronze.copy(alpha = a)),
     )
 }
@@ -178,9 +180,9 @@ private fun Cell(
         Modifier
             .width(w)
             .height(h)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.rounded(12.dp))
             .background(if (cell.state == RestockCellState.FAULT) AppColors.Alert.copy(alpha = 0.06f) else AppColors.White)
-            .border(if (cell.state == RestockCellState.FAULT) 2.dp else 1.dp, border, RoundedCornerShape(12.dp))
+            .border(if (cell.state == RestockCellState.FAULT) 2.dp else 1.dp, border, AppShapes.rounded(12.dp))
             .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -197,7 +199,7 @@ private fun Cell(
             when (cell.state) {
                 RestockCellState.FAULT -> Text(
                     "!",
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontWeight = FontWeight.Medium,
                     fontSize = 22.sp,
                     color = AppColors.Alert,
@@ -210,7 +212,7 @@ private fun Cell(
                     } else {
                         "${cell.units ?: 0}"
                     },
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontWeight = FontWeight.Medium,
                     fontSize = 26.sp,
                     color = if (cell.state == RestockCellState.EMPTY) AppColors.Clay else AppColors.Ink,
@@ -236,7 +238,7 @@ private fun Cell(
                 RestockCellState.EMPTY -> localized(language, R.string.restock_empty)
                 RestockCellState.STOCKED -> cell.name
             },
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 14.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

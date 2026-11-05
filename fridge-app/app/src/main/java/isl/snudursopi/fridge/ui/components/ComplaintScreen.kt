@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -88,9 +90,9 @@ fun ComplaintForm(
     ) {
         Text(
             localized(state.language, R.string.complaint_title),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 40.sp,
             letterSpacing = (-0.8).sp,
             color = AppColors.Ink,
@@ -230,9 +232,9 @@ fun ComplaintDone(state: FridgeUiState) {
         Spacer(Modifier.height(26.dp))
         Text(
             localized(state.language, R.string.complaint_done_title),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 44.sp,
             color = AppColors.Ink,
         )
@@ -281,24 +283,24 @@ private fun LineRow(
 ) {
     Row(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppShapes.rounded(10.dp))
             .background(AppColors.White)
             .border(
                 if (selected) 1.5.dp else 1.dp,
                 if (selected) AppColors.Ink else AppColors.Line,
-                RoundedCornerShape(10.dp),
+                AppShapes.rounded(10.dp),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(19.dp).clip(RoundedCornerShape(5.dp))
+            Modifier.size(19.dp).clip(AppShapes.rounded(5.dp))
                 .background(if (selected) AppColors.Ink else AppColors.White)
                 .border(
                     1.5.dp,
                     if (selected) AppColors.Ink else AppColors.Clay,
-                    RoundedCornerShape(5.dp),
+                    AppShapes.rounded(5.dp),
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -321,12 +323,12 @@ private fun ReasonCard(
 ) {
     Box(
         modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppShapes.rounded(10.dp))
             .background(AppColors.White)
             .border(
                 if (selected) 1.5.dp else 1.dp,
                 if (selected) AppColors.Ink else AppColors.Line,
-                RoundedCornerShape(10.dp),
+                AppShapes.rounded(10.dp),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 13.dp),
@@ -365,9 +367,9 @@ private fun Field(
     Box(
         Modifier.fillMaxWidth()
             .height(minHeight)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppShapes.rounded(10.dp))
             .background(AppColors.White)
-            .border(1.dp, AppColors.Line, RoundedCornerShape(10.dp))
+            .border(1.dp, AppColors.Line, AppShapes.rounded(10.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         if (value.isEmpty()) {
@@ -410,12 +412,12 @@ private fun ActionButton(
     }
     Box(
         modifier
-            .clip(RoundedCornerShape(9.dp))
+            .clip(AppShapes.rounded(9.dp))
             .background(bg)
             .border(
                 1.dp,
                 if (primary) bg else AppColors.Clay,
-                RoundedCornerShape(9.dp),
+                AppShapes.rounded(9.dp),
             )
             .clickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 15.dp),

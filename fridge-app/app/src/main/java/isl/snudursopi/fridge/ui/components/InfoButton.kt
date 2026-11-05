@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,23 +35,24 @@ fun InfoButton(
     Box(
         modifier = modifier
             .size(84.dp)
-            .background(AppColors.White, RoundedCornerShape(999.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(999.dp))
+            .background(AppColors.White, AppShapes.rounded(999.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(999.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
+        val ink = AppColors.Ink
         Canvas(Modifier.size(30.dp)) {
             val w = size.minDimension
             val stroke = w * 0.085f
             // the dot
             drawCircle(
-                color = AppColors.Ink,
+                color = ink,
                 radius = stroke * 0.62f,
                 center = Offset(w / 2f, w * 0.24f),
             )
             // the stem
             drawLine(
-                color = AppColors.Ink,
+                color = ink,
                 start = Offset(w / 2f, w * 0.44f),
                 end = Offset(w / 2f, w * 0.82f),
                 strokeWidth = stroke,

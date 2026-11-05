@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -69,11 +71,12 @@ fun CloseDoorBanner(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(AppColors.Bronze.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+            .background(AppColors.Bronze.copy(alpha = 0.08f), AppShapes.rounded(16.dp))
             .padding(vertical = 20.dp, horizontal = 28.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val doorInk = AppColors.Bronze
         Canvas(Modifier.size(44.dp)) {
             // A door easing shut, on a long pause. Constant motion beside a
             // finished transaction reads as an alarm; one small movement every
@@ -84,7 +87,7 @@ fun CloseDoorBanner(
 
             // Frame the door closes into.
             drawLine(
-                color = AppColors.Bronze.copy(alpha = 0.45f),
+                color = doorInk.copy(alpha = 0.45f),
                 start = Offset(30f * u, 6f * u),
                 end = Offset(30f * u, 34f * u),
                 strokeWidth = 1.6f * u,
@@ -93,14 +96,14 @@ fun CloseDoorBanner(
             // The leaf, widening toward the frame as it swings shut.
             val leafW = (17f + 6f * push) * u
             drawRoundRect(
-                color = AppColors.Bronze,
+                color = doorInk,
                 topLeft = Offset(5f * u, 6f * u),
                 size = Size(leafW, 28f * u),
                 cornerRadius = CornerRadius(1.8f * u),
                 style = stroke,
             )
             drawCircle(
-                color = AppColors.Bronze,
+                color = doorInk,
                 radius = 1.5f * u,
                 center = Offset(5f * u + leafW - 3.5f * u, 20f * u),
             )
@@ -110,9 +113,9 @@ fun CloseDoorBanner(
 
         Text(
             text = localized(language, R.string.close_door_firmly),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.SemiBold,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 44.sp,
             letterSpacing = (-0.5).sp,
             color = AppColors.Bronze,

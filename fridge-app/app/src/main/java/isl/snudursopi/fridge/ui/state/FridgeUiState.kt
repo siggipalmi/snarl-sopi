@@ -122,6 +122,8 @@ data class FridgeUiState(
     /** The admin PIN hash from config; null means the shared code (AdminPin). */
     val adminPin: isl.snudursopi.shared.AdminPinHash? = null,
     val idleTimeoutSeconds: Int = 60,
+    /** Which look the screens draw (config.skin, AG-set per operator or machine). */
+    val skin: isl.snudursopi.shared.SkinId = isl.snudursopi.shared.SkinId.Classic,
     /** The ⓘ sheet is open. */
     val showInfo: Boolean = false,
     /** 1 or 2 — the idle animation draws itself from this, no separate art. */

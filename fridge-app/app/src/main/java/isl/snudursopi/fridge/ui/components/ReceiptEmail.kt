@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -67,12 +69,12 @@ private val DOMAINS = listOf("@gmail.com", "@hotmail.com", "@simnet.is", "@outlo
 fun ReceiptEmailButton(language: Language, onClick: () -> Unit) {
     Box(
         Modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.rounded(14.dp))
             .background(AppColors.BrickDeep)
             .clickable(onClick = onClick)
             // The darker strip left showing below is the button's "edge".
             .padding(bottom = 4.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.rounded(14.dp))
             .background(AppColors.Brick)
             .padding(horizontal = 34.dp, vertical = 16.dp),
     ) {
@@ -143,9 +145,9 @@ fun ReceiptEmailForm(
     ) {
         Text(
             localized(state.language, R.string.receipt_email_title),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 36.sp,
             color = AppColors.InkSoft,
         )
@@ -154,9 +156,9 @@ fun ReceiptEmailForm(
             Modifier
                 .fillMaxWidth()
                 .height(62.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(AppShapes.rounded(12.dp))
                 .background(AppColors.White)
-                .border(2.dp, if (d.invalid || d.error) AppColors.Alert else AppColors.Ink, RoundedCornerShape(12.dp))
+                .border(2.dp, if (d.invalid || d.error) AppColors.Alert else AppColors.Ink, AppShapes.rounded(12.dp))
                 .padding(horizontal = 18.dp),
             contentAlignment = Alignment.CenterStart,
         ) {
@@ -179,9 +181,9 @@ fun ReceiptEmailForm(
             DOMAINS.forEach { dom ->
                 Box(
                     Modifier
-                        .clip(RoundedCornerShape(50))
+                        .clip(AppShapes.rounded(50))
                         .background(AppColors.White)
-                        .border(1.dp, AppColors.Clay, RoundedCornerShape(50))
+                        .border(1.dp, AppColors.Clay, AppShapes.rounded(50))
                         .clickable { onDomain(dom) }
                         .padding(horizontal = 16.dp, vertical = 9.dp),
                 ) {
@@ -242,9 +244,9 @@ fun ReceiptSent(state: FridgeUiState) {
         Spacer(Modifier.height(24.dp))
         Text(
             localized(state.language, R.string.receipt_sent_title),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 44.sp,
             color = AppColors.Ink,
         )
@@ -278,9 +280,9 @@ private fun FormButton(
     Box(
         modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppShapes.rounded(10.dp))
             .background(bg)
-            .border(1.dp, if (primary) bg else AppColors.Clay, RoundedCornerShape(10.dp))
+            .border(1.dp, if (primary) bg else AppColors.Clay, AppShapes.rounded(10.dp))
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

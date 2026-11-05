@@ -101,6 +101,7 @@ class FridgeViewModel(
             outOfServiceReason = p.outOfServiceReason,
             adminPin = p.adminPin,
             idleTimeoutSeconds = p.idleTimeoutSeconds,
+            skin = p.skin,
             receiptsEnabled = p.receiptsEnabled,
         )
     }
@@ -1140,6 +1141,7 @@ class FridgeViewModel(
             outOfServiceReason = it.outOfServiceReason,
             adminPin = it.adminPin,
             idleTimeoutSeconds = it.idleTimeoutSeconds,
+            skin = it.skin,
             cabinetCount = it.cabinetCount,
             language = defaultLanguage,
             availableLanguages = it.availableLanguages,

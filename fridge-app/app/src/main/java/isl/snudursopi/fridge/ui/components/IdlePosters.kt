@@ -100,7 +100,7 @@ fun IdlePosters(
             p.overlayText?.takeIf { it.isNotBlank() }?.let { text ->
                 Text(
                     text,
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 34.sp,
                     color = Color.White,
                     textAlign = TextAlign.Center,

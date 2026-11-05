@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,8 +43,8 @@ fun LanguagePill(
     Box(
         modifier = modifier
             .height(84.dp)
-            .background(AppColors.White, RoundedCornerShape(32.dp))
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(32.dp))
+            .background(AppColors.White, AppShapes.rounded(32.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(32.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 30.dp),
         contentAlignment = Alignment.Center,
