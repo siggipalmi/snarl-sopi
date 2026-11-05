@@ -1,5 +1,16 @@
 [
  {
+  "component": "fridge",
+  "version": "0.70.9",
+  "versionCode": 175,
+  "date": "2026-11-05",
+  "title": "The complaint form returns to idle by itself.",
+  "notes": [
+   "A complaint form opened from the receipt and left alone stayed on screen with a keyboard until someone found \"hætta við\". It now returns to the idle screen after 60 seconds without a tap or a keystroke; every edit restarts the clock and sending cancels it."
+  ],
+  "check": "After a sale, tap \"var eitthvað rangt?\" and wait 60 s; the idle screen must come back. Type slowly for over a minute; it must stay."
+ },
+ {
   "component": "coil",
   "version": "0.80.21",
   "versionCode": 177,
