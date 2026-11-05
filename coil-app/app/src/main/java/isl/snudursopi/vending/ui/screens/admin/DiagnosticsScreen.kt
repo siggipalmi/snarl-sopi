@@ -449,6 +449,7 @@ private fun formatConnection(state: ConnectionState): Pair<String, Color?> {
     return when (state) {
         is ConnectionState.Wifi -> "wifi · ${state.bars}/4" to OkInk
         is ConnectionState.Cellular -> "${state.generation.lowercase()} · ${state.bars}/4" to OkInk
+        ConnectionState.Wired -> "snúra / vpn" to OkInk
         ConnectionState.None -> "ekkert net" to WarnInk
     }
 }

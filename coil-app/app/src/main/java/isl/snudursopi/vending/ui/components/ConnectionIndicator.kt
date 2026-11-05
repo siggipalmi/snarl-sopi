@@ -55,6 +55,15 @@ fun ConnectionIndicator(
                 )
                 CellularBars(bars = state.bars)
             }
+            ConnectionState.Wired -> {
+                Text(
+                    text = "LAN",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = AppColors.MutedSoft,
+                )
+            }
             ConnectionState.None -> {
                 NoConnectionIcon()
             }

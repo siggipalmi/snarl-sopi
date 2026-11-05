@@ -92,6 +92,10 @@ class ConnectivityObserver(
                 bars = cellularBars(),
                 generation = cellularGeneration(),
             )
+            // Ethernet, or a VPN (Tailscale) whose underlying transport isn't reported to us:
+            // anything Android says can reach the internet is a connection, not "ekkert net".
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) -> ConnectionState.Wired
             else -> ConnectionState.None
         }
     }
