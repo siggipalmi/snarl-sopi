@@ -122,6 +122,8 @@ data class Planogram(
     val idleGuard: Boolean = false,
     val idleGuardThreads: Int = 1,
     val idleGuardUs: Int = 500,
+    /** Which look to draw; the dashboard's choice for this machine or its operator. */
+    val skin: isl.snudursopi.shared.SkinId = isl.snudursopi.shared.SkinId.Classic,
     /** Cabinet lighting (fridge.led). On/off only on this hardware — see [LightPolicy]. */
     val led: LightPolicy = LightPolicy(),
     /**

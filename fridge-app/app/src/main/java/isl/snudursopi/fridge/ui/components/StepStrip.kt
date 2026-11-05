@@ -175,9 +175,9 @@ private fun Step(
         Spacer(Modifier.height(14.dp))
         Text(
             text = localized(language, wordRes),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 34.sp,
             textAlign = TextAlign.Center,
             color = wordColor,
@@ -185,7 +185,7 @@ private fun Step(
         Spacer(Modifier.height(4.dp))
         Text(
             text = "0$index",
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 12.sp,
             letterSpacing = 3.sp,
             color = ordColor,

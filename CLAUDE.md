@@ -344,8 +344,8 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   settings, per machine under Controls → Skin (the canary switch). Two exist: `classic` (cream,
   Cormorant, the fleet's look so far, the default) and `franklin` (the 2026 redesign: white, black
   hairlines, Libre Franklin, square corners, no brand line). The config carries `skin` and
-  `skinSource`; the app applies it at the next poll, no restart. Coil 0.80.22+ (`ui/theme/Skin.kt`);
-  the fridge is to get the same plumbing.
+  `skinSource`; the app applies it at the next poll, no restart. Coil 0.80.22+ and fridge 0.70.10+ (each app's `ui/theme/Skin.kt`, same
+  structure; the fridge adds `SuccessText`, `Brick`, `BrickDeep`).
 - **A skin is tokens, not a second UI.** `AppColors`, `AppFonts`, `AppTypography` and
   `AppShapes.rounded(r)` read from `LocalSkin`; the legacy colour names are roles (in Franklin
   "Bronze" is ink and "Cream" is white). Screen structure, timers, strings and the reader states are

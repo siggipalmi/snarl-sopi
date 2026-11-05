@@ -131,6 +131,7 @@ object FridgeConfigParser {
             idleGuard = data.field("idleGuard")?.asBoolean() ?: false,
             idleGuardThreads = data.field("idleGuardThreads")?.takeIf { it.isNumber }?.asInt() ?: 1,
             idleGuardUs = data.field("idleGuardUs")?.takeIf { it.isNumber }?.asInt() ?: 500,
+            skin = isl.snudursopi.shared.SkinId.parse(data.field("skin")?.takeIf { !it.isNull }?.asText()),
             led = parseLed(fridge.field("led")),
             receiptsEnabled = data.field("receipts")?.field("enabled")?.asBoolean() ?: false,
         )

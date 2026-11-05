@@ -1,5 +1,26 @@
 [
  {
+  "component": "fridge",
+  "version": "0.70.10",
+  "versionCode": 176,
+  "date": "2026-11-05",
+  "title": "Two skins: Classic and Franklin.",
+  "notes": [
+   "Every colour, typeface and corner on the fridge screens now comes from the skin chosen in the dashboard (machine → Controls → Skin, or the operator's default), the same switch as the coil app. Classic is the look so far and the default; nothing changes unless AG switches a machine.",
+   "Franklin is the first step of the 2026 redesign: white page, black type and rules, Libre Franklin, square corners. Layouts, the step strip, the cabinet drawing and all timers are unchanged in this build; the redesign of each screen follows behind the same switch."
+  ],
+  "check": "On a canary fridge set Skin = Franklin: within two minutes the idle screen turns white with black type. Set it back to Classic: the cream look returns."
+ },
+ {
+  "component": "backend",
+  "version": "6.108.1",
+  "date": "2026-11-05",
+  "title": "Skin switch notes the fridge build.",
+  "notes": [
+   "The Skin control on the machine page now says it applies to fridge 0.70.10 and newer as well as coil 0.80.22."
+  ]
+ },
+ {
   "component": "coil",
   "version": "0.80.22",
   "versionCode": 178,

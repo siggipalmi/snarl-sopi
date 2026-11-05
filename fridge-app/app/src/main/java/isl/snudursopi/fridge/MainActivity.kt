@@ -49,6 +49,9 @@ import isl.snudursopi.fridge.ui.state.FridgeViewModel
 import isl.snudursopi.fridge.ui.state.FridgeViewModelFactory
 import isl.snudursopi.fridge.ui.theme.AppColors
 import isl.snudursopi.fridge.ui.theme.SnudurSopiTheme
+import isl.snudursopi.fridge.ui.theme.Skins
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.core.view.WindowCompat
 import android.content.Intent
 import isl.snudursopi.shared.AdbWifi
@@ -583,8 +586,10 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-
-            SnudurSopiTheme {
+            // The skin comes from the config (dashboard, AG only) and can change at any poll.
+            val skinId by viewModel.ui.map { it.skin }.distinctUntilChanged()
+                .collectAsState(initial = isl.snudursopi.shared.SkinId.Classic)
+            SnudurSopiTheme(skin = Skins.of(skinId)) {
                 Surface(Modifier.fillMaxSize(), color = AppColors.Cream) {
                     val ui by viewModel.ui.collectAsState()
                     var showWeightTest by remember { mutableStateOf(false) }

@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import android.app.Activity
 import android.util.Log
 import androidx.compose.foundation.background
@@ -67,16 +69,16 @@ internal fun PairingPane(currentDeviceCode: String?, onBack: () -> Unit) {
 
     Text(
         "pörun",
-        fontFamily = AppFonts.Cormorant,
-        fontStyle = FontStyle.Italic,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = AppFonts.Display,
+        fontStyle = AppFonts.DisplayStyle,
+        fontWeight = AppFonts.DisplayWeight,
         fontSize = 34.sp,
         color = AppColors.Ink,
     )
     Spacer(Modifier.height(6.dp))
     Text(
         "Sláðu inn sex stafa kóðann af síðu vélarinnar í stjórnborðinu.",
-        fontFamily = AppFonts.Geist,
+        fontFamily = AppFonts.Body,
         fontSize = 15.sp,
         textAlign = TextAlign.Center,
         color = AppColors.InkSoft,
@@ -87,7 +89,7 @@ internal fun PairingPane(currentDeviceCode: String?, onBack: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text(
             "Vélin er nú skráð sem $currentDeviceCode. Pörun skiptir um auðkenni og lykil.",
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
             color = AppColors.Alert,
@@ -102,9 +104,9 @@ internal fun PairingPane(currentDeviceCode: String?, onBack: () -> Unit) {
             Box(
                 Modifier
                     .size(52.dp, 64.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(AppShapes.rounded(10.dp))
                     .background(AppColors.White)
-                    .border(0.5.dp, AppColors.Line, RoundedCornerShape(10.dp)),
+                    .border(0.5.dp, AppColors.Line, AppShapes.rounded(10.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -140,7 +142,7 @@ internal fun PairingPane(currentDeviceCode: String?, onBack: () -> Unit) {
         Spacer(Modifier.height(14.dp))
         Text(
             it,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
             color = if (messageIsError) AppColors.Alert else AppColors.InkSoft,

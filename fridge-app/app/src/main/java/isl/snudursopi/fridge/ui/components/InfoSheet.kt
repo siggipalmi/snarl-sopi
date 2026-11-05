@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -84,7 +86,7 @@ fun InfoSheet(state: FridgeUiState, onClose: () -> Unit) {
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .fillMaxHeight(0.86f)
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                .clip(AppShapes.rounded(topStart = 28.dp, topEnd = 28.dp))
                 .background(AppColors.Cream)
                 // Swallow taps on the sheet itself so they don't dismiss it.
                 .clickable(enabled = false) {}
@@ -95,7 +97,7 @@ fun InfoSheet(state: FridgeUiState, onClose: () -> Unit) {
                     .align(Alignment.CenterHorizontally)
                     .width(56.dp)
                     .height(5.dp)
-                    .clip(RoundedCornerShape(999.dp))
+                    .clip(AppShapes.rounded(999.dp))
                     .background(AppColors.Clay),
             )
             Spacer(Modifier.height(28.dp))
@@ -104,9 +106,9 @@ fun InfoSheet(state: FridgeUiState, onClose: () -> Unit) {
                 Column(Modifier.weight(1f).padding(end = 40.dp)) {
                     Text(
                         localized(state.language, R.string.info_title),
-                        fontFamily = AppFonts.Cormorant,
-                        fontStyle = FontStyle.Italic,
-                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = AppFonts.Display,
+                        fontStyle = AppFonts.DisplayStyle,
+                        fontWeight = AppFonts.DisplayWeight,
                         fontSize = 52.sp,
                         color = AppColors.Ink,
                     )
@@ -132,7 +134,7 @@ fun InfoSheet(state: FridgeUiState, onClose: () -> Unit) {
                             // printing "operated by ." at a customer.
                             localized(state.language, R.string.info_operated_by_generic)
                         },
-                        fontFamily = AppFonts.Geist,
+                        fontFamily = AppFonts.Body,
                         fontSize = 18.sp,
                         color = AppColors.MutedSoft,
                     )
@@ -170,14 +172,14 @@ fun InfoSheet(state: FridgeUiState, onClose: () -> Unit) {
                 Modifier
                     .fillMaxWidth()
                     .height(62.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(AppShapes.rounded(10.dp))
                     .background(AppColors.Ink)
                     .clickable(onClick = onClose),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     localized(state.language, R.string.close),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontWeight = FontWeight.Medium,
                     fontSize = 19.sp,
                     color = AppColors.Cream,
@@ -209,15 +211,15 @@ private fun Steps(language: Language) {
                 Column {
                     Text(
                         localized(language, wordRes),
-                        fontFamily = AppFonts.Cormorant,
-                        fontStyle = FontStyle.Italic,
-                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = AppFonts.Display,
+                        fontStyle = AppFonts.DisplayStyle,
+                        fontWeight = AppFonts.DisplayWeight,
                         fontSize = 26.sp,
                         color = AppColors.Ink,
                     )
                     Text(
                         localized(language, textRes),
-                        fontFamily = AppFonts.Geist,
+                        fontFamily = AppFonts.Body,
                         fontSize = 17.sp,
                         color = AppColors.MutedSoft,
                     )
@@ -232,14 +234,14 @@ private fun Field(label: String, value: String, valueColor: androidx.compose.ui.
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppShapes.rounded(10.dp))
             .background(AppColors.White)
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(10.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(10.dp))
             .padding(horizontal = 18.dp, vertical = 12.dp),
     ) {
         Text(
             label,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 12.sp,
             letterSpacing = 1.2.sp,
             color = AppColors.Muted,
@@ -247,7 +249,7 @@ private fun Field(label: String, value: String, valueColor: androidx.compose.ui.
         Spacer(Modifier.height(3.dp))
         Text(
             value,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontWeight = FontWeight.Medium,
             fontSize = 21.sp,
             color = valueColor,
@@ -261,7 +263,7 @@ private fun Divider(language: Language) {
         Box(Modifier.weight(1f).height(0.5.dp).background(AppColors.Line))
         Text(
             localized(language, R.string.info_partner_divider),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 12.sp,
             letterSpacing = 1.4.sp,
             color = AppColors.Muted,
@@ -276,7 +278,7 @@ private fun Ad(language: Language, modifier: Modifier = Modifier) {
     Column(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.rounded(14.dp))
             .background(
                 Brush.verticalGradient(listOf(AppColors.CreamShadow, AppColors.Clay)),
             )
@@ -303,16 +305,16 @@ private fun Ad(language: Language, modifier: Modifier = Modifier) {
 
         Text(
             localized(language, R.string.info_ad_pitch),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.SemiBold,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 30.sp,
             color = AppColors.Ink,
         )
         Spacer(Modifier.height(6.dp))
         Text(
             localized(language, R.string.info_ad_sub),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 17.sp,
             color = AppColors.MutedSoft,
         )
@@ -321,7 +323,7 @@ private fun Ad(language: Language, modifier: Modifier = Modifier) {
             Box(
                 Modifier
                     .size(112.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(AppShapes.rounded(8.dp))
                     .background(AppColors.White)
                     .padding(8.dp),
             ) {
@@ -335,7 +337,7 @@ private fun Ad(language: Language, modifier: Modifier = Modifier) {
             Column {
                 Text(
                     "agvending.is",
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 22.sp,
                     color = AppColors.Bronze,
@@ -343,7 +345,7 @@ private fun Ad(language: Language, modifier: Modifier = Modifier) {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     localized(language, R.string.info_ad_qr_caption),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 14.sp,
                     textAlign = TextAlign.Start,
                     color = AppColors.MutedSoft,

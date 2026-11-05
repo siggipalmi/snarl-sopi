@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -124,12 +126,12 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
                 scaleX = s
                 scaleY = s
             }
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AppShapes.rounded(14.dp))
             .background(AppColors.White)
             .border(
                 width = (2.5f * f).dp,
                 color = AppColors.Bronze.copy(alpha = f),
-                shape = RoundedCornerShape(14.dp),
+                shape = AppShapes.rounded(14.dp),
             ),
     ) {
         Box(Modifier.fillMaxWidth()) {
@@ -158,8 +160,8 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
                 ) {
                     Text(
                         tile.name,
-                        fontFamily = AppFonts.Cormorant,
-                        fontStyle = FontStyle.Italic,
+                        fontFamily = AppFonts.Display,
+                        fontStyle = AppFonts.DisplayStyle,
                         fontSize = (width.value * 0.11f).sp,
                         lineHeight = (width.value * 0.13f).sp,
                         textAlign = TextAlign.Center,
@@ -175,14 +177,14 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
                     Modifier
                         .padding(10.dp)
                         .align(Alignment.TopStart)
-                        .clip(RoundedCornerShape(999.dp))
-                        .border(1.5.dp, AppColors.Bronze, RoundedCornerShape(999.dp))
+                        .clip(AppShapes.rounded(999.dp))
+                        .border(1.5.dp, AppColors.Bronze, AppShapes.rounded(999.dp))
                         .background(AppColors.White)
                         .padding(horizontal = 12.dp, vertical = 3.dp),
                 ) {
                     Text(
                         localized(language, R.string.per_kg_badge),
-                        fontFamily = AppFonts.Geist,
+                        fontFamily = AppFonts.Body,
                         fontWeight = FontWeight.Medium,
                         fontSize = (width.value * 0.06f).sp,
                         color = AppColors.Bronze,
@@ -197,13 +199,13 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
                     Modifier
                         .padding(10.dp)
                         .align(Alignment.TopEnd)
-                        .clip(RoundedCornerShape(999.dp))
+                        .clip(AppShapes.rounded(999.dp))
                         .background(AppColors.Bronze)
                         .padding(horizontal = 14.dp, vertical = 4.dp),
                 ) {
                     Text(
                         localized(language, R.string.quantity_badge, tile.quantity),
-                        fontFamily = AppFonts.Geist,
+                        fontFamily = AppFonts.Body,
                         fontWeight = FontWeight.Medium,
                         fontSize = (width.value * 0.10f).sp,
                         color = AppColors.Cream,
@@ -215,7 +217,7 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(
                 tile.name,
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontWeight = FontWeight.Medium,
                 fontSize = (width.value * 0.075f).sp,
                 lineHeight = (width.value * 0.095f).sp,
@@ -233,7 +235,7 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
             }
             Text(
                 localized(language, R.string.amount_isk, tile.amountIsk),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = (width.value * 0.068f).sp,
                 color = AppColors.MutedSoft,
             )
@@ -281,9 +283,9 @@ private fun ListRow(tile: CartTile, language: Language) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppShapes.rounded(10.dp))
             .background(AppColors.White)
-            .border((2f * f).dp, AppColors.Bronze.copy(alpha = f), RoundedCornerShape(10.dp))
+            .border((2f * f).dp, AppColors.Bronze.copy(alpha = f), AppShapes.rounded(10.dp))
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -297,7 +299,7 @@ private fun ListRow(tile: CartTile, language: Language) {
         }
         Text(
             tile.name,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontWeight = FontWeight.Medium,
             fontSize = 20.sp,
             maxLines = 1,
@@ -316,7 +318,7 @@ private fun ListRow(tile: CartTile, language: Language) {
         } else if (tile.quantity > 1) {
             Text(
                 localized(language, R.string.quantity_badge, tile.quantity),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontWeight = FontWeight.Medium,
                 fontSize = 20.sp,
                 color = AppColors.Bronze,
@@ -325,7 +327,7 @@ private fun ListRow(tile: CartTile, language: Language) {
         }
         Text(
             localized(language, R.string.amount_isk, tile.amountIsk),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 19.sp,
             color = AppColors.MutedSoft,
         )

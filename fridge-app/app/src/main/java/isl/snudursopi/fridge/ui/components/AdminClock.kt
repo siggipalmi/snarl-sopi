@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.components
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -149,7 +151,7 @@ fun AdminSheet(
         Column(
             Modifier
                 .width(560.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(AppShapes.rounded(20.dp))
                 .background(AppColors.Cream)
                 .clickable(enabled = false) {}
                 // The pairing keypad is taller than the action list; on a short
@@ -212,9 +214,9 @@ private fun PinPad(
 ) {
     Text(
         title,
-        fontFamily = AppFonts.Cormorant,
-        fontStyle = FontStyle.Italic,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = AppFonts.Display,
+        fontStyle = AppFonts.DisplayStyle,
+        fontWeight = AppFonts.DisplayWeight,
         fontSize = 34.sp,
         color = if (wrong) AppColors.Alert else AppColors.Ink,
     )
@@ -224,7 +226,7 @@ private fun PinPad(
             Box(
                 Modifier
                     .size(16.dp)
-                    .clip(RoundedCornerShape(999.dp))
+                    .clip(AppShapes.rounded(999.dp))
                     .background(if (i < entered.length) AppColors.Ink else AppColors.Clay),
             )
         }
@@ -248,13 +250,13 @@ internal fun Key(label: String, onClick: () -> Unit) {
     Box(
         Modifier
             .size(96.dp, 68.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppShapes.rounded(10.dp))
             .background(AppColors.White)
-            .border(0.5.dp, AppColors.Line, RoundedCornerShape(10.dp))
+            .border(0.5.dp, AppColors.Line, AppShapes.rounded(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontFamily = AppFonts.Geist, fontSize = 26.sp, color = AppColors.Ink)
+        Text(label, fontFamily = AppFonts.Body, fontSize = 26.sp, color = AppColors.Ink)
     }
 }
 
@@ -268,9 +270,9 @@ private fun Actions(
     val context = LocalContext.current
     Text(
         "vélarstillingar",
-        fontFamily = AppFonts.Cormorant,
-        fontStyle = FontStyle.Italic,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = AppFonts.Display,
+        fontStyle = AppFonts.DisplayStyle,
+        fontWeight = AppFonts.DisplayWeight,
         fontSize = 34.sp,
         color = AppColors.Ink,
     )
@@ -424,7 +426,7 @@ private fun DiagLine(label: String, value: String, warn: Boolean) {
     Row(Modifier.padding(vertical = 2.dp)) {
         Text(
             label,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontSize = 13.sp,
             color = AppColors.Muted,
             modifier = Modifier.width(120.dp),
@@ -444,14 +446,14 @@ internal fun SheetButton(label: String, color: androidx.compose.ui.graphics.Colo
         Modifier
             .fillMaxWidth()
             .height(62.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(AppShapes.rounded(10.dp))
             .background(color)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontWeight = FontWeight.Medium,
             fontSize = 19.sp,
             textAlign = TextAlign.Center,

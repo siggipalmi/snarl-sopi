@@ -1,5 +1,7 @@
 package isl.snudursopi.fridge.ui.screens
 
+import isl.snudursopi.fridge.ui.theme.AppShapes
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -304,7 +306,7 @@ private fun ClosedView(state: FridgeUiState) {
         Spacer(Modifier.height(18.dp))
         Text(
             "Lokað tímabundið",
-            fontFamily = AppFonts.Cormorant, fontStyle = FontStyle.Italic, fontWeight = FontWeight.SemiBold,
+            fontFamily = AppFonts.Display, fontStyle = AppFonts.DisplayStyle, fontWeight = FontWeight.SemiBold,
             fontSize = 84.sp, color = AppColors.Ink, textAlign = TextAlign.Center,
         )
         state.outOfServiceReason?.let {
@@ -356,8 +358,8 @@ private fun IdleView(state: FridgeUiState, t: Float) {
                             else -> R.string.idle_step3
                         },
                     ),
-                    fontFamily = AppFonts.Cormorant,
-                    fontStyle = FontStyle.Italic,
+                    fontFamily = AppFonts.Display,
+                    fontStyle = AppFonts.DisplayStyle,
                     // A real SemiBold cut, newly bundled. Cormorant is a
                     // high-contrast serif and reads thin at a distance on a
                     // bright panel; Medium disappeared across the room.
@@ -373,7 +375,7 @@ private fun IdleView(state: FridgeUiState, t: Float) {
             // cycling narration deliberately doesn't repeat.
             Text(
                 text = localized(state.language, R.string.idle_sub),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = 24.sp,
                 color = AppColors.Muted,
             )
@@ -406,9 +408,9 @@ private fun Centered(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = localized(language, titleRes),
-                fontFamily = AppFonts.Cormorant,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.Medium,
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
+                fontWeight = AppFonts.DisplayWeight,
                 fontSize = if (prominent) 108.sp else 60.sp,
                 lineHeight = if (prominent) 112.sp else 62.sp,
                 textAlign = TextAlign.Center,
@@ -417,7 +419,7 @@ private fun Centered(
             Spacer(Modifier.height(18.dp))
             Text(
                 text = localized(language, subRes),
-                fontFamily = AppFonts.Geist,
+                fontFamily = AppFonts.Body,
                 fontSize = if (prominent) 30.sp else 20.sp,
                 textAlign = TextAlign.Center,
                 color = AppColors.InkSoft,
@@ -437,15 +439,15 @@ private fun ShoppingView(state: FridgeUiState, warn: Boolean) {
             Column {
                 Text(
                     localized(state.language, R.string.shopping_title),
-                    fontFamily = AppFonts.Cormorant,
-                    fontStyle = FontStyle.Italic,
-                    fontWeight = FontWeight.Medium,
+                    fontFamily = AppFonts.Display,
+                    fontStyle = AppFonts.DisplayStyle,
+                    fontWeight = AppFonts.DisplayWeight,
                     fontSize = 40.sp,
                     color = AppColors.Ink,
                 )
                 Text(
                     localized(state.language, R.string.shopping_sub),
-                    fontFamily = AppFonts.Geist,
+                    fontFamily = AppFonts.Body,
                     fontSize = 14.sp,
                     color = AppColors.Muted,
                 )
@@ -453,9 +455,9 @@ private fun ShoppingView(state: FridgeUiState, warn: Boolean) {
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     "${state.totalIsk} kr",
-                    fontFamily = AppFonts.Cormorant,
-                    fontStyle = FontStyle.Italic,
-                    fontWeight = FontWeight.Medium,
+                    fontFamily = AppFonts.Display,
+                    fontStyle = AppFonts.DisplayStyle,
+                    fontWeight = AppFonts.DisplayWeight,
                     fontSize = 40.sp,
                     color = AppColors.Ink,
                 )
@@ -471,9 +473,9 @@ private fun ShoppingView(state: FridgeUiState, warn: Boolean) {
                 // themselves — nothing else on screen competes with it.
                 Text(
                     text = localized(state.language, R.string.shopping_empty),
-                    fontFamily = AppFonts.Cormorant,
-                    fontStyle = FontStyle.Italic,
-                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = AppFonts.Display,
+                    fontStyle = AppFonts.DisplayStyle,
+                    fontWeight = AppFonts.DisplayWeight,
                     fontSize = 88.sp,
                     lineHeight = 94.sp,
                     letterSpacing = (-1.5).sp,
@@ -491,7 +493,7 @@ private fun ShoppingView(state: FridgeUiState, warn: Boolean) {
                 state.language,
                 if (warn) R.string.door_warn else R.string.shopping_hint,
             ),
-            fontFamily = AppFonts.Geist,
+            fontFamily = AppFonts.Body,
             fontWeight = FontWeight.Medium,
             fontSize = 16.sp,
             color = if (warn) AppColors.Alert else AppColors.Bronze,
@@ -508,9 +510,9 @@ private fun ReceiptView(state: FridgeUiState, onComplaint: () -> Unit, onReceipt
         // the one screen where the number is what people check.
         Text(
             localized(state.language, R.string.receipt_title),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Medium,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 42.sp,
             color = AppColors.InkSoft,
         )
@@ -519,9 +521,9 @@ private fun ReceiptView(state: FridgeUiState, onComplaint: () -> Unit, onReceipt
         Spacer(Modifier.height(12.dp))
         Text(
             localized(state.language, R.string.amount_isk, state.totalIsk),
-            fontFamily = AppFonts.Cormorant,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.SemiBold,
+            fontFamily = AppFonts.Display,
+            fontStyle = AppFonts.DisplayStyle,
+            fontWeight = AppFonts.DisplayWeight,
             fontSize = 96.sp,
             letterSpacing = (-1.5).sp,
             // Green is the ONLY "settled" signal on this screen — the figure was
@@ -569,8 +571,8 @@ private const val TEXT_COLUMN_FRACTION = 0.42f
 private fun ComplaintEntryButton(language: Language, onClick: () -> Unit) {
     Box(
         Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, AppColors.Clay, RoundedCornerShape(8.dp))
+            .clip(AppShapes.rounded(8.dp))
+            .border(1.dp, AppColors.Clay, AppShapes.rounded(8.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 22.dp, vertical = 11.dp),
     ) {
