@@ -591,7 +591,7 @@ class FridgeViewModel(
                     "FridgeFlow",
                     "restock on cabinet $cabinet ended: no basket changed in " +
                         "${RestockTimer.UNTOUCHED_MS / 60000} min since the unlock — the door was not opened " +
-                        "in time; back to idle, no restock recorded",
+                        "in time; back to idle",
                 )
                 "idle" -> android.util.Log.e(
                     "FridgeFlow",
