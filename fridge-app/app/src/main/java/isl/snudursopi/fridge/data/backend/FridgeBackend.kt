@@ -209,7 +209,7 @@ class FridgeBackend(
         isSessionActive: () -> Boolean,
         sessionLabel: () -> String = { "" },
         withBusQuiet: suspend (suspend () -> Unit) -> Unit,
-        beginRestock: (Int) -> Unit,
+        beginRestock: (Int) -> isl.snudursopi.fridge.ui.state.RestockStart,
         onCheckUpdate: (suspend () -> String)? = null,
         onSyncPriceTags: (suspend (force: Boolean) -> String)? = null,
         onReadTemp: (suspend () -> String?)? = null,

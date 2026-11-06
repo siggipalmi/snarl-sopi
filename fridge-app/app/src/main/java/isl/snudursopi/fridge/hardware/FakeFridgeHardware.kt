@@ -63,6 +63,8 @@ class FakeFridgeHardware(
         emit("fake closeLock $cabinet", DoorState(cabinet, true, doorOpen[cabinet] ?: false))
     }
 
+    override fun forgetDoorState() { _doorState.value = null }
+
     override fun readDoorState(cabinet: Int) {
         emit("fake doorState $cabinet",
             DoorState(cabinet, locked[cabinet] ?: true, doorOpen[cabinet] ?: false))

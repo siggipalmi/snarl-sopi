@@ -46,6 +46,14 @@ interface FridgeHardwareController {
      */
     fun openLock(cabinet: Int, holdSeconds: Int = 0)
 
+    /**
+     * Drop the last door frame, so [doorState] reads null until the board next reports. A restock
+     * calls this before it sends the unlock: the retained value of an earlier session is not
+     * evidence about this one (Lava Show, 2026-11-05 15:36: an "unlocked" left over from 15:22 was
+     * taken as the bolt releasing, and nothing was checked).
+     */
+    fun forgetDoorState() {}
+
     /** Re-lock [cabinet] (used on timeout / after a completed session). */
     fun closeLock(cabinet: Int)
 

@@ -221,6 +221,8 @@ class MotorFridgeHardware(
         emit("closeLock cabinet=$cabinet (query status)", null)
     }
 
+    override fun forgetDoorState() { _doorState.value = null }
+
     override fun readDoorState(cabinet: Int) {
         kit.getLockInstruct()?.getLockStatus(cabinet, null, 50)
         emit("readDoorState cabinet=$cabinet", null)
