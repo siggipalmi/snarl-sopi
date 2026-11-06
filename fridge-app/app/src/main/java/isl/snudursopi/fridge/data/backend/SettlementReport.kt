@@ -57,6 +57,25 @@ object SettlementReport {
             )
         }
 
+        // Wrong-basket moves (fridge 0.70.11), as anomalies so the backend stores them with the
+        // rest without a schema change. The charge is not affected by them.
+        result.misplaced.forEach { m ->
+            anomalies.put(
+                JSONObject()
+                    .put("cabinet", m.into.cabinet.name)
+                    .put("basket", m.into.basket)
+                    .put("deltaG", -m.gainG)
+                    .put("reason", if (m.from != null) "misplaced" else "weight_added")
+                    .put("gainG", m.gainG)
+                    .put("productId", m.into.productId ?: JSONObject.NULL)
+                    .put("fromCabinet", m.from?.cabinet?.name ?: JSONObject.NULL)
+                    .put("fromBasket", m.from?.basket ?: JSONObject.NULL)
+                    .put("fromProductId", m.from?.productId ?: JSONObject.NULL)
+                    .put("quantity", m.quantity)
+                    .put("warnedMs", result.misplacedWarnedMs)
+            )
+        }
+
         return JSONObject()
             .put("orderId", orderId)
             .put("startedAt", startedAtIso)

@@ -465,6 +465,13 @@ private fun ShoppingView(state: FridgeUiState, warn: Boolean) {
         }
         Spacer(Modifier.height(20.dp))
 
+        // Taken from one basket, put down in another (0.70.11). Above the cart, so it is the
+        // first thing read; gone as soon as the item is back where it came from.
+        state.misplacedName?.let { name ->
+            isl.snudursopi.fridge.ui.components.MisplacedBanner(name, state.language)
+            Spacer(Modifier.height(20.dp))
+        }
+
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (state.cart.isEmpty()) {
                 // The door is open and they haven't taken anything yet. An empty

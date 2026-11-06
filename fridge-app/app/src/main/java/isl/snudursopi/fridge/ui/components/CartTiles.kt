@@ -129,8 +129,9 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
             .clip(AppShapes.rounded(14.dp))
             .background(AppColors.White)
             .border(
-                width = (2.5f * f).dp,
-                color = AppColors.Bronze.copy(alpha = f),
+                // Out of place (0.70.11): a steady ring in the caution colour, not the flash.
+                width = if (tile.misplaced) 4.dp else (2.5f * f).dp,
+                color = if (tile.misplaced) AppColors.CautionStrong else AppColors.Bronze.copy(alpha = f),
                 shape = AppShapes.rounded(14.dp),
             ),
     ) {
@@ -190,6 +191,14 @@ private fun Tile(tile: CartTile, language: Language, width: Dp) {
                         color = AppColors.Bronze,
                     )
                 }
+            }
+
+            if (tile.misplaced) {
+                MisplacedBadge(
+                    language,
+                    fontSize = (width.value * 0.06f).sp,
+                    modifier = Modifier.padding(10.dp).align(Alignment.BottomStart),
+                )
             }
 
             // Quantity as a MULTIPLIER, not duplicate tiles — two of the same
@@ -285,7 +294,11 @@ private fun ListRow(tile: CartTile, language: Language) {
             .fillMaxWidth()
             .clip(AppShapes.rounded(10.dp))
             .background(AppColors.White)
-            .border((2f * f).dp, AppColors.Bronze.copy(alpha = f), AppShapes.rounded(10.dp))
+            .border(
+                if (tile.misplaced) 3.dp else (2f * f).dp,
+                if (tile.misplaced) AppColors.CautionStrong else AppColors.Bronze.copy(alpha = f),
+                AppShapes.rounded(10.dp),
+            )
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -307,6 +320,9 @@ private fun ListRow(tile: CartTile, language: Language) {
             color = AppColors.Ink,
             modifier = Modifier.weight(1f).padding(horizontal = 14.dp),
         )
+        if (tile.misplaced) {
+            MisplacedBadge(language, fontSize = 14.sp, modifier = Modifier.padding(end = 12.dp))
+        }
         if (tile.weightG != null) {
             Text(
                 localized(language, R.string.weight_at_kg_price, tile.weightG, tile.priceIsk),
@@ -356,3 +372,26 @@ private const val FLASH_MS = 1100
 private val GAP = 18.dp
 private val MIN_TILE = 150.dp
 private val MAX_TILE = 300.dp
+
+/** "í röngu hólfi" on the tile or row of an item put down in another basket. */
+@Composable
+private fun MisplacedBadge(
+    language: Language,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier
+            .clip(AppShapes.rounded(999.dp))
+            .background(AppColors.CautionStrong)
+            .padding(horizontal = 11.dp, vertical = 4.dp),
+    ) {
+        Text(
+            localized(language, R.string.misplaced_badge),
+            fontFamily = AppFonts.Body,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = fontSize,
+            color = AppColors.OnCautionStrong,
+        )
+    }
+}

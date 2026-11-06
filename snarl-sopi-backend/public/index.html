@@ -7883,9 +7883,26 @@ async function renderFridgeSessions(code) {
       const when = s.closedAt || (s.receivedAt ? new Date(s.receivedAt).toISOString() : '—');
       const mism = s.mismatch ? '<span style="color:var(--alert)"> · mismatch</span>' : '';
       const amt = s.totalIsk != null ? s.totalIsk + ' kr' : '—';
-      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)">
-        <span>${String(when).slice(0,16).replace('T',' ')} · ${s.outcome || '—'}${mism}</span>
-        <span style="color:var(--ink)">${amt}</span>
+      // Fridge 0.70.11+: an item left in another basket. The charge stands; the basket it is in
+      // now weighs wrong until someone moves it back.
+      const moved = (s.anomalies || []).filter(a => a && (a.reason === 'misplaced' || a.reason === 'weight_added'));
+      const tag = moved.some(a => a.reason === 'misplaced')
+        ? ' <span style="background:var(--alert-bg);color:var(--alert);font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px">misplaced item</span>' : '';
+      const movedHtml = moved.map(a => {
+        const into = rsEsc((a.cabinet || 'A') + a.basket) + (a.productName ? ' (' + rsEsc(a.productName) + ')' : '');
+        const what = a.reason === 'misplaced'
+          ? (a.quantity || 1) + '× ' + rsEsc(a.fromProductName || 'item') + ' from ' + rsEsc((a.fromCabinet || 'A') + a.fromBasket) +
+            '. Move it back: the next customer to take it would pay for ' + (a.productName ? rsEsc(a.productName) : 'this basket\u2019s product') + '.'
+          : 'matches nothing taken this session — check the basket.';
+        const warned = a.reason === 'misplaced' && a.warnedMs ? ' Kiosk asked for it back for ' + Math.round(a.warnedMs / 1000) + ' s.' : '';
+        return `<div style="font-size:12px;line-height:1.45;color:var(--ink);background:var(--alert-bg);border-radius:6px;padding:6px 9px;margin:4px 0 2px">
+          Basket <strong>${into}</strong> is ${Number(a.gainG) || 0} g heavier — ${what}${warned}</div>`;
+      }).join('');
+      return `<div style="padding:4px 0;border-bottom:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between">
+          <span>${String(when).slice(0,16).replace('T',' ')} · ${s.outcome || '—'}${mism}${tag}</span>
+          <span style="color:var(--ink)">${amt}</span>
+        </div>${movedHtml}
       </div>`;
     }).join('');
   } catch (e) { el.textContent = e.message; }

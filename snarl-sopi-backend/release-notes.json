@@ -1,5 +1,30 @@
 [
  {
+  "component": "fridge",
+  "version": "0.70.11",
+  "versionCode": 177,
+  "date": "2026-11-06",
+  "title": "An item put back in the wrong basket is caught while the door is open.",
+  "notes": [
+   "Before this, moving an item from one basket to another did nothing on screen: the customer was charged for it (correct, they took it from its basket) and the basket it landed in silently carried the wrong weight, so the next customer to lift it out would be charged for that basket's product. Seen at the trade show, 2026-11-05.",
+   "Now, while the door is open, a basket that gets heavier by about the weight of something taken from another basket shows a banner above the cart: „<product>“ er í röngu hólfi — Settu vöruna aftur þar sem þú tókst hana — annars greiðir þú fyrir hana (en/pl too). The item's tile gets a ring and an \"í röngu hólfi\" badge. Put it back where it came from and both go away and the item leaves the cart.",
+   "The charge is never changed by this. If the door closes with the item still in the wrong basket, the customer pays for it as before, and the settlement tells the backend which basket now holds it.",
+   "Weight added that matches nothing taken (a bag, a hand) shows nothing to the customer; it is only noted on the settlement."
+  ],
+  "check": "On canary 62160480 (or a show fridge): open, take an item, put it in a different basket. Within a few seconds the banner appears and the tile is marked; put it back and both clear. Close with it still in the wrong basket: the alert \"Item in the wrong basket\" appears on the dashboard."
+ },
+ {
+  "component": "backend",
+  "version": "6.109.0",
+  "date": "2026-11-06",
+  "title": "Fridge sessions show items left in the wrong basket, with an alert to move them back.",
+  "notes": [
+   "A fridge settlement from 0.70.11+ that ends with an item in another basket raises a warning alert, \"Item in the wrong basket\", for the operator: which basket, how many grams, which product it is and where it came from. Resolving the alert is the \"moved it back\" step.",
+   "The machine page's recent sessions mark such a session \"misplaced item\" and say what to move where, and what the next customer would otherwise be charged for. The charge itself is untouched."
+  ],
+  "check": "After a test session on the canary that ends with an item in the wrong basket: the alert is on the dashboard and the session row on the machine page carries the note."
+ },
+ {
   "component": "coil",
   "version": "0.80.24",
   "versionCode": 180,

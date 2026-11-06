@@ -7,6 +7,7 @@ import isl.snudursopi.fridge.domain.RestockTimer
 import isl.snudursopi.fridge.domain.Language
 import isl.snudursopi.fridge.domain.LanguageCycle
 import isl.snudursopi.fridge.domain.Settlement
+import isl.snudursopi.fridge.domain.Misplacement
 import isl.snudursopi.fridge.hardware.FridgeHardwareController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -120,6 +121,9 @@ class FridgeViewModel(
     /** When [idleWeights] was measured, and when the last customer session ended. */
     private var idleWeightsAtMs = 0L
     private var lastSessionEndedAtMs = 0L
+    /** Wrong-basket warning: when the current showing began (0 = not showing), and its total. */
+    private var misplacedSinceMs = 0L
+    private var misplacedWarnedMs = 0L
 
     /** Last reading seen during shopping — the settled value for any basket
      *  that didn't move, so we don't pay 2.4s to re-read it. */
@@ -797,6 +801,14 @@ class FridgeViewModel(
                 }
             }
             var spanIndex = 0
+            // Wrong-basket check (0.70.11). Each read covers one cabinet, so keep the latest
+            // reading of every tray, and which trays read the same twice running: a basket is
+            // only called heavier once the hand is off it, not mid-placement.
+            val latest = HashMap(origWeights)
+            val steady = HashSet<Int>()
+            misplacedSinceMs = 0L
+            misplacedWarnedMs = 0L
+            _ui.value = _ui.value.copy(misplacedName = null)
             suspend fun readActive(): Map<Int, Int>? {
                 val (first, count) = spans[spanIndex % spans.size]
                 spanIndex++
@@ -838,11 +850,43 @@ class FridgeViewModel(
                     previous = live
                     lastPolled = live
 
-                    val tiles = FridgeUiState.tentativeTiles(planogram.baskets, origWeights, live)
+                    for ((tray, grams) in live) {
+                        val before = latest[tray]
+                        if (before != null && kotlin.math.abs(grams - before) <= STABILITY_THRESHOLD_G) {
+                            steady += tray
+                        } else {
+                            steady -= tray
+                        }
+                        latest[tray] = grams
+                    }
+                    // Only a gain with a known source is shown; one that matches nothing taken
+                    // (a bag, a hand) is not the customer's to fix.
+                    val misplaced = Misplacement.detect(planogram, origWeights, latest)
+                        .filter { it.from != null && it.into.trayIndex in steady }
+                    val misplacedName = misplaced.firstOrNull()?.from?.name
+                    if (misplacedName != null && misplacedSinceMs == 0L) {
+                        misplacedSinceMs = now
+                        android.util.Log.i(
+                            "FridgeFlow",
+                            "misplaced: " + misplaced.joinToString("; ") {
+                                "${it.from!!.cabinet}${it.from.basket} → ${it.into.cabinet}${it.into.basket} +${it.gainG}g"
+                            },
+                        )
+                    } else if (misplacedName == null && misplacedSinceMs != 0L) {
+                        misplacedWarnedMs += now - misplacedSinceMs
+                        misplacedSinceMs = 0L
+                        android.util.Log.i("FridgeFlow", "misplaced: put back")
+                    }
+
+                    val tiles = FridgeUiState.tentativeTiles(
+                        planogram.baskets, origWeights, live,
+                        misplacedFrom = misplaced.mapNotNull { it.from?.trayIndex }.toSet(),
+                    )
                     _ui.value = _ui.value.copy(
                         cart = tiles,
                         totalIsk = tiles.sumOf { it.amountIsk },
                         totalIsFinal = false,
+                        misplacedName = misplacedName,
                     )
                 }
 
@@ -906,6 +950,11 @@ class FridgeViewModel(
 
     fun onDoorClosed() {
         if (_ui.value.phase != FridgePhase.SHOPPING && _ui.value.phase != FridgePhase.DOOR_OPEN_WARN) return
+        if (misplacedSinceMs != 0L) {
+            misplacedWarnedMs += System.currentTimeMillis() - misplacedSinceMs
+            misplacedSinceMs = 0L
+        }
+        _ui.value = _ui.value.copy(misplacedName = null)
         transition(FridgePhase.CALCULATING)
         planogram.spec.lockIndices.forEach { hardware.closeLock(it) }
 
@@ -958,7 +1007,20 @@ class FridgeViewModel(
                 b.trayIndex to value
             }
             val result = Settlement.settle(planogram, origWeights, finalWeights)
+                .copy(misplacedWarnedMs = misplacedWarnedMs)
             settlementSink(result)
+            if (result.misplaced.isNotEmpty()) {
+                // The charge is as computed above; this only says which basket now holds the
+                // wrong weight, so staff can move the item back before it is sold as something else.
+                android.util.Log.w(
+                    "FridgeFlow",
+                    "settled with misplaced item(s) (warned ${misplacedWarnedMs / 1000}s): " +
+                        result.misplaced.joinToString("; ") { m ->
+                            val src = m.from?.let { "${m.quantity}× ${it.name} from ${it.cabinet}${it.basket}" } ?: "unmatched"
+                            "${m.into.cabinet}${m.into.basket} +${m.gainG}g = $src"
+                        },
+                )
+            }
 
             // What moved, basket by basket, so a wrong charge can be explained
             // from the log alone: before -> after, and the unit weight it was

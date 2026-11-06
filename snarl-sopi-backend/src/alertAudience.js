@@ -32,6 +32,8 @@ const AUDIENCE = {
   fridge_expired_product:  OPERATOR,
   complaint_cluster:       OPERATOR,
   fridge_complaint_cluster:OPERATOR,
+  // An item left in the wrong basket: whoever restocks moves it back.
+  fridge_misplaced_item:   OPERATOR,
 
   // Money and account setup: the operator's admin, not whoever is restocking.
   settlement_mismatch:         OPERATOR_ADMIN,
