@@ -60,8 +60,14 @@ async function lookupCompany(env, kennitala) {
   return c && c.companyName ? c : null;
 }
 
+// staðfangaskrá (HMS) has hung for a minute at a time (5 Nov 2026), so a lookup gets
+// ADDRESS_TIMEOUT_MS and then counts as unavailable rather than holding the form.
+const ADDRESS_TIMEOUT_MS = 8000;
 async function lookupAddresses(env, q) {
-  const res = await upstream(env, 'ADDRESS', env.ADDRESS_API, '/?address=' + encodeURIComponent(q));
+  const res = await Promise.race([
+    upstream(env, 'ADDRESS', env.ADDRESS_API, '/?address=' + encodeURIComponent(q)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('address lookup timed out')), ADDRESS_TIMEOUT_MS)),
+  ]);
   if (!res.ok) throw new Error('address lookup ' + res.status);
   const data = await res.json();
   return (data.results || []).map(r => ({ full: r.full, street: r.street, house: r.house, zip: r.zip, city: r.city }));
@@ -109,8 +115,9 @@ async function handleAddress(url, env) {
   const q = String(url.searchParams.get('q') || '').trim();
   if (q.length < 3) return json({ results: [] });
   try { return json({ results: await lookupAddresses(env, q) }); } catch (e) {
+    // The form then lets the customer type the address (sent as unverified).
     console.warn('[address]', e.message);
-    return json({ results: [], error: 'lookup_failed' }, 502);
+    return json({ results: [], error: 'lookup_unavailable' }, 503);
   }
 }
 
@@ -166,11 +173,18 @@ async function handleSubmit(request, env, ctx) {
     }
   }
   if (!errors.heimilisfang) {
-    let matches = [];
+    let matches = null;
     try { matches = await lookupAddresses(env, addressLookupQuery(form.heimilisfang)); } catch (e) {
-      return json({ error: 'upstream', message: 'Ekki tókst að staðfesta heimilisfang. Reynið aftur eftir smá stund.' }, 502);
+      // staðfangaskrá is down: take the address as typed, marked unverified, rather than
+      // turn the customer away. AG Vending sees the mark in the notification and payload.
+      console.warn('[submit] address not verified:', e.message);
     }
-    if (!matches.some(m => m.full === form.heimilisfang)) errors.heimilisfang = 'Veldu staðsetningu úr listanum.';
+    if (matches === null) {
+      if (form.heimilisfang.length < 5) errors.heimilisfang = 'Skrifaðu fullt heimilisfang.';
+      else form.heimilisfangOstadfest = true;
+    } else if (!matches.some(m => m.full === form.heimilisfang)) {
+      errors.heimilisfang = 'Veldu staðsetningu úr listanum.';
+    }
   }
   if (Object.keys(errors).length) return json({ error: 'validation', errors }, 400);
 
@@ -369,7 +383,8 @@ function notifyNew(env, id, form, company) {
     `Ný skráning á skraning.agvending.is`, '',
     `Leigutaki: ${company.companyName}, kt. ${formatKennitala(form.kennitala)}`,
     `Tæki: ${describeMachines(form.counts)}`,
-    `Staðsetning: ${form.heimilisfang}`,
+    `Staðsetning: ${form.heimilisfang}` +
+      (form.heimilisfangOstadfest ? '  (ÓSTAÐFEST: staðfangaskrá svaraði ekki, athugið heimilisfangið)' : ''),
     `Upphaf leigutíma: ${form.upphaf}`, '',
     `Undirritandi: ${signer.nafn}, ${form.undirritandi.netfang}, ${form.undirritandi.simi}`,
     `Tengiliður vegna reksturs: ${holder.nafn}, ${form.netfang}, ${form.simi}`,

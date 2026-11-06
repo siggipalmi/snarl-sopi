@@ -361,7 +361,12 @@ export function buildContractPayload({ id, form, company, claim, cpi, now }) {
     leigugjald_kr: total,
     upphaf_iso: form.upphaf,
     athugasemdir: form.athugasemdir,
-    vidvaranir: (claim.warnings || []).join('\n'),
+    // true when staðfangaskrá was down at submit and the address is as the customer typed it
+    heimilisfang_ostadfest: Boolean(form.heimilisfangOstadfest),
+    vidvaranir: [
+      ...(claim.warnings || []),
+      ...(form.heimilisfangOstadfest ? ['Heimilisfang óstaðfest: staðfangaskrá svaraði ekki við skráningu.'] : []),
+    ].join('\n'),
     skrad: now.toISOString(),
   };
 }
