@@ -66,6 +66,15 @@ data class SkinColors(
     val WallDeep: Color,
     /** Photo-well colours behind product images, picked by a stable hash of the product id. Empty = no well. */
     val TilePalette: List<Color>,
+    // ---- the "put it back" caution (wrong basket, 0.70.11); fridge only ----
+    /** Banner ground. */
+    val CautionFill: Color,
+    /** Banner headline. */
+    val CautionText: Color,
+    /** The tile ring and badge of the item that is out of place. */
+    val CautionStrong: Color,
+    /** Text on [CautionStrong]. */
+    val OnCautionStrong: Color,
 )
 
 data class SkinFonts(
@@ -172,6 +181,10 @@ object Skins {
         Wall = Color(0xFFF0E8DA),
         WallDeep = Color(0xFFD4CCBE),
         TilePalette = emptyList(),
+        CautionFill = Color(0xFFF0E8DA),
+        CautionText = Color(0xFFB8471F),
+        CautionStrong = Color(0xFFB8471F),
+        OnCautionStrong = Color(0xFFFFFFFF),
     )
 
     private val franklinColors = SkinColors(
@@ -199,6 +212,10 @@ object Skins {
             Color(0xFFF05A3C), Color(0xFF3FC3E6), Color(0xFF22B05A), Color(0xFFF48FB8),
             Color(0xFFFFC72C), Color(0xFF8DCFC7), Color(0xFFF7A21B), Color(0xFFF7AE94),
         ),
+        CautionFill = Color(0xFFF7A21B),
+        CautionText = Color(0xFF111111),
+        CautionStrong = Color(0xFFF7A21B),
+        OnCautionStrong = Color(0xFF111111),
     )
 
     private val classicFonts = SkinFonts(Display = cormorant, Body = geist, DisplayStyle = FontStyle.Italic, DisplayWeight = FontWeight.Medium)

@@ -25,6 +25,9 @@
     <string name="shopping_empty">take what\nyou need</string>
 
     <string name="door_warn">please close the door — it\'s still open</string>
+    <string name="misplaced_title">“%1$s” is in the wrong basket</string>
+    <string name="misplaced_body">Put it back where you took it from, or you\'ll pay for it.</string>
+    <string name="misplaced_badge">wrong basket</string>
 
     <string name="calculating_title">working it out…</string>
     <string name="calculating_sub">weighing the baskets and totalling up</string>

@@ -40,6 +40,11 @@
     <string name="shopping_empty">taktu það sem\nþig vantar</string>
 
     <string name="door_warn">lokaðu hurðinni — hún er enn opin</string>
+    <!-- Wrong basket (0.70.11): the product name comes from the planogram and can't be
+         inflected, so it is quoted and the body says "vöruna". -->
+    <string name="misplaced_title">„%1$s“ er í röngu hólfi</string>
+    <string name="misplaced_body">Settu vöruna aftur þar sem þú tókst hana — annars greiðir þú fyrir hana.</string>
+    <string name="misplaced_badge">í röngu hólfi</string>
 
     <string name="calculating_title">reikna…</string>
     <string name="calculating_sub">vigta körfurnar og reikna upphæðina</string>

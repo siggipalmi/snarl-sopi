@@ -24,6 +24,9 @@
     <string name="shopping_empty">weź, czego\npotrzebujesz</string>
 
     <string name="door_warn">zamknij drzwi — są wciąż otwarte</string>
+    <string name="misplaced_title">„%1$s” jest w złej przegródce</string>
+    <string name="misplaced_body">Odłóż produkt tam, skąd został wzięty — inaczej za niego zapłacisz.</string>
+    <string name="misplaced_badge">zła przegródka</string>
 
     <string name="calculating_title">obliczamy…</string>
     <string name="calculating_sub">ważymy koszyki i liczymy kwotę</string>

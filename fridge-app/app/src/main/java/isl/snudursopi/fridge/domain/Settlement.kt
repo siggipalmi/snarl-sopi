@@ -69,6 +69,13 @@ object Settlement {
         val lines: List<Line>,    // only baskets that produced a charge
         val anomalies: List<Anomaly>,
         val totalIsk: Int,
+        /**
+         * Items that ended up in another basket ([Misplacement]). Informational only: the
+         * charge above is computed without them and is not changed by them.
+         */
+        val misplaced: List<Misplacement.Found> = emptyList(),
+        /** How long the kiosk showed the wrong-basket warning this session (set by the screen). */
+        val misplacedWarnedMs: Long = 0,
     ) {
         val nothingTaken: Boolean get() = lines.isEmpty()
     }
@@ -190,6 +197,11 @@ object Settlement {
             )
         }
 
-        return Result(lines = lines, anomalies = anomalies, totalIsk = total)
+        return Result(
+            lines = lines,
+            anomalies = anomalies,
+            totalIsk = total,
+            misplaced = Misplacement.detect(planogram, origWeights, finalWeights),
+        )
     }
 }

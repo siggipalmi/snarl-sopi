@@ -338,6 +338,18 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   published release (canary / all); the backend tab (AG only) marks the version Railway is running
   as live. Operators see the two app tabs for their own machines.
 
+## Wrong basket (2026-11-06)
+
+- **Settlement weighs every basket on its own and never credits a heavier one.** An item moved
+  from A to B is charged (correct: it left A) and B silently carries the wrong weight, so the
+  next customer to take it from B pays for B's product. From fridge 0.70.11 `domain/Misplacement.kt`
+  matches a basket's gain against what left the others: while the door is open the kiosk shows
+  „<vara>“ er í röngu hólfi and marks the tile; at settlement the move travels as an anomaly
+  (`reason: misplaced`, or `weight_added` when nothing taken matches) and backend 6.109.0 raises a
+  `fridge_misplaced_item` warning (resolve = moved back). **The charge is never changed by it.**
+- Live reads cover only the stocked span of each cabinet, so an item dropped into an empty basket
+  past the last stocked one is caught at settlement, not on screen.
+
 ## Skins (2026-11-05)
 
 - **The kiosk's look is a skin, chosen in the dashboard** (AG only): per operator in the operator's

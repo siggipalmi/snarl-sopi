@@ -102,6 +102,8 @@ data class CartTile(
     val quantity: Int,
     /** Sold per kg: the grams taken. Null for a counted item. */
     val weightG: Int? = null,
+    /** Taken from this basket and put down in another one (door still open). */
+    val misplaced: Boolean = false,
 ) {
     /** What this line costs: unit × count, or grams × kr/kg rounded up. */
     val amountIsk: Int
@@ -138,6 +140,12 @@ data class FridgeUiState(
     val totalIsk: Int = 0,
     /** True once the total is final (post-close), false while it's an estimate. */
     val totalIsFinal: Boolean = false,
+    /**
+     * Name of a product that left its basket and landed in another one while the door is open
+     * ([isl.snudursopi.fridge.domain.Misplacement]); null when nothing is out of place. Drives
+     * the "í röngu hólfi" banner. Display only: the charge is never changed by it.
+     */
+    val misplacedName: String? = null,
     /**
      * The language the CUSTOMER is currently seeing. Chosen at runtime via the
      * globe pill, NOT taken from the tablet's OS locale — these machines are
@@ -196,6 +204,8 @@ data class FridgeUiState(
             /** TRAY -> weight. Tray-keyed because basket numbers repeat per cabinet. */
             orig: Map<Int, Int>,
             live: Map<Int, Int>,
+            /** Trays whose product was put down in another basket: their tiles are marked. */
+            misplacedFrom: Set<Int> = emptySet(),
         ): List<CartTile> {
             val tiles = mutableListOf<CartTile>()
             for (b in baskets) {
@@ -204,14 +214,16 @@ data class FridgeUiState(
                 val l = live[b.trayIndex] ?: continue
                 val delta = o - l
                 if (b.soldByWeight) {
-                    if (delta >= Settlement.BY_WEIGHT_MIN_G) tiles += CartTile(b.name, b.imageUrl, b.priceIsk, 1, weightG = delta)
+                    if (delta >= Settlement.BY_WEIGHT_MIN_G) {
+                        tiles += CartTile(b.name, b.imageUrl, b.priceIsk, 1, weightG = delta, misplaced = b.trayIndex in misplacedFrom)
+                    }
                     continue
                 }
                 val tol = if (b.toleranceG > 0) b.toleranceG else Settlement.DEFAULT_TOLERANCE_G
                 if (delta <= tol) continue
                 val qty = Math.round(delta.toDouble() / b.unitWeightG).toInt()
                 if (qty <= 0) continue
-                tiles += CartTile(b.name, b.imageUrl, b.priceIsk, qty)
+                tiles += CartTile(b.name, b.imageUrl, b.priceIsk, qty, misplaced = b.trayIndex in misplacedFrom)
             }
             return tiles
         }

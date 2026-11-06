@@ -1524,6 +1524,13 @@ function handleFridgeSettlement(req, res) {
     try { storage.recordFridgeSale(settlement, lineRows); }
     catch (e) { console.error('[FRIDGE] recordFridgeSale failed:', e && e.message); }
   }
+  // An item left in the wrong basket (fridge 0.70.11+). The charge is right; the basket it sits
+  // in now weighs wrong, so the next customer to take it would pay for that basket's product.
+  // A warning for whoever restocks — resolving the alert is "moved it back".
+  if (!isRepost) {
+    try { notifyMisplacedItems(m, settlement); }
+    catch (e) { console.error('[FRIDGE] misplaced alert failed:', e && e.message); }
+  }
   if (settlement.mismatch) {
     console.warn(`[FRIDGE] settlement ${b.orderId} MISMATCH: app total ${settlement.totalIsk} vs recomputed ${recomputedIsk}`);
     // A mismatch means the scales disagree with what was charged — a money-path signal, so it
@@ -1663,6 +1670,33 @@ function touchOperatorMachines(operatorId) {
 }
 
 // Settlement mismatch → dashboard alert + operator email, on the same recipient rule as complaints.
+// The names a person needs to act on a misplaced-item anomaly: what is in the basket, and what
+// the stray item is. Product ids come from the machine; names from the catalogue.
+function describeMisplaced(a) {
+  const name = id => { const p = id ? storage.getProduct(id) : null; return p ? p.name : null; };
+  return { ...a, productName: name(a.productId), fromProductName: name(a.fromProductId) };
+}
+
+function notifyMisplacedItems(machine, settlement) {
+  const moved = _safeJsonParse(settlement.anomalies, [])
+    .filter(a => a && a.reason === 'misplaced')
+    .map(describeMisplaced);
+  if (!moved.length) return;
+  const where = (cab, n) => `${cab || 'A'}${n}`;
+  const detail = `${machine.deviceCode} · order ${settlement.orderId}: ` + moved.map(a =>
+    `basket ${where(a.cabinet, a.basket)}${a.productName ? ' (' + a.productName + ')' : ''} is ${a.gainG} g heavier — ` +
+    `${a.quantity || 1}× ${a.fromProductName || 'item'} from ${where(a.fromCabinet, a.fromBasket)}`).join('; ') +
+    '. The customer was charged for it, correctly. Move it back to where it belongs: until then the next ' +
+    'customer to take it is charged for the basket\'s own product, and its stock count is off.' +
+    (moved[0].warnedMs ? ` The kiosk asked for it back for ${Math.round(moved[0].warnedMs / 1000)} s.` : '');
+  const alertId = 'alert_fridge_misplaced_' + machine.deviceCode + '_' + settlement.orderId;
+  if (!storage.getAlert(alertId)) storage.insertAlert({
+    id: alertId, type: 'fridge_misplaced_item', severity: 'warning',
+    title: `Item in the wrong basket — ${machine.deviceName}`,
+    detail, deviceCode: machine.deviceCode, resolved: false, createdAt: new Date().toISOString(),
+  });
+}
+
 function notifyMoneyMismatch(machine, settlement, lineRows) {
   const badLines = (lineRows || []).filter(r => r.lineMismatch);
   const detail = `${machine.deviceCode} · order ${settlement.orderId}: charged ${settlement.totalIsk} kr, ` +
@@ -1929,7 +1963,8 @@ function handleListFridgeSettlements(req, res) {
   const rows = storage.listFridgeSettlements(deviceCode, Number(req.query.limit) || 100).map(s => ({
     ...s,
     cabinetsOpened: _safeJsonParse(s.cabinetsOpened, []),
-    anomalies: _safeJsonParse(s.anomalies, []),
+    anomalies: _safeJsonParse(s.anomalies, []).map(a =>
+      a && (a.reason === 'misplaced' || a.reason === 'weight_added') ? describeMisplaced(a) : a),
   }));
   ok(res, { deviceCode, settlements: rows });
 }
