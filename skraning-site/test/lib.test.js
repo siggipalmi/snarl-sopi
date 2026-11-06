@@ -193,6 +193,19 @@ test('the signer is chosen from the framkvæmdastjóri and prókúruhafar in the
   assert.deepEqual(companySigners({ companyName: 'Y' }), []);
 });
 
+test('an address taken while staðfangaskrá was down is flagged in the payload', () => {
+  const { value: form } = validateForm({ kennitala: '4607161010', netfang: 'a@b.is', simi: '8237777', einfaldur: 1,
+    heimilisfang: 'Klettagörðum 11, 104 Reykjavík', ...SIGNER }, NOW);
+  const build = f => buildContractPayload({ id: 'x', form: f, company: { companyName: 'X ehf.', managerName: 'A' }, now: NOW,
+    claim: { radnumer_sjalfsala: '1', radnumer_nayax: '2', counts: { einfaldur: 1 }, warnings: [] }, cpi: { vnv: '1', manudur: 'm' } });
+  assert.equal(build(form).heimilisfang_ostadfest, false);
+  assert.equal(build(form).vidvaranir, '');
+  const p = build({ ...form, heimilisfangOstadfest: true });
+  assert.equal(p.heimilisfang_ostadfest, true);
+  assert.equal(p.Heimilisfang_Stadfest, 'Klettagörðum 11, 104 Reykjavík');
+  assert.match(p.vidvaranir, /óstaðfest/);
+});
+
 test('a claim that did not cover every machine is a shortfall', () => {
   const counts = { tvofaldur: 1, einfaldur: 2, skjar: 0 };
   assert.deepEqual(claimShortfall(counts, { counts: { tvofaldur: 1, einfaldur: 2, skjar: 0 } }), []);
