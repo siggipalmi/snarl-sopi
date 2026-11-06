@@ -412,6 +412,14 @@ class FridgeViewModel(
     @Volatile
     private var restockUnlockedAtMs = 0L
 
+    /** When the restock unlock was last sent; a repeated "open" press moves it (RestockTimer). */
+    @Volatile
+    private var restockUnlockSentMs = 0L
+
+    /** Give up waiting for the bolt to release after this; a repeated press extends it. */
+    @Volatile
+    private var restockUnlockDeadlineMs = 0L
+
     private var doorLeftOpenJob: Job? = null
 
     /**
@@ -446,12 +454,32 @@ class FridgeViewModel(
      * shopping phase. So a customer tapping mid-restock is turned away rather
      * than starting a sale into an open fridge.
      */
-    fun beginRestock(cabinet: Int) {
-        if (_ui.value.phase != FridgePhase.IDLE) {
-            android.util.Log.w("FridgeFlow", "restock refused — machine is busy (${_ui.value.phase})")
-            return
+    fun beginRestock(cabinet: Int): RestockStart {
+        val phase = _ui.value.phase
+        if (phase == FridgePhase.RESTOCK) {
+            // *** A SECOND PRESS IS A RETRY, NOT A NO-OP (Lava Show, 2026-11-05). The bolt is held
+            // for two minutes; Kata pressed "open" at 15:22, reached the door after it had locked
+            // again, and pressed three more times at 15:28-15:30. Each press was refused here while
+            // the dashboard was told "unlocked". Same cabinet: send the unlock again and restart the
+            // clocks. The other cabinet: refuse, and say so.
+            val current = _ui.value.restockCabinet
+            if (current != cabinet) {
+                android.util.Log.w(
+                    "FridgeFlow",
+                    "restock: cabinet $cabinet asked for while cabinet $current is open for restocking — refused",
+                )
+                return RestockStart.OTHER_CABINET
+            }
+            android.util.Log.i("FridgeFlow", "restock: open pressed again on cabinet $cabinet — sending the unlock again")
+            sendRestockUnlock(cabinet)
+            return RestockStart.REISSUED
+        }
+        if (phase != FridgePhase.IDLE) {
+            android.util.Log.w("FridgeFlow", "restock refused — machine is busy ($phase)")
+            return RestockStart.BUSY
         }
         android.util.Log.i("FridgeFlow", "restock: opening cabinet $cabinet")
+        val startWeights = idleWeights
         _ui.value = _ui.value.copy(restockCabinet = cabinet)
         transition(FridgePhase.RESTOCK)
         startRestockGrid(cabinet)
@@ -463,7 +491,7 @@ class FridgeViewModel(
             // cancel it, so the bolt never moved at all. It also buys nothing
             // here: the idle weight poll already stopped the moment the phase
             // left IDLE, so the bus is quiet.
-            hardware.openLock(cabinet, RESTOCK_HOLD_S)
+            sendRestockUnlock(cabinet)
 
             // Hold the bolt open long enough for the operator to WALK to the
             // machine — they pressed the button wherever they happened to be.
@@ -482,6 +510,9 @@ class FridgeViewModel(
             //
             // A solenoid held open for 120s at a time is a real electrical load,
             // so re-asserting it needlessly is not a harmless retry.
+            //
+            // The door state was forgotten before the unlock went out (sendRestockUnlock), so a
+            // non-null "unlocked" here is the board answering THIS unlock, never a leftover.
             val nudger = launch {
                 val until = System.currentTimeMillis() + RESTOCK_OPEN_WINDOW_MS
                 while (isActive && System.currentTimeMillis() < until) {
@@ -501,40 +532,47 @@ class FridgeViewModel(
                 }
             }
 
-            // *** WAIT FOR A REAL UNLOCKED -> LOCKED TRANSITION, never for a
-            // bare "locked". doorState is a StateFlow, so first{} is handed its
-            // CURRENT value straight away — and after any previous session that
-            // value is "cabinet 1, locked". Matching on locked alone therefore
-            // ended the restock in the same breath it started, before the door
-            // had moved. Requiring the unlock first makes a retained value
-            // harmless.
             // Two waits with their own limits (RestockTimer): first for the bolt to release at all,
             // then — someone is working — for it to latch again, following the scales.
             // *** A REAL UNLOCKED -> LOCKED TRANSITION, never a bare "locked": doorState is a
-            // StateFlow, so first{} gets its CURRENT value at once, and after any earlier session
-            // that is "locked". Waiting for the unlock first makes a retained value harmless.
+            // StateFlow, so first{} gets its CURRENT value at once. The state is forgotten before
+            // each unlock, so a value left over from an earlier session cannot answer either wait.
             // *** NOT MATCHED TO `cabinet`: a double drives one lock for both doors, so the report
             // may arrive under the other cabinet number.
+            // *** ASK, DON'T ONLY LISTEN: every RESTOCK_CHECK_MS without an answer, query the lock.
+            // At Lava Show (2026-11-05) the bolt released at 15:22:38 and no further report came;
+            // the screen sat on "restocking" for 13 minutes. A missed push now costs 15 s.
             var outcome = "closed"
             try {
-                val unlocked = withTimeoutOrNull(RestockTimer.UNLOCK_WAIT_MS) {
-                    hardware.doorState.first { ds -> ds != null && !ds.locked }
-                    true
+                var unlocked = false
+                while (true) {
+                    val got = withTimeoutOrNull(RESTOCK_CHECK_MS) {
+                        hardware.doorState.first { ds -> ds != null && !ds.locked }
+                        true
+                    }
+                    if (got != null) { unlocked = true; break }
+                    if (System.currentTimeMillis() >= restockUnlockDeadlineMs) break
+                    queryRestockDoors()
                 }
-                if (unlocked == null) {
+                if (!unlocked) {
                     outcome = "never_unlocked"
                 } else {
                     val unlockedAtMs = System.currentTimeMillis()
                     restockUnlockedAtMs = unlockedAtMs
-                    restockActivityMs = unlockedAtMs
+                    // "No activity yet": at the send time, so the release itself never reads as
+                    // someone working (RestockTimer.UNTOUCHED counts activity after the send).
+                    restockActivityMs = restockUnlockSentMs
                     while (true) {
                         val latched = withTimeoutOrNull(RESTOCK_CHECK_MS) {
                             hardware.doorState.first { ds -> ds != null && ds.locked }
                             true
                         }
                         if (latched != null) break
-                        val end = RestockTimer.shouldEnd(System.currentTimeMillis(), unlockedAtMs, restockActivityMs)
+                        val end = RestockTimer.shouldEnd(
+                            System.currentTimeMillis(), unlockedAtMs, restockActivityMs, restockUnlockSentMs,
+                        )
                         if (end != null) { outcome = end.name.lowercase(); break }
+                        queryRestockDoors()
                     }
                 }
             } finally {
@@ -548,6 +586,12 @@ class FridgeViewModel(
                     "FridgeFlow",
                     "restock on cabinet $cabinet: the bolt never released in " +
                         "${RestockTimer.UNLOCK_WAIT_MS / 1000}s — back to idle, no restock recorded",
+                )
+                "untouched" -> android.util.Log.e(
+                    "FridgeFlow",
+                    "restock on cabinet $cabinet ended: no basket changed in " +
+                        "${RestockTimer.UNTOUCHED_MS / 60000} min since the unlock — the door was not opened " +
+                        "in time; back to idle",
                 )
                 "idle" -> android.util.Log.e(
                     "FridgeFlow",
@@ -563,8 +607,36 @@ class FridgeViewModel(
             // The machine goes back to selling with its bolt still released: say so, and say again
             // when it finally latches, so the alert clears by itself.
             if (outcome == "idle" || outcome == "max") watchDoorLeftOpen(cabinet, restockUnlockedAtMs)
-            finishRestock(cabinet, recorded = outcome != "never_unlocked")
+            // A latched door with nothing moved is not a restock either: "sold since the last restock"
+            // is only reset when the scales show stock went in or out.
+            val recorded: Boolean? = when (outcome) {
+                "never_unlocked" -> false
+                // Decide from the scales: an untouched end after a second press can still follow
+                // real work done before it.
+                "closed", "untouched" -> null
+                else -> true
+            }
+            finishRestock(cabinet, recorded, startWeights)
         }
+        return RestockStart.STARTED
+    }
+
+    /**
+     * Send the restock unlock: forget the last door frame first (so only the board's answer to THIS
+     * unlock counts), then release the bolt for [RESTOCK_HOLD_S] and restart the untouched clock and
+     * the unlock deadline.
+     */
+    private fun sendRestockUnlock(cabinet: Int) {
+        val now = System.currentTimeMillis()
+        restockUnlockSentMs = now
+        restockUnlockDeadlineMs = now + RestockTimer.UNLOCK_WAIT_MS
+        hardware.forgetDoorState()
+        hardware.openLock(cabinet, RESTOCK_HOLD_S)
+    }
+
+    /** Ask every door for its lock state; the answer lands in doorState like a push. */
+    private fun queryRestockDoors() {
+        planogram.spec.doorIndices.forEach { hardware.readDoorState(it) }
     }
 
     /**
@@ -638,16 +710,23 @@ class FridgeViewModel(
         }
     }
 
-    private suspend fun finishRestock(cabinet: Int, recorded: Boolean = true) {
+    /**
+     * [recorded]: true / false decides whether this counts as a restock; null decides from the scales
+     * — any basket change seen while open, or a difference between [startWeights] and the fresh read.
+     */
+    private suspend fun finishRestock(cabinet: Int, recorded: Boolean? = true, startWeights: Map<Int, Int>? = null) {
         val fresh = hardware.readWeightsFresh()
         if (fresh != null) {
             idleWeights = fresh
             idleWeightsAtMs = System.currentTimeMillis()
             // A door that never opened is not a restock: don't reset "sold since the last restock".
-            if (recorded) reportStock("restock", cabinet, fresh)
+            val record = recorded ?: (restockActivityMs > restockUnlockSentMs ||
+                RestockTimer.changed(startWeights, fresh))
+            if (record) reportStock("restock", cabinet, fresh)
             android.util.Log.i(
                 "FridgeFlow",
-                "restock done on cabinet $cabinet — baseline re-read (${fresh.size} trays)",
+                "restock done on cabinet $cabinet — baseline re-read (${fresh.size} trays)" +
+                    if (record) "" else ", nothing moved — not recorded as a restock",
             )
         } else {
             // Loud, because the consequence is mis-charging real customers. The
@@ -1554,3 +1633,6 @@ private const val SELF_TEST_DRIFT_G = 30
  *
  * How often an open restock checks its idle and hour limits (RestockTimer) while waiting. */
 private const val RESTOCK_CHECK_MS = 15_000L
+
+/** What a restock "open door" command did — told back to the dashboard as it is. */
+enum class RestockStart { STARTED, REISSUED, OTHER_CABINET, BUSY }

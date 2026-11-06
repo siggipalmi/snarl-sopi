@@ -36,7 +36,7 @@ class CommandRunner(
     /** Runs a block with the weight poll held off the bus. */
     private val withBusQuiet: suspend (suspend () -> Unit) -> Unit,
     /** Enter restock for one cabinet: unlock it, stop charging, re-baseline on close. */
-    private val beginRestock: (cabinet: Int) -> Unit,
+    private val beginRestock: (cabinet: Int) -> isl.snudursopi.fridge.ui.state.RestockStart,
     /** Run an update check now and describe the outcome. Null if not wired. */
     private val onCheckUpdate: (suspend () -> String)? = null,
     /** Push the LED price tags now; returns what it did. Null if not wired. */
@@ -172,8 +172,18 @@ class CommandRunner(
         if (spec != null && door > spec.cabinets.size) {
             return CommandOutcome.Failed("this machine has no cabinet $cabinet")
         }
-        beginRestock(door)
-        return CommandOutcome.Ok("cabinet $cabinet unlocked for restocking")
+        // Say what actually happened: "unlocked" was reported for presses the app had refused
+        // (Lava Show, 2026-11-05).
+        return when (beginRestock(door)) {
+            isl.snudursopi.fridge.ui.state.RestockStart.STARTED ->
+                CommandOutcome.Ok("cabinet $cabinet unlocked for restocking")
+            isl.snudursopi.fridge.ui.state.RestockStart.REISSUED ->
+                CommandOutcome.Ok("cabinet $cabinet: restock already open — unlock sent again")
+            isl.snudursopi.fridge.ui.state.RestockStart.OTHER_CABINET ->
+                CommandOutcome.Failed("the other cabinet is open for restocking — open $cabinet when it has closed")
+            isl.snudursopi.fridge.ui.state.RestockStart.BUSY ->
+                CommandOutcome.Failed("machine is busy (a customer or another screen) — try again in a minute")
+        }
     }
 
     /**

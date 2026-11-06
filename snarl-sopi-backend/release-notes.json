@@ -1,6 +1,21 @@
 [
  {
   "component": "fridge",
+  "version": "0.70.12",
+  "versionCode": 178,
+  "date": "2026-11-06",
+  "title": "Restocking: pressing \"open door\" again works, and an untouched restock ends in 4 minutes.",
+  "notes": [
+   "Pressing \"open door\" while the screen already says restocking now sends the unlock again. Before, the press was ignored while the dashboard said \"unlocked\" (Lava Show, 5 Nov: three presses at the door, none of them did anything). A press for the other cabinet is refused, and the dashboard says so.",
+   "While a restock is open the app asks the lock for its state every 15 seconds instead of only listening, so a missed \"locked\" report no longer leaves the screen on restocking for 10 minutes.",
+   "A restock where no basket changes within 4 minutes of the unlock (the 2-minute hold plus 2 minutes) goes back to selling by itself and is not recorded as a restock. A restock with real work still lasts as long as the scales keep moving, up to the hour.",
+   "Each unlock only counts when the lock confirms it after that press; an old \"unlocked\" from an earlier restock is no longer taken as proof.",
+   "A door closed with nothing moved is no longer recorded as a restock, so \"sold since last restock\" is not reset by it."
+  ],
+  "check": "On Lava Show (8626020714): press open door A, wait 3 minutes without opening, press again — the door opens and the log says \"open pressed again … sending the unlock again\". Leave a restock untouched: it ends after 4 minutes with \"the door was not opened in time\"."
+ },
+ {
+  "component": "fridge",
   "version": "0.70.11",
   "versionCode": 177,
   "date": "2026-11-06",

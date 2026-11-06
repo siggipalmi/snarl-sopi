@@ -20,14 +20,30 @@ object RestockTimer {
     const val IDLE_MS = 10L * 60L * 1000L
     const val MAX_MS = 60L * 60L * 1000L
 
+    /**
+     * Nobody touched it (Lava Show, 2026-11-05). The bolt is held for two minutes; an operator who
+     * pressed "open" from elsewhere arrives to a locked door, and the board did not report the
+     * re-lock — so the screen sat on "restocking" for the full [IDLE_MS] while she pulled at the
+     * door. With no basket change since the last unlock was sent, the restock ends after the hold
+     * plus two minutes' grace, and records nothing.
+     */
+    const val UNTOUCHED_MS = 4L * 60L * 1000L
+
     /** A change this large on any basket counts as someone working (the same 20 g as a sale). */
     const val ACTIVITY_G = 20
 
-    enum class End { IDLE, MAX }
+    enum class End { UNTOUCHED, IDLE, MAX }
 
-    /** Pure: should an open restock end now? null = keep waiting for the door to close. */
-    fun shouldEnd(nowMs: Long, unlockedAtMs: Long, lastActivityMs: Long): End? = when {
+    /**
+     * Pure: should an open restock end now? null = keep waiting for the door to close.
+     *
+     * [unlockedAtMs] is when the bolt first released; [lastUnlockSentMs] is when the unlock was last
+     * sent (a repeated "open" press sends it again and restarts the untouched clock). Activity at or
+     * before [lastUnlockSentMs] does not count as someone working.
+     */
+    fun shouldEnd(nowMs: Long, unlockedAtMs: Long, lastActivityMs: Long, lastUnlockSentMs: Long = unlockedAtMs): End? = when {
         nowMs - unlockedAtMs >= MAX_MS -> End.MAX
+        lastActivityMs <= lastUnlockSentMs && nowMs - lastUnlockSentMs >= UNTOUCHED_MS -> End.UNTOUCHED
         nowMs - maxOf(lastActivityMs, unlockedAtMs) >= IDLE_MS -> End.IDLE
         else -> null
     }
