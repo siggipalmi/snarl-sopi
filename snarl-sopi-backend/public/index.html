@@ -1148,14 +1148,6 @@ select.fi{cursor:pointer;}
       <div class="md-tabpanel" data-panel="overview">
         <div class="g4 mb" id="md-stats"></div>
 
-        <div class="panel" id="md-ads-panel" style="margin-bottom:16px">
-          <div class="ph">
-            <div class="ph-title" data-i18n="md.screenPoster">screen poster.</div>
-            <div class="ph-action" onclick="addAdSlot()" data-i18n="md.add">+ add</div>
-          </div>
-          <div id="md-ads" style="padding:14px 18px 16px"></div>
-        </div>
-
         <div class="panel" id="md-attention-panel" style="margin-bottom:16px;display:none">
           <div class="ph"><div class="ph-title" data-i18n="dash.alerts">needs attention.</div><div class="ph-action" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])" data-i18n="common.viewAll">all alerts →</div></div>
           <div id="md-attention" style="padding:0 4px"></div>
@@ -1216,6 +1208,16 @@ select.fi{cursor:pointer;}
         <div class="panel">
           <div class="ph"><div class="ph-title" data-i18n="dash.soldOutRecent">recently sold out.</div><div class="ph-action" style="font-size:11px;color:var(--muted)">30d</div></div>
           <div id="md-sold-out" style="max-height:300px;overflow:auto;padding:0 4px"></div>
+        </div>
+
+        <!-- Last on the overview: the poster is set once and then left alone, while the
+             buttons above it are what a visit to this page is usually for. -->
+        <div class="panel" id="md-ads-panel" style="margin-bottom:16px">
+          <div class="ph">
+            <div class="ph-title" data-i18n="md.screenPoster">screen poster.</div>
+            <div class="ph-action" onclick="addAdSlot()" data-i18n="md.add">+ add</div>
+          </div>
+          <div id="md-ads" style="padding:14px 18px 16px"></div>
         </div>
       </div>
 
@@ -3175,7 +3177,7 @@ function salesTodayCell(m) {
   if (kr === 0) {
     return '<span style="color:var(--muted)">0 kr</span>';
   }
-  return '<span style="font-family:var(--mono);font-size:12px">' + kr.toLocaleString('is-IS') + ' kr</span>';
+  return '<span style="font-family:var(--mono);font-size:12px">' + isk(kr) + ' kr</span>';
 }
 
 async function checkBackend() {
@@ -4171,7 +4173,7 @@ function setRevenuePeriod(days, el) {
   refreshRevenueChart();
 }
 
-function formatKr(n)         { return Math.round(n).toLocaleString('is-IS') + ' kr'; }
+function formatKr(n)         { return isk(n) + ' kr'; }
 function formatKrShort(n)    {
   const v = Math.round(n);
   if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
@@ -4874,7 +4876,7 @@ function machineRowCard(m) {
   let revTxt;
   if (m.isKioskModel === false) revTxt = '<span style="color:var(--muted)">' + rsEsc(t('mch.notApplicable')) + '</span>';
   else if (!m.isOnline) revTxt = '<span style="color:var(--muted)">—</span>';
-  else revTxt = `${(salesTodayKr(m.deviceCode)||0).toLocaleString('is-IS')}<small style="color:var(--muted)"> kr</small>`;
+  else revTxt = `${isk(salesTodayKr(m.deviceCode))}<small style="color:var(--muted)"> kr</small>`;
   const flag = !m.isOnline
     ? '<span style="text-decoration:line-through">' + rsEsc(t('md.connected')) + '</span>' : '';
   return `<div onclick="openMachineDetail('${m.deviceCode}')" style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--cream);border:1px solid var(--line);border-radius:12px;cursor:pointer">
@@ -4967,7 +4969,7 @@ function isShortDate(ms) {
   if (days < 1 && d.getDate() === new Date().getDate()) return 'í dag kl. ' + d.toTimeString().slice(0, 5);
   return IS_DAYS[d.getDay()].slice(0, 3) + '. ' + d.getDate() + '. ' + IS_MONTHS[d.getMonth()].slice(0, 3);
 }
-function kr(n) { return Math.round(n || 0).toLocaleString('is-IS').replace(/,/g, '.') + ' kr'; }
+function kr(n) { return isk(n) + ' kr'; }
 
 let _homeV3 = null;
 function renderHomeV3(home) {
@@ -6269,14 +6271,14 @@ async function renderMachineRecentOrders(code) {
     }
     el.innerHTML = groups.map(g => {
       const items = g.lines.map(l =>
-        `<tr><td style="padding:5px 12px 5px 26px;color:var(--ink)">${isCoil ? `<span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);display:inline-block;min-width:34px">${rsEsc(l.aisle || '—')}</span>` : ''}${rsEsc(l.productName || '(unknown)')}</td><td style="font-family:var(--mono);text-align:right;padding-right:18px">${(l.amountKr||0).toLocaleString('is-IS')} kr</td></tr>`).join('');
+        `<tr><td style="padding:5px 12px 5px 26px;color:var(--ink)">${isCoil ? `<span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);display:inline-block;min-width:34px">${rsEsc(l.aisle || '—')}</span>` : ''}${rsEsc(l.productName || '(unknown)')}</td><td style="font-family:var(--mono);text-align:right;padding-right:18px">${isk(l.amountKr)} kr</td></tr>`).join('');
       const coils = [...new Set(g.lines.map(l => l.aisle).filter(Boolean))].join(', ');
       return `
       <tr style="cursor:pointer" onclick="toggleOrderDetail('md-${g.orderId}')">
         <td class="rcard-head"><span class="tid">▸ ${g.orderId.slice(0,14)}…</span></td>
         <td data-label="items" style="font-family:var(--mono)">${g.units}</td>
         ${isCoil ? `<td data-label="${rsEsc(t('md.th.coil'))}" style="font-family:var(--mono)${coils ? '' : ';color:var(--muted)'}">${rsEsc(coils || '—')}</td>` : ''}
-        <td data-label="amount" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
+        <td data-label="amount" style="font-family:var(--mono)">${isk(g.totalKr)} kr</td>
         <td data-label="status">${pill(g.status===1?'pill-up':g.status===2?'pill-dn':'pill-warn', g.statusLabel)}</td>
         <td data-label="time" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtDateTimeS(g.createTime)}</td>
       </tr>
@@ -8070,7 +8072,7 @@ function txRender() {
           '<td data-label="received" style="font-family:var(--mono);font-size:10.5px">' + rsEsc(x.receivedAt || '—') + '</td>' +
           '<td data-label="skew" style="font-family:var(--mono);font-size:10.5px;color:' + (late ? 'var(--alert)' : 'var(--muted)') + '">' + q + '</td>' +
           '<td data-label="outcome" style="font-size:11.5px">' + rsEsc(x.outcome || '—') + (x.mismatch ? ' <span style="color:var(--alert)">mismatch</span>' : '') + '</td>' +
-          '<td data-label="amount" style="font-family:var(--mono)">' + (x.totalIsk != null ? x.totalIsk.toLocaleString('is-IS') + ' kr' : '—') + '</td>' +
+          '<td data-label="amount" style="font-family:var(--mono)">' + (x.totalIsk != null ? isk(x.totalIsk) + ' kr' : '—') + '</td>' +
         '</tr>';
       }).join('') + '</tbody></table></div>';
   }
@@ -8083,7 +8085,7 @@ function txRender() {
           '<td data-label="product" style="font-size:12px">' + rsEsc(o.productName || '—') + '</td>' +
           '<td data-label="time" style="font-family:var(--mono);font-size:10.5px">' + rsEsc(o.createTime || '—') + '</td>' +
           '<td data-label="status" style="font-size:11.5px">' + rsEsc(o.statusLabel || String(o.status)) + '</td>' +
-          '<td data-label="amount" style="font-family:var(--mono)">' + (o.amountKr != null ? o.amountKr.toLocaleString('is-IS') + ' kr' : '—') + '</td>' +
+          '<td data-label="amount" style="font-family:var(--mono)">' + (o.amountKr != null ? isk(o.amountKr) + ' kr' : '—') + '</td>' +
         '</tr>';
       }).join('') + '</tbody></table></div>';
   }
@@ -9644,20 +9646,20 @@ function renderOrders() {
   if (orderFilter !== 'all') groups = groups.filter(g => g.statusLabel === orderFilter);
 
   const total = groups.filter(g => g.status === 1).reduce((s, g) => s + g.totalKr, 0);
-  document.getElementById('orders-sub').innerHTML = `${rsEsc(tv('ord.summary', { n: groups.length }))} · <span style="color:var(--bronze)">${rsEsc(tv('ord.revenue', { kr: total.toLocaleString('is-IS') }))}</span>`;
+  document.getElementById('orders-sub').innerHTML = `${rsEsc(tv('ord.summary', { n: groups.length }))} · <span style="color:var(--bronze)">${rsEsc(tv('ord.revenue', { kr: isk(total) }))}</span>`;
   document.getElementById('orders-table').innerHTML = groups.slice(0, 100).map(g => {
     const mname = DB.machines[g.deviceCode]?.deviceName || g.deviceCode;
     const items = g.lines.map(l =>
       `<tr>
          <td style="padding:6px 12px 6px 26px;color:var(--ink)">${rsEsc(l.productName || '(unknown)')}</td>
          <td style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${rsEsc(l.goodsId || '')}</td>
-         <td style="font-family:var(--mono);text-align:right;padding-right:18px">${(l.amountKr || 0).toLocaleString('is-IS')} kr</td>
+         <td style="font-family:var(--mono);text-align:right;padding-right:18px">${isk(l.amountKr)} kr</td>
        </tr>`).join('');
     return `
     <tr style="cursor:pointer" onclick="toggleOrderDetail('${g.orderId}')">
       <td class="rcard-head"><span class="tid">▸ ${g.orderId.slice(0,16)}…</span> <span style="color:var(--muted);font-size:10.5px">${g.units} ${g.units===1?t('ord.item'):t('ord.itemsN')}</span></td>
       <td data-label="${rsEsc(t('ord.th.device'))}"><span class="tname" style="font-weight:500">${rsEsc(mname)}</span></td>
-      <td data-label="${rsEsc(t('md.th.amount'))}" style="font-family:var(--mono)">${g.totalKr.toLocaleString('is-IS')} kr</td>
+      <td data-label="${rsEsc(t('md.th.amount'))}" style="font-family:var(--mono)">${isk(g.totalKr)} kr</td>
       <td data-label="${rsEsc(t('ord.th.payment'))}"><span class="pill pill-out">${t('ord.card')}</span></td>
       <td data-label="${rsEsc(t('md.th.status'))}">${pill(g.status===1?'pill-up':g.status===2?'pill-dn':'pill-warn', t('ord.f.' + g.statusLabel))}</td>
       <td data-label="${rsEsc(t('md.th.time'))}" style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${fmtDateTimeS(g.createTime)}</td>
@@ -11030,7 +11032,7 @@ async function acHistory() {
     }).join('') + '</table>';
 }
 
-function blNum(n) { return Math.round(Number(n || 0)).toLocaleString('de-DE'); } // dot thousands
+function blNum(n) { return isk(n); }
 function blKr(n) { return 'kr. ' + blNum(n); }
 function blKt(k) { k = String(k || '').replace(/\D/g, ''); return k.length === 10 ? k.slice(0, 6) + '-' + k.slice(6) : k; }
 // Dates are built here rather than handed to toLocaleDateString. Asking for 'is-IS' produced
@@ -11047,6 +11049,24 @@ function dmy(value) {
   if (isNaN(d)) return '';
   const p = n => String(n).padStart(2, '0');
   return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
+/**
+ * Icelandic thousands: 154808 -> "154.808".
+ *
+ * Built rather than localised, for the same reason the dates are. This browser family has no
+ * Icelandic data at all — Intl.DateTimeFormat.supportedLocalesOf(['is-IS']) is empty and the
+ * locale resolves to en-US — so toLocaleString('is-IS') returned "154,808" with COMMA
+ * thousands, which is an English number on an Icelandic page. The file already carried two
+ * separate workarounds for it: blNum asked for de-DE to get dot thousands, and another helper
+ * ran .replace(/,/g,'.') over the result. This replaces both.
+ *
+ * Amounts in this product are whole krónur, so there is no decimal part to separate.
+ */
+function isk(n) {
+  const v = Math.round(Number(n) || 0);
+  const digits = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (v < 0 ? '-' : '') + digits;
 }
 
 /** dd/mm, for a chart axis or a compact row where the year is obvious from context. */
@@ -11452,7 +11472,7 @@ function dlpvRender() {
   const dots = document.getElementById('dlpv-dots'); if (dots) dots.innerHTML = _dlpvCards.map((_, i) => `<span class="${i === _dlpvIdx ? 'on' : ''}"></span>`).join('');
   const cap = document.getElementById('dlpv-cap'); if (cap) cap.textContent = `${_dlpvIdx + 1} / ${_dlpvCards.length} · ${c.dealName || ''} · rotates every ${_dlpvRot}s`;
 }
-function dlpvKr(n) { return 'kr. ' + Number(n || 0).toLocaleString('is-IS'); }
+function dlpvKr(n) { return 'kr. ' + isk(n); }
 function dlpvThumb(it) { return `<div class="t" style="${it && it.imgUrl ? `background-image:url('${rsEsc(it.imgUrl)}')` : ''}"></div>`; }
 function dlpvImg(it) { return `<div class="dlpv-img" style="${it && it.imgUrl ? `background-image:url('${rsEsc(it.imgUrl)}')` : ''}"></div>`; }
 function dlpvCardHtml(c) {
@@ -12722,8 +12742,8 @@ async function renderStorage(compactResult) {
   const pct = Number.isFinite(v.usedPct) ? v.usedPct : null;
   const barColor = pct == null ? 'var(--muted)' : pct >= 90 ? 'var(--alert)' : pct >= warnPct ? 'var(--bronze)' : 'var(--success, #4A6B2E)';
   const row = (a, b, c) => `<tr><td style="padding:4px 12px 4px 0">${a}</td><td style="padding:4px 12px 4px 0;text-align:right;font-family:var(--mono, monospace)">${b}</td><td style="padding:4px 0;text-align:right;color:var(--muted);font-family:var(--mono, monospace)">${c == null ? '' : c}</td></tr>`;
-  const tables = (r.tables || []).slice(0, 12).map(t => row(rsEsc(t.name), mb(t.bytes), t.rows == null ? '' : t.rows.toLocaleString('is-IS') + ' rows')).join('');
-  const meta = (r.metaPrefixes || []).slice(0, 8).map(m => row(rsEsc(m.prefix), mb(m.bytes), m.n.toLocaleString('is-IS') + ' keys')).join('');
+  const tables = (r.tables || []).slice(0, 12).map(t => row(rsEsc(t.name), mb(t.bytes), t.rows == null ? '' : isk(t.rows) + ' rows')).join('');
+  const meta = (r.metaPrefixes || []).slice(0, 8).map(m => row(rsEsc(m.prefix), mb(m.bytes), isk(m.n) + ' keys')).join('');
   const files = (r.otherFiles || []).slice(0, 8).map(f => row(rsEsc(f.name), mb(f.bytes), '')).join('');
   let note = '';
   if (compactResult) {
