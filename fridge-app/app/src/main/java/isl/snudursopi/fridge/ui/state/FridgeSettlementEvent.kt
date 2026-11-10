@@ -16,8 +16,14 @@ data class FridgeSettlementEvent(
     val closedAtMs: Long,
     val planogram: Planogram,
     val cabinetsOpened: List<String>,
-    /** charged | nothing_taken | pending_offline (contract v5.67 vocabulary). */
+    /** charged | partially_paid | unpaid | nothing_taken | declined | sensor_fault. */
     val outcome: String,
     val nayaxRef: String?,
     val result: Settlement.Result,
+    /** Collected so far, when a charge was attempted ([isl.snudursopi.fridge.domain.PartialPayment]). */
+    val paidIsk: Int? = null,
+    /** False while the customer is still being asked to tap for a remaining balance. */
+    val final: Boolean = true,
+    /** Nayax's reference for every approved charge of this order, in order. */
+    val paymentRefs: List<String> = emptyList(),
 )

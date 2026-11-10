@@ -26,6 +26,7 @@ object StuckSession {
         FridgePhase.SHOPPING,
         FridgePhase.DOOR_OPEN_WARN,
         FridgePhase.CALCULATING,
+        FridgePhase.REMAINDER,          // a tap for the balance may be being charged
     )
 
     fun isStuck(phase: FridgePhase, inPhaseMs: Long): Boolean =

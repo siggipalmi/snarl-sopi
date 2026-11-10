@@ -1,5 +1,31 @@
 [
  {
+  "component": "backend",
+  "version": "6.110.0",
+  "date": "2026-11-10",
+  "title": "Unpaid balances on fridge orders are recorded and alerted.",
+  "notes": [
+   "Fridge 0.70.13 reports how much of a basket it collected. When a customer walks away owing money, the order keeps the shortfall and AG gets a critical alert \"X kr unpaid\" with the order, the amount collected and Nayax's references.",
+   "No alert while the kiosk is still asking for the second tap; only when it gives up.",
+   "Orders from older apps are recorded exactly as before."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.70.13",
+  "versionCode": 179,
+  "date": "2026-11-10",
+  "title": "A basket over the card's limit is charged up to the limit, then asks for another tap.",
+  "notes": [
+   "Until now a basket that cost more than the card allows in one go (8,000 kr on 715) was refused whole: nothing was charged, Nayax showed \"Cancelled by machine\", and the screen said it would be charged later, which never happened.",
+   "Now the app never asks for more than the reader says the card allows. It charges up to that limit at once, then shows \"aðeins X kr. voru gjaldfærðar — vinsamlegast snertu kortið aftur fyrir eftirstöðvunum\" with the amount left. The door stays locked; the next tap pays the rest (repeated if the rest is also over the limit).",
+   "If nobody taps within 60 seconds, the screen returns to idle and the backend gets the order with what was paid and what is owed.",
+   "A refused charge is the same case with nothing paid: \"greiðslan fór ekki í gegn\" and a tap for the full amount. The old \"will be charged when we are back online\" screen is gone.",
+   "No single charge is ever above 32,767 kr, which the reader could not carry."
+  ],
+  "check": "On 715, then 617: take more than 8,000 kr. Expect 8,000 kr charged at once, the remaining-balance screen, and the rest charged on the second tap — two transactions in Nayax Core. Then repeat without the second tap: one 8,000 kr transaction, and an \"unpaid\" alert on the dashboard after a minute."
+ },
+ {
   "component": "fridge",
   "version": "0.70.12",
   "versionCode": 178,

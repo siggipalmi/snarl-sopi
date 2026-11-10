@@ -72,6 +72,9 @@
     <string name="sensor_fault_title">skápurinn er óvirkur</string>
     <string name="sensor_fault_sub">vegna tækniörðugleika opnast hurðin ekki. ekkert var dregið af kortinu.</string>
 
+    <string name="remainder_title">aðeins %1$s kr. voru gjaldfærðar</string>
+    <string name="remainder_none_title">greiðslan fór ekki í gegn</string>
+    <string name="remainder_sub">vinsamlegast snertu kortið aftur fyrir eftirstöðvunum: %1$s kr.</string>
     <string name="pending_offline_title">takk — allt klárt</string>
     <string name="pending_offline_sub">upphæðin er skráð og verður dregin af um leið og samband næst</string>
 

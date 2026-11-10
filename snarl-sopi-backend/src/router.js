@@ -1502,6 +1502,17 @@ function handleFridgeSettlement(req, res) {
 
   const totalMismatch = (b.totalIsk != null && recomputedIsk !== b.totalIsk) ? 1 : 0;
   const anyLineMismatch = lineRows.some(r => r.lineMismatch) ? 1 : 0;
+  // Fridge 0.70.13 pays a basket over the card's limit in several taps and says what it collected.
+  // A shortfall is kept as an anomaly (no schema change); `final: false` means the customer is still
+  // being asked to tap for the rest, and the same order will be posted again when that ends.
+  const paidIsk = Number.isFinite(b.paidIsk) ? Math.round(b.paidIsk) : null;
+  const isFinal = b.final !== false;
+  const anomalyList = Array.isArray(b.anomalies) ? b.anomalies.slice() : [];
+  const unpaidIsk = (paidIsk != null && b.totalIsk != null) ? Math.max(0, Math.round(b.totalIsk) - paidIsk) : 0;
+  if (unpaidIsk > 0) {
+    anomalyList.push({ reason: 'unpaid_balance', paidIsk, unpaidIsk, final: isFinal,
+      paymentRefs: Array.isArray(b.paymentRefs) ? b.paymentRefs.slice(0, 20).map(String) : [] });
+  }
   const settlement = {
     orderId: String(b.orderId), deviceCode,
     startedAt: b.startedAt || null, closedAt: b.closedAt || null,
@@ -1511,7 +1522,7 @@ function handleFridgeSettlement(req, res) {
     recomputedIsk,
     mismatch: (totalMismatch || anyLineMismatch) ? 1 : 0,
     nayaxRef: b.nayaxRef || null,
-    anomalies: JSON.stringify(Array.isArray(b.anomalies) ? b.anomalies : []),
+    anomalies: JSON.stringify(anomalyList),
     receivedAt: Date.now(), updatedAt: Date.now(),
   };
 
@@ -1530,6 +1541,12 @@ function handleFridgeSettlement(req, res) {
   if (!isRepost) {
     try { notifyMisplacedItems(m, settlement); }
     catch (e) { console.error('[FRIDGE] misplaced alert failed:', e && e.message); }
+  }
+  // The customer walked away owing money. Raised on the FINAL report only: the interim one comes
+  // while the kiosk is still asking for another tap. Idempotent per order.
+  if (isFinal && unpaidIsk > 0) {
+    try { notifyUnpaidBalance(m, settlement, paidIsk, unpaidIsk); }
+    catch (e) { console.error('[FRIDGE] unpaid alert failed:', e && e.message); }
   }
   if (settlement.mismatch) {
     console.warn(`[FRIDGE] settlement ${b.orderId} MISMATCH: app total ${settlement.totalIsk} vs recomputed ${recomputedIsk}`);
@@ -1693,6 +1710,23 @@ function notifyMisplacedItems(machine, settlement) {
   if (!storage.getAlert(alertId)) storage.insertAlert({
     id: alertId, type: 'fridge_misplaced_item', severity: 'warning',
     title: `Item in the wrong basket — ${machine.deviceName}`,
+    detail, deviceCode: machine.deviceCode, resolved: false, createdAt: new Date().toISOString(),
+  });
+}
+
+function notifyUnpaidBalance(machine, settlement, paidIsk, unpaidIsk) {
+  const kr = n => Number(n || 0).toLocaleString('is-IS') + ' kr';
+  const refs = (_safeJsonParse(settlement.anomalies, []).find(a => a && a.reason === 'unpaid_balance') || {}).paymentRefs || [];
+  const detail = `${machine.deviceCode} · order ${settlement.orderId}: the basket came to ${kr(settlement.totalIsk)}, ` +
+    `${kr(paidIsk)} was collected${refs.length ? ' (Nayax ' + refs.join(', ') + ')' : ''} and ${kr(unpaidIsk)} is unpaid. ` +
+    (paidIsk > 0
+      ? 'The card allowed less than the basket in one charge, and the customer did not tap again for the rest.'
+      : 'The charge was refused, and the customer did not tap again.');
+  console.warn(`[FRIDGE] UNPAID ${unpaidIsk} kr on ${machine.deviceCode} order ${settlement.orderId} (paid ${paidIsk} of ${settlement.totalIsk})`);
+  const alertId = 'alert_fridge_unpaid_' + machine.deviceCode + '_' + settlement.orderId;
+  if (!storage.getAlert(alertId)) storage.insertAlert({
+    id: alertId, type: 'fridge_unpaid_balance', severity: 'critical',
+    title: `${kr(unpaidIsk)} unpaid — ${machine.deviceName}`,
     detail, deviceCode: machine.deviceCode, resolved: false, createdAt: new Date().toISOString(),
   });
 }

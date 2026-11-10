@@ -159,6 +159,9 @@ class FridgeBackend(
         outcome: String,
         nayaxRef: String?,
         result: Settlement.Result,
+        paidIsk: Int? = null,
+        final: Boolean = true,
+        paymentRefs: List<String> = emptyList(),
     ) {
         val repo = settlements
         val body = runCatching {
@@ -171,6 +174,9 @@ class FridgeBackend(
                 outcome = outcome,
                 nayaxRef = nayaxRef,
                 result = result,
+                paidIsk = paidIsk,
+                final = final,
+                paymentRefs = paymentRefs,
             ).toString()
         }.getOrElse {
             Log.e(TAG, "could not build settlement body for $orderId: ${it.message}")

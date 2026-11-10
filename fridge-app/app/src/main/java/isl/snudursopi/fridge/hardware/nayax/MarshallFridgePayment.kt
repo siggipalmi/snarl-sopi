@@ -56,6 +56,8 @@ class MarshallFridgePayment(
      */
     override fun lastReference(): String? = controller.lastTransactionId
 
+    override fun availableFunds(): Int? = fundsAvail.takeIf { it > 0 }
+
     override fun preAuthorize(orderId: String, onResult: (approved: Boolean) -> Unit) {
         if (!readerReady) {
             // Card arrived before the link finished handshaking. Release the

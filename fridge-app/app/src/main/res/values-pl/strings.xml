@@ -49,6 +49,9 @@
     <string name="sensor_fault_title">urządzenie niedostępne</string>
     <string name="sensor_fault_sub">z powodu usterki nie otwieramy drzwi, aby nie pobrać błędnej kwoty. karta nie została obciążona.</string>
 
+    <string name="remainder_title">pobrano tylko %1$s kr</string>
+    <string name="remainder_none_title">płatność nie powiodła się</string>
+    <string name="remainder_sub">przyłóż kartę ponownie, aby zapłacić pozostałą kwotę: %1$s kr</string>
     <string name="pending_offline_title">dziękujemy — gotowe</string>
     <string name="pending_offline_sub">kwota jest zapisana i zostanie pobrana po przywróceniu połączenia</string>
 
