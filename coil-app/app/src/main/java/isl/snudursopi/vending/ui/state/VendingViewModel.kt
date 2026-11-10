@@ -712,6 +712,7 @@ class VendingViewModel(
                     outOfService = config.outOfService,
                     outOfServiceReason = config.outOfServiceReason,
                     skin = config.skin,
+                    complaintsEntry = config.complaintsEntry,
                     settings = it.settings.copy(
                         operatorName = operatorName,
                         supportEmail = supportEmail,
@@ -837,6 +838,7 @@ class VendingViewModel(
             },
             totalIsk = capturedIsk,
             timestampMs = System.currentTimeMillis(),
+            cardLast4 = sessionCardLast4,
         )
         _state.update {
             it.copy(
@@ -882,6 +884,7 @@ class VendingViewModel(
                 amountIsk = units.sumOf { it.priceIsk },
                 aisle = key.second,
                 aisleCode = aisleBackendCode[key.second],
+                vend = sessionVends.filter { v -> v.aisle == key.second.toString() },
             )
         } ?: snapshot.basket.lines.map { line ->
             val realised = quote?.lines?.firstOrNull { it.goodsId == line.product.id }?.lineTotalIsk
@@ -894,6 +897,8 @@ class VendingViewModel(
             at = isoUtcNow(),
             totalIsk = capturedIsk,
             lines = lines,
+            cardRef = sessionCardRef,
+            cardLast4 = sessionCardLast4,
         )
         viewModelScope.launch { repo.reportOrQueue(payload) }
     }
@@ -967,8 +972,18 @@ class VendingViewModel(
                 if (_state.value.paymentPhase == PaymentPhase.AwaitingCard) {
                     _state.update { it.copy(paymentPhase = PaymentPhase.Dispensing) }
                 }
+                val t0 = System.currentTimeMillis()
                 val res = m.dispenseBlocking(address = 0, slot = item.slot, timeoutMs = 8000)
                 recordDispense(item.slot, res, test = false)
+                sessionVends.add(
+                    isl.snudursopi.vending.data.backend.SaleVend(
+                        slot = item.slot,
+                        aisle = isl.snudursopi.vending.api.SlotCodeTranslator.rawToFriendly(item.slot),
+                        outcome = res.outcome.name,
+                        code = res.resultCode,
+                        ms = System.currentTimeMillis() - t0,
+                    ),
+                )
                 val directPushVend = countsAsDirectPushVend(item.slot, res.resultCode)
                 if (directPushVend) {
                     Log.i(
@@ -993,6 +1008,12 @@ class VendingViewModel(
             pc.onCardDetected = {
                 cardDetectedThisArm = true
                 idleJob?.cancel()
+            }
+            // The card's hashed reference and last four digits, for the sale report and the
+            // "síðustu kaup" line on the contact overlay.
+            pc.onCardInfo = { ref, last4 ->
+                sessionCardRef = ref
+                sessionCardLast4 = last4
             }
             // React to reader up/down: drives the auto-clearing ReaderDown screen.
             pc.onReaderStateChanged = { ready ->
@@ -1247,6 +1268,11 @@ class VendingViewModel(
      *  ever once, on an actual tap) when there's a real card to retry — never
      *  in a no-tap loop, which is what churned the serial bus. */
     @Volatile private var cardDetectedThisArm = false
+    /** The card the reader reported for the current session (hashed reference, last four). */
+    @Volatile private var sessionCardRef: String? = null
+    @Volatile private var sessionCardLast4: String? = null
+    /** Every motor run of the current session, in order: the evidence the sale report carries. */
+    private val sessionVends = java.util.concurrent.CopyOnWriteArrayList<isl.snudursopi.vending.data.backend.SaleVend>()
     /** Monotonic id of the current arm request; a newer request supersedes an
      *  older in-flight one so stale callbacks are ignored. */
     private var armSeq = 0
@@ -1307,6 +1333,9 @@ class VendingViewModel(
             val chargeItems = plan.toItems()
             if (chargeItems.isEmpty()) { return@launch }
             cardDetectedThisArm = false
+            sessionCardRef = null
+            sessionCardLast4 = null
+            sessionVends.clear()
             arming = true
             try {
                 pc.chargeBasket(chargeItems) { result ->
@@ -2503,6 +2532,7 @@ class VendingViewModel(
                             outOfService = config.outOfService,
                             outOfServiceReason = config.outOfServiceReason,
                             skin = config.skin,
+                            complaintsEntry = config.complaintsEntry,
                             settings = it.settings.copy(
                                 featured = config.featured,
                                 operatorName = opName,
@@ -2577,6 +2607,7 @@ class VendingViewModel(
         val idleGuardThreads: Int = 1,
         val idleGuardUs: Int = 500,
         val skin: SkinId = SkinId.Classic,
+        val complaintsEntry: String = "contact",
     ) {
         companion object {
             val EMPTY = ConfigResult(emptyList(), emptyList(), emptyMap(), null)
@@ -2663,6 +2694,7 @@ class VendingViewModel(
                         idleGuardThreads = result.idleGuardThreads,
                         idleGuardUs = result.idleGuardUs,
                         skin = result.skin,
+                        complaintsEntry = result.complaintsEntry,
                     )
                     lastConfig = cfg  // remember for the next 304
                     cfg
@@ -2949,6 +2981,8 @@ data class VendingState(
     val outOfServiceReason: String? = null,
     /** Which look the screens draw (config.skin, AG-set per operator or machine). */
     val skin: SkinId = SkinId.Classic,
+    /** Where the complaint form can be reached: "success", "contact" (default) or "off". */
+    val complaintsEntry: String = "contact",
     val language: Language = Language.Icelandic,
     val currentTime: String = "—:—",
     val isEvening: Boolean = false,
@@ -3033,6 +3067,8 @@ data class CompletedTransaction(
     val items: List<CompletedTransactionItem>,
     val totalIsk: Int,
     val timestampMs: Long,
+    /** Last four digits of the card, as the reader reported them; null if it did not. */
+    val cardLast4: String? = null,
 )
 
 data class CompletedTransactionItem(

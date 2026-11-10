@@ -6782,6 +6782,15 @@ async function saveIdleGuard(code) {
   } catch (e) { showToast('error: ' + e.message); }
 }
 
+async function saveComplaintsEntry(code) {
+  const v = document.getElementById('ce-sel').value;
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/settings', { complaintsEntry: v || null });
+    if (r && r.ok) { showToast(v ? 'Complaints: ' + v : "Complaints follow the operator's choice"); if (DB.machines[code]) DB.machines[code].settings = Object.assign({}, DB.machines[code].settings, { complaintsEntry: v || null }); }
+    else showToast((r && r.error) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+
 async function saveSkin(code) {
   const v = document.getElementById('skin-sel').value;
   try {
@@ -6910,6 +6919,19 @@ function renderMachineControls(code) {
         <button class="btn btn-sm" onclick="saveSkin('${code}')">save</button>
       </div>
       <div style="margin-top:7px;font-size:11px;color:var(--muted)">Which look this kiosk draws (coil 0.80.22+, fridge 0.70.10+). Classic is the cream look the fleet has run so far; Franklin is the 2026 redesign. The machine applies it within two minutes, no restart. Set it here on one machine first; the operator's default is in the operator's settings.</div>
+    </div>` : ''}
+    ${currentUser?.role === 'ag_admin' && !/^GR-/.test(code) ? `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;margin-bottom:8px">COMPLAINTS · AG</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <select id="ce-sel" class="fi" style="width:auto">
+          <option value="" ${!(m.settings && m.settings.complaintsEntry) ? 'selected' : ''}>operator's choice</option>
+          <option value="success" ${m.settings && m.settings.complaintsEntry === 'success' ? 'selected' : ''}>thank-you screen</option>
+          <option value="contact" ${m.settings && m.settings.complaintsEntry === 'contact' ? 'selected' : ''}>contact overlay only</option>
+          <option value="off" ${m.settings && m.settings.complaintsEntry === 'off' ? 'selected' : ''}>off</option>
+        </select>
+        <button class="btn btn-sm" onclick="saveComplaintsEntry('${code}')">save</button>
+      </div>
+      <div style="margin-top:7px;font-size:11px;color:var(--muted)">Overrides the operator's setting for this machine (coil 0.80.25+). Applies within two minutes.</div>
     </div>` : ''}
     <div style="display:none">
     </div>
@@ -10269,7 +10291,7 @@ function renderComplaintsTable(list) {
     return;
   }
   const statusPill = s => {
-    const map = { open:'pill-dn', replied:'pill-bz', refunded:'pill-out', resolved:'pill-up', dismissed:'pill-out' };
+    const map = { open:'pill-dn', replied:'pill-bz', refunded:'pill-out', resolved:'pill-up', dismissed:'pill-out', refused:'pill-out' };
     return pill(map[s] || 'pill-out', s);
   };
   document.getElementById('complaints-table').innerHTML = list.map(c => `
@@ -10278,7 +10300,7 @@ function renderComplaintsTable(list) {
       <td data-label="received" style="font-family:var(--mono);font-size:11px;color:var(--muted)">${timeAgo(c.createdAt)}</td>
       <td data-label="customer" style="font-family:var(--mono);font-size:11px">${rsEsc(c.customerEmail)}</td>
       <td data-label="items" style="font-size:12px">${c.items.length} item${c.items.length===1?'':'s'}${c.note ? ' · <span style="color:var(--muted);font-style:italic">has note</span>' : ''}</td>
-      <td data-label="amount" style="font-family:var(--mono);font-size:12px">${c.totalIsk} kr</td>
+      <td data-label="amount" style="font-family:var(--mono);font-size:12px">${c.totalIsk} kr${c.evidenceDelivered === true ? ' <span class="pill pill-up" style="font-size:9px" title="the board reported every motor run completed">delivered</span>' : c.evidenceDelivered === false ? ' <span class="pill pill-warn" style="font-size:9px">motor fault</span>' : ''}${c.cardComplaints30d > 1 ? ' <span class="pill pill-warn" style="font-size:9px" title="complaints from this card in 30 days">card ×' + c.cardComplaints30d + '</span>' : ''}</td>
       <td data-label="status">${statusPill(c.status)}${!c.repliedAt && c.status==='open' ? ' <span class="pill pill-warn" style="font-size:9px">no reply yet</span>' : ''}</td>
       <td><span class="pill pill-out">view →</span></td>
     </tr>
@@ -10318,6 +10340,8 @@ function showComplaintModal(c) {
 
     ${c.note ? `<div style="background:var(--cream-deep);padding:12px 14px;border-radius:var(--rsm);margin-bottom:14px;font-size:13px;font-style:italic">"${rsEsc(c.note)}"</div>` : ''}
 
+    ${complaintEvidenceHtml(c)}
+
     <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12px;color:var(--muted);margin-bottom:16px">
       <div>Customer</div><div style="color:var(--ink);font-family:var(--mono);font-size:11px">${rsEsc(c.customerEmail)}</div>
       <div>Submitted</div><div style="color:var(--ink);font-family:var(--mono);font-size:11px">${dmy(c.timestampMs)} ${hm(c.timestampMs)}</div>
@@ -10333,12 +10357,53 @@ function showComplaintModal(c) {
 
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       ${c.repliedAt ? '' : `<button class="btn btn-full" onclick="sendComplaintReply('${c.id}')"><span>send reply</span><span>→</span></button>`}
+      ${c.status !== 'refunded' && c.status !== 'refused' ? `<button class="btn btn-ghost btn-sm" style="color:var(--alert);border-color:var(--alert)" onclick="refuseComplaint('${c.id}')">refuse · machine recorded delivery</button>` : ''}
       <button class="btn btn-ghost btn-sm" ${refundDisabled} onclick="refundComplaint('${c.id}', ${c.totalIsk})">${refundLabel}</button>
       <button class="btn btn-ghost btn-sm" onclick="setComplaintStatus('${c.id}', 'dismissed')">dismiss</button>
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-user')">close</button>
     </div>
   </div>`;
   modal.classList.add('show');
+}
+
+// What the machine recorded for the sale, the card's other claims and the machine's rate.
+function complaintEvidenceHtml(c) {
+  const lbl = t => `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${t}</div>`;
+  const hex = v => v == null ? '—' : '0x' + Number(v).toString(16).padStart(2, '0');
+  let ev = '';
+  if (Array.isArray(c.evidence) && c.evidence.length) {
+    const rows = c.evidence.map(l => {
+      const runs = (l.vend || []);
+      const result = runs.length
+        ? runs.map(v => `<span class="pill ${v.outcome === 'VENDED' ? 'pill-up' : 'pill-warn'}" style="font-size:9.5px">${rsEsc(v.outcome || '?')} ${hex(v.code)}${v.ms != null ? ' · ' + (v.ms / 1000).toFixed(1) + ' s' : ''}</span>`).join(' ')
+        : '<span style="color:var(--muted)">no motor record</span>';
+      return `<tr><td style="padding:4px 0;font-size:12.5px">${rsEsc(l.productName || l.goodsId || '')}</td><td style="padding:4px 8px;font-family:var(--mono);font-size:11px">${rsEsc(l.aisle || '—')}</td><td style="padding:4px 8px;font-size:11px">× ${l.qty || 1}</td><td style="padding:4px 0">${result}</td></tr>`;
+    }).join('');
+    const verdict = c.evidenceDelivered === true ? '<span class="pill pill-up">the board reported every motor run completed</span>'
+      : c.evidenceDelivered === false ? '<span class="pill pill-warn">a motor run did not complete — the claim is plausible</span>'
+      : '<span class="pill pill-out">no motor record for this sale</span>';
+    ev = `<div style="margin-bottom:14px">${lbl('what the machine recorded for this sale')}<table style="width:100%"><tbody>${rows}</tbody></table><div style="margin-top:6px">${verdict}</div></div>`;
+  } else {
+    ev = `<div style="margin-bottom:14px">${lbl('what the machine recorded for this sale')}<div style="font-size:12px;color:var(--muted)">No sale record with motor results — the machine ran an app older than coil 0.80.25 when it sold this, or the sale report has not arrived yet.</div></div>`;
+  }
+  const h = Array.isArray(c.cardHistory) ? c.cardHistory : [];
+  const card = c.cardRef ? `<div style="margin-bottom:14px">${lbl('this card')}
+      <div style="font-size:12.5px">kort ••${rsEsc(c.cardLast4 || '????')} ${h.length ? `<span class="pill ${h.length >= 2 ? 'pill-warn' : 'pill-out'}">${h.length + 1} complaint${h.length ? 's' : ''} in 30 days · ${c.cardRefunded30d || 0} refunded</span>` : '<span class="pill pill-out">first complaint from this card in 30 days</span>'}</div>
+      ${h.length ? `<div style="font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.5">${h.map(o => `${dmy(o.timestampMs)} · ${rsEsc(o.machineName)} · ${o.status === 'refunded' ? 'refunded ' + (o.refundedAmount || o.totalIsk) + ' kr' : rsEsc(o.status)}`).join('<br>')}</div>` : ''}
+    </div>` : `<div style="margin-bottom:14px">${lbl('this card')}<div style="font-size:12px;color:var(--muted)">No card reference on this sale.</div></div>`;
+  const ms = c.machineStats || {};
+  const rate = ms.sales30d ? (100 * (ms.complaints30d || 0) / ms.sales30d).toFixed(1) + '%' : '—';
+  const mach = `<div style="margin-bottom:16px">${lbl('this machine')}<div style="font-size:12.5px">${ms.complaints30d ?? 0} complaint${ms.complaints30d === 1 ? '' : 's'} / ${ms.sales30d ?? 0} sales in 30 days <span class="pill pill-out">${rate}</span></div></div>`;
+  return ev + card + mach;
+}
+
+async function refuseComplaint(complaintId) {
+  if (!confirm('Refuse this complaint? The customer gets the standard reply (Icelandic and English) saying the machine recorded the dispense, and the complaint closes as refused.')) return;
+  try {
+    const r = await API.post('/api/v1/complaints/' + complaintId + '/refuse', {});
+    if (r && r.ok) { showToast('Refused — reply sent'); closeModal('modal-user'); renderComplaints(); }
+    else showToast(r?.error || 'Failed');
+  } catch (e) { showToast('Error: ' + e.message); }
 }
 
 async function sendComplaintReply(complaintId) {
@@ -11593,6 +11658,13 @@ function operatorFormHtml(mode, op) {
       <div class="field"><div class="fl">attract timeout <span style="color:var(--muted);font-weight:400">· seconds of inactivity before the attract loop · 10–120</span></div><input class="fi" id="op-idle-attract" type="number" min="10" max="120" step="1" value="${(op.idleConfig && op.idleConfig.attractTimeoutSeconds) || 30}"></div>
       ${currentUser?.role === 'ag_admin' ? `<div class="field"><div class="fl">skin <span style="color:var(--muted);font-weight:400">· AG · the look every machine of this operator draws unless a machine overrides it</span></div>
         <select class="fi" id="op-skin"><option value="classic" ${(op.skin || 'classic') === 'classic' ? 'selected' : ''}>Classic</option><option value="franklin" ${op.skin === 'franklin' ? 'selected' : ''}>Franklin</option></select></div>` : ''}
+      <div class="field"><div class="fl">complaints on coil machines <span style="color:var(--muted);font-weight:400">· where a customer reaches the form · coil 0.80.25+</span></div>
+        <div style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;margin-top:4px">
+          <label><input type="radio" name="op-ce" value="success" ${op.complaintsEntry === 'success' ? 'checked' : ''}> on the thank-you screen <span style="color:var(--muted)">· as before</span></label>
+          <label><input type="radio" name="op-ce" value="contact" ${(op.complaintsEntry || 'contact') === 'contact' ? 'checked' : ''}> contact overlay only <span style="color:var(--muted)">· 10 min after a sale · default</span></label>
+          <label><input type="radio" name="op-ce" value="off" ${op.complaintsEntry === 'off' ? 'checked' : ''}> off <span style="color:var(--muted)">· customers see the contact email only</span></label>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px">Fridges are not affected: every item is weighed and shown, and the form stays on the receipt.</div></div>
     </div>` : ''}
     ${mode === 'edit' ? `
     <div style="border-top:.5px solid var(--line);margin:14px 0 10px;padding-top:12px">
@@ -11661,6 +11733,8 @@ function operatorBody() {
   if (att && att.value !== '') body.idleAttractTimeoutSeconds = Number(att.value);
   const sk = document.getElementById('op-skin');
   if (sk) body.skin = sk.value;
+  const ce = document.querySelector('input[name="op-ce"]:checked');
+  if (ce) body.complaintsEntry = ce.value;
   return body;
 }
 

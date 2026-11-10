@@ -66,7 +66,8 @@ fun SuccessScreen(
     connectionState: ConnectionState,
     language: Language,
     onAutoReturn: () -> Unit,
-    onComplain: () -> Unit,
+    /** Null when the operator has moved the complaint entry off this screen (complaintsEntry). */
+    onComplain: (() -> Unit)?,
     onClockLongPress: () -> Unit = {},
 ) {
     LaunchedEffect(Unit) {
@@ -117,7 +118,7 @@ fun SuccessScreen(
             // Suppress the complaint entry if for some reason we don't have a
             // transaction record (shouldn't happen in practice, but the screen
             // shouldn't blow up if it does).
-            if (transaction != null && transaction.items.isNotEmpty()) {
+            if (transaction != null && transaction.items.isNotEmpty() && onComplain != null) {
                 Spacer(Modifier.height(36.dp))
                 ComplaintEntry(language = language, onClick = onComplain)
             }

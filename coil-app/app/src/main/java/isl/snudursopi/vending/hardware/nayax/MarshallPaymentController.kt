@@ -78,6 +78,13 @@ class MarshallPaymentController(
      *  no-card-tap, so it never re-arms (and churns the bus) on a phantom
      *  decline. */
     var onCardDetected: (() -> Unit)? = null
+    /**
+     * The card's identity for this session, as the reader reports it in the transaction info:
+     * a stable reference (SHA-256 of the reader's own card_bin_hash and the last four digits,
+     * never the PAN) and the last four digits for the customer to recognise the sale. Null when
+     * the reader sent neither. Used to count complaints per card on the dashboard.
+     */
+    var onCardInfo: ((cardRef: String?, last4: String?) -> Unit)? = null
 
     fun connect(onReady: () -> Unit = {}) {
         if (state != State.IDLE && state != State.ERROR) {
@@ -161,6 +168,10 @@ class MarshallPaymentController(
                 }
                 override fun onTransactionInfo(data: vmc_vend_t.vend_session_data_t?) {
                     emit("transaction info received")
+                    val binHash = data?.card_bin_hash?.trim().orEmpty()
+                    val last4 = data?.cc_last_4_digits?.trim()?.takeIf { it.isNotEmpty() }
+                    val ref = if (binHash.isEmpty() && last4 == null) null else sha256Hex("$binHash:${last4 ?: ""}")
+                    onCardInfo?.invoke(ref, last4)
                 }
                 override fun onVendApproved(session: vmc_vend_t.vend_session_t?): Boolean {
                     // BASKET path (price-not-final, single session). Follow
@@ -498,3 +509,7 @@ internal fun bytesText(b: ByteArray?): String? {
     val printable = trimmed.all { it in 0x20..0x7e }
     return if (printable) String(trimmed, Charsets.US_ASCII) else trimmed.joinToString("") { "%02x".format(it) }
 }
+
+private fun sha256Hex(input: String): String =
+    java.security.MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }

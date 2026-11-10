@@ -37,7 +37,7 @@ const {
   buildConfigResponse, machineClosure, touchConfig, fridgeSpec, machineFridgeSpec, weightLineIsk, isSoldByWeight, BY_WEIGHT_MIN_G, BASKETS_PER_CABINET_OPTIONS, DEFAULT_LED, operatorAds, setOperatorAds, receiptsOffered,
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
-  invitations, createInvitation, getInvitation, consumeInvitation, resolveSkin, operatorSkin, SKINS } = require('./db');
+  invitations, createInvitation, getInvitation, consumeInvitation, resolveSkin, operatorSkin, SKINS, resolveComplaintsEntry, operatorComplaintsEntry, COMPLAINT_ENTRIES } = require('./db');
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
 const twoFactor = require('./twoFactor');
@@ -253,6 +253,7 @@ const routes = [
   { method:'POST', pattern:'/api/v1/complaints/:complaintId/reply',          handler: handleReplyComplaint, middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/complaints/:complaintId/refund',         handler: handleRefundComplaint, middleware:[requireAuth] },
   { method:'POST', pattern:'/api/v1/complaints/:complaintId/status',         handler: handleSetComplaintStatus, middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/complaints/:complaintId/refuse',         handler: handleRefuseComplaint, middleware:[requireAuth] },
 
   // ── Operator dashboard — machines ─────────────────────────────────────────
   { method:'GET',  pattern:'/api/v1/machines',                               handler: handleListMachines, middleware:[requireAuth] },
@@ -1413,6 +1414,18 @@ function saleQty(v) {
 // (b) is expanded into one canonical record per line, with a stable per-line
 // tradeNo derived from saleId so re-sends stay idempotent. Envelope sales are
 // completed payments → status 1.
+/** The board's answers for one line's motor runs, as the kiosk sent them, bounded and typed. */
+function saleVendEvidence(v) {
+  if (!Array.isArray(v)) return [];
+  return v.slice(0, 12).map(x => x && typeof x === 'object' ? {
+    slot: Number.isFinite(Number(x.slot)) ? Number(x.slot) : null,
+    aisle: typeof x.aisle === 'string' ? x.aisle.slice(0, 8) : null,
+    outcome: typeof x.outcome === 'string' ? x.outcome.slice(0, 24) : null,
+    code: Number.isFinite(Number(x.code)) ? Number(x.code) : null,
+    ms: Number.isFinite(Number(x.ms)) ? Math.round(Number(x.ms)) : null,
+  } : null).filter(Boolean);
+}
+
 function normalizeSaleRecords(raw) {
   const out = [];
   for (const r of (raw || [])) {
@@ -1435,6 +1448,9 @@ function normalizeSaleRecords(raw) {
           productName: ln.name || ln.productName || '',
           amountKr, qty, timestamp: ts, status: 1,
           aisle: ln.aisle, aisleCode: ln.aisleCode,
+          vend: saleVendEvidence(ln.vend),
+          cardRef: typeof r.cardRef === 'string' && /^[0-9a-f]{16,64}$/i.test(r.cardRef) ? r.cardRef.toLowerCase() : null,
+          cardLast4: typeof r.cardLast4 === 'string' && /^\d{4}$/.test(r.cardLast4) ? r.cardLast4 : null,
         });
       });
       continue;
@@ -2051,6 +2067,9 @@ function handleSalesIngest(req, res) {
       // Units on this line: amountKr is the LINE total, so two Pepsi Max read as one at 1180 kr
       // until this was kept (Lava Show, 2026-11-02).
       quantity:   saleQty(r.qty),
+      cardRef:    r.cardRef || null,
+      cardLast4:  r.cardLast4 || null,
+      vendJson:   Array.isArray(r.vend) && r.vend.length ? JSON.stringify(r.vend) : null,
     });
     accepted.push(r.tradeNo);
 
@@ -2112,6 +2131,45 @@ function handleSalesIngest(req, res) {
  * Kiosk reports a customer complaint about items that didn't vend.
  * See api-contract-addendum-complaints.md for full spec.
  */
+/** The sale's lines with their motor results, and the card reference, from the order rows. */
+function saleEvidenceFor(tradeNo) {
+  const rows = storage.ordersForSale(tradeNo) || [];
+  if (!rows.length) return { cardRef: null, cardLast4: null, evidence: null };
+  const evidence = rows.map(r => {
+    let vend = []; try { vend = r.vendJson ? JSON.parse(r.vendJson) : []; } catch (e) {}
+    return { tradeNo: r.tradeNo, goodsId: r.goodsId, productName: r.productName, aisle: r.aisle || null,
+      qty: r.quantity || 1, amountKr: r.amountKr, vend };
+  });
+  return { cardRef: rows[0].cardRef || null, cardLast4: rows[0].cardLast4 || null, evidence };
+}
+
+/** All the evidence lines say the motor completed — the board's word that the item was delivered. */
+function evidenceSaysDelivered(evidence) {
+  if (!Array.isArray(evidence) || !evidence.length) return null;
+  const runs = evidence.flatMap(l => l.vend || []);
+  if (!runs.length) return null;
+  return runs.every(v => v.outcome === 'VENDED');
+}
+
+const COMPLAINT_WINDOW_MS = 30 * 24 * 3600 * 1000;
+/** What the dashboard shows beside a complaint: evidence, the card's other claims, the machine's rate. */
+function complaintContext(c) {
+  const since = Date.now() - COMPLAINT_WINDOW_MS;
+  const history = storage.complaintsByCardSince(c.cardRef, c.operatorId, since)
+    .filter(o => o.id !== c.id)
+    .map(o => ({ id: o.id, deviceCode: o.deviceCode, machineName: machines[o.deviceCode]?.deviceName || o.deviceCode,
+      timestampMs: o.timestampMs, status: o.status, refundedAmount: o.refundedAmount || null, totalIsk: o.totalIsk }));
+  return {
+    evidenceDelivered: evidenceSaysDelivered(c.evidence),
+    cardHistory: history,
+    cardRefunded30d: history.filter(o => o.status === 'refunded' || o.refundedAmount).length,
+    machineStats: {
+      complaints30d: storage.countComplaintsForMachineSince(c.deviceCode, since),
+      sales30d: storage.countSalesForMachineSince(c.deviceCode, since),
+    },
+  };
+}
+
 async function handleComplaintIngest(req, res) {
   const { deviceCode } = req.params;
   const m = machines[deviceCode];
@@ -2158,6 +2216,9 @@ async function handleComplaintIngest(req, res) {
     kioskOsLocale:   c.kioskOsLocale   || null,
     timestampMs:     c.timestampMs,
     createdAt,
+    // What the machine recorded for this sale, kept with the claim so the operator decides on
+    // evidence: every motor run per line, and the card's hashed reference for repeat counting.
+    ...saleEvidenceFor(c.tradeNo),
   };
   storage.insertComplaint(complaint);
 
@@ -2394,10 +2455,13 @@ function handleListComplaints(req, res) {
   if (status)     list = list.filter(c => c.status === status);
   if (deviceCode) list = list.filter(c => c.deviceCode === deviceCode);
   // Enrich with machine + operator names for the dashboard
+  const since = Date.now() - COMPLAINT_WINDOW_MS;
   const enriched = list.map(c => ({
     ...c,
     machineName:  machines[c.deviceCode]?.deviceName || c.deviceCode,
     operatorName: operators[c.operatorId]?.name || c.operatorId,
+    evidenceDelivered: evidenceSaysDelivered(c.evidence),
+    cardComplaints30d: c.cardRef ? storage.complaintsByCardSince(c.cardRef, c.operatorId, since).length : null,
   }));
   ok(res, enriched, { total: enriched.length });
 }
@@ -2412,7 +2476,46 @@ function handleGetComplaint(req, res) {
     ...c,
     machineName:  machines[c.deviceCode]?.deviceName || c.deviceCode,
     operatorName: operators[c.operatorId]?.name || c.operatorId,
+    ...complaintContext(c),
   });
+}
+
+// Refuse: the machine recorded delivery. One tap sends the standard reply (Icelandic and English)
+// and closes the complaint as 'refused'. Allowed whatever the evidence says — the operator may
+// know more — but the reply names the evidence, so only use it when it is there.
+const REFUSAL_REPLY =
+  'Við fórum yfir kvörtunina. Skráning vélarinnar sýnir að mótorinn keyrði og lauk afgreiðslu á vörunni sem um ræðir, ' +
+  'og birgðatalning hólfsins lækkaði í samræmi við það. Því getum við ekki endurgreitt kaupin. ' +
+  'Hafi varan setið föst eða skemmst, svaraðu þessum pósti með mynd og við skoðum málið aftur.\n\n' +
+  'We reviewed your report. The machine\'s own record shows the motor ran and completed the dispense for the item in question, ' +
+  'and the slot\'s stock count went down accordingly, so we cannot refund the purchase. ' +
+  'If the item was stuck or damaged, reply to this email with a photo and we will look again.';
+
+async function handleRefuseComplaint(req, res) {
+  const c = storage.getComplaint(req.params.complaintId);
+  if (!c) return notFound(res, 'Complaint not found');
+  if (req.user.role !== 'ag_admin' && c.operatorId !== req.user.operatorId) {
+    return json(res, 403, { error: 'Forbidden' });
+  }
+  if (c.status === 'refunded') return badRequest(res, 'This complaint was refunded; it cannot be refused now.');
+  const op      = operators[c.operatorId];
+  const machine = machines[c.deviceCode];
+  try {
+    await email.sendComplaintReplyToCustomer({
+      to: c.customerEmail,
+      operatorName: op?.name || 'Snarl & Sopi',
+      machineName: machine?.deviceName || c.deviceCode,
+      replyText: REFUSAL_REPLY,
+      refundedAmount: null,
+    });
+  } catch (err) {
+    console.error('[COMPLAINT] refusal email failed:', err.message);
+    return json(res, 424, { ok: false, error: 'Failed to send the refusal email', detail: err.message });
+  }
+  storage.markComplaintReplied(c.id, REFUSAL_REPLY, req.user.name);
+  storage.markComplaintStatus(c.id, 'refused');
+  console.log(`[COMPLAINT] ${c.id} refused by ${req.user.name} (evidence delivered=${evidenceSaysDelivered(c.evidence)})`);
+  ok(res, { ...storage.getComplaint(c.id), ...complaintContext(c) });
 }
 
 async function handleReplyComplaint(req, res) {
@@ -2470,7 +2573,7 @@ function handleSetComplaintStatus(req, res) {
     return json(res, 403, { error: 'Forbidden' });
   }
   const { status } = req.body || {};
-  const valid = ['open', 'replied', 'refunded', 'resolved', 'dismissed'];
+  const valid = ['open', 'replied', 'refunded', 'resolved', 'dismissed', 'refused'];
   if (!valid.includes(status)) return badRequest(res, `status must be one of: ${valid.join(', ')}`);
   storage.markComplaintStatus(c.id, status);
   ok(res, storage.getComplaint(c.id));
@@ -5492,7 +5595,7 @@ function handleUpdateSettings(req, res) {
   if (!valid) return badRequest(res, 'Validation failed', errors);
   const allowed = ['showAdRegion','showLeftHero','showRightHero','showIdleScreen','idleTimeoutSeconds','defaultLanguage','availableLanguages','hasHeatedGlass','heatedGlassDefaultOn','hasLedStrips','motorSerialPort','controlBoardAddress',
                    'tempReporting','tempMaxC','tempDwellMin','paymentSerialPort','led','basketsPerCabinet',
-                   'idleGuard','idleGuardThreads','idleGuardUs','skin'];
+                   'idleGuard','idleGuardThreads','idleGuardUs','skin','complaintsEntry'];
   // Refuse a payment port that collides with this machine's bus — same reasoning as the
   // set_payment_port command guard: a second reader on the bus corrupts both at once.
   // Hardware wiring is AG-only, on the same reasoning as the set_payment_port command: these three
@@ -5513,6 +5616,12 @@ function handleUpdateSettings(req, res) {
   // The skin (which look the kiosk draws) is AG-only on both levels, like the idle guard: it is
   // the rollout switch for the redesign, canaried one machine at a time. Empty means "the
   // operator's choice".
+  // Where the complaint form is reached on this kiosk; empty means "the operator's choice".
+  if (req.body.complaintsEntry !== undefined) {
+    const v = (req.body.complaintsEntry === null || req.body.complaintsEntry === '' || req.body.complaintsEntry === 'inherit') ? null : String(req.body.complaintsEntry).trim().toLowerCase();
+    if (v !== null && !COMPLAINT_ENTRIES.includes(v)) return badRequest(res, `complaintsEntry must be one of ${COMPLAINT_ENTRIES.join(', ')} or empty`);
+    req.body.complaintsEntry = v;
+  }
   if (req.body.skin !== undefined) {
     if (req.user?.role !== 'ag_admin') return json(res, 403, { ok: false, error: 'Forbidden \u2014 the skin is an AG Vending admin setting.' });
     const v = (req.body.skin === null || req.body.skin === '' || req.body.skin === 'inherit') ? null : String(req.body.skin).trim().toLowerCase();
@@ -6722,7 +6831,7 @@ function handleListOperators(req, res) {
     machineCount: Object.values(machines).filter(m => m.operatorId === o.id).length,
     userCount:    users.filter(u => u.operatorId === o.id).length,
   }));
-  ok(res, list.map(o => ({ ...o, skin: operatorSkin(o.id) })), { total: list.length });
+  ok(res, list.map(o => ({ ...o, skin: operatorSkin(o.id), complaintsEntry: operatorComplaintsEntry(o.id) })), { total: list.length });
 }
 
 function handleGetOperator(req, res) {
@@ -6730,7 +6839,7 @@ function handleGetOperator(req, res) {
   if (!op) return notFound(res, 'Operator not found');
   const opMachines = Object.values(machines).filter(m => m.operatorId === op.id);
   const opUsers    = users.filter(u => u.operatorId === op.id).map(publicUser);
-  ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id), skin: operatorSkin(op.id), machines: opMachines.map(machineSummary), users: opUsers });
+  ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id), skin: operatorSkin(op.id), complaintsEntry: operatorComplaintsEntry(op.id), machines: opMachines.map(machineSummary), users: opUsers });
 }
 
 // Upload a base64 image to R2 and return its public URL (used for operator logos).
@@ -7877,6 +7986,12 @@ async function handleUpdateOperator(req, res) {
     if (!SKINS.includes(v)) return badRequest(res, `skin must be one of ${SKINS.join(', ')}`);
     storage.setMeta('skin:' + op.id, v);
   }
+  // Where the complaint form is reached on this operator's coil kiosks (a machine may override).
+  if (req.body.complaintsEntry !== undefined) {
+    const v = String(req.body.complaintsEntry || 'contact').trim().toLowerCase();
+    if (!COMPLAINT_ENTRIES.includes(v)) return badRequest(res, `complaintsEntry must be one of ${COMPLAINT_ENTRIES.join(', ')}`);
+    storage.setMeta('complaintsEntry:' + op.id, v);
+  }
   if (req.body.logoBase64) {
     try { op.logoUrl = await uploadBase64Image(req.body.logoBase64, req.body.logoType, `operators/${op.id}`); }
     catch (e) { return json(res, 424, { error: 'logo upload failed: ' + e.message }); }
@@ -7884,7 +7999,7 @@ async function handleUpdateOperator(req, res) {
   storage.upsertOperator(op);
   // Name, contact and logo all reach the fridges (info screen, receipts).
   touchOperatorMachines(op.id);
-  ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id), skin: operatorSkin(op.id) });
+  ok(res, { ...op, idleConfig: storage.operatorIdleConfig(op.id), skin: operatorSkin(op.id), complaintsEntry: operatorComplaintsEntry(op.id) });
 }
 
 async function handleCreateOperator(req, res) {

@@ -608,6 +608,10 @@ function buildConfigResponse(machine) {
     // in the dashboard; the app applies it at its next config poll, no restart (coil 0.80.22+).
     skin: resolveSkin(machine).skin,
     skinSource: resolveSkin(machine).source,
+    // Where a customer reaches the complaint form on a coil kiosk (6.111.0 / coil 0.80.25):
+    // 'success' (the old entry on the thank-you screen), 'contact' (through "hafðu samband" for
+    // ten minutes after a sale; the default) or 'off'. Machine setting, else operator, else contact.
+    complaintsEntry: resolveComplaintsEntry(machine),
     deals: storage.activeDealsForMachine(machine.deviceCode) || [],
     idle: storage.resolveIdleForMachine(machine.deviceCode) || { rotationSeconds: 6, attractTimeoutSeconds: 30, cards: [] },
     offers: storage.offersForMachine(machine.deviceCode) || [],
@@ -733,6 +737,18 @@ function resolveSkin(machine) {
   if (SKINS.includes(op)) return { skin: op, source: 'operator' };
   return { skin: 'classic', source: 'default' };
 }
+const COMPLAINT_ENTRIES = ['success', 'contact', 'off'];
+function resolveComplaintsEntry(machine) {
+  const own = machine && machine.settings && machine.settings.complaintsEntry;
+  if (COMPLAINT_ENTRIES.includes(own)) return own;
+  const op = machine && machine.operatorId ? storage.getMeta('complaintsEntry:' + machine.operatorId) : null;
+  if (COMPLAINT_ENTRIES.includes(op)) return op;
+  return 'contact';
+}
+function operatorComplaintsEntry(operatorId) {
+  const v = storage.getMeta('complaintsEntry:' + operatorId);
+  return COMPLAINT_ENTRIES.includes(v) ? v : 'contact';
+}
 function operatorSkin(operatorId) {
   const op = storage.getMeta('skin:' + operatorId);
   return SKINS.includes(op) ? op : 'classic';
@@ -765,7 +781,7 @@ function touchConfig(machine) {
   } catch (e) { console.error('[MIGRATE] fridge config bump failed:', e.message); }
 })();
 
-module.exports = { machineClosure, resolveSkin, operatorSkin, SKINS,
+module.exports = { machineClosure, resolveSkin, operatorSkin, SKINS, resolveComplaintsEntry, operatorComplaintsEntry, COMPLAINT_ENTRIES,
   operators, machines, alerts: alertsProxy, orders: ordersProxy,
   users: usersProxy, authTokens, apiConfig,
   storage,

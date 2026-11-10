@@ -368,3 +368,19 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
 - The redesign handover (Nov 2026) is applied step by step behind the Franklin switch: theme
   tokens (0.80.22), then status bar and grid tiles, payment and reader states, success and
   complaint, overlays, staff screens. Canary 62160480 first, one machine at a time.
+
+## Complaints on coil machines (2026-11-10)
+
+- **The complaint form is no longer offered on the thank-you screen by default.** Too many claims
+  were fishing for a refund. From coil 0.80.25 the customer reaches it through "hafðu samband",
+  which shows the last sale for ten minutes with "vara kom ekki út?". `complaintsEntry`
+  (`success` | `contact` | `off`) is set per operator (operator settings) with a per-machine
+  override (Controls, AG); the config carries the resolved value. Fridges are untouched.
+- **Every coil sale carries evidence** (`lines[].vend`: slot, aisle, outcome, code, ms per motor
+  run) and a hashed card reference (`cardRef`, SHA-256 of the reader's card_bin_hash and the last
+  four; never the PAN) plus `cardLast4`. They live on `orders` and are snapshotted onto the
+  complaint at ingest (`evidence`, `cardRef`). The complaint detail returns `evidenceDelivered`,
+  `cardHistory` (30 days, same operator), `machineStats`. `POST /complaints/:id/refuse` sends the
+  standard IS+EN reply and sets status `refused`. The drop sensor is NOT used (it misses items
+  that pass through it and then nothing is charged), so "delivered" means the motor completed.
+- Backend 6.111.0.

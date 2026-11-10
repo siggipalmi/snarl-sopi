@@ -149,4 +149,11 @@
     <string name="error_working_on_it">pracujemy nad rozwiązaniem.</string>
     <string name="error_retry_in">ponowna próba za %1$ds</string>
     <string name="error_checking">sprawdzam połączenie</string>
+
+    <!-- Contact overlay: the last sale and the one door to the complaint form -->
+    <string name="contact_last_purchase">ostatni zakup</string>
+    <string name="contact_missing_item">produkt nie został wydany?</string>
+    <string name="contact_window_note">dostępne przez 10 minut po zakupie</string>
+    <string name="complaint_evidence_note">Zgłoszenie jest porównywane z zapisem automatu o wydaniu przed ewentualnym zwrotem. Odpowiadamy e-mailem.</string>
+
 </resources>

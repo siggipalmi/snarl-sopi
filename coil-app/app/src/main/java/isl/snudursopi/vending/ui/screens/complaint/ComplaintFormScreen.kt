@@ -212,6 +212,18 @@ fun ComplaintFormScreen(
                 fontSize = 13.sp,
                 color = AppColors.MutedSoft,
             )
+            Spacer(Modifier.height(14.dp))
+            // Said once, honestly: the claim is read against the board's own record of the dispense.
+            Text(
+                text = localized(language, R.string.complaint_evidence_note),
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                color = AppColors.Bronze,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AppColors.Bronze.copy(alpha = 0.08f), AppShapes.rounded(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
+            )
 
             // Failure message (form-screen variant, before navigating away)
             if (submissionState is ComplaintSubmissionState.Failed) {
