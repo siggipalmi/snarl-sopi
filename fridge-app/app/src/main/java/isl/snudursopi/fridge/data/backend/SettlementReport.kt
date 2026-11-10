@@ -23,9 +23,12 @@ object SettlementReport {
         closedAtIso: String,
         planogram: Planogram,
         cabinetsOpened: List<String>,
-        outcome: String,               // charged | nothing_taken | declined | sensor_fault | pending_offline
+        outcome: String,               // charged | partially_paid | unpaid | nothing_taken | declined | sensor_fault
         nayaxRef: String?,
         result: Settlement.Result,
+        paidIsk: Int? = null,
+        final: Boolean = true,
+        paymentRefs: List<String> = emptyList(),
     ): JSONObject {
         val lines = JSONArray()
         result.lines.forEach { l ->
@@ -86,5 +89,10 @@ object SettlementReport {
             .put("nayaxRef", nayaxRef ?: JSONObject.NULL)
             .put("lines", lines)
             .put("anomalies", anomalies)
+            // A basket over the card's limit is paid in several taps (0.70.13): what was collected,
+            // whether the customer is still being asked for the rest, and every Nayax reference.
+            .put("paidIsk", paidIsk ?: JSONObject.NULL)
+            .put("final", final)
+            .put("paymentRefs", JSONArray(paymentRefs))
     }
 }

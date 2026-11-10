@@ -97,7 +97,14 @@ class SettlementRepository(
     private suspend fun enqueue(orderId: String, bodyJson: String) {
         queueLock.withLock {
             val current = queueStore.load()
-            if (current.any { it.orderId == orderId }) return
+            // A later report of the same order replaces the queued one: a basket paid in several
+            // taps is reported after the first charge and again when it is done, and the second
+            // must not be dropped behind the first. Its place and age in the queue are kept.
+            val existing = current.indexOfFirst { it.orderId == orderId }
+            if (existing >= 0) {
+                queueStore.save(current.toMutableList().also { it[existing] = it[existing].copy(bodyJson = bodyJson) })
+                return
+            }
             queueStore.save(
                 current + QueuedSettlement(
                     firstAttemptMs = nowMs(),

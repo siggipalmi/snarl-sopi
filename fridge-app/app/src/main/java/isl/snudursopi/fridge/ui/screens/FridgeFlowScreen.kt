@@ -181,6 +181,7 @@ fun FridgeFlowScreen(
                 subRes = R.string.sensor_fault_sub,
                 accent = AppColors.Alert,
             )
+            FridgePhase.REMAINDER -> RemainderView(state)
             FridgePhase.PENDING_OFFLINE -> Centered(
                 language = state.language,
                 titleRes = R.string.pending_offline_title,
@@ -423,6 +424,39 @@ private fun Centered(
                 fontSize = if (prominent) 30.sp else 20.sp,
                 textAlign = TextAlign.Center,
                 color = AppColors.InkSoft,
+            )
+        }
+    }
+}
+
+/**
+ * The basket was more than the card allows in one charge, or the charge was refused (0.70.13):
+ * what was taken, and a plain ask for another tap. Wording: Siggi, 2026-11-10.
+ */
+@Composable
+private fun RemainderView(state: FridgeUiState) {
+    val fmt = java.text.NumberFormat.getIntegerInstance(java.util.Locale(state.language.code))
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = if (state.paidIsk > 0) localized(state.language, R.string.remainder_title, fmt.format(state.paidIsk))
+                    else localized(state.language, R.string.remainder_none_title),
+                fontFamily = AppFonts.Display,
+                fontStyle = AppFonts.DisplayStyle,
+                fontWeight = AppFonts.DisplayWeight,
+                fontSize = 60.sp,
+                lineHeight = 62.sp,
+                textAlign = TextAlign.Center,
+                color = AppColors.Alert,
+            )
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = localized(state.language, R.string.remainder_sub, fmt.format(state.remainingIsk)),
+                fontFamily = AppFonts.Body,
+                fontSize = 30.sp,
+                lineHeight = 36.sp,
+                textAlign = TextAlign.Center,
+                color = AppColors.Ink,
             )
         }
     }

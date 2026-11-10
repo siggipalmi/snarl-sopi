@@ -50,6 +50,9 @@
     <string name="sensor_fault_title">out of service</string>
     <string name="sensor_fault_sub">a technical fault means we won\'t open rather than risk a wrong charge. your card was not charged.</string>
 
+    <string name="remainder_title">only %1$s kr was charged</string>
+    <string name="remainder_none_title">the payment didn\'t go through</string>
+    <string name="remainder_sub">please tap your card again for the remaining balance: %1$s kr</string>
     <string name="pending_offline_title">thank you — all done</string>
     <string name="pending_offline_sub">your total is recorded and will be charged as soon as we\'re back online</string>
 

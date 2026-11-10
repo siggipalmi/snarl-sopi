@@ -23,7 +23,8 @@ enum class FridgePhase {
     DECLINED,       // card declined; door never opened
     SENSOR_FAULT,   // a load cell failed; refuse to open, no charge
     DOOR_OPEN_WARN, // door left open past the nudge threshold
-    PENDING_OFFLINE,// settled locally; charge queued until network returns
+    PENDING_OFFLINE,// no longer entered (0.70.13): a charge that fails is REMAINDER with nothing paid
+    REMAINDER,      // charged up to the card's limit (or refused); asking for another tap for the rest
     NOTHING_TAKEN,  // door closed with no net change; no charge
     // ---- staff ----
     RESTOCK,        // backend opened a door to refill; no charging, re-baseline on close
@@ -138,6 +139,9 @@ data class FridgeUiState(
     /** Tentative cart while shopping, final cart on the receipt. */
     val cart: List<CartTile> = emptyList(),
     val totalIsk: Int = 0,
+    /** REMAINDER: collected so far for this order, and what is still owed. */
+    val paidIsk: Int = 0,
+    val remainingIsk: Int = 0,
     /** True once the total is final (post-close), false while it's an estimate. */
     val totalIsFinal: Boolean = false,
     /**

@@ -6,6 +6,7 @@ import isl.snudursopi.fridge.domain.Planogram
 import isl.snudursopi.fridge.domain.RestockTimer
 import isl.snudursopi.fridge.domain.Language
 import isl.snudursopi.fridge.domain.LanguageCycle
+import isl.snudursopi.fridge.domain.PartialPayment
 import isl.snudursopi.fridge.domain.Settlement
 import isl.snudursopi.fridge.domain.Misplacement
 import isl.snudursopi.fridge.hardware.FridgeHardwareController
@@ -336,6 +337,13 @@ class FridgeViewModel(
 
     /** Called when the customer taps a card on the idle screen. */
     fun onCardTapped() {
+        if (_ui.value.phase == FridgePhase.REMAINDER) {
+            // The tap is for the balance, not a new basket: the doors stay shut.
+            if (chargeInFlight) return
+            android.util.Log.i("FridgeFlow", "tap on the remaining-balance screen — charging the rest")
+            chargeNext()
+            return
+        }
         if (_ui.value.phase != FridgePhase.IDLE) return
         // CLOSED FOR SALE: refuse the card and close the reader's session, so nothing is held and
         // the door stays shut. The closed screen is already telling the customer why.
@@ -1136,56 +1144,7 @@ class FridgeViewModel(
                     "FridgeFlow",
                     "settled: charging ${result.totalIsk} kr for ${result.lines.size} line(s)",
                 )
-                payment.capture(orderId, result.totalIsk) { captured ->
-                    reportSettlement(
-                        result,
-                        outcome = if (captured) "charged" else "pending_offline",
-                    )
-                    // The receipt timer below was armed before this answer came. If it has
-                    // already fired, the machine is idle again (or the next customer is on it):
-                    // putting the receipt back now would leave it on screen with no timer.
-                    if (_ui.value.phase != FridgePhase.CALCULATING) {
-                        android.util.Log.w(
-                            "FridgeFlow",
-                            "charge result (captured=$captured) came after the receipt timer — " +
-                                "not showing it over ${_ui.value.phase}",
-                        )
-                        return@capture
-                    }
-                    val phase = if (captured) FridgePhase.RECEIPT else FridgePhase.PENDING_OFFLINE
-                    _ui.value = _ui.value.copy(
-                        phase = phase,
-                        cart = FridgeUiState.tilesFrom(result.lines),
-                        totalIsk = result.totalIsk,
-                        totalIsFinal = true,
-                        // Order identity for a possible complaint. Carried
-                        // separately from `cart` because a CartTile is a display
-                        // row and is also used for the tentative cart, where no
-                        // order exists yet.
-                        orderId = orderId,
-                        receiptLines = result.lines.map {
-                            ComplaintLine(
-                                cabinet = it.basket.cabinet.ordinal + 1,
-                                basket = it.basket.basket,
-                                // Non-null by construction: Basket.sellable
-                                // requires productId != null, so an unlinked
-                                // basket is never sold and never reaches a
-                                // receipt. If this ever throws, the planogram
-                                // or the settle path is wrong and we want to
-                                // know rather than invent an id.
-                                productId = requireNotNull(it.basket.productId) {
-                                    "settled line with no productId: " +
-                                        "${it.basket.cabinet}/${it.basket.basket}"
-                                },
-                                quantity = it.quantity,
-                                lineIsk = it.lineIsk,
-                            )
-                        },
-                    )
-                    // Re-armed from here so the receipt always has a timer of its own, however
-                    // long the reader took to answer.
-                    autoReturnToIdle(afterMs = if (_ui.value.receiptsEnabled) RECEIPT_HOLD_MS else 6_000)
-                }
+                startCollecting(result)
             }
             // The receipt screen stays up longer where an emailed receipt is on
             // offer: 6 s is enough to read the amount, not to notice a button,
@@ -1193,8 +1152,160 @@ class FridgeViewModel(
             // (Decided before the capture callback lands, so a queued offline
             // charge gets the longer hold too — harmless, and it has no button.)
             val soldSomething = !result.nothingTaken
-            autoReturnToIdle(afterMs = if (soldSomething && _ui.value.receiptsEnabled) RECEIPT_HOLD_MS else 6_000)
+            // Not over the remaining-balance screen: it has its own timer, and ends the order
+            // itself (a fake gateway can answer before we get here).
+            if (_ui.value.phase != FridgePhase.REMAINDER) {
+                autoReturnToIdle(afterMs = if (soldSomething && _ui.value.receiptsEnabled) RECEIPT_HOLD_MS else 6_000)
+            }
         }
+    }
+
+    // ------------------------------------------------- paying, up to the card's limit
+
+    /** The settled basket being paid for, while a charge is in flight or a further tap is awaited. */
+    private var collecting: Settlement.Result? = null
+    private var collectedIsk = 0
+    private val collectedRefs = mutableListOf<String>()
+    @Volatile private var chargeInFlight = false
+    private var remainderJob: Job? = null
+
+    /**
+     * Pay for [result] in as many charges as the card's limit needs ([PartialPayment]): each one
+     * at most what the reader said this tap's card allows, so neither the reader nor Nayax is ever
+     * asked for more. Whatever is left after a charge is asked for on [FridgePhase.REMAINDER].
+     */
+    private fun startCollecting(result: Settlement.Result) {
+        collecting = result
+        collectedIsk = 0
+        collectedRefs.clear()
+        chargeNext()
+    }
+
+    private fun chargeNext() {
+        val result = collecting ?: return
+        val owed = result.totalIsk - collectedIsk
+        val limit = payment.availableFunds()
+        val amount = PartialPayment.nextCharge(owed, limit)
+        if (amount < owed) {
+            android.util.Log.w(
+                "FridgeFlow",
+                "owed $owed kr, card allows ${limit ?: "?"} kr — charging $amount kr now, will ask for another tap",
+            )
+        }
+        chargeInFlight = true
+        payment.capture(orderId, amount) { captured ->
+            chargeInFlight = false
+            if (collecting !== result) {
+                // The order was closed (unpaid) while this charge was out. Do not reopen its screen
+                // over whatever is showing now; the log is the record of the late answer.
+                android.util.Log.e(
+                    "FridgeFlow",
+                    "charge of $amount kr answered ${if (captured) "APPROVED" else "refused"} after its order was closed " +
+                        "(ref ${payment.lastReference()}) — check Nayax against the unpaid alert",
+                )
+                return@capture
+            }
+            if (captured) {
+                collectedIsk += amount
+                payment.lastReference()?.let { collectedRefs += it }
+            }
+            val left = result.totalIsk - collectedIsk
+            android.util.Log.i(
+                "FridgeFlow",
+                "charge of $amount kr ${if (captured) "approved" else "NOT approved"} — " +
+                    "paid $collectedIsk of ${result.totalIsk} kr, $left kr left",
+            )
+            if (left <= 0) showPaidReceipt(result) else askForRemainder(result)
+        }
+    }
+
+    /** Fully paid, in one charge or several: the receipt, as it has always been. */
+    private fun showPaidReceipt(result: Settlement.Result) {
+        remainderJob?.cancel()
+        collecting = null
+        reportSettlement(result, outcome = "charged", paidIsk = collectedIsk)
+        // The receipt timer below was armed before this answer came. If it has already fired, the
+        // machine is idle again (or the next customer is on it): putting the receipt back now would
+        // leave it on screen with no timer.
+        val phase = _ui.value.phase
+        if (phase != FridgePhase.CALCULATING && phase != FridgePhase.REMAINDER) {
+            android.util.Log.w("FridgeFlow", "paid after the screen moved on — not showing the receipt over $phase")
+            return
+        }
+        _ui.value = _ui.value.copy(
+            phase = FridgePhase.RECEIPT,
+            cart = FridgeUiState.tilesFrom(result.lines),
+            totalIsk = result.totalIsk,
+            totalIsFinal = true,
+            paidIsk = 0,
+            remainingIsk = 0,
+            // Order identity for a possible complaint. Carried separately from `cart` because a
+            // CartTile is a display row and is also used for the tentative cart, where no order
+            // exists yet.
+            orderId = orderId,
+            receiptLines = result.lines.map {
+                ComplaintLine(
+                    cabinet = it.basket.cabinet.ordinal + 1,
+                    basket = it.basket.basket,
+                    // Non-null by construction: Basket.sellable requires productId != null, so an
+                    // unlinked basket is never sold and never reaches a receipt. If this ever
+                    // throws, the planogram or the settle path is wrong and we want to know rather
+                    // than invent an id.
+                    productId = requireNotNull(it.basket.productId) {
+                        "settled line with no productId: ${it.basket.cabinet}/${it.basket.basket}"
+                    },
+                    quantity = it.quantity,
+                    lineIsk = it.lineIsk,
+                )
+            },
+        )
+        // Re-armed from here so the receipt always has a timer of its own, however long the reader
+        // took to answer.
+        autoReturnToIdle(afterMs = if (_ui.value.receiptsEnabled) RECEIPT_HOLD_MS else 6_000)
+    }
+
+    /**
+     * "Aðeins X kr. voru gjaldfærðar. Snertu kortið fyrir eftirstöðvunum." The door stays locked;
+     * the next tap pays the rest ([onCardTapped]). Reported now as not final, so the backend
+     * holds what was collected even if the app dies here, and again when this ends.
+     */
+    private fun askForRemainder(result: Settlement.Result) {
+        idleReturnJob?.cancel()
+        val left = result.totalIsk - collectedIsk
+        reportSettlement(result, outcome = PartialPayment.outcome(result.totalIsk, collectedIsk),
+            paidIsk = collectedIsk, final = false)
+        _ui.value = _ui.value.copy(
+            phase = FridgePhase.REMAINDER,
+            cart = FridgeUiState.tilesFrom(result.lines),
+            totalIsk = result.totalIsk,
+            totalIsFinal = true,
+            paidIsk = collectedIsk,
+            remainingIsk = left,
+            idleReturnAtMs = System.currentTimeMillis() + REMAINDER_WAIT_MS,
+        )
+        remainderJob?.cancel()
+        remainderJob = viewModelScope.launch {
+            delay(REMAINDER_WAIT_MS)
+            // A tap that arrived at the last moment is still being charged: let it finish, but not
+            // for ever — a reader that never answers must not hold the screen.
+            var waited = 0L
+            while (chargeInFlight && waited < REMAINDER_WAIT_MS) { delay(1_000); waited += 1_000 }
+            endUnpaid()
+        }
+    }
+
+    /** The customer walked away with a balance owing: report it as final and go back to idle. */
+    private fun endUnpaid() {
+        val result = collecting ?: return
+        collecting = null
+        android.util.Log.w(
+            "FridgeFlow",
+            "UNPAID: ${result.totalIsk - collectedIsk} kr of ${result.totalIsk} kr not collected (order $orderId)",
+        )
+        runCatching { payment.cancel(orderId) }
+        reportSettlement(result, outcome = PartialPayment.outcome(result.totalIsk, collectedIsk),
+            paidIsk = collectedIsk, final = true)
+        _ui.value = freshIdle()
     }
 
     /** Door-left-open nudge, called by a timer in the hardware layer. */
@@ -1215,7 +1326,12 @@ class FridgeViewModel(
      * FridgeBackend). Wrapped in runCatching: a reporting problem must never
      * break the purchase flow the customer is standing in front of.
      */
-    private fun reportSettlement(result: Settlement.Result, outcome: String) {
+    private fun reportSettlement(
+        result: Settlement.Result,
+        outcome: String,
+        paidIsk: Int? = null,
+        final: Boolean = true,
+    ) {
         val cb = onSettlementReport ?: return
         runCatching {
             cb(
@@ -1226,9 +1342,13 @@ class FridgeViewModel(
                     planogram = planogram,
                     cabinetsOpened = planogram.spec.cabinets.map { it.name },
                     outcome = outcome,
-                    // Only meaningful when we actually charged.
-                    nayaxRef = if (outcome == "charged") payment.lastReference() else null,
+                    // The first approved charge, as before; every one of them in paymentRefs.
+                    nayaxRef = if (paidIsk != null) collectedRefs.firstOrNull()
+                        else if (outcome == "charged") payment.lastReference() else null,
                     result = result,
+                    paidIsk = paidIsk,
+                    final = final,
+                    paymentRefs = if (paidIsk != null) collectedRefs.toList() else emptyList(),
                 )
             )
         }.onFailure {
@@ -1480,6 +1600,8 @@ class FridgeViewModel(
     private companion object {
         /** Receipt screen when an emailed receipt is offered. Siggi chose 15 s on the mockup. */
         const val RECEIPT_HOLD_MS = 15_000L
+        /** How long the remaining-balance screen waits for another tap (Siggi, 2026-11-09). */
+        const val REMAINDER_WAIT_MS = 60_000L
 
         /** The address form returns to idle after this long with no typing. */
         const val RECEIPT_FORM_IDLE_MS = 60_000L
@@ -1512,6 +1634,12 @@ interface PaymentGateway {
      * the backend's `nayaxRef`. Defaulted so test/fake gateways need not care.
      */
     fun lastReference(): String? = null
+
+    /**
+     * The most this tap's card may be charged in one go (Nayax's "funds available"), or null
+     * when the gateway cannot tell. Defaulted so test/fake gateways need not care.
+     */
+    fun availableFunds(): Int? = null
 }
 
 /**

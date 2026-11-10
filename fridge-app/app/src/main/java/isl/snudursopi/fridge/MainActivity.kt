@@ -411,6 +411,9 @@ class MainActivity : ComponentActivity() {
                     outcome = event.outcome,
                     nayaxRef = event.nayaxRef,
                     result = event.result,
+                    paidIsk = event.paidIsk,
+                    final = event.final,
+                    paymentRefs = event.paymentRefs,
                 )
             }
         }

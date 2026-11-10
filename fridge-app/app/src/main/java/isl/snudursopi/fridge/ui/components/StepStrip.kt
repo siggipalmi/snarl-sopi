@@ -107,7 +107,7 @@ fun stepForPhase(phase: FridgePhase): Int = when (phase) {
     FridgePhase.AUTHORIZING -> 1
     FridgePhase.UNLOCKED -> 2
     FridgePhase.SHOPPING, FridgePhase.DOOR_OPEN_WARN, FridgePhase.CALCULATING -> 3
-    FridgePhase.RECEIPT, FridgePhase.PENDING_OFFLINE, FridgePhase.NOTHING_TAKEN -> 4
+    FridgePhase.RECEIPT, FridgePhase.PENDING_OFFLINE, FridgePhase.NOTHING_TAKEN, FridgePhase.REMAINDER -> 4
     // Nothing was achieved on these, so don't imply progress.
     FridgePhase.DECLINED, FridgePhase.SENSOR_FAULT -> 0
     // Staff screen — the strip is hidden entirely, this is just a safe default.
