@@ -144,4 +144,10 @@
     <string name="error_retry_in">retrying in %1$ds</string>
     <string name="error_checking">checking the connection</string>
 
+    <!-- Contact overlay: the last sale and the one door to the complaint form -->
+    <string name="contact_last_purchase">last purchase</string>
+    <string name="contact_missing_item">an item did not come out?</string>
+    <string name="contact_window_note">available for 10 minutes after a purchase</string>
+    <string name="complaint_evidence_note">Your report is compared with the machine\'s own record of the dispense before any refund. We reply by email.</string>
+
 </resources>

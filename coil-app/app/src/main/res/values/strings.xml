@@ -156,4 +156,10 @@
     <string name="error_retry_in">að reyna aftur í %1$ds</string>
     <string name="error_checking">athugar tengingu</string>
 
+    <!-- Contact overlay: the last sale and the one door to the complaint form -->
+    <string name="contact_last_purchase">síðustu kaup</string>
+    <string name="contact_missing_item">vara kom ekki út?</string>
+    <string name="contact_window_note">aðeins í boði í 10 mínútur eftir kaup</string>
+    <string name="complaint_evidence_note">Kvörtunin er borin saman við skráningu vélarinnar á afgreiðslunni áður en endurgreitt er. Svar berst í tölvupósti.</string>
+
 </resources>

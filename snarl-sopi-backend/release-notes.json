@@ -1,6 +1,30 @@
 [
  {
   "component": "backend",
+  "version": "6.112.0",
+  "date": "2026-11-10",
+  "title": "Complaints judged on evidence.",
+  "notes": [
+   "A complaint now opens with what the machine recorded for that sale: every motor run per line and whether it completed, the card's other complaints in the last 30 days across the operator's machines (hashed card reference, last four digits shown), and the machine's complaint rate. The list marks each claim \"delivered\" or \"motor fault\" and flags repeat cards.",
+   "One tap \"refuse · machine recorded delivery\" sends the standard reply in Icelandic and English and closes the complaint as refused.",
+   "Operators choose where coil customers reach the form (operator settings): thank-you screen, contact overlay only (the new default), or off. AG can override per machine under Controls. Needs coil 0.80.25 on the machine for the evidence and the new entry."
+  ]
+ },
+ {
+  "component": "coil",
+  "version": "0.80.25",
+  "versionCode": 181,
+  "date": "2026-11-10",
+  "title": "Complaints: the quiet door, and evidence with every sale.",
+  "notes": [
+   "\"vantar vöru?\" leaves the thank-you screen unless the operator keeps it there. The complaint form is reached through \"hafðu samband\", which shows the last sale (items, slot, masked card) with \"vara kom ekki út?\" for ten minutes after it. Operators can also switch complaints off for a machine.",
+   "Every sale now carries what the board answered for each motor run and a hashed reference to the card (never the card number), so the dashboard can show the evidence beside a complaint and count claims per card.",
+   "The form says, once, that the claim is compared with the machine's record of the dispense before any refund."
+  ],
+  "check": "Buy something, then open hafðu samband: the sale shows with \"vara kom ekki út?\"; the thank-you screen has no complaint entry. After ten minutes the block is gone."
+ },
+ {
+  "component": "backend",
   "version": "6.111.0",
   "date": "2026-11-10",
   "title": "Money received on a partly paid fridge order counts as revenue.",

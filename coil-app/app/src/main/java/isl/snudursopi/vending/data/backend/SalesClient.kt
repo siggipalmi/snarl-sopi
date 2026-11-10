@@ -15,6 +15,17 @@ data class SaleLine(
     val amountIsk: Int,
     val aisle: String? = null,
     val aisleCode: String? = null,
+    /** What the board answered for each unit of this line: the evidence a complaint is judged on. */
+    val vend: List<SaleVend> = emptyList(),
+)
+
+/** One motor run as the board reported it. */
+data class SaleVend(
+    val slot: Int,
+    val aisle: String?,
+    val outcome: String,
+    val code: Int?,
+    val ms: Long,
 )
 
 /**
@@ -34,6 +45,9 @@ data class SalePayload(
     val at: String,
     val totalIsk: Int,
     val lines: List<SaleLine>,
+    /** Stable, hashed card reference from the reader (never the PAN); null if the reader gave none. */
+    val cardRef: String? = null,
+    val cardLast4: String? = null,
 )
 
 /**
@@ -55,6 +69,8 @@ class SalesClient(
             "saleId" to payload.saleId,
             "at" to payload.at,
             "totalIsk" to payload.totalIsk,
+            "cardRef" to payload.cardRef,
+            "cardLast4" to payload.cardLast4,
             "lines" to payload.lines.map {
                 mapOf(
                     "goodsId" to it.goodsId,
@@ -62,6 +78,7 @@ class SalesClient(
                     "amountIsk" to it.amountIsk,
                     "aisle" to it.aisle,
                     "aisleCode" to it.aisleCode,
+                    "vend" to it.vend.map { v -> mapOf("slot" to v.slot, "aisle" to v.aisle, "outcome" to v.outcome, "code" to v.code, "ms" to v.ms) },
                 )
             },
         )

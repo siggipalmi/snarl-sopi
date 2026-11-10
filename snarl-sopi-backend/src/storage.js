@@ -632,6 +632,14 @@ function ensureColumn(table, column, type) {
   }
 }
 ensureColumn('machines', 'nayaxMachineId',  'TEXT');
+// Evidence for complaints (6.111.0): what the board answered for each motor run of a kiosk sale,
+// and a hashed reference to the card (never the PAN) so claims can be counted per card.
+ensureColumn('orders', 'cardRef',   'TEXT');
+ensureColumn('orders', 'cardLast4', 'TEXT');
+ensureColumn('orders', 'vendJson',  'TEXT');
+ensureColumn('complaints', 'cardRef',      'TEXT');
+ensureColumn('complaints', 'cardLast4',    'TEXT');
+ensureColumn('complaints', 'evidenceJson', 'TEXT');
 // Per-kg fridge lines (catalog measurement 1): quantity is 1, deltaG is the grams charged, priceIsk
 // is the kilo price and lineIsk = ceil(grams × kr/kg ÷ 1000).
 ensureColumn('fridge_settlement_lines', 'soldByWeight', 'INTEGER NOT NULL DEFAULT 0');
@@ -877,8 +885,13 @@ const stmts = {
       WHERE machineId=@machineId`),
 
   // Orders
-  insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime, aisle, quantity)
-                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime, @aisle, @quantity)`),
+  insertOrder:       db.prepare(`INSERT INTO orders (tradeNo, deviceCode, goodsId, productName, totalAmount, amountKr, status, statusLabel, createTime, aisle, quantity, cardRef, cardLast4, vendJson)
+                                 VALUES (@tradeNo, @deviceCode, @goodsId, @productName, @totalAmount, @amountKr, @status, @statusLabel, @createTime, @aisle, @quantity, @cardRef, @cardLast4, @vendJson)`),
+  // A kiosk sale is one row per line, tradeNo "<saleId>#<i>"; a one-line legacy sale is the bare saleId.
+  ordersForSale:     db.prepare(`SELECT * FROM orders WHERE tradeNo = ? OR tradeNo LIKE ? ORDER BY tradeNo`),
+  countSalesForMachineSince: db.prepare(`SELECT COUNT(DISTINCT CASE WHEN instr(tradeNo, '#') > 0 THEN substr(tradeNo, 1, instr(tradeNo, '#') - 1) ELSE tradeNo END) AS c
+                                         FROM orders WHERE deviceCode = ? AND status = 1 AND createTime >= ?`),
+  complaintsByCardSince: db.prepare(`SELECT * FROM complaints WHERE cardRef = ? AND operatorId = ? AND timestampMs >= ? ORDER BY timestampMs DESC`),
   getOrder:          db.prepare('SELECT * FROM orders WHERE tradeNo = ?'),
   // Fridge sales arrive as settlements, not Weimi orders, and a settlement can be replayed on
   // reconnect — so this must be an upsert or a repost would double-count revenue.
@@ -1207,9 +1220,9 @@ const stmts = {
   // Complaints
   insertComplaint:   db.prepare(`INSERT INTO complaints
     (id, tradeNo, deviceCode, operatorId, customerEmail, note, itemsJson, totalIsk, status,
-     kioskAppVersion, kioskOsLocale, timestampMs, createdAt)
+     kioskAppVersion, kioskOsLocale, timestampMs, createdAt, cardRef, cardLast4, evidenceJson)
     VALUES (@id, @tradeNo, @deviceCode, @operatorId, @customerEmail, @note, @itemsJson, @totalIsk, @status,
-            @kioskAppVersion, @kioskOsLocale, @timestampMs, @createdAt)`),
+            @kioskAppVersion, @kioskOsLocale, @timestampMs, @createdAt, @cardRef, @cardLast4, @evidenceJson)`),
   getComplaint:      db.prepare('SELECT * FROM complaints WHERE id = ?'),
   getComplaintByTradeNo: db.prepare('SELECT * FROM complaints WHERE tradeNo = ?'),
   insertFridgeComplaint: db.prepare(`INSERT INTO fridge_complaints
@@ -1425,6 +1438,9 @@ function rowToComplaint(row) {
     kioskOsLocale:   row.kioskOsLocale,
     timestampMs:     row.timestampMs,
     createdAt:       row.createdAt,
+    cardRef:         row.cardRef || null,
+    cardLast4:       row.cardLast4 || null,
+    evidence:        (() => { try { return row.evidenceJson ? JSON.parse(row.evidenceJson) : null; } catch (e) { return null; } })(),
   };
 }
 
@@ -1648,7 +1664,21 @@ const storage = {
       status: o.status, statusLabel: o.statusLabel || null,
       createTime: o.createTime, aisle: o.aisle || null,
       quantity: Number.isInteger(o.quantity) && o.quantity > 0 ? o.quantity : null,
+      cardRef: o.cardRef || null, cardLast4: o.cardLast4 || null,
+      vendJson: o.vendJson || null,
     });
+  },
+  /** The order rows of one kiosk sale (its lines), by saleId or by a line's own tradeNo. */
+  ordersForSale(tradeNo) {
+    const base = String(tradeNo).split('#')[0];
+    return stmts.ordersForSale.all(base, base + '#%');
+  },
+  countSalesForMachineSince(deviceCode, sinceMs) {
+    return stmts.countSalesForMachineSince.get(deviceCode, sinceMs).c;
+  },
+  complaintsByCardSince(cardRef, operatorId, sinceMs) {
+    if (!cardRef) return [];
+    return stmts.complaintsByCardSince.all(cardRef, operatorId, sinceMs).map(rowToComplaint);
   },
   // One-shot repair: settlements recorded before fridge sales were mirrored into `orders` have no
   // analytics rows. Mirror any charged settlement that has no matching order. Safe to run on every
@@ -2451,6 +2481,8 @@ const storage = {
       kioskOsLocale: c.kioskOsLocale || null,
       timestampMs: c.timestampMs,
       createdAt: c.createdAt,
+      cardRef: c.cardRef || null, cardLast4: c.cardLast4 || null,
+      evidenceJson: c.evidence ? JSON.stringify(c.evidence) : null,
     });
   },
   getComplaint(id) {

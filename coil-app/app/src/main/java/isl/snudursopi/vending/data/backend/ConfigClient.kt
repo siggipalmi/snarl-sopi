@@ -224,6 +224,11 @@ class ConfigClient(
         val idleGuardUs = data.get("idleGuardUs")?.takeIf { it.isNumber }?.asInt() ?: 500
         // skin: which look to draw (see ui/theme/Skin.kt). Unknown → classic.
         val skin = SkinId.parse(data.get("skin")?.takeIf { it.isTextual }?.asText())
+        // complaintsEntry: where a customer can reach the complaint form — "success" (the old
+        // "vantar vöru?" on the thank-you screen), "contact" (the contact overlay, for ten
+        // minutes after a sale; the default) or "off".
+        val complaintsEntry = data.get("complaintsEntry")?.takeIf { it.isTextual }?.asText()?.trim()?.lowercase()
+            ?.takeIf { it == "success" || it == "contact" || it == "off" } ?: "contact"
         // adminPin: this machine's own admin PIN as a PBKDF2 hash (never the PIN). Absent → the
         // fleet's shared code still opens the admin screens, so a machine keeps working through
         // the rollout. Checked offline by the shared AdminPin.
@@ -259,6 +264,7 @@ class ConfigClient(
             idleGuardThreads = idleGuardThreads,
             idleGuardUs = idleGuardUs,
             skin = skin,
+            complaintsEntry = complaintsEntry,
         )
     }
 
@@ -372,6 +378,8 @@ class ConfigClient(
             val idleGuardUs: Int = 500,
             /** Which look to draw; the dashboard's choice for this machine or its operator. */
             val skin: SkinId = SkinId.Classic,
+            /** "success" | "contact" | "off" — where the complaint form can be reached. */
+            val complaintsEntry: String = "contact",
         ) : Result()
     }
 }

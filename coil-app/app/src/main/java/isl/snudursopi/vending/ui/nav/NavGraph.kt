@@ -48,6 +48,9 @@ private const val DETAIL_IDLE_MS = 30_000L
 /** Complaint form: back to the grid after this long without a touch or a keystroke. */
 private const val COMPLAINT_IDLE_MS = 60_000L
 
+/** How long after a sale the contact overlay still offers the complaint form for it. */
+private const val COMPLAINT_WINDOW_MS = 10L * 60L * 1000L
+
 @Composable
 fun NavGraph(viewModel: VendingViewModel) {
     val state by viewModel.state.collectAsState()
@@ -377,9 +380,10 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
                             popUpTo(Routes.Browse) { inclusive = true }
                         }
                     },
-                    onComplain = {
-                        navController.navigate(Routes.ComplaintForm)
-                    },
+                    // The thank-you screen offers the form only where the operator kept it there.
+                    onComplain = if (state.complaintsEntry == "success") {
+                        { navController.navigate(Routes.ComplaintForm) }
+                    } else null,
                     onClockLongPress = onClockLongPress,
                 )
             }
@@ -517,12 +521,23 @@ private fun ReadyNavHost(viewModel: VendingViewModel) {
         }
 
         if (state.showContact) {
+            // The last sale is offered for ten minutes, unless complaints are off for this machine.
+            val recentSale = state.lastCompletedTransaction?.takeIf {
+                state.complaintsEntry != "off" && System.currentTimeMillis() - it.timestampMs < COMPLAINT_WINDOW_MS
+            }
             ContactOverlay(
                 operatorName = state.settings.operatorName,
                 email = state.settings.supportEmail,
                 machineId = state.deviceCode ?: "",
                 language = state.language,
                 onClose = { viewModel.hideContactOverlay() },
+                lastSale = recentSale,
+                onComplain = if (recentSale != null) {
+                    {
+                        viewModel.hideContactOverlay()
+                        navController.navigate(Routes.ComplaintForm)
+                    }
+                } else null,
             )
         }
     }

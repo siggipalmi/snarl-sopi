@@ -1,5 +1,7 @@
 package isl.snudursopi.vending.ui.screens.contact
 
+import isl.snudursopi.vending.ui.state.CompletedTransaction
+
 import isl.snudursopi.vending.ui.theme.AppShapes
 
 import androidx.compose.foundation.background
@@ -61,6 +63,9 @@ fun ContactOverlay(
     machineId: String,
     language: Language,
     onClose: () -> Unit,
+    /** The sale of the last ten minutes, when the complaint form is reached from here; else null. */
+    lastSale: CompletedTransaction? = null,
+    onComplain: (() -> Unit)? = null,
 ) {
     Box(
         modifier = Modifier
@@ -117,6 +122,66 @@ fun ContactOverlay(
                 value = machineId,
                 accent = false,
             )
+
+            // ---- Last sale: the one door to the complaint form (complaintsEntry = contact) ----
+            if (lastSale != null && onComplain != null) {
+                Spacer(Modifier.height(22.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(AppColors.Line))
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = localized(language, R.string.contact_last_purchase).uppercase() + " · " +
+                        java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(java.util.Date(lastSale.timestampMs)) +
+                        " · " + localized(language, R.string.price_with_unit, lastSale.totalIsk.toString()),
+                    fontSize = 11.sp,
+                    letterSpacing = 1.sp,
+                    color = AppColors.Muted,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = lastSale.items.joinToString(" · ") { it.name + (if (it.quantity > 1) " ${it.quantity} ×" else "") },
+                        fontSize = 15.sp,
+                        color = AppColors.Ink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (lastSale.cardLast4 != null) {
+                        Text(
+                            text = "kort ••" + lastSale.cardLast4,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            color = AppColors.Muted,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp)
+                        .border(1.dp, AppColors.Line, AppShapes.rounded(16.dp))
+                        .clickable(onClick = onComplain),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = localized(language, R.string.contact_missing_item),
+                        color = AppColors.Ink,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = localized(language, R.string.contact_window_note),
+                    fontSize = 12.sp,
+                    color = AppColors.Muted,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
 
             // ---- Divider: in partnership with ----
             Spacer(Modifier.height(26.dp))
