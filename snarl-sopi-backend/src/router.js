@@ -38,6 +38,7 @@ const {
   userCanAccessMachine, userCanAccessOperator, machinesForUser, operatorsForUser,
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation, resolveSkin, operatorSkin, SKINS, resolveComplaintsEntry, operatorComplaintsEntry, COMPLAINT_ENTRIES } = require('./db');
+const fridgeSale = require('./fridgeSale');
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
 const twoFactor = require('./twoFactor');
@@ -1550,6 +1551,14 @@ function handleFridgeSettlement(req, res) {
   if (settlement.outcome === 'charged' && (settlement.totalIsk || 0) > 0) {
     try { storage.recordFridgeSale(settlement, lineRows); }
     catch (e) { console.error('[FRIDGE] recordFridgeSale failed:', e && e.message); }
+  } else if (paidIsk > 0 && unpaidIsk > 0) {
+    // Partly paid (fridge 0.70.13): the money received is revenue, at what was paid, spread over
+    // the lines by value. Recorded on the interim report too and overwritten by the final one; if
+    // the customer pays the rest after all, the 'charged' report rewrites it at the full amount.
+    try {
+      storage.recordFridgeSale(Object.assign({}, settlement, { totalIsk: paidIsk }),
+        fridgeSale.paidShare(lineRows, paidIsk, settlement.totalIsk), 'partially_paid');
+    } catch (e) { console.error('[FRIDGE] recordFridgeSale (partly paid) failed:', e && e.message); }
   }
   // An item left in the wrong basket (fridge 0.70.11+). The charge is right; the basket it sits
   // in now weighs wrong, so the next customer to take it would pay for that basket's product.

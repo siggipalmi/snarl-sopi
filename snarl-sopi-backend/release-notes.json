@@ -1,7 +1,7 @@
 [
  {
   "component": "backend",
-  "version": "6.111.0",
+  "version": "6.112.0",
   "date": "2026-11-10",
   "title": "Complaints judged on evidence.",
   "notes": [
@@ -22,6 +22,19 @@
    "The form says, once, that the claim is compared with the machine's record of the dispense before any refund."
   ],
   "check": "Buy something, then open hafðu samband: the sale shows with \"vara kom ekki út?\"; the thank-you screen has no complaint entry. After ten minutes the block is gone."
+ },
+ {
+  "component": "backend",
+  "version": "6.111.0",
+  "date": "2026-11-10",
+  "title": "Money received on a partly paid fridge order counts as revenue.",
+  "notes": [
+   "When a customer pays only part of a basket (fridge 0.70.13: the card allowed less, and nobody tapped for the rest), what was paid now appears in sales, analytics and the daily accounting, at the amount actually received.",
+   "It is spread over the basket's lines in proportion to their value, so the VSK split (11% / 24%) of what was received matches the basket. Item counts are unchanged: every item did leave the machine.",
+   "Such an order is marked partially_paid. If the customer does pay the rest, it becomes an ordinary charged order at the full amount.",
+   "The unpaid part is still raised as an alert; it is not booked anywhere."
+  ],
+  "check": "After a partly paid test on 715: the order shows in recent sales at the amount paid (e.g. 8,000 kr), and that day's accounting summary includes it."
  },
  {
   "component": "backend",

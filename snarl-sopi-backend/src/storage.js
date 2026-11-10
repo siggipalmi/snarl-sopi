@@ -1705,7 +1705,9 @@ const storage = {
   // the heatmap, top products and recent orders read from. Mirror the settlement into orders and
   // order_items so fridge machines appear in the analytics alongside coil machines.
   // Idempotent: a replayed settlement upserts the same tradeNo rather than adding revenue.
-  recordFridgeSale: db.transaction(function (settlement, lines) {
+  // [statusLabel]: 'partially_paid' for a basket the customer paid only part of (fridge 0.70.13);
+  // the caller then passes the paid amount as totalIsk and lines scaled to it (fridgeSale.paidShare).
+  recordFridgeSale: db.transaction(function (settlement, lines, statusLabel) {
     const createTime = (() => {
       const t = settlement.closedAt ? Date.parse(settlement.closedAt) : NaN;
       return Number.isFinite(t) ? t : (settlement.receivedAt || Date.now());
@@ -1726,7 +1728,7 @@ const storage = {
       totalAmount: Math.round(totalIsk * 100),   // cents, matching the Weimi convention
       amountKr: Math.round(totalIsk),
       status: 1,                                  // charged and handed over
-      statusLabel: 'charged',
+      statusLabel: statusLabel || 'charged',
       createTime,
       // Units, for a single-product sale (top products counts order rows). A multi-product sale
       // is expanded into its lines wherever it is read, so it carries none here.

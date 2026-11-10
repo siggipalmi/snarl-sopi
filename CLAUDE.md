@@ -383,4 +383,4 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   `cardHistory` (30 days, same operator), `machineStats`. `POST /complaints/:id/refuse` sends the
   standard IS+EN reply and sets status `refused`. The drop sensor is NOT used (it misses items
   that pass through it and then nothing is charged), so "delivered" means the motor completed.
-- Backend 6.111.0.
+- Backend 6.112.0.

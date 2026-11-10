@@ -60,6 +60,28 @@ test('interim partial payment is stored without an alert; the final one alerts o
   assert.ok(storage.getAlert(alertId), 'still one alert after a replay');
 });
 
+test('a partly paid order is revenue at what was paid; paying the rest rewrites it in full', (t) => {
+  const code = aMachine();
+  if (!code) return t.skip('no seeded machine in this database');
+  const orderId = 'fr-test-rev-' + Date.now();
+  const lines = [
+    { cabinet: 'A', basket: 1, productId: null, quantity: 4, lineIsk: 2050, startWeightG: 400, endWeightG: 180 },
+    { cabinet: 'A', basket: 2, productId: null, quantity: 1, lineIsk: 7300, startWeightG: 900, endWeightG: 250 },
+  ];
+  post(code, base(orderId, { lines, outcome: 'partially_paid', paidIsk: 8000, final: true }));
+  let o = storage.getOrder(orderId);
+  assert.ok(o, 'the partly paid order is in orders');
+  assert.strictEqual(o.amountKr, 8000);
+  assert.strictEqual(o.statusLabel, 'partially_paid');
+  const items = storage.orderItemsInRange(code, 0, Date.now() + 86400000).filter(i => i.tradeNo === orderId);
+  assert.strictEqual(items.reduce((s, i) => s + i.payAmount, 0), 800000, 'lines add up to what was paid (cents)');
+
+  post(code, base(orderId, { lines, outcome: 'charged', paidIsk: 9350, final: true }));
+  o = storage.getOrder(orderId);
+  assert.strictEqual(o.amountKr, 9350);
+  assert.strictEqual(o.statusLabel, 'charged');
+});
+
 test('paid in full over two taps: no shortfall, no alert', (t) => {
   const code = aMachine();
   if (!code) return t.skip('no seeded machine in this database');
