@@ -1,5 +1,18 @@
 [
  {
+  "component": "backend",
+  "version": "6.115.0",
+  "date": "2026-11-11",
+  "title": "Every change to a bay's count is written down, and the Weimi sync no longer touches Kiosk counts.",
+  "notes": [
+   "Machine page → \"count changes\" (coil machines on Kiosk stock): each change to a bay's count with its cause — a sale (and which sale), a sale taken from another bay holding the same product, a sale that found no units to count, a restock (and who entered it), a bay Weimi added, removed or swapped the product in. Tap a slot to see only that bay.",
+   "The Weimi sync writes Weimi's counts nowhere for a Kiosk-stock machine any more: machine totals, sold-out tracking and \"last restocked\" now come from our own planogram. Names, prices and the slot layout still come from Weimi.",
+   "A bay the sync has never seen starts at 0 and is flagged \"set count\" on its tile until someone enters its count, instead of taking Weimi's stale number. A bay's restock date now survives a sync and shows on the tile.",
+   "Grótta vinstri, 2026-11-10: eight bays read 0 in the dashboard while full, and nothing could say how. From now on the answer is on the machine page."
+  ],
+  "check": "On Grótta vinstri, after the counts are entered: the count changes panel shows one restock row per bay with your e-mail, and the next sales appear as rows with their bay. Run \"sync from Weimi\" once and confirm no count moved."
+ },
+ {
   "component": "coil",
   "version": "0.80.26",
   "versionCode": 182,

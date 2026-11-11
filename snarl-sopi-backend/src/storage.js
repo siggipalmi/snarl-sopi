@@ -252,6 +252,28 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_stock_hist_device   ON stock_history(deviceCode, goodsId);
   CREATE INDEX IF NOT EXISTS idx_stock_hist_recorded ON stock_history(recordedAt);
 
+  -- Count ledger (6.115.0): every change to a bay's count on a Kiosk-stock machine, with its cause.
+  -- before/after are the bay's count around the change; delta is after - before. cause is one of
+  -- sale, sale_spill (a bay other than the one the kiosk named), sale_skipped (restocked after the
+  -- sale), sale_unmatched (no bay had the units), restock, sync_new_bay, sync_bay_removed,
+  -- sync_product_changed. ref is the sale's tradeNo or Weimi's own count; actor the signed-in user.
+  CREATE TABLE IF NOT EXISTS stock_ledger (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    deviceCode   TEXT NOT NULL,
+    aisleCode    TEXT,
+    goodsId      TEXT,
+    productName  TEXT,
+    delta        INTEGER NOT NULL DEFAULT 0,
+    before       INTEGER,
+    after        INTEGER,
+    cause        TEXT NOT NULL,
+    ref          TEXT,
+    actor        TEXT,
+    at           INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_stock_ledger_device ON stock_ledger(deviceCode, at);
+  CREATE INDEX IF NOT EXISTS idx_stock_ledger_aisle  ON stock_ledger(deviceCode, aisleCode, at);
+
   CREATE TABLE IF NOT EXISTS sold_out_events (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     deviceCode     TEXT NOT NULL,
@@ -1167,6 +1189,11 @@ const stmts = {
   getRecentStockHistory: db.prepare(`SELECT * FROM stock_history WHERE deviceCode = ? AND goodsId = ?
                                      ORDER BY recordedAt DESC LIMIT ?`),
   cleanupOldStockHistory: db.prepare('DELETE FROM stock_history WHERE recordedAt < ?'),
+  insertLedger: db.prepare(`INSERT INTO stock_ledger (deviceCode, aisleCode, goodsId, productName, delta, before, after, cause, ref, actor, at)
+                            VALUES (@deviceCode, @aisleCode, @goodsId, @productName, @delta, @before, @after, @cause, @ref, @actor, @at)`),
+  listLedger: db.prepare(`SELECT * FROM stock_ledger WHERE deviceCode = ? AND (? IS NULL OR aisleCode = ?) AND at >= ?
+                          ORDER BY at DESC, id DESC LIMIT ?`),
+  lastRestockLedger: db.prepare(`SELECT MAX(at) AS lastRestock FROM stock_ledger WHERE deviceCode = ? AND cause = 'restock'`),
   // Most recent time any product's stock INCREASED between authoritative syncs
   // (a restock = a manual visit; sales only ever decrease, so increases are refills).
   lastRestockAt: db.prepare(`
@@ -2414,8 +2441,14 @@ const storage = {
     return stmts.getSlotStock.get(deviceCode, goodsId);
   },
   getLastRestockAt(deviceCode) {
+    // Weimi-stock machines: the last increase the sync saw. Kiosk-stock machines: the last restock
+    // entered in the dashboard (the ledger). A machine that moved from one to the other has both,
+    // and the later one is the truth.
     const r = stmts.lastRestockAt.get(deviceCode);
-    return r && r.lastRestock ? r.lastRestock : null;
+    const l = stmts.lastRestockLedger.get(deviceCode);
+    const a = r && r.lastRestock ? Number(r.lastRestock) : 0;
+    const b = l && l.lastRestock ? Number(l.lastRestock) : 0;
+    return Math.max(a, b) || null;
   },
   listSlotStockForDevice(deviceCode) {
     return stmts.listSlotStockForDevice.all(deviceCode);
@@ -3269,7 +3302,7 @@ const storage = {
 
   // ── Kiosk stock writes (backend is system-of-record for kiosk machines) ────
   // Operator restock: set bay currStock + stamp restockAt; recompute total.
-  applyRestockToLayout(deviceCode, pairs) {
+  applyRestockToLayout(deviceCode, pairs, actor) {
     let layout;
     try { const raw = this.getMeta('layout:' + deviceCode); layout = raw ? JSON.parse(raw) : null; } catch (e) { layout = null; }
     if (!Array.isArray(layout)) return { ok: false, error: 'no_layout', message: 'No planogram stored for ' + deviceCode };
@@ -3279,13 +3312,56 @@ const storage = {
     let updated = 0, total = 0;
     const seen = {};
     layout.forEach(layer => (layer.bays || []).forEach(b => {
-      if (Object.prototype.hasOwnProperty.call(want, b.code)) { b.currStock = want[b.code]; b.restockAt = now; updated++; seen[b.code] = true; }
+      if (Object.prototype.hasOwnProperty.call(want, b.code)) {
+        const before = Number(b.currStock) || 0;
+        b.currStock = want[b.code]; b.restockAt = now; delete b.needsCount; updated++; seen[b.code] = true;
+        // Every restock is written, even one that leaves the count as it was: it dates the visit.
+        this.ledger({ deviceCode, aisleCode: b.code, goodsId: b.goodsId, productName: b.name,
+          before, after: b.currStock, cause: 'restock', actor });
+      }
       total += Number(b.currStock) || 0;
     }));
     const notFound = Object.keys(want).filter(c => !seen[c]);
     this.setMeta('layout:' + deviceCode, JSON.stringify(layout));
     this.setMeta('lastvisit:' + deviceCode, String(Date.now())); // a restock is a visit
+    this.snapshotKioskLayout(deviceCode, layout, 'restock');
     return { ok: true, updated, notFound, totalCurrStock: total };
+  },
+
+  // One ledger row. before/after may be null (a bay appearing or disappearing); delta follows them.
+  ledger({ deviceCode, aisleCode, goodsId, productName, before, after, cause, ref, actor, at }) {
+    const b = (before == null) ? null : Number(before);
+    const a = (after == null) ? null : Number(after);
+    stmts.insertLedger.run({
+      deviceCode: String(deviceCode), aisleCode: aisleCode == null ? null : String(aisleCode),
+      goodsId: goodsId == null ? null : String(goodsId), productName: productName || null,
+      delta: (a == null || b == null) ? 0 : a - b, before: b, after: a,
+      cause: String(cause), ref: ref == null ? null : String(ref), actor: actor || null,
+      at: at || Date.now(),
+    });
+  },
+  // Newest first. aisle narrows to one bay; sinceMs defaults to 90 days.
+  listStockLedger(deviceCode, { aisle = null, limit = 200, sinceMs = null } = {}) {
+    const since = sinceMs != null ? Number(sinceMs) : Date.now() - 90 * 86400000;
+    const a = aisle ? String(aisle) : null;
+    return stmts.listLedger.all(String(deviceCode), a, a, since, Math.max(1, Math.min(2000, Number(limit) || 200)));
+  },
+  // Kiosk-stock machines: feed sold-out detection and slot_stock from OUR layout, per product,
+  // so those tables stop depending on Weimi's (stale) count for these machines.
+  snapshotKioskLayout(deviceCode, layout, source) {
+    if (!Array.isArray(layout)) {
+      try { const raw = this.getMeta('layout:' + deviceCode); layout = raw ? JSON.parse(raw) : null; } catch (e) { layout = null; }
+    }
+    const by = {};
+    (layout || []).forEach(l => (l.bays || []).forEach(b => {
+      if (!b || b.goodsId == null || b.goodsId === '') return;
+      const gid = String(b.goodsId);
+      if (!by[gid]) by[gid] = { name: b.name || '', stock: 0 };
+      by[gid].stock += Number(b.currStock) || 0;
+    }));
+    Object.keys(by).forEach(gid => this.recordStockSnapshot({
+      deviceCode, goodsId: gid, productName: by[gid].name, stock: by[gid].stock, source: source || 'kiosk_layout',
+    }));
   },
 
   // Kiosk sale → decrement the planogram (system of record for kiosk machines).
@@ -3295,28 +3371,48 @@ const storage = {
   // Returns the recomputed machine total stock.
   // aisleCode (coil 0.80.17+) names the bay the units came out of; it is taken from first, and only
   // what it cannot cover falls back to the product's bays in layout order, as every sale did before.
-  applySaleToLayout(deviceCode, goodsId, qty, soldAtMs, aisleCode) {
+  applySaleToLayout(deviceCode, goodsId, qty, soldAtMs, aisleCode, ref) {
     let layout;
     try { const raw = this.getMeta('layout:' + deviceCode); layout = raw ? JSON.parse(raw) : null; } catch (e) { layout = null; }
     if (!Array.isArray(layout)) return { ok: false, totalCurrStock: null };
-    let need = Math.max(0, Math.round(Number(qty) || 0));
+    const wanted = Math.max(0, Math.round(Number(qty) || 0));
+    let need = wanted;
     const saleMs = Number(soldAtMs) || Date.now();
     const bays = [];
     layout.forEach(layer => (layer.bays || []).forEach(b => bays.push(b)));
-    if (aisleCode) {
-      const i = bays.findIndex(b => String(b.code) === String(aisleCode));
+    const named = aisleCode ? String(aisleCode) : null;
+    if (named) {
+      const i = bays.findIndex(b => String(b.code) === named);
       if (i > 0) bays.unshift(bays.splice(i, 1)[0]);
     }
+    let productName = '';
     bays.forEach(b => {
       if (need <= 0) return;
       if (String(b.goodsId) !== String(goodsId)) return;
-      if (b.restockAt && Date.parse(b.restockAt) >= saleMs) return; // restocked after this sale → skip
-      const take = Math.min(need, Number(b.currStock) || 0);
-      if (take > 0) { b.currStock = (Number(b.currStock) || 0) - take; need -= take; }
+      if (!productName) productName = b.name || '';
+      const before = Number(b.currStock) || 0;
+      if (b.restockAt && Date.parse(b.restockAt) >= saleMs) {
+        // Restocked after this sale (an offline-queued vend): the refill already counted it.
+        this.ledger({ deviceCode, aisleCode: b.code, goodsId, productName: b.name, before, after: before,
+          cause: 'sale_skipped', ref, at: saleMs });
+        return;
+      }
+      const take = Math.min(need, before);
+      if (take > 0) {
+        b.currStock = before - take; need -= take;
+        this.ledger({ deviceCode, aisleCode: b.code, goodsId, productName: b.name, before, after: b.currStock,
+          cause: (named && String(b.code) !== named) ? 'sale_spill' : 'sale', ref, at: saleMs });
+      }
     });
+    if (need > 0) {
+      // Units sold that no bay could give: the count was already 0 (or the product sits in no bay).
+      // This row is the one that says "the dashboard was wrong before this sale".
+      this.ledger({ deviceCode, aisleCode: named, goodsId, productName, before: null, after: null,
+        cause: 'sale_unmatched', ref: ref ? `${ref} ×${need}` : `×${need}`, at: saleMs });
+    }
     let total = 0; layout.forEach(l => (l.bays || []).forEach(b => total += Number(b.currStock) || 0));
     this.setMeta('layout:' + deviceCode, JSON.stringify(layout));
-    return { ok: true, decremented: Math.max(0, Math.round(Number(qty) || 0)) - need, totalCurrStock: total };
+    return { ok: true, decremented: wanted - need, unmatched: need, totalCurrStock: total };
   },
 
   replaceBatchesForSlot(deviceCode, goodsId, batches, addedBy) {

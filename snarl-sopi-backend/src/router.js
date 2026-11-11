@@ -214,6 +214,7 @@ const routes = [
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/notifications',     handler: handleSetNotifications, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleKioskLogs,      middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleGetKioskLogs,   middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/stock-ledger',      handler: handleStockLedger,    middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetrySeries, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/app-update',        handler: handleAppUpdate,      middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/revert-report',     handler: handleRevertReport,   middleware:[requireMachineKey] },
@@ -2098,7 +2099,7 @@ function handleSalesIngest(req, res) {
         // Backend is system of record: decrement the planogram the kiosk reads,
         // applying the stale-vend timestamp guard against the bay's last restock.
         storage.applySaleToLayout(deviceCode, String(r.goodsId), r.qty || 1, r.timestamp,
-          typeof r.aisleCode === 'string' ? r.aisleCode : null);
+          typeof r.aisleCode === 'string' ? r.aisleCode : null, r.tradeNo);
         kioskStockTouched = true;
       } else {
         storage.applySaleToStock({
@@ -2137,6 +2138,8 @@ function handleSalesIngest(req, res) {
     m.totalCurrStock = Object.values(lp).reduce((s, p) => s + (p.stock || 0), 0);
     m.updatedAt = new Date().toISOString();
     storage.upsertMachine(m);
+    // Sold-out tracking for Kiosk machines reads our layout, not Weimi (6.115.0).
+    try { storage.snapshotKioskLayout(deviceCode, null, 'sale'); } catch (e) { /* non-fatal */ }
   }
 
   console.log(`[SALES] ${deviceCode} accepted ${accepted.length}, duplicates ${duplicates.length}`);
@@ -4997,6 +5000,20 @@ function handleKioskLogs(req, res) {
 }
 
 // GET /api/v1/machines/:deviceCode/logs?limit=400 — read a machine's recent log from the dashboard.
+// GET /machines/:deviceCode/stock-ledger?aisle=0-A03&limit=200&days=90 — every change to a bay's
+// count on a Kiosk-stock machine, newest first, with its cause (6.115.0). This is the record that
+// says how a bay got to the number the dashboard shows; a Weimi-stock machine has no rows.
+function handleStockLedger(req, res) {
+  const code = req.params.deviceCode;
+  const q = req.query || {};
+  const aisle = q.aisle ? String(q.aisle).trim() : null;
+  const limit = Math.max(1, Math.min(2000, Number(q.limit) || 300));
+  const days = Math.max(1, Math.min(365, Number(q.days) || 90));
+  const rows = storage.listStockLedger(code, { aisle: aisle || null, limit, sinceMs: Date.now() - days * 86400000 });
+  const m = machines[code];
+  ok(res, { deviceCode: code, stockSource: (m && m.stockSource) || 'weimi', days, rows });
+}
+
 function handleGetKioskLogs(req, res) {
   const code = req.params.deviceCode;
   if (!machines[code]) return notFound(res, `Machine ${code} not found`);
@@ -8673,7 +8690,7 @@ async function handleSlotStock(req, res) {
   // directly (no Weimi), stamp restockAt, and bump config so the kiosk applies it.
   const kioskMachine = machines[code];
   if (kioskMachine && kioskMachine.stockSource === 'kiosk') {
-    const r = storage.applyRestockToLayout(code, clean);
+    const r = storage.applyRestockToLayout(code, clean, (req.user && req.user.email) || null);
     if (!r.ok) return json(res, 404, { ok: false, error: r.error, message: r.message });
     kioskMachine.totalCurrStock = r.totalCurrStock;
     touchConfig(kioskMachine); // bumps configVersion + persists

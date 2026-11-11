@@ -74,32 +74,42 @@ async function syncDeviceProducts(deviceCode) {
   const info   = await weimi.deviceInfo(WEIMI_CFG, deviceCode);
   const aisles = flattenAisles(info);
   const products = weimi.aislesToProducts(aisles);
+  // Kiosk-stock machines (6.115.0): Weimi's counts are written NOWHERE for them. Weimi never sees
+  // our sales or restocks, so its numbers are stale from the day the machine switched; every table
+  // that used to take them (products, totals, stock history, sold-out events, last visit) now reads
+  // our own layout, after it has been rebuilt below. Names, prices and the slot layout still come
+  // from Weimi.
+  const isKiosk = (m.stockSource === 'kiosk');
 
-  // Detect a restock (manual visit): authoritative total stock went UP vs the
-  // previous sync. Sales only decrease, so a net increase means product was added.
-  const prevTotal = (m.products || []).reduce((s, p) => s + (p.stock || 0), 0);
-  const newTotal  = products.reduce((s, p) => s + (p.stock || 0), 0);
-  if (m.products && m.products.length && newTotal > prevTotal) {
-    storage.setMeta(`lastvisit:${deviceCode}`, Date.now());
+  if (!isKiosk) {
+    // Detect a restock (manual visit): authoritative total stock went UP vs the
+    // previous sync. Sales only decrease, so a net increase means product was added.
+    const prevTotal = (m.products || []).reduce((s, p) => s + (p.stock || 0), 0);
+    const newTotal  = products.reduce((s, p) => s + (p.stock || 0), 0);
+    if (m.products && m.products.length && newTotal > prevTotal) {
+      storage.setMeta(`lastvisit:${deviceCode}`, Date.now());
+    }
+    m.totalCurrStock = newTotal;
   }
 
   m.products       = products;
-  m.totalCurrStock = newTotal;
   m.maxStock       = products.reduce((s, p) => s + (p.maxStock || 0), 0);
   if (info.deviceName && !m.deviceName) m.deviceName = info.deviceName;
   m.updatedAt = new Date().toISOString();
   storage.upsertMachine(m);
 
-  // Feed sold-out detection: one snapshot per product (summed across its slots)
-  products.forEach(p => {
-    storage.recordStockSnapshot({
-      deviceCode,
-      goodsId:     String(p.id),
-      productName: p.name,
-      stock:       p.stock || 0,
-      source:      'weimi_sync',
+  if (!isKiosk) {
+    // Feed sold-out detection: one snapshot per product (summed across its slots)
+    products.forEach(p => {
+      storage.recordStockSnapshot({
+        deviceCode,
+        goodsId:     String(p.id),
+        productName: p.name,
+        stock:       p.stock || 0,
+        source:      'weimi_sync',
+      });
     });
-  });
+  }
 
   storage.setMeta(`weimisync:products:${deviceCode}`, new Date().toISOString());
 
@@ -111,31 +121,60 @@ async function syncDeviceProducts(deviceCode) {
   // for these machines (it no longer sees our real sales), so we must NOT overwrite our counts with
   // Weimi's on sync. We refresh everything else (codes, products, prices, enable/broken) but carry
   // forward the existing currStock per bay code. Weimi-sourced machines keep Weimi's currStock.
-  const m2 = storage.getMachine ? storage.getMachine(deviceCode) : null;
-  const isKioskStock = (m2 && m2.stockSource === 'kiosk');
-  let priorStockByCode = {};
+  const isKioskStock = isKiosk;
+  // Kiosk: everything of ours per bay code — count, restock date, the "set its count" flag, and
+  // which product we last saw there — so a sync changes none of it and can say what Weimi moved.
+  let priorByCode = {};
+  let hadPrior = false;
   if (isKioskStock) {
     try {
       const priorRaw = storage.getMeta(`layout:${deviceCode}`);
-      const prior = priorRaw ? JSON.parse(priorRaw) : [];
-      (prior || []).forEach(layer => (layer.bays || []).forEach(b => { priorStockByCode[b.code] = Number(b.currStock) || 0; }));
-    } catch (e) { priorStockByCode = {}; }
+      const prior = priorRaw ? JSON.parse(priorRaw) : null;
+      hadPrior = Array.isArray(prior) && prior.length > 0;
+      (prior || []).forEach(layer => (layer.bays || []).forEach(b => {
+        priorByCode[b.code] = { currStock: Number(b.currStock) || 0, restockAt: b.restockAt || null,
+          needsCount: !!b.needsCount, goodsId: String(b.goodsId || ''), name: b.name || '' };
+      }));
+    } catch (e) { priorByCode = {}; hadPrior = false; }
   }
+  const seenCodes = new Set();
   const layerMap = {};
   (info.cabinets || []).forEach(cab => (cab.layers || []).forEach(layer => {
     const key = layer.layer;
     if (!layerMap[key]) layerMap[key] = { layer: key, bays: [] };
     (layer.aisles || []).forEach(a => {
       const weimiStock = a.currStock || 0;
-      // Kiosk-owned: keep our count if we have one for this bay; fall back to Weimi only for a
-      // brand-new bay we've never tracked. Weimi-owned: always take Weimi's number.
-      const currStock = isKioskStock
-        ? (Object.prototype.hasOwnProperty.call(priorStockByCode, a.code) ? priorStockByCode[a.code] : weimiStock)
-        : weimiStock;
-      layerMap[key].bays.push({
+      const goodsId = String(a.goodsId || a.id || '');
+      const name = weimi.fixMojibake(a.goodsName) || '';
+      const prior = isKioskStock ? priorByCode[a.code] : null;
+      seenCodes.add(a.code);
+      let currStock = weimiStock, restockAt, needsCount = false;
+      if (isKioskStock) {
+        if (prior) {
+          // Ours, untouched. A product swapped in Weimi keeps the bay's count (the restocker
+          // decides) but is written down, so a count that no longer fits the product has a cause.
+          currStock = prior.currStock; restockAt = prior.restockAt; needsCount = prior.needsCount;
+          if (goodsId && prior.goodsId && goodsId !== prior.goodsId) {
+            storage.ledger({ deviceCode, aisleCode: a.code, goodsId, productName: name,
+              before: currStock, after: currStock, cause: 'sync_product_changed',
+              ref: `${prior.name || prior.goodsId} → ${name || goodsId}` });
+          }
+        } else if (hadPrior) {
+          // A bay we have never counted. Weimi's number is not ours to trust: the bay starts at 0
+          // and is flagged until someone sets its count, instead of a stale figure selling air.
+          currStock = 0; needsCount = true;
+          storage.ledger({ deviceCode, aisleCode: a.code, goodsId, productName: name,
+            before: null, after: 0, cause: 'sync_new_bay', ref: `weimi ${weimiStock}` });
+        } else {
+          // First layout ever for this machine: Weimi's count is the only one there is.
+          storage.ledger({ deviceCode, aisleCode: a.code, goodsId, productName: name,
+            before: null, after: weimiStock, cause: 'sync_new_bay', ref: `weimi ${weimiStock} (first layout)` });
+        }
+      }
+      const bay = {
         code:      a.code,
-        goodsId:   String(a.goodsId || a.id || ''),
-        name:      weimi.fixMojibake(a.goodsName) || '',
+        goodsId,
+        name,
         image:     a.thumbnailUrl || a.imgUrl || a.imageUrl || '',
         priceIsk:  Math.round((a.price || 0) / 100),
         currStock: currStock,
@@ -145,11 +184,30 @@ async function syncDeviceProducts(deviceCode) {
         // Weimi's dispensing mode for this aisle: 1 coil, 2 direct push, 4 gravity fridge. The
         // layout's spiral / direct-push label defaults from it (router defaultBayConfig).
         shippingMode: (a.shippingMode != null) ? Number(a.shippingMode) : null,
-      });
+      };
+      if (restockAt) bay.restockAt = restockAt;
+      if (needsCount) bay.needsCount = true;
+      layerMap[key].bays.push(bay);
     });
   }));
+  if (isKioskStock) {
+    Object.keys(priorByCode).forEach(code => {
+      if (seenCodes.has(code)) return;
+      const pb = priorByCode[code];
+      storage.ledger({ deviceCode, aisleCode: code, goodsId: pb.goodsId, productName: pb.name,
+        before: pb.currStock, after: null, cause: 'sync_bay_removed' });
+    });
+  }
   const layout = Object.values(layerMap).sort((x, y) => String(x.layer).localeCompare(String(y.layer)));
   storage.setMeta(`layout:${deviceCode}`, JSON.stringify(layout));
+  if (isKioskStock) {
+    // Our totals and sold-out tracking, from our layout.
+    let total = 0; layout.forEach(l => (l.bays || []).forEach(b => { total += Number(b.currStock) || 0; }));
+    m.totalCurrStock = total;
+    m.updatedAt = new Date().toISOString();
+    storage.upsertMachine(m);
+    storage.snapshotKioskLayout(deviceCode, layout, 'kiosk_layout');
+  }
 
   return { products: products.length, totalCurrStock: m.totalCurrStock, maxStock: m.maxStock, layers: layout.length };
 }
