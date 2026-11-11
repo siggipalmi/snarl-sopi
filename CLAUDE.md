@@ -338,6 +338,24 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   published release (canary / all); the backend tab (AG only) marks the version Railway is running
   as live. Operators see the two app tabs for their own machines.
 
+## Stock counts on Kiosk machines (2026-11-11)
+
+- **Grótta vinstri read 0 on eight full bays (2026-11-10)** and nothing could say how. From backend
+  6.115.0 every change to a bay's count on a Kiosk-stock machine is a row in `stock_ledger` with its
+  cause (`sale`, `sale_spill`, `sale_skipped`, `sale_unmatched`, `restock` + who, `sync_new_bay`,
+  `sync_bay_removed`, `sync_product_changed`), read at `GET /machines/:code/stock-ledger` and shown on
+  the machine page → Planogram → "count changes" (tap a slot to filter). Check it before theorising
+  about a count.
+- **The Weimi sync writes Weimi's counts nowhere for a Kiosk machine.** It still brings names, prices
+  and the slot layout; counts, restock dates and the `needsCount` flag are carried per bay code. A bay
+  code it has never seen starts at **0 with `needsCount`** (tile badge "telja") rather than Weimi's
+  stale number, so renumbering aisles in Weimi's portal shows up as "set count" tiles, not as silent
+  zeros or a stale figure selling air. Machine totals and sold-out tracking read our layout.
+- The coil app still loads its **catalog from Weimi's cloud** (device-info, its own credentials) and
+  overlays our stock; dashboard price changes and product moves are written to Weimi. Owning the
+  planogram (product per slot, price, name, image in our backend; kiosk catalog from config; Weimi
+  only as a one-time import) is the next step, behind a mockup first.
+
 ## Wrong basket (2026-11-06)
 
 - **Settlement weighs every basket on its own and never credits a heavier one.** An item moved

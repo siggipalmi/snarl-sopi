@@ -1227,6 +1227,14 @@ select.fi{cursor:pointer;}
           <div class="ph"><div class="ph-title" id="md-layout-title" data-i18n="md.baysLayout">bays &amp; layout.</div><div class="ph-action" id="md-layout-hint" style="font-size:11px;color:var(--muted)"></div></div>
           <div id="md-layout" style="padding:18px"></div>
         </div>
+        <div class="panel" id="md-ledger-panel" style="margin-top:16px;display:none">
+          <div class="ph">
+            <div class="ph-title" data-i18n="md.countLog">count changes.</div>
+            <div class="ph-action" onclick="loadStockLedger(_mdDeviceCode)" data-i18n="md.refresh">↻ refresh</div>
+          </div>
+          <div id="md-ledger" style="padding:14px 18px 16px"><div style="font-size:12.5px;color:var(--muted)" data-i18n="md.countLogHelp">Every change to a bay's count, with its cause: a sale, a restock, or a bay Weimi added or removed. Tap a slot to see only that bay.</div></div>
+        </div>
+
       </div>
 
       <!-- ── ACTIVITY ── -->
@@ -2546,6 +2554,13 @@ const I18N = {
     'md.readTemp':'read temperature',
     'md.dispenseLog':'dispense log.',
     'md.fetchFromMachine':'↻ fetch from machine',
+    'md.countLog':'count changes.','md.countLogHelp':'Every change to a bay\'s count, with its cause: a sale, a restock, or a bay Weimi added or removed. Tap a slot to see only that bay.',
+    'md.countLogNone':'No count changes recorded yet. Rows appear from the first sale or restock after backend 6.115.0.',
+    'md.countLogWeimi':'This machine is on Weimi stock; counts come from Weimi\'s cloud and are not recorded here.',
+    'md.countLogAll':'all slots','md.countLogSlot':'slot','md.countLogWhen':'when','md.countLogProduct':'product','md.countLogChange':'change','md.countLogAfter':'after','md.countLogCause':'cause',
+    'md.setCount':'set count','md.needsCount':'new bay, set its count',
+    'cause.sale':'sale','cause.sale_spill':'sale from another bay','cause.sale_skipped':'sale before refill, not counted','cause.sale_unmatched':'sale, no units counted',
+    'cause.restock':'restock','cause.sync_new_bay':'new bay from Weimi','cause.sync_bay_removed':'bay removed in Weimi','cause.sync_product_changed':'product changed in Weimi',
     'md.dispenseHelp':'The last 50 dispenses held in the machine\'s memory, with the raw board code for each. Fetch to see which lanes are reporting what.',
     'md.machineLog':'machine log.',
     'md.refresh':'↻ refresh',
@@ -2831,6 +2846,13 @@ const I18N = {
     'md.readTemp':'lesa hitastig',
     'md.dispenseLog':'afgreiðsluskrá.',
     'md.fetchFromMachine':'↻ sækja úr vélinni',
+    'md.countLog':'breytingar á talningu.','md.countLogHelp':'Hver breyting á talningu hólfs og ástæða hennar: sala, áfylling, eða hólf sem Weimi bætti við eða fjarlægði. Smelltu á hólf til að sjá bara það.',
+    'md.countLogNone':'Engar breytingar skráðar enn. Færslur birtast frá fyrstu sölu eða áfyllingu eftir bakenda 6.115.0.',
+    'md.countLogWeimi':'Þessi vél er á Weimi-birgðum; talningin kemur úr skýi Weimi og er ekki skráð hér.',
+    'md.countLogAll':'öll hólf','md.countLogSlot':'hólf','md.countLogWhen':'hvenær','md.countLogProduct':'vara','md.countLogChange':'breyting','md.countLogAfter':'eftir','md.countLogCause':'ástæða',
+    'md.setCount':'telja','md.needsCount':'nýtt hólf, skráðu talningu',
+    'cause.sale':'sala','cause.sale_spill':'sala úr öðru hólfi','cause.sale_skipped':'sala fyrir áfyllingu, ekki talin','cause.sale_unmatched':'sala, engin eining til að telja',
+    'cause.restock':'áfylling','cause.sync_new_bay':'nýtt hólf frá Weimi','cause.sync_bay_removed':'hólf fjarlægt í Weimi','cause.sync_product_changed':'vöru skipt í Weimi',
     'md.dispenseHelp':'Síðustu 50 afgreiðslur sem vélin geymir, með hráum borðkóða fyrir hverja. Sæktu til að sjá hvað hver röð er að tilkynna.',
     'md.machineLog':'vélarskrá.',
     'md.refresh':'↻ endurnýja',
@@ -6553,6 +6575,55 @@ function renderDispenseLog(cmd) {
 
 // Read the machine's recent logcat, posted by the kiosk itself. This is the only way to diagnose a
 // placed machine — adb needs the local network and doesn't survive a reboot on these boards.
+// Count changes on a Kiosk-stock machine: how each bay got to the number the layout shows.
+// aisle narrows to one bay (the layout's bay code, e.g. 0-A03); null is every bay.
+let _mdLedgerAisle = null;
+async function loadStockLedger(code, aisle) {
+  const el = document.getElementById('md-ledger');
+  if (!el || !code) return;
+  if (aisle !== undefined) _mdLedgerAisle = aisle || null;
+  el.innerHTML = '<div style="font-size:12px;color:var(--muted)">loading…</div>';
+  try {
+    const q = '?limit=300' + (_mdLedgerAisle ? '&aisle=' + encodeURIComponent(_mdLedgerAisle) : '');
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/stock-ledger' + q);
+    const d = (r && r.data) || {};
+    const rows = d.rows || [];
+    const filt = _mdLedgerAisle
+      ? '<div style="margin-bottom:9px;font-size:12px"><span class="pill pill-out">slot ' + rsEsc(physicalSlot(_mdLedgerAisle)) + '</span> <span style="cursor:pointer;color:var(--bronze)" onclick="loadStockLedger(_mdDeviceCode, null)">' + rsEsc(t('md.countLogAll')) + '</span></div>'
+      : '';
+    if (!rows.length) {
+      const why = d.stockSource === 'kiosk' ? t('md.countLogNone') : t('md.countLogWeimi');
+      el.innerHTML = filt + '<div style="font-size:12.5px;color:var(--muted)">' + rsEsc(why) + '</div>';
+      return;
+    }
+    const th = k => '<th style="text-align:left;font-weight:500;color:var(--muted);padding:4px 8px 6px 0;font-size:11px">' + rsEsc(t(k)) + '</th>';
+    const td = (v, extra) => '<td style="padding:4px 8px 4px 0;font-size:12px;vertical-align:top;' + (extra || '') + '">' + v + '</td>';
+    const when = ms => { const d2 = new Date(ms); return isShortDate(ms) + (isShortDate(ms).indexOf('kl.') < 0 ? ' ' + d2.toTimeString().slice(0, 5) : ''); };
+    const body = rows.map(function (x) {
+      const isSync = /^sync_/.test(x.cause);
+      const isOdd = x.cause === 'sale_unmatched' || x.cause === 'sale_spill' || isSync;
+      const delta = (x.before == null || x.after == null) ? '' : (x.delta > 0 ? '+' + x.delta : String(x.delta));
+      const dcol = x.delta > 0 ? '#4A6B2E' : (x.delta < 0 ? 'var(--ink-soft)' : 'var(--muted)');
+      const slot = x.aisleCode ? '<span style="cursor:pointer;font-family:var(--mono)" onclick="loadStockLedger(_mdDeviceCode, \'' + rsEsc(x.aisleCode) + '\')">' + rsEsc(physicalSlot(x.aisleCode)) + '</span>' : '<span style="color:var(--muted)">—</span>';
+      const who = x.actor ? ' · ' + rsEsc(x.actor) : (x.ref && (x.cause === 'sale' || x.cause === 'sale_spill' || x.cause === 'sale_skipped' || x.cause === 'sale_unmatched') ? ' · <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">' + rsEsc(String(x.ref).split('#')[0].slice(0, 18)) + '</span>' : (x.ref ? ' · ' + rsEsc(x.ref) : ''));
+      return '<tr style="border-top:1px solid var(--line)' + (isOdd ? ';background:rgba(184,71,31,0.06)' : '') + '">' +
+        td('<span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap">' + rsEsc(when(x.at)) + '</span>') +
+        td(slot) +
+        td(rsEsc(x.productName || '')) +
+        td('<span style="font-family:var(--mono);color:' + dcol + '">' + rsEsc(delta) + '</span>', 'text-align:right') +
+        td('<span style="font-family:var(--mono)">' + (x.after == null ? '—' : rsEsc(String(x.after))) + '</span>', 'text-align:right') +
+        td(rsEsc(t('cause.' + x.cause)) + who) +
+        '</tr>';
+    }).join('');
+    el.innerHTML = filt + '<div style="max-height:360px;overflow:auto"><table style="border-collapse:collapse;width:100%"><thead><tr>' +
+      th('md.countLogWhen') + th('md.countLogSlot') + th('md.countLogProduct') + th('md.countLogChange') + th('md.countLogAfter') + th('md.countLogCause') +
+      '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+      '<div style="margin-top:8px;font-size:11px;color:var(--muted)">' + rows.length + ' · 90 d</div>';
+  } catch (e) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">Could not load the count changes.</div>';
+  }
+}
+
 async function loadMachineLogs(code) {
   const el = document.getElementById('md-logs');
   const meta = document.getElementById('md-logs-meta');
@@ -7711,9 +7782,13 @@ function renderMachineLayoutOrFridge(code, machine) {
   if (isFridge) {
     if (title) title.textContent = 'fridge planogram.';
     renderFridgePlanogram(code, machine.model);
+    var ledgF = document.getElementById('md-ledger-panel'); if (ledgF) ledgF.style.display = 'none';
   } else {
     if (title) title.textContent = 'bays & layout.';
     renderMachineLayout(code);
+    var ledgC = document.getElementById('md-ledger-panel'); if (ledgC) ledgC.style.display = '';
+    _mdLedgerAisle = null;
+    loadStockLedger(code);
   }
 }
 
@@ -7762,8 +7837,10 @@ async function renderMachineLayout(code) {
         const label = (b.name || '—').slice(0, 16);
         const img = b.image ? '<img src="' + rsEsc(b.image) + '" alt="" style="width:100%;height:38px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
         _mdBays[b.code] = { goodsId: b.goodsId || '', name: b.name || '', priceIsk: b.priceIsk || 0, closed: isKioskClosed };
-        const kioskBadge = isKioskClosed ? '<div style="position:absolute;top:3px;left:3px;font-family:var(--mono);font-size:7.5px;background:var(--muted);color:#fff;padding:0 3px;border-radius:3px">not selling</div>' : '';
-        return `<div title="slot ${physicalSlot(b.code)} · ${rsEsc(b.name || 'empty')} · ${b.currStock}/${b.maxStock} · ${formatKr(b.priceIsk)}${(showWeimiFlags && b.isBroken) ? ' · BROKEN (Weimi)' : ''}${(showWeimiFlags && !b.isEnable) ? ' · closed (Weimi)' : ''}${isKioskClosed ? ' · not selling (kiosk)' : ''}"
+        const countBadge = b.needsCount ? '<div title="' + rsEsc(t('md.needsCount')) + '" style="position:absolute;top:3px;right:18px;font-family:var(--mono);font-size:7.5px;background:var(--alert);color:#fff;padding:0 3px;border-radius:3px">' + rsEsc(t('md.setCount')) + '</div>' : '';
+        const restockNote = b.restockAt ? ' · fyllt ' + isShortDate(Date.parse(b.restockAt)) : '';
+        const kioskBadge = countBadge + (isKioskClosed ? '<div style="position:absolute;top:3px;left:3px;font-family:var(--mono);font-size:7.5px;background:var(--muted);color:#fff;padding:0 3px;border-radius:3px">not selling</div>' : '');
+        return `<div title="slot ${physicalSlot(b.code)} · ${rsEsc(b.name || 'empty')} · ${b.currStock}/${b.maxStock} · ${formatKr(b.priceIsk)}${(showWeimiFlags && b.isBroken) ? ' · BROKEN (Weimi)' : ''}${(showWeimiFlags && !b.isEnable) ? ' · closed (Weimi)' : ''}${isKioskClosed ? ' · not selling (kiosk)' : ''}${restockNote}${b.needsCount ? ' · ' + rsEsc(t('md.needsCount')) : ''}"
           onclick="openSlotMenu('${code}','${b.code}')"
           style="position:relative;flex:1;min-width:72px;max-width:120px;background:${bg};border:1px ${isKioskClosed ? 'dashed' : 'solid'} ${border};border-radius:6px;padding:6px 6px 5px;font-size:10px;line-height:1.25;cursor:pointer${isKioskClosed ? ';opacity:.72' : ''}">
           <div class="bay-edit-badge">&#9998;</div>
