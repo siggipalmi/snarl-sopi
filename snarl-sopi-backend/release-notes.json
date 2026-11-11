@@ -34,6 +34,16 @@
  },
  {
   "component": "backend",
+  "version": "6.113.1",
+  "date": "2026-11-11",
+  "title": "Alerts show when they were raised, not only how long ago.",
+  "notes": [
+   "Every alert now shows its date and time next to the relative age, e.g. \"10/11 15:37 · 15 h ago\": on the dashboard, the Alerts page and the machine page. A time can be matched against Nayax Core and the machine log; \"15 h ago\" could not."
+  ],
+  "check": "Open Alerts: each row shows dd/mm hh:mm before the age."
+ },
+ {
+  "component": "backend",
   "version": "6.112.0",
   "date": "2026-11-10",
   "title": "Complaints judged on evidence.",
