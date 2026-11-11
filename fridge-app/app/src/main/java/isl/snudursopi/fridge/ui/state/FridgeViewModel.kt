@@ -1166,6 +1166,8 @@ class FridgeViewModel(
     private var collecting: Settlement.Result? = null
     private var collectedIsk = 0
     private val collectedRefs = mutableListOf<String>()
+    /** One line per charge attempt of this order ([PaymentGateway.chargeNote]). */
+    private val paymentTrail = mutableListOf<String>()
     @Volatile private var chargeInFlight = false
     private var remainderJob: Job? = null
 
@@ -1178,6 +1180,7 @@ class FridgeViewModel(
         collecting = result
         collectedIsk = 0
         collectedRefs.clear()
+        paymentTrail.clear()
         chargeNext()
     }
 
@@ -1205,6 +1208,7 @@ class FridgeViewModel(
                 )
                 return@capture
             }
+            payment.chargeNote()?.let { paymentTrail += it }
             if (captured) {
                 collectedIsk += amount
                 payment.lastReference()?.let { collectedRefs += it }
@@ -1349,6 +1353,7 @@ class FridgeViewModel(
                     paidIsk = paidIsk,
                     final = final,
                     paymentRefs = if (paidIsk != null) collectedRefs.toList() else emptyList(),
+                    paymentTrail = if (paidIsk != null) paymentTrail.toList() else emptyList(),
                 )
             )
         }.onFailure {
@@ -1640,6 +1645,9 @@ interface PaymentGateway {
      * when the gateway cannot tell. Defaulted so test/fake gateways need not care.
      */
     fun availableFunds(): Int? = null
+
+    /** One line on how the last capture went, for the settlement's payment trail. */
+    fun chargeNote(): String? = null
 }
 
 /**

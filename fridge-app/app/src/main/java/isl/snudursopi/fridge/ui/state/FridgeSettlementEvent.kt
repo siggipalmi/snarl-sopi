@@ -26,4 +26,6 @@ data class FridgeSettlementEvent(
     val final: Boolean = true,
     /** Nayax's reference for every approved charge of this order, in order. */
     val paymentRefs: List<String> = emptyList(),
+    /** One line per charge attempt: what the reader allowed, what was sent, what came back. */
+    val paymentTrail: List<String> = emptyList(),
 )
