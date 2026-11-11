@@ -133,8 +133,12 @@ class LogRelay(
     }
 
     private companion object {
-        /** Five minutes: a fault is visible while it is happening, at a cost the SIM won't notice. */
-        const val INTERVAL_MS = 5L * 60L * 1000L
+        /**
+         * One minute (was five until 2026-11-11). Blue Hotel's tablet keeps only two or three
+         * minutes of log: at five, every flush found its last line already gone, and the
+         * minutes of a refused 500 kr sale were never relayed. A minute stays inside the buffer.
+         */
+        const val INTERVAL_MS = 60L * 1000L
         /** Lines per post — the backend keeps the same number from one request. */
         const val MAX_LINES = 400
         /** Cap per flush, so a log storm cannot mail the whole buffer over the SIM. */

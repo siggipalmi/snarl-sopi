@@ -1,5 +1,38 @@
 [
  {
+  "component": "coil",
+  "version": "0.80.26",
+  "versionCode": 182,
+  "date": "2026-11-11",
+  "title": "The log reaches the dashboard every minute.",
+  "notes": [
+   "The machine log is sent to the dashboard every minute instead of every five, so a tablet that keeps only a few minutes of log no longer loses most of it between sends."
+  ]
+ },
+ {
+  "component": "fridge",
+  "version": "0.70.14",
+  "versionCode": 180,
+  "date": "2026-11-11",
+  "title": "The log reaches the dashboard every minute, and each charge reports what happened.",
+  "notes": [
+   "The machine log is sent to the dashboard every minute instead of every five. Blue Hotel's tablet keeps only two or three minutes of log, so at five minutes most of it was lost, including the minutes of a refused 500 kr sale on 10 Nov.",
+   "Each charge attempt is sent with the order: what the reader said the card allows, how long the card's session had been open, the amount sent, and the reader's answer. Nothing about how customers are charged changes."
+  ],
+  "check": "On Blue Hotel: the machine log has no \"last relayed line is no longer in the device log\" lines after the update."
+ },
+ {
+  "component": "backend",
+  "version": "6.114.0",
+  "date": "2026-11-11",
+  "title": "An unpaid fridge order says why the payment failed.",
+  "notes": [
+   "From fridge 0.70.14 each charge attempt is reported with the order: what the reader said the card allows, how long the card's session had been open, the amount sent, and the reader's answer (approved, declined, failed and why, timed out).",
+   "The \"X kr unpaid\" alert ends with that story, so a refused charge can be understood without the machine log."
+  ],
+  "check": "The next unpaid alert ends with \"Payment: card allowed … kr, session open …s, … sent … kr → …\"."
+ },
+ {
   "component": "backend",
   "version": "6.112.0",
   "date": "2026-11-10",

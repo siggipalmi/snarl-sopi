@@ -1526,9 +1526,16 @@ function handleFridgeSettlement(req, res) {
   const isFinal = b.final !== false;
   const anomalyList = Array.isArray(b.anomalies) ? b.anomalies.slice() : [];
   const unpaidIsk = (paidIsk != null && b.totalIsk != null) ? Math.max(0, Math.round(b.totalIsk) - paidIsk) : 0;
+  // Fridge 0.70.14: one line per charge attempt — what the reader allowed, how long its session
+  // had been open, what was sent and what came back. Kept with a shortfall, and in the alert.
+  const paymentTrail = Array.isArray(b.paymentTrail) ? b.paymentTrail.slice(0, 10).map(x => String(x).slice(0, 300)) : [];
   if (unpaidIsk > 0) {
     anomalyList.push({ reason: 'unpaid_balance', paidIsk, unpaidIsk, final: isFinal,
-      paymentRefs: Array.isArray(b.paymentRefs) ? b.paymentRefs.slice(0, 20).map(String) : [] });
+      paymentRefs: Array.isArray(b.paymentRefs) ? b.paymentRefs.slice(0, 20).map(String) : [],
+      paymentTrail });
+  }
+  if (paymentTrail.length && (unpaidIsk > 0 || paymentTrail.length > 1)) {
+    console.log(`[FRIDGE] ${deviceCode} order ${b.orderId} payment: ${paymentTrail.join(' | ')}`);
   }
   const settlement = {
     orderId: String(b.orderId), deviceCode,
@@ -1741,12 +1748,15 @@ function notifyMisplacedItems(machine, settlement) {
 
 function notifyUnpaidBalance(machine, settlement, paidIsk, unpaidIsk) {
   const kr = n => Number(n || 0).toLocaleString('is-IS') + ' kr';
-  const refs = (_safeJsonParse(settlement.anomalies, []).find(a => a && a.reason === 'unpaid_balance') || {}).paymentRefs || [];
+  const unpaid = _safeJsonParse(settlement.anomalies, []).find(a => a && a.reason === 'unpaid_balance') || {};
+  const refs = unpaid.paymentRefs || [];
+  const trail = unpaid.paymentTrail || [];
   const detail = `${machine.deviceCode} · order ${settlement.orderId}: the basket came to ${kr(settlement.totalIsk)}, ` +
     `${kr(paidIsk)} was collected${refs.length ? ' (Nayax ' + refs.join(', ') + ')' : ''} and ${kr(unpaidIsk)} is unpaid. ` +
     (paidIsk > 0
       ? 'The card allowed less than the basket in one charge, and the customer did not tap again for the rest.'
-      : 'The charge was refused, and the customer did not tap again.');
+      : 'The charge was refused, and the customer did not tap again.') +
+    (trail.length ? ' Payment: ' + trail.join(' | ') : '');
   console.warn(`[FRIDGE] UNPAID ${unpaidIsk} kr on ${machine.deviceCode} order ${settlement.orderId} (paid ${paidIsk} of ${settlement.totalIsk})`);
   const alertId = 'alert_fridge_unpaid_' + machine.deviceCode + '_' + settlement.orderId;
   if (!storage.getAlert(alertId)) storage.insertAlert({

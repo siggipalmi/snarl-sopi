@@ -167,11 +167,11 @@ class LogRelay(
 
     private companion object {
         /**
-         * Five minutes. Frequent enough that a fault is visible while it is
-         * still happening, infrequent enough to be invisible against the
-         * per-minute config poll.
+         * One minute (was five until 2026-11-11). Blue Hotel's tablet keeps only two or three
+         * minutes of log: at five, every flush found its last line already gone, and the
+         * minutes of a refused 500 kr sale were never relayed. A minute stays inside the buffer.
          */
-        const val INTERVAL_MS = 5L * 60L * 1000L
+        const val INTERVAL_MS = 60L * 1000L
 
         /** Lines per post: what the backend keeps from one request. */
         const val MAX_LINES = 400

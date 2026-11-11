@@ -29,6 +29,7 @@ object SettlementReport {
         paidIsk: Int? = null,
         final: Boolean = true,
         paymentRefs: List<String> = emptyList(),
+        paymentTrail: List<String> = emptyList(),
     ): JSONObject {
         val lines = JSONArray()
         result.lines.forEach { l ->
@@ -94,5 +95,6 @@ object SettlementReport {
             .put("paidIsk", paidIsk ?: JSONObject.NULL)
             .put("final", final)
             .put("paymentRefs", JSONArray(paymentRefs))
+            .put("paymentTrail", JSONArray(paymentTrail))
     }
 }

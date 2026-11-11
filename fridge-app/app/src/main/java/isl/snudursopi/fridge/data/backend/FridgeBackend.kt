@@ -162,6 +162,7 @@ class FridgeBackend(
         paidIsk: Int? = null,
         final: Boolean = true,
         paymentRefs: List<String> = emptyList(),
+        paymentTrail: List<String> = emptyList(),
     ) {
         val repo = settlements
         val body = runCatching {
@@ -177,6 +178,7 @@ class FridgeBackend(
                 paidIsk = paidIsk,
                 final = final,
                 paymentRefs = paymentRefs,
+                paymentTrail = paymentTrail,
             ).toString()
         }.getOrElse {
             Log.e(TAG, "could not build settlement body for $orderId: ${it.message}")

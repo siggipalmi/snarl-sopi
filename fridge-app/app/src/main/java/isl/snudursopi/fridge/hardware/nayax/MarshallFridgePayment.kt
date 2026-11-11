@@ -38,10 +38,17 @@ class MarshallFridgePayment(
     /** Funds the reader reported for the card currently presented. */
     @Volatile private var fundsAvail = 0
 
+    /** When the reader opened the session for the card currently presented. */
+    @Volatile private var sessionBeganMs = 0L
+
+    /** One line per charge, for the settlement ([chargeNote]). */
+    @Volatile private var lastNote: String? = null
+
     fun connect(onReady: () -> Unit = {}) {
         controller.onReaderStateChanged = { ready -> readerReady = ready }
         controller.onCardDetected = { funds ->
             fundsAvail = funds
+            sessionBeganMs = System.currentTimeMillis()
             onCardPresented?.invoke()
         }
         controller.connect {
@@ -57,6 +64,8 @@ class MarshallFridgePayment(
     override fun lastReference(): String? = controller.lastTransactionId
 
     override fun availableFunds(): Int? = fundsAvail.takeIf { it > 0 }
+
+    override fun chargeNote(): String? = lastNote
 
     override fun preAuthorize(orderId: String, onResult: (approved: Boolean) -> Unit) {
         if (!readerReady) {
@@ -85,9 +94,24 @@ class MarshallFridgePayment(
             onResult(true)
             return
         }
+        // What the reader said at the tap, how long its session had been open, what we sent and
+        // what came back: a refused charge explains itself in the settlement even when the
+        // machine's log is gone (Blue Hotel, 10 Nov 2026: 500 kr refused, never reached Nayax,
+        // and the relayed log had already lost those minutes).
+        val sessionAgeS = if (sessionBeganMs > 0) (System.currentTimeMillis() - sessionBeganMs) / 1000 else -1
+        val before = "card allowed $fundsAvail kr, session open ${sessionAgeS}s, reader ready=$readerReady, sent $amountIsk kr"
         controller.charge(amountIsk) { result ->
+            lastNote = "$before → ${describe(result)}"
             onResult(result is MarshallPaymentController.Result.Approved)
         }
+    }
+
+    private fun describe(r: MarshallPaymentController.Result): String = when (r) {
+        is MarshallPaymentController.Result.Approved -> "approved ${r.amount} kr" +
+            (controller.lastTransactionId?.let { " (Nayax $it)" } ?: "")
+        is MarshallPaymentController.Result.Declined -> "declined (${r.reason})"
+        is MarshallPaymentController.Result.Failed -> "failed (${r.reason})"
+        MarshallPaymentController.Result.Cancelled -> "cancelled"
     }
 
     override fun cancel(orderId: String) {

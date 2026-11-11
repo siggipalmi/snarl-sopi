@@ -49,12 +49,14 @@ test('interim partial payment is stored without an alert; the final one alerts o
   const a1 = JSON.parse(interim.anomalies).find(a => a.reason === 'unpaid_balance');
   assert.deepStrictEqual([a1.paidIsk, a1.unpaidIsk, a1.final], [8000, 1350, false]);
 
-  r = post(code, base(orderId, { outcome: 'partially_paid', paidIsk: 8000, final: true, paymentRefs: ['111'] }));
+  r = post(code, base(orderId, { outcome: 'partially_paid', paidIsk: 8000, final: true, paymentRefs: ['111'],
+    paymentTrail: ['card allowed 8000 kr, session open 95s, reader ready=true, sent 8000 kr → approved 8000 kr (Nayax 111)'] }));
   assert.strictEqual(r.status, 200);
   const alert = storage.getAlert(alertId);
   assert.ok(alert, 'the final report raises the alert');
   assert.strictEqual(alert.type, 'fridge_unpaid_balance');
   assert.match(alert.detail, /1\.350 kr is unpaid/);
+  assert.match(alert.detail, /Payment: card allowed 8000 kr, session open 95s/, 'the alert carries the payment trail');
 
   post(code, base(orderId, { outcome: 'partially_paid', paidIsk: 8000, final: true }));   // replayed
   assert.ok(storage.getAlert(alertId), 'still one alert after a replay');

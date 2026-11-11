@@ -414,6 +414,7 @@ class MainActivity : ComponentActivity() {
                     paidIsk = event.paidIsk,
                     final = event.final,
                     paymentRefs = event.paymentRefs,
+                    paymentTrail = event.paymentTrail,
                 )
             }
         }
