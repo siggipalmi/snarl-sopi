@@ -4105,6 +4105,13 @@ function fmtDateTimeS(ts) { return fmtDateTimeParts(ts, true); }
 // A release publish time and a machine's last update check are read days later and to the minute;
 // seconds there are noise. Both previously showed a bare clock time with no date at all.
 function fmtDateTime(ts) { return fmtDateTimeParts(ts, false); }
+// When an alert was raised: the date and time, which is what gets compared with Nayax or a log,
+// with how long ago next to it (Siggi, 2026-11-11: "15h ago" alone cannot be matched to anything).
+function alertWhen(ts) {
+  const ago = timeAgo(ts);
+  const at = fmtDateTime(ts);
+  return at === '\u2014' ? ago : at + (ago ? ' \u00b7 ' + ago : '');
+}
 function timeAgo(ts) {
   const _t=new Date(ts).getTime(); if(isNaN(_t)) return '';
   const d=(Date.now()-_t)/1000;
@@ -4558,7 +4565,7 @@ async function renderDashboardClassic() {
     '<div class="al-item" onclick="go(&quot;alerts&quot;,document.querySelectorAll(&quot;.nav-item&quot;)[2])">' +
     '<div class="al-pip" style="background:'+(pipColor[a.severity]||'var(--clay)')+'"></div>' +
     '<div class="al-body"><div class="al-title">'+rsEsc(alertText(a).title)+'</div><div class="al-meta">'+rsEsc(alertText(a).detail)+'</div></div>' +
-    '<div class="al-time">'+timeAgo(a.createdAt)+'</div></div>'
+    '<div class="al-time">'+alertWhen(a.createdAt)+'</div></div>'
   ).join('') : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">'+t('dash.noAlerts')+'</div>';
 
 }
@@ -7644,7 +7651,7 @@ async function renderMachineAlerts(code) {
       var isCrit = al.severity === 'critical';
       var dot = isCrit ? 'var(--alert)' : (al.severity === 'warning' ? 'var(--bronze-light)' : 'var(--muted)');
       var bg = isCrit ? 'var(--alert-bg)' : 'var(--cream-deep)';
-      var when = al.createdAt ? timeAgo(al.createdAt) : '';
+      var when = al.createdAt ? alertWhen(al.createdAt) : '';
       var txt = alertText(al);
       return '<div style="display:flex;gap:10px;align-items:flex-start;padding:11px;background:' + bg + ';border-radius:6px;margin-bottom:8px">' +
         '<div style="width:7px;height:7px;border-radius:50%;background:' + dot + ';margin-top:5px;flex-shrink:0"></div>' +
@@ -8738,7 +8745,7 @@ async function renderAlerts() {
       <div class="al-pip" style="background:${pipColor[a.severity]||'var(--clay)'}"></div>
       <div class="al-body"><div class="al-title">${rsEsc(alertText(a).title)}</div><div class="al-meta">${rsEsc(alertText(a).detail)}</div></div>
       ${!a.resolved?`<span class="pill pill-out btn-sm" style="cursor:pointer;margin-right:8px" onclick="resolveAlert('${a.id}')">${rsEsc(t('md.resolve'))}</span>`:`<span class="pill pill-up btn-sm" style="margin-right:8px">${rsEsc(t('alr.resolved'))}</span>`}
-      <div class="al-time">${timeAgo(a.createdAt)}</div>
+      <div class="al-time">${alertWhen(a.createdAt)}</div>
     </div>
   `).join('') || `<div style="padding:20px;text-align:center;color:var(--muted)">${rsEsc(t('alr.none'))}</div>`;
 }
