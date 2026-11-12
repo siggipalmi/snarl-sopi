@@ -239,6 +239,27 @@ class ConfigClient(
             )
         }
 
+        // catalogSource (backend 6.116.0): "kiosk" means the planogram below IS the catalog and
+        // Weimi's cloud is never asked; anything else is the Weimi catalog the fleet has run so far.
+        val catalogSource = data.get("catalogSource")?.takeIf { it.isTextual }?.asText()?.trim()?.lowercase()
+            ?.takeIf { it == "kiosk" } ?: "weimi"
+        val planogram: List<PlanogramBay> = data.get("planogram")?.takeIf { it.isArray }?.flatMap { layerNode ->
+            val layer = layerNode.get("layer")?.asText().orEmpty()
+            layerNode.get("bays")?.takeIf { it.isArray }?.mapNotNull { b ->
+                val code = b.get("code")?.asText()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                PlanogramBay(
+                    layer = layer,
+                    code = code,
+                    goodsId = b.get("goodsId")?.takeIf { it.isTextual }?.asText()?.takeIf { it.isNotBlank() },
+                    name = b.get("name")?.asText().orEmpty(),
+                    priceIsk = b.get("priceIsk")?.takeIf { it.isNumber }?.asInt() ?: 0,
+                    image = b.get("image")?.takeIf { it.isTextual }?.asText()?.takeIf { it.isNotBlank() },
+                    maxStock = b.get("maxStock")?.takeIf { it.isNumber }?.asInt() ?: 0,
+                    currStock = b.get("currStock")?.takeIf { it.isNumber }?.asInt() ?: 0,
+                )
+            } ?: emptyList()
+        } ?: emptyList()
+
         return Result.Loaded(
             featured = featured,
             profile = profile,
@@ -265,6 +286,8 @@ class ConfigClient(
             idleGuardUs = idleGuardUs,
             skin = skin,
             complaintsEntry = complaintsEntry,
+            catalogSource = catalogSource,
+            planogram = planogram,
         )
     }
 
@@ -380,9 +403,29 @@ class ConfigClient(
             val skin: SkinId = SkinId.Classic,
             /** "success" | "contact" | "off" — where the complaint form can be reached. */
             val complaintsEntry: String = "contact",
+            /** "weimi" (catalog from Weimi's cloud) | "kiosk" (catalog is [planogram]). */
+            val catalogSource: String = "weimi",
+            /** Every bay of the machine when [catalogSource] is "kiosk"; empty otherwise. */
+            val planogram: List<PlanogramBay> = emptyList(),
         ) : Result()
     }
 }
+
+/**
+ * One bay of the backend's planogram (config `planogram[].bays[]`, backend 6.116.0). [code] is
+ * the board's aisle code ("0-A03"), the same the Weimi catalog used, so the slot translator and
+ * every dispense path stay as they were. An empty bay has no [goodsId].
+ */
+data class PlanogramBay(
+    val layer: String,
+    val code: String,
+    val goodsId: String?,
+    val name: String,
+    val priceIsk: Int,
+    val image: String?,
+    val maxStock: Int,
+    val currStock: Int,
+)
 
 /**
  * A backend-hosted (Cloudflare R2), normalized product image from the config

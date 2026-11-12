@@ -77,6 +77,28 @@ fun List<Aisle>.toProducts(): List<Product> {
     }
 }
 
+/**
+ * The backend's planogram as Weimi-shaped aisles, so a Kiosk-catalog machine goes through the
+ * same [toProducts] as a Weimi one: one product per goodsId across its bays, friendly slots from
+ * the same codes, and nothing else in the app knows which catalog it is running on.
+ */
+fun List<isl.snudursopi.vending.data.backend.PlanogramBay>.toAisles(): List<Aisle> = map { b ->
+    Aisle(
+        id = b.goodsId ?: "",
+        layer = b.layer,
+        code = b.code,
+        price = b.priceIsk * 100,
+        currStock = b.currStock,
+        maxStock = b.maxStock,
+        goodsId = b.goodsId,
+        goodsName = b.name.takeIf { b.goodsId != null },
+        imgUrl = b.image,
+        thumbnailUrl = b.image,
+        isEnable = true,
+        isBroken = false,
+    )
+}
+
 private fun inferCategory(name: String, goodsTypeNames: List<String>): Category {
     val types = goodsTypeNames.joinToString(" ").lowercase()
     when {
