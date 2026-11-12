@@ -211,3 +211,112 @@ test('a pasted credential loses surrounding spaces and quotes, and its shape is 
   const v = accounting.publicView(op, { isAg: true });
   assert.strictEqual(v.credentials.usable, true);
 });
+
+// ─── Konto ───────────────────────────────────────────────────────────────────
+
+test('Konto: a day becomes a draft invoice with net prices that add back up to our gross', () => {
+  const { buildInvoice } = require('../src/accountingKonto');
+  const { invoice, roundingKr } = buildInvoice({ day: '2026-11-11', byRate: { '11': 9926, '24': 499 }, customerGuid: 'cust', reference: 'SNARL-op-2026-11-11' });
+  assert.strictEqual(invoice.save, 1, 'always a draft: nothing is delivered to anyone');
+  assert.strictEqual(invoice.type, 'invoice');
+  assert.deepStrictEqual(invoice.customer, { guid: 'cust' });
+  assert.deepStrictEqual(invoice.items.map(i => [i.tax, i.unit_price, i.qty, i.uom]), [['AA', 8942.34, 1, 'C62'], ['S', 402.42, 1, 'C62']]);
+  // amount = Σ lines + VAT, to 2 dp, which is Konto's own acceptance rule
+  const check = invoice.items.reduce((s, i) => s + i.unit_price + Math.round(i.unit_price * (i.tax === 'S' ? 24 : 11)) / 100, 0);
+  assert.strictEqual(Math.round(check * 100), Math.round(invoice.amount * 100));
+  assert.strictEqual(invoice.amount, 10425);
+  assert.strictEqual(roundingKr, 0);
+  assert.ok(invoice.items.every(i => i.item_number && i.description));
+  // A rate with no sales has no line.
+  assert.strictEqual(buildInvoice({ day: 'd', byRate: { '11': 350, '24': 0 }, customerGuid: 'c', reference: 'r' }).invoice.items.length, 1);
+});
+
+test('Konto: consent, rotating tokens, send, and the changes it cannot make', async () => {
+  const storage = require('../src/storage');
+  const konto = require('../src/accountingKonto');
+  const db = storage.db;
+  process.env.KONTO_CLIENT_ID = 'cid'; process.env.KONTO_CLIENT_SECRET = 'csecret';
+  const op = 'op_konto', day = '2026-10-25';
+  db.prepare(`INSERT OR IGNORE INTO operators (id, name, createdAt) VALUES (?, 'Konto test', '2026-01-01')`).run(op);
+  db.prepare(`INSERT OR IGNORE INTO machines (deviceCode, deviceName, operatorId, configVersion, createdAt, updatedAt)
+    VALUES ('KON1', 'Vél', ?, '1', '2026-01-01', '2026-01-01')`).run(op);
+  db.prepare(`INSERT OR REPLACE INTO products (goodsId, name, vatRate, createdAt, updatedAt) VALUES ('k11', 'Samloka', 11, 0, 0)`).run();
+  const sale = (tradeNo, cents) => db.prepare(`INSERT OR REPLACE INTO order_items
+    (tradeNo, lineIndex, deviceCode, goodsId, productName, payAmount, shipmentStatus, createTime) VALUES (?, 0, 'KON1', 'k11', '', ?, 1, ?)`)
+    .run(tradeNo, cents, Date.parse(day + 'T12:00:00Z'));
+
+  // Not connectable before Konto is the chosen system; no secret in what the browser gets.
+  assert.strictEqual(accounting.kontoBeginConnect(op, { by: 'u', isAg: false }).error, 'no_provider');
+  assert.strictEqual(accounting.saveConnection(op, { provider: 'konto' }, { by: 'u', isAg: false }).ok, true);
+  const begin = accounting.kontoBeginConnect(op, { by: 'u', isAg: false });
+  assert.strictEqual(begin.ok, true);
+  const u = new URL(begin.url);
+  assert.strictEqual(u.origin, 'https://konto.is');                    // an operator is never sent to the sandbox
+  assert.strictEqual(u.searchParams.get('client_id'), 'cid');
+  assert.ok(!begin.url.includes('csecret'));
+  const state = u.searchParams.get('state');
+
+  // Stand-in Konto.
+  const created = [];
+  let tokenUse = [];
+  let mode = 'ok';
+  konto.exchangeCode = async (env, code) => ({ accessToken: 'a1', refreshToken: 'r1', accessExpiresAt: Date.now() + 3600e3 });
+  konto.client = ({ environment, tokens, saveTokens }) => ({
+    environment,
+    async company() { return { company_name: 'Prufa ehf', registration_no: '1' }; },
+    async customers() { return [{ id: 'cust-1', name: 'Sjálfsalar – staðgreiðsla', kennitala: '' }]; },
+    async createInvoice(inv, key) {
+      tokenUse.push(tokens.refreshToken);
+      await saveTokens({ accessToken: 'a', refreshToken: 'r' + (created.length + 2), accessExpiresAt: Date.now() + 3600e3 });   // a rotation
+      if (mode === 'refuse') { const e = new Error('Konto POST refused: Customer is required'); e.status = 200; throw e; }
+      created.push({ inv, key });
+      return { id: 'inv-' + created.length };
+    },
+  });
+
+  await assert.rejects(accounting.kontoFinishConnect({ code: 'x', state: 'not-a-state' }), /expired|already used/);
+  assert.deepStrictEqual(await accounting.kontoFinishConnect({ code: 'thecode', state }), { operatorId: op });
+  await assert.rejects(accounting.kontoFinishConnect({ code: 'thecode', state }), /expired|already used/, 'a state works once');
+  const view = accounting.publicView(op, { isAg: false });
+  assert.strictEqual(view.konto.connected, true);
+  assert.ok(!JSON.stringify(view).includes('r1'), 'tokens never reach the browser');
+
+  // Switching the send on needs the cash customer.
+  assert.strictEqual(accounting.saveConnection(op, { enabled: true }, { by: 'u' }).error, 'konto_customer_missing');
+  const test1 = await accounting.testConnection(op);
+  assert.strictEqual(test1.customers[0].id, 'cust-1');
+  let r = accounting.saveConnection(op, { kontoCustomer: { guid: 'cust-1', label: 'Sjálfsalar' }, entryStatus: 'POST', enabled: true, startDate: day }, { by: 'u' });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.view.config.entryStatus, 'DRAFT', 'Konto is draft-only whatever is asked');
+
+  sale('k1', 35000);
+  assert.strictEqual(accounting.preview(op, day).journal.kind, 'invoice');
+  mode = 'refuse';
+  assert.strictEqual((await accounting.sendDay(op, day, { by: 'scheduled' })).outcome, 'failed');   // refused: safe to retry
+  mode = 'ok';
+  let out = await accounting.sendDay(op, day, { by: 'scheduled' });
+  assert.strictEqual(out.outcome, 'sent');
+  assert.strictEqual(created[0].inv.save, 1);
+  assert.ok(Math.abs(created[0].inv.amount - 350) <= 0.011, 'within a cent of our gross');
+  assert.strictEqual(created[0].key, 'SNARL-op_konto-' + day, 'the reference is the idempotency key');
+  // Each call ran on the token the one before it saved: the rotation is never lost.
+  assert.deepStrictEqual(tokenUse, ['r1', 'r2']);
+  assert.strictEqual(accounting.history(op)[0].provider, 'konto');
+
+  // More sales later: a second draft for the difference. Fewer: refused, a person adjusts Konto.
+  sale('k2', 15000);
+  out = await accounting.sendDay(op, day, { by: 'u' });
+  assert.strictEqual(out.outcome, 'corrected');
+  assert.ok(Math.abs(created[1].inv.amount - 150) <= 0.011);
+  assert.ok(created[1].key.endsWith('-L1'));
+  db.prepare(`DELETE FROM order_items WHERE tradeNo = 'k2'`).run();
+  out = await accounting.sendDay(op, day, { by: 'u' });
+  assert.strictEqual(out.outcome, 'refused');
+  assert.match(out.reason, /went down/);
+  assert.strictEqual(created.length, 2);
+
+  // Disconnecting forgets the tokens and stops the send.
+  r = accounting.saveConnection(op, { forgetCredentials: true }, { by: 'u' });
+  assert.strictEqual(r.view.konto.connected, false);
+  assert.strictEqual(r.view.config.enabled, false);
+});

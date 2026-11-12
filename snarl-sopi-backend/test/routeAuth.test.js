@@ -54,6 +54,9 @@ const PUBLIC = new Map([
     'The invitation token is the credential.'],
   ['POST /api/v1/invitations/:token/accept',
     'The invitation token is the credential.'],
+  ['GET /api/v1/accounting/konto/callback',
+    'Where Konto redirects the browser after consent; no session travels with it. The one-time '
+    + 'state, issued only to a signed-in operator admin and valid 15 minutes, is the credential.'],
   ['POST /api/v1/provisioning/pair',
     'Unauthenticated by design: the machine has no key yet, which is what pairing is for. '
     + 'Six-digit code, rate-limited by IP in the handler.'],
