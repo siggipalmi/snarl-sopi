@@ -1,6 +1,15 @@
 [
  {
   "component": "backend",
+  "version": "6.115.1",
+  "date": "2026-11-12",
+  "title": "The machine log no longer stores the same lines twice.",
+  "notes": [
+   "The app posts a tail of its log every few minutes and consecutive posts overlap. The overlap was stored again each time (Grótta vinstri held four hours of lines in duplicate on 2026-11-11). A line already stored for the machine is now skipped, so line counts and the 2000-line window mean what they say."
+  ]
+ },
+ {
+  "component": "backend",
   "version": "6.115.0",
   "date": "2026-11-11",
   "title": "Every change to a bay's count is written down, and the Weimi sync no longer touches Kiosk counts.",
