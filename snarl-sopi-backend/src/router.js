@@ -39,6 +39,7 @@ const {
   userCanInviteTo, userCanReassignWithin,
   invitations, createInvitation, getInvitation, consumeInvitation, resolveSkin, operatorSkin, SKINS, resolveComplaintsEntry, operatorComplaintsEntry, COMPLAINT_ENTRIES } = require('./db');
 const fridgeSale = require('./fridgeSale');
+const planogram = require('./planogram');
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
 const twoFactor = require('./twoFactor');
@@ -280,6 +281,15 @@ const routes = [
   { method:'POST', pattern:'/api/v1/operators/:operatorId/ads/upload',       handler: handleUploadOperatorAd, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/settings',          handler: handleUpdateSettings,middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/stock-source',      handler: handleStockSource, middleware:[requireAuth, requireAgAdmin] },
+  // Planogram owned by us (6.116.0): where the kiosk's catalog comes from, a Weimi import as a diff,
+  // and bay edits that write our layout. AG switches the source and runs imports; bay edits follow
+  // the role table (price → prices, product → restock+, capacity/add/remove → manage).
+  { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/catalog-source',           handler: handleCatalogSource,      middleware:[requireAuth, requireAgAdmin] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/planogram/weimi-diff',     handler: handleWeimiDiff,          middleware:[requireAuth, requireAgAdmin] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/planogram/weimi-apply',    handler: handleWeimiApply,         middleware:[requireAuth, requireAgAdmin] },
+  { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/planogram/bays/:aisleCode', handler: handlePlanogramEditBay,  middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/planogram/bays',           handler: handlePlanogramAddBay,    middleware:[requireAuth, requireMachineAccess] },
+  { method:'DELETE', pattern:'/api/v1/machines/:deviceCode/planogram/bays/:aisleCode', handler: handlePlanogramRemoveBay, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/key',               handler: handleShowMachineKey, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/issue-key',         handler: handleIssueMachineKey, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/revoke-key',        handler: handleRevokeKey,    middleware:[requireAuth, requireMachineAccess] },
@@ -393,6 +403,7 @@ const ROUTE_CAPS = {
   refunds: ['POST /api/v1/complaints/:complaintId/refund'],
   manage: [
     'PUT /api/v1/machines/:deviceCode/bay-config', 'PUT /api/v1/machines/:deviceCode/hardware',
+    'POST /api/v1/machines/:deviceCode/planogram/bays', 'DELETE /api/v1/machines/:deviceCode/planogram/bays/:aisleCode',
     'POST /api/v1/machines/:deviceCode/weimi/sync', 'POST /api/v1/weimi/sync/:deviceCode',
     'POST /api/v1/machines/:deviceCode/nayax/link', 'POST /api/v1/machines/:deviceCode/nayax/sync',
     'PUT /api/v1/machines/:deviceCode/notifications', 'PUT /api/v1/machines/:deviceCode',
@@ -4620,6 +4631,7 @@ function handleDebugCommands(req, res) {
     isFridge: m ? require('./db').fridgeSpec(m.model || '').isFridge : null,
     isKioskModel: m ? (m.isKioskModel !== false) : null,
     stockSource: (m && m.stockSource) || null,
+    catalogSource: (m && m.catalogSource) || null,
     configVersion: m ? m.configVersion : null,
     dropSensor: (m && m.settings && m.settings.dropSensor === 'on') ? 'on' : 'off',
     restart: {
@@ -5737,11 +5749,124 @@ function handleUpdateSettings(req, res) {
 // Top-operator flips a machine between Weimi-managed and kiosk-managed stock.
 // 'kiosk' makes the backend the system of record: restock writes the planogram
 // directly and the kiosk reports sales. The current layout becomes the start.
+// After any write to a Kiosk-catalog machine's planogram: the machine's product list and totals
+// follow the layout, and the config version moves so the kiosk picks the change up at its next poll.
+function afterPlanogramWrite(m) {
+  const layout = planogram.readLayout(storage, m.deviceCode) || [];
+  m.products = planogram.productsFromLayout(layout);
+  m.totalCurrStock = planogram.totalStock(layout);
+  m.maxStock = layout.reduce((s, l) => s + (l.bays || []).reduce((t, b) => t + (Number(b.maxStock) || 0), 0), 0);
+  touchConfig(m);
+  try { storage.snapshotKioskLayout(m.deviceCode, layout, 'planogram'); } catch (e) { /* non-fatal */ }
+}
+
+// PUT /machines/:deviceCode/catalog-source { catalogSource: 'weimi'|'kiosk' } (AG). Kiosk needs a
+// stored layout to sell from and implies Kiosk stock; the kiosk re-reads its catalog at the next poll.
+function handleCatalogSource(req, res) {
+  const m = machines[req.params.deviceCode];
+  if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
+  const src = req.body && req.body.catalogSource;
+  if (src !== 'weimi' && src !== 'kiosk') return badRequest(res, "catalogSource must be 'weimi' or 'kiosk'");
+  if (src === 'kiosk') {
+    const layout = planogram.readLayout(storage, m.deviceCode);
+    if (!layout || !layout.length) return badRequest(res, 'No planogram stored for this machine yet. Sync it from Weimi once (or add its bays) before switching the catalog to Kiosk.');
+    if (fridgeSpec(m.model).isFridge) return badRequest(res, 'Fridges already sell from their own planogram; the catalog source applies to coil machines.');
+    m.stockSource = 'kiosk';
+  }
+  m.catalogSource = src;
+  if (src === 'kiosk') afterPlanogramWrite(m); else touchConfig(m);
+  console.log(`[PLANOGRAM] ${m.deviceCode} catalog source → ${src} by ${(req.user && req.user.email) || '?'}`);
+  ok(res, { deviceCode: m.deviceCode, catalogSource: m.catalogSource, stockSource: m.stockSource, configVersion: m.configVersion });
+}
+
+// GET /machines/:deviceCode/planogram/weimi-diff (AG): Weimi's layout for this machine, read with
+// the backend's credentials, against ours. Nothing is changed. Counts are not compared.
+async function handleWeimiDiff(req, res) {
+  const weimi = require('./weimi');
+  const code = req.params.deviceCode;
+  const m = machines[code];
+  if (!m) return notFound(res, `Machine ${code} not found`);
+  let info;
+  try { info = await weimi.deviceInfo({ endpoint: 'prod' }, code); }
+  catch (e) { return json(res, 424, { ok: false, error: 'weimi_unreachable', message: e.message }); }
+  const layout = planogram.readLayout(storage, code) || [];
+  const rows = planogram.weimiDiff(layout, info, weimi.fixMojibake);
+  const weimiCount = planogram.weimiBays(info).length;
+  ok(res, { deviceCode: code, catalogSource: m.catalogSource || 'weimi', ours: planogram.readLayout(storage, code) ? layout.reduce((s, l) => s + (l.bays || []).length, 0) : 0,
+    weimi: weimiCount, weimiEmpty: weimiCount === 0, rows, pending: rows.filter(r => r.action).length,
+    lastImportAt: storage.getMeta(`planogram:import:${code}`) || null });
+}
+
+// POST /machines/:deviceCode/planogram/weimi-apply { changes: [{ code, action }] } (AG).
+async function handleWeimiApply(req, res) {
+  const weimi = require('./weimi');
+  const code = req.params.deviceCode;
+  const m = machines[code];
+  if (!m) return notFound(res, `Machine ${code} not found`);
+  const changes = Array.isArray(req.body && req.body.changes) ? req.body.changes : [];
+  if (!changes.length) return badRequest(res, 'changes array required');
+  let info;
+  try { info = await weimi.deviceInfo({ endpoint: 'prod' }, code); }
+  catch (e) { return json(res, 424, { ok: false, error: 'weimi_unreachable', message: e.message }); }
+  const r = planogram.applyWeimiDiff(storage, code, info, changes, req.user && req.user.email, weimi.fixMojibake);
+  storage.setMeta(`planogram:import:${code}`, new Date().toISOString());
+  if (m.catalogSource === 'kiosk') afterPlanogramWrite(m); else touchConfig(m);
+  console.log(`[PLANOGRAM] ${code} weimi import: applied ${r.applied.length}, skipped ${r.skipped.length} by ${(req.user && req.user.email) || '?'}`);
+  ok(res, { deviceCode: code, applied: r.applied, skipped: r.skipped, totalCurrStock: r.totalCurrStock });
+}
+
+function requireKioskCatalog(req, res) {
+  const m = machines[req.params.deviceCode];
+  if (!m) { notFound(res, `Machine ${req.params.deviceCode} not found`); return null; }
+  if (m.catalogSource !== 'kiosk') {
+    json(res, 409, { ok: false, error: 'weimi_catalog', message: 'This machine sells from Weimi\'s catalog. Slot edits go through Weimi until its catalog source is switched to Kiosk.' });
+    return null;
+  }
+  return m;
+}
+
+// PUT /machines/:deviceCode/planogram/bays/:aisleCode { goodsId?, priceIsk?, maxStock? }
+function handlePlanogramEditBay(req, res) {
+  const m = requireKioskCatalog(req, res); if (!m) return;
+  const b = req.body || {};
+  const patch = {};
+  if (b.goodsId !== undefined) patch.goodsId = b.goodsId;
+  if (b.priceIsk !== undefined) patch.priceIsk = b.priceIsk;
+  if (b.maxStock !== undefined) patch.maxStock = b.maxStock;
+  if (!Object.keys(patch).length) return badRequest(res, 'nothing to change: goodsId, priceIsk or maxStock');
+  if (patch.priceIsk !== undefined && !roles.can(req.user, 'prices')) return json(res, 403, { ok: false, code: 'role_forbidden', error: 'Your role cannot change prices.' });
+  if (patch.maxStock !== undefined && !roles.can(req.user, 'manage')) return json(res, 403, { ok: false, code: 'role_forbidden', error: 'Your role cannot change a slot\'s capacity.' });
+  const r = planogram.editBay(storage, m.deviceCode, req.params.aisleCode, patch, req.user && req.user.email);
+  if (!r.ok) return json(res, r.status || 400, { ok: false, error: r.error, message: r.message });
+  afterPlanogramWrite(m);
+  ok(res, { deviceCode: m.deviceCode, bay: r.bay, changed: r.changed, configVersion: m.configVersion });
+}
+
+// POST /machines/:deviceCode/planogram/bays { layer, code?, goodsId?, priceIsk?, maxStock? }
+function handlePlanogramAddBay(req, res) {
+  const m = requireKioskCatalog(req, res); if (!m) return;
+  const b = req.body || {};
+  const r = planogram.addBay(storage, m.deviceCode, b.layer, { code: b.code, goodsId: b.goodsId, priceIsk: b.priceIsk, maxStock: b.maxStock }, req.user && req.user.email);
+  if (!r.ok) return json(res, r.status || 400, { ok: false, error: r.error, message: r.message });
+  afterPlanogramWrite(m);
+  ok(res, { deviceCode: m.deviceCode, bay: r.bay, configVersion: m.configVersion });
+}
+
+// DELETE /machines/:deviceCode/planogram/bays/:aisleCode
+function handlePlanogramRemoveBay(req, res) {
+  const m = requireKioskCatalog(req, res); if (!m) return;
+  const r = planogram.removeBay(storage, m.deviceCode, req.params.aisleCode, req.user && req.user.email);
+  if (!r.ok) return json(res, r.status || 400, { ok: false, error: r.error, message: r.message });
+  afterPlanogramWrite(m);
+  ok(res, { deviceCode: m.deviceCode, removed: r.removed.code, configVersion: m.configVersion });
+}
+
 function handleStockSource(req, res) {
   const m = machines[req.params.deviceCode];
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
   const src = req.body && req.body.stockSource;
   if (src !== 'weimi' && src !== 'kiosk') return badRequest(res, "stockSource must be 'weimi' or 'kiosk'");
+  if (src === 'weimi' && m.catalogSource === 'kiosk') return badRequest(res, 'This machine sells from our planogram (catalog source Kiosk); its stock cannot come from Weimi. Switch the catalog source first.');
   m.stockSource = src;
   m.updatedAt = new Date().toISOString();
   storage.upsertMachine(m);
@@ -8620,6 +8745,7 @@ function handleMachineLayout(req, res) {
     weimiLayerTypes,
     disabledAisles,   // kiosk-local "stop selling" set — distinct from Weimi's isEnable
     stockSource: (m && m.stockSource) || 'weimi',   // 'kiosk' => Weimi's isEnable/isBroken are noise
+    catalogSource: (m && m.catalogSource) || 'weimi', // 'kiosk' => the layout is editable here and the kiosk sells from it
     lastSync: storage.getMeta(`weimisync:products:${code}`) || null,
   });
 }
@@ -8738,6 +8864,19 @@ async function handleSlotPrice(req, res) {
   }
   const wanted = Object.keys(priceMap);
   if (!wanted.length) return json(res, 400, { ok: false, error: 'no valid price changes' });
+
+  // Kiosk catalog: the price lives in our planogram; the kiosk takes it at its next poll.
+  const mk = machines[code];
+  if (mk && mk.catalogSource === 'kiosk') {
+    let applied = 0, firstErr = null;
+    for (const aisleCode of wanted) {
+      const r = planogram.editBay(storage, code, aisleCode, { priceIsk: priceMap[aisleCode] / 100 }, req.user && req.user.email);
+      if (r.ok) applied++; else if (!firstErr) firstErr = r;
+    }
+    if (!applied) return json(res, (firstErr && firstErr.status) || 400, { ok: false, error: (firstErr && firstErr.error) || 'no_change', message: firstErr && firstErr.message });
+    afterPlanogramWrite(mk);
+    return ok(res, { deviceCode: code, updated: applied, mode: 'kiosk' });
+  }
 
   // Need each slot's current product id → read fresh device-info.
   let info;
@@ -9915,6 +10054,22 @@ async function handleSlotProduct(req, res) {
   }
   const priceCents = Math.round(isk) * 100;
 
+  // Kiosk catalog: write our planogram, no Weimi. The count, when given, is a restock entry.
+  const mk = machines[code];
+  if (mk && mk.catalogSource === 'kiosk') {
+    const actor = req.user && req.user.email;
+    const r0 = planogram.editBay(storage, code, aisleCode, { goodsId, priceIsk: Math.round(isk) }, actor);
+    if (!r0.ok) return json(res, r0.status || 400, { ok: false, error: r0.error, message: r0.message });
+    let stockSet = null;
+    const n0 = Number(body.currStock);
+    if (Number.isFinite(n0) && n0 >= 0) {
+      const sr = storage.applyRestockToLayout(code, [{ aisleCode, currStock: Math.round(n0) }], actor);
+      if (sr.ok) stockSet = Math.round(n0);
+    }
+    afterPlanogramWrite(mk);
+    return ok(res, { deviceCode: code, aisleCode, goodsId, priceIsk: Math.round(isk), stockSet, mode: 'kiosk' });
+  }
+
   // 1) Assign the new product + price to this one slot.
   let r;
   try { r = await weimi.updateAisleGoods({ endpoint: 'prod' }, code, [aisleCode], goodsId, priceCents); }
@@ -10245,6 +10400,7 @@ function machineSummary(m) {
     stockPercent: m.maxStock > 0 ? Math.round(m.totalCurrStock / m.maxStock * 100) : 0,
     unsupported: m.unsupported || false,
     stockSource: m.stockSource || 'weimi',
+    catalogSource: m.catalogSource || 'weimi',
     coolingSetpointC: (m.settings && m.settings.coolingSetpointC != null) ? m.settings.coolingSetpointC : null,
     coolingOn: (m.settings && typeof m.settings.coolingOn === 'boolean') ? m.settings.coolingOn : null,
     lastTempC: (telem && telem.tempC != null) ? telem.tempC : null,

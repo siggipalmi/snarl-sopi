@@ -2197,6 +2197,20 @@ select.fi{cursor:pointer;}
   </div>
 </div>
 
+<div class="modal-bg" id="modal-weimi-import">
+  <div class="modal-card" style="max-width:720px">
+    <div class="modal-title">Weimi import.</div>
+    <div class="rs-sub" id="wi-sub" style="margin:-4px 0 12px"></div>
+    <div id="wi-body" style="max-height:60vh;overflow:auto"></div>
+    <div id="wi-msg"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-sm" id="wi-apply" onclick="applyWeimiImport()">apply ticked</button>
+      <button class="btn btn-ghost btn-sm" onclick="openWeimiImport(_wiCode)">↻ read Weimi again</button>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="closeModal('modal-weimi-import')">close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-expiry" style="z-index:300">
   <div class="modal-card" style="max-width:460px">
     <div class="modal-title" id="expm-title">best-before dates.</div>
@@ -2561,6 +2575,8 @@ const I18N = {
     'md.setCount':'set count','md.needsCount':'new bay, set its count',
     'cause.sale':'sale','cause.sale_spill':'sale from another bay','cause.sale_skipped':'sale before refill, not counted','cause.sale_unmatched':'sale, no units counted',
     'cause.restock':'restock','cause.sync_new_bay':'new bay from Weimi','cause.sync_bay_removed':'bay removed in Weimi','cause.sync_product_changed':'product changed in Weimi',
+    'cause.product_changed':'product changed','cause.price_changed':'price changed','cause.capacity_changed':'capacity changed','cause.slot_added':'slot added','cause.slot_removed':'slot removed',
+    'cause.import_take':'taken from Weimi','cause.import_add':'slot added from Weimi','cause.import_remove':'slot removed (not in Weimi)',
     'md.dispenseHelp':'The last 50 dispenses held in the machine\'s memory, with the raw board code for each. Fetch to see which lanes are reporting what.',
     'md.machineLog':'machine log.',
     'md.refresh':'↻ refresh',
@@ -2853,6 +2869,8 @@ const I18N = {
     'md.setCount':'telja','md.needsCount':'nýtt hólf, skráðu talningu',
     'cause.sale':'sala','cause.sale_spill':'sala úr öðru hólfi','cause.sale_skipped':'sala fyrir áfyllingu, ekki talin','cause.sale_unmatched':'sala, engin eining til að telja',
     'cause.restock':'áfylling','cause.sync_new_bay':'nýtt hólf frá Weimi','cause.sync_bay_removed':'hólf fjarlægt í Weimi','cause.sync_product_changed':'vöru skipt í Weimi',
+    'cause.product_changed':'vöru skipt','cause.price_changed':'verði breytt','cause.capacity_changed':'rými breytt','cause.slot_added':'hólfi bætt við','cause.slot_removed':'hólf fjarlægt',
+    'cause.import_take':'tekið frá Weimi','cause.import_add':'hólfi bætt við frá Weimi','cause.import_remove':'hólf fjarlægt (ekki í Weimi)',
     'md.dispenseHelp':'Síðustu 50 afgreiðslur sem vélin geymir, með hráum borðkóða fyrir hverja. Sæktu til að sjá hvað hver röð er að tilkynna.',
     'md.machineLog':'vélarskrá.',
     'md.refresh':'↻ endurnýja',
@@ -6215,10 +6233,14 @@ function openSlotMenu(deviceCode, aisleCode) {
   if (b.goodsId) {
     h += row('slmSetStock()', 'Set stock', 'how many are loaded');
     h += row('slmExpiry()', t('exp.slmRow'), t('exp.slmSub'));
-    h += row('slmSetPrice()', 'Set price', (b.priceIsk || 0) + ' kr now');
-    h += row('slmChangeProduct()', 'Change product', 'put a different item here');
+    h += row('slmSetPrice()', 'Set price', (b.priceIsk || 0) + ' kr now' + (_mdCatalogSource === 'kiosk' ? ' · ours, not Weimi' : ''));
+    h += row('slmChangeProduct()', 'Change product', _mdCatalogSource === 'kiosk' ? 'from our product list' : 'put a different item here');
   } else {
     h += row('slmChangeProduct()', 'Assign product', 'this slot is empty');
+  }
+  if (_mdCatalogSource === 'kiosk' && (currentUser?.role === 'ag_admin' || currentUser?.role === 'operator_admin')) {
+    h += row('slmCapacity()', 'Capacity', 'how many fit in the coil · ' + (b.maxStock || 0) + ' now');
+    h += row('slmRemoveSlot()', 'Remove slot', 'the motor stays; the tile goes');
   }
   // Motor test: turns this coil once. Works on an on-sale coil from coil app 0.80.18.
   h += row('slmTestVend()', 'Test vend', b.goodsId ? 'turn the motor once · one item drops' : 'turn the motor once');
@@ -6227,6 +6249,105 @@ function openSlotMenu(deviceCode, aisleCode) {
 }
 
 function slmChangeProduct() { closeModal('modal-slotmenu'); openSwap(_slmCode, _slmAisle); }
+
+// ─── Planogram owned by us (6.116.0): catalog source, Weimi import, slot add/remove/capacity ───
+let _mdCatalogSource = 'weimi';
+let _wiCode = null, _wiRows = [];
+async function saveCatalogSource(code) {
+  const v = document.getElementById('cs-sel').value;
+  if (v === 'kiosk' && !confirm('Switch ' + code + ' to our planogram?\n\nThe kiosk stops reading Weimi at its next poll and sells from the layout on the Planogram tab. Weimi is no longer written for this machine. Needs coil 0.80.27+ on the machine; older builds keep reading Weimi until updated.')) return;
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/catalog-source', { catalogSource: v });
+    if (r && r.ok) { showToast('Catalog source: ' + v); if (DB.machines[code]) { DB.machines[code].catalogSource = v; if (v === 'kiosk') DB.machines[code].stockSource = 'kiosk'; } renderMachineControls(code); try { renderMachineLayout(code); } catch (e) {} }
+    else showToast((r && (r.message || r.error)) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+async function openWeimiImport(code) {
+  _wiCode = code; _wiRows = [];
+  const m = DB.machines[code] || {};
+  document.getElementById('wi-sub').textContent = (m.deviceName || code) + ' · Weimi\'s layout against ours. Nothing changes until you apply.';
+  document.getElementById('wi-body').innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted)">reading Weimi…</div>';
+  document.getElementById('wi-msg').innerHTML = '';
+  document.getElementById('modal-weimi-import').classList.add('show');
+  try {
+    const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/planogram/weimi-diff');
+    if (!r || !r.ok) { document.getElementById('wi-body').innerHTML = '<div style="padding:18px;color:var(--alert)">' + rsEsc((r && (r.message || r.error)) || 'could not read Weimi') + '</div>'; return; }
+    _wiRows = r.data.rows || [];
+    renderWeimiImport(r.data);
+  } catch (e) { document.getElementById('wi-body').innerHTML = '<div style="padding:18px;color:var(--alert)">' + rsEsc(e.message) + '</div>'; }
+}
+function renderWeimiImport(d) {
+  const el = document.getElementById('wi-body');
+  if (d.weimiEmpty) {
+    el.innerHTML = '<div style="padding:18px;color:var(--muted);font-size:12.5px">Weimi answers with no layout for this machine (our credentials see nothing — usually a sub-operator machine). Nothing to import.</div>';
+    document.getElementById('wi-apply').style.display = 'none'; return;
+  }
+  const pending = _wiRows.filter(x => x.action);
+  const desc = x => x ? rsEsc((x.name || '—') + ' · ' + x.priceIsk + ' kr · ' + x.maxStock) : '<span style="color:var(--muted)">—</span>';
+  const lbl = x => x.action === 'take' ? 'take Weimi\'s ' + x.diffs.join(', ') : (x.action === 'add' ? 'add slot, count 0' : 'remove our slot');
+  const rows = _wiRows.map(x => '<tr style="border-top:1px solid var(--line);' + (x.action ? '' : 'color:var(--muted)') + '">' +
+    '<td style="padding:5px 8px 5px 0;font-family:var(--mono);font-size:11px">' + rsEsc(physicalSlot(x.code)) + '</td>' +
+    '<td style="padding:5px 8px 5px 0;font-size:12px">' + desc(x.ours) + (x.ours ? ' <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">(' + x.ours.currStock + ' in)</span>' : '') + '</td>' +
+    '<td style="padding:5px 8px 5px 0;font-size:12px;' + (x.action ? 'color:#4A6B2E' : '') + '">' + desc(x.weimi) + '</td>' +
+    '<td style="padding:5px 0;font-size:12px;white-space:nowrap">' + (x.action ? '<label style="cursor:pointer"><input type="checkbox" class="wi-ck" data-code="' + rsEsc(x.code) + '" ' + (x.action === 'remove' ? '' : 'checked') + '> ' + rsEsc(lbl(x)) + '</label>' : '<span class="tag" style="font-family:var(--mono);font-size:10px;color:var(--muted)">same</span>') + '</td></tr>').join('');
+  el.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">' + _wiRows.length + ' slots · ' + pending.length + ' differ' + (d.lastImportAt ? ' · last import ' + timeAgo(d.lastImportAt) : '') + '</div>' +
+    '<table style="border-collapse:collapse;width:100%"><thead><tr style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:left"><th style="padding:0 8px 6px 0">slot</th><th style="padding:0 8px 6px 0">ours</th><th style="padding:0 8px 6px 0">weimi</th><th style="padding:0 0 6px">apply</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  document.getElementById('wi-apply').style.display = pending.length ? '' : 'none';
+}
+async function applyWeimiImport() {
+  const picked = [...document.querySelectorAll('.wi-ck:checked')].map(c => c.getAttribute('data-code'));
+  const changes = _wiRows.filter(x => x.action && picked.includes(x.code)).map(x => ({ code: x.code, action: x.action }));
+  const msg = document.getElementById('wi-msg');
+  if (!changes.length) { msg.innerHTML = '<div class="rs-msg err">Nothing ticked.</div>'; return; }
+  const removes = changes.filter(c => c.action === 'remove').length;
+  if (!confirm('Apply ' + changes.length + ' change(s) from Weimi to ' + _wiCode + '?' + (removes ? '\n\n' + removes + ' of our slots will be removed.' : '') + '\n\nCounts are kept; added slots start at 0.')) return;
+  const btn = document.getElementById('wi-apply'); btn.disabled = true;
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(_wiCode) + '/planogram/weimi-apply', { changes });
+    if (r && r.ok) {
+      showToast('Applied ' + r.data.applied.length + ' change(s)');
+      try { if (_mdDeviceCode === _wiCode) { renderMachineLayout(_wiCode); loadStockLedger(_wiCode); } } catch (e) {}
+      openWeimiImport(_wiCode);
+    } else msg.innerHTML = '<div class="rs-msg err">' + rsEsc((r && (r.message || r.error)) || 'could not apply') + '</div>';
+  } catch (e) { msg.innerHTML = '<div class="rs-msg err">' + rsEsc(e.message) + '</div>'; }
+  finally { btn.disabled = false; }
+}
+function planogramAddLayerHtml(code, layout) {
+  const have = new Set((layout || []).map(l => String(l.layer)));
+  const next = ['A', 'B', 'C', 'D', 'E', 'F'].find(L => !have.has(L));
+  if (!next) return '';
+  return '<div style="margin-top:4px"><span class="pill pill-out" style="cursor:pointer" onclick="addPlanogramBay(\'' + code + '\',\'' + next + '\')">+ add layer ' + next + '</span></div>';
+}
+async function addPlanogramBay(code, layer) {
+  try {
+    const r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/planogram/bays', { layer });
+    if (r && r.ok) { showToast('Slot ' + physicalSlot(r.data.bay.code) + ' added on layer ' + layer + ' — assign a product and set its count'); renderMachineLayout(code); loadStockLedger(code); }
+    else showToast((r && (r.message || r.error)) || 'could not add');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+async function slmCapacity() {
+  const code = _slmCode, aisle = _slmAisle, b = _mdBays[aisle] || {};
+  closeModal('modal-slotmenu');
+  const v = prompt('Capacity of slot ' + physicalSlot(aisle) + ' (how many fit in the coil):', String(b.maxStock || 0));
+  if (v == null) return;
+  const n = parseInt(v, 10);
+  if (isNaN(n) || n < 0 || n > 99) { showToast('Enter a number 0–99'); return; }
+  try {
+    const r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/planogram/bays/' + encodeURIComponent(aisle), { maxStock: n });
+    if (r && r.ok) { showToast('Slot ' + physicalSlot(aisle) + ' capacity ' + n); renderMachineLayout(code); loadStockLedger(code); }
+    else showToast((r && (r.message || r.error)) || 'could not save');
+  } catch (e) { showToast('error: ' + e.message); }
+}
+async function slmRemoveSlot() {
+  const code = _slmCode, aisle = _slmAisle, b = _mdBays[aisle] || {};
+  closeModal('modal-slotmenu');
+  if (!confirm('Remove slot ' + physicalSlot(aisle) + (b.name ? ' (' + b.name + ')' : '') + ' from ' + code + '?\n\nThe tile disappears from the kiosk at its next poll. The motor is untouched; the slot can be added again.')) return;
+  try {
+    const r = await API.req('DELETE', '/api/v1/machines/' + encodeURIComponent(code) + '/planogram/bays/' + encodeURIComponent(aisle));
+    if (r && r.ok) { showToast('Slot ' + physicalSlot(aisle) + ' removed'); renderMachineLayout(code); loadStockLedger(code); }
+    else showToast((r && (r.message || r.error)) || 'could not remove');
+  } catch (e) { showToast('error: ' + e.message); }
+}
 function slmSetPrice() { closeModal('modal-slotmenu'); openPriceFromBay(_slmAisle); }
 function slmTestVend() {
   const b = _mdBays[_slmAisle] || {};
@@ -7012,6 +7133,18 @@ function renderMachineControls(code) {
         <button class="btn btn-sm" onclick="saveComplaintsEntry('${code}')">save</button>
       </div>
       <div style="margin-top:7px;font-size:11px;color:var(--muted)">Overrides the operator's setting for this machine (coil 0.80.25+). Applies within two minutes.</div>
+    </div>` : ''}
+    ${currentUser?.role === 'ag_admin' && !/^GR-/.test(String(_mdModel || m.model || '')) ? `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;margin-bottom:8px">CATALOG SOURCE · AG</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <select id="cs-sel" class="fi" style="width:auto">
+          <option value="weimi" ${m.catalogSource !== 'kiosk' ? 'selected' : ''}>Weimi — the kiosk reads Weimi's cloud; prices and products are written to Weimi</option>
+          <option value="kiosk" ${m.catalogSource === 'kiosk' ? 'selected' : ''}>Kiosk — the kiosk reads our planogram; Weimi is never written</option>
+        </select>
+        <button class="btn btn-sm" onclick="saveCatalogSource('${code}')">save</button>
+        <button class="btn btn-sm btn-ghost" onclick="openWeimiImport('${code}')">Weimi import…</button>
+      </div>
+      <div style="margin-top:7px;font-size:11px;color:var(--muted)">Where the kiosk gets its products from (coil 0.80.27+). On Kiosk, slots, products, prices and capacities are edited on the Planogram tab and reach the machine within two minutes; "Weimi import" shows Weimi's layout against ours and applies only what you tick. Counts are never taken from Weimi.</div>
     </div>` : ''}
     <div style="display:none">
     </div>
@@ -7803,6 +7936,8 @@ async function renderMachineLayout(code) {
     const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/layout');
     if (!r || !r.ok) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">' + (r?.error || 'Could not load layout') + '</div>'; return; }
     const { layout, bayConfig, configured, disabledAisles, stockSource } = r.data;
+    _mdCatalogSource = r.data.catalogSource || 'weimi';
+    const canEditLayout = _mdCatalogSource === 'kiosk' && (currentUser?.role === 'ag_admin' || currentUser?.role === 'operator_admin');
     const weimiTypes = r.data.weimiLayerTypes || {};
     const kioskClosed = new Set(Array.isArray(disabledAisles) ? disabledAisles : []);
     // On kiosk-owned machines Weimi's isEnable/isBroken govern nothing and can't be cleared —
@@ -7814,7 +7949,9 @@ async function renderMachineLayout(code) {
       return;
     }
     const isAg = currentUser?.role === 'ag_admin';
-    if (hint) hint.textContent = isAg ? 'tap a layer to toggle spiral / direct-push' : '';
+    if (hint) hint.textContent = _mdCatalogSource === 'kiosk'
+      ? 'ours: product, price, capacity, count · the motor address is the board\'s' + (isAg ? ' · tap a layer to toggle spiral / direct-push' : '')
+      : (isAg ? 'tap a layer to toggle spiral / direct-push' : '');
     _mdBays = {};
     el.innerHTML = layout.map(layer => {
       const type = bayConfig[layer.layer] || 'spiral';
@@ -7836,7 +7973,7 @@ async function renderMachineLayout(code) {
         if (isKioskClosed) { border = 'var(--muted)'; }
         const label = (b.name || '—').slice(0, 16);
         const img = b.image ? '<img src="' + rsEsc(b.image) + '" alt="" style="width:100%;height:38px;object-fit:contain;margin-bottom:3px" onerror="this.style.display=\'none\'">' : '';
-        _mdBays[b.code] = { goodsId: b.goodsId || '', name: b.name || '', priceIsk: b.priceIsk || 0, closed: isKioskClosed };
+        _mdBays[b.code] = { goodsId: b.goodsId || '', name: b.name || '', priceIsk: b.priceIsk || 0, maxStock: b.maxStock || 0, closed: isKioskClosed };
         const countBadge = b.needsCount ? '<div title="' + rsEsc(t('md.needsCount')) + '" style="position:absolute;top:3px;right:18px;font-family:var(--mono);font-size:7.5px;background:var(--alert);color:#fff;padding:0 3px;border-radius:3px">' + rsEsc(t('md.setCount')) + '</div>' : '';
         const restockNote = b.restockAt ? ' · fyllt ' + isShortDate(Date.parse(b.restockAt)) : '';
         const kioskBadge = countBadge + (isKioskClosed ? '<div style="position:absolute;top:3px;left:3px;font-family:var(--mono);font-size:7.5px;background:var(--muted);color:#fff;padding:0 3px;border-radius:3px">not selling</div>' : '');
@@ -7859,9 +7996,9 @@ async function renderMachineLayout(code) {
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">${layer.bays.length} bays</div>
           ${(weimiTypes[layer.layer] && weimiTypes[layer.layer] !== type) ? `<div style="font-family:var(--mono);font-size:10px;color:var(--alert)" title="Weimi's slot data reads this layer as ${weimiTypes[layer.layer] === 'push' ? 'direct-push' : 'coil'}; the label here was set by hand">Weimi says ${weimiTypes[layer.layer] === 'push' ? 'direct-push' : 'spiral'}</div>` : ''}
         </div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap">${bays}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${bays}${(canEditLayout && layer.bays.length < 9) ? `<div onclick="addPlanogramBay('${code}','${layer.layer}')" title="add a slot on layer ${layer.layer}" style="flex:1;min-width:72px;max-width:120px;min-height:70px;border:1px dashed var(--bronze);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--bronze);font-size:20px;cursor:pointer;background:#fff">+</div>` : ''}</div>
       </div>`;
-    }).join('');
+    }).join('') + (canEditLayout ? planogramAddLayerHtml(code, layout) : '');
   } catch (e) {
     el.innerHTML = '<div style="color:var(--alert);font-size:12px">' + e.message + '</div>';
   }

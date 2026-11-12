@@ -351,10 +351,16 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   code it has never seen starts at **0 with `needsCount`** (tile badge "telja") rather than Weimi's
   stale number, so renumbering aisles in Weimi's portal shows up as "set count" tiles, not as silent
   zeros or a stale figure selling air. Machine totals and sold-out tracking read our layout.
-- The coil app still loads its **catalog from Weimi's cloud** (device-info, its own credentials) and
-  overlays our stock; dashboard price changes and product moves are written to Weimi. Owning the
-  planogram (product per slot, price, name, image in our backend; kiosk catalog from config; Weimi
-  only as a one-time import) is the next step, behind a mockup first.
+- **Catalog source (backend 6.116.0, coil 0.80.27): per machine, `weimi` or `kiosk`** (Controls →
+  catalog source, AG). On `weimi` nothing changed: the app loads its catalog from Weimi's cloud
+  (device-info, its own credentials) and overlays our stock; dashboard price changes and product
+  moves are written to Weimi. On `kiosk` the config carries `planogram` (layers → bays with code,
+  goodsId, name, priceIsk, image, maxStock, currStock) and the app builds its catalog from it with no
+  Weimi call; `src/planogram.js` holds the edits (bay product/price/capacity, add/remove slot, the
+  Weimi diff + apply), every one a ledger row; `slots/price` and `slots/product` write our layout
+  instead of Weimi; the sync skips the machine. Switching to `kiosk` forces Kiosk stock and needs a
+  stored layout. "Weimi import" is the only path from Weimi afterwards: a diff the operator ticks,
+  counts never taken. Canary 62160480.
 
 ## Wrong basket (2026-11-06)
 
