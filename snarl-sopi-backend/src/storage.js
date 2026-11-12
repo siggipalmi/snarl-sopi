@@ -1139,6 +1139,7 @@ const stmts = {
   pruneUiUsage: db.prepare('DELETE FROM ui_usage WHERE day < ?'),
   insertKioskLog:    db.prepare('INSERT INTO kiosk_logs (deviceCode, atMs, kioskAppVersion, line) VALUES (?, ?, ?, ?)'),
   listKioskLogs:     db.prepare('SELECT id, atMs, kioskAppVersion, line FROM kiosk_logs WHERE deviceCode = ? ORDER BY id DESC LIMIT ?'),
+  recentKioskLogLines: db.prepare('SELECT line FROM kiosk_logs WHERE deviceCode = ? ORDER BY id DESC LIMIT 3000'),
   pruneKioskLogsAge: db.prepare('DELETE FROM kiosk_logs WHERE atMs < ?'),
   // Rolling window per machine: keep the newest N rows, drop the rest. Age alone isn't enough —
   // a chatty machine could fill the volume inside the retention window.
@@ -2729,11 +2730,18 @@ const storage = {
   KIOSK_LOG_MAX_LINES: Number(process.env.KIOSK_LOG_MAX_LINES) || 20000,
 
   appendKioskLogs: db.transaction(function (deviceCode, atMs, kioskAppVersion, lines) {
+    // A relay post is a tail of the device log, so consecutive posts overlap whenever the app
+    // logs fewer new lines than the tail is long; the overlap used to be stored twice (Grótta
+    // vinstri, 2026-11-11: four hours of lines held in duplicate). A logcat line carries its own
+    // millisecond timestamp and pid, so an exact repeat of a recently stored line is the same
+    // line again, never a new event. Skip those.
+    const recent = new Set(stmts.recentKioskLogLines.all(deviceCode).map(r => r.line));
     let n = 0;
     for (const raw of lines) {
       const line = String(raw == null ? '' : raw).slice(0, 2000);   // one pathological line can't blow up a row
-      if (!line) continue;
+      if (!line || recent.has(line)) continue;
       stmts.insertKioskLog.run(deviceCode, atMs, kioskAppVersion || null, line);
+      recent.add(line);
       n++;
     }
     return n;
