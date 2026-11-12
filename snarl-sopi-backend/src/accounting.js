@@ -24,6 +24,7 @@
 const crypto = require('crypto');
 const storage = require('./storage');
 const paydayLedger = require('./accountingPayday');
+const kontoLedger = require('./accountingKonto');
 
 const db = storage.db;
 
@@ -57,7 +58,7 @@ db.exec(`
 const PROVIDERS = [
   { id: 'payday', name: 'Payday', available: true },
   { id: 'dk', name: 'DK', available: false },
-  { id: 'konto', name: 'Konto', available: false },
+  { id: 'konto', name: 'Konto', available: true },
   { id: 'businesscentral', name: 'Business Central', available: false },
 ];
 
@@ -65,6 +66,8 @@ const SEND_HOUR_UTC = Number(process.env.ACCOUNTING_SEND_HOUR_UTC) >= 0 ? Number
 const CATCH_UP_DAYS = 7;          // after downtime, the scheduler fills in at most this many days
 const MAX_AUTO_ATTEMPTS = 6;      // a failing day is retried hourly this many times, then left to a person
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const SENDABLE = new Set(['payday', 'konto']);
+const provName = (id) => (PROVIDERS.find(p => p.id === id) || { name: id }).name;
 
 // ─── Encryption ──────────────────────────────────────────────────────────────
 
@@ -119,6 +122,7 @@ const DEFAULT_CONFIG = {
   accounts: { clearing: null, sales11: null, sales24: null },
   accountLabels: { clearing: '', sales11: '', sales24: '' },
   entryStatus: 'DRAFT', startDate: null,
+  konto: { customerGuid: null, customerLabel: '' },     // Konto: the cash customer the daily invoice goes to
 };
 
 function loadConn(operatorId) {
@@ -127,7 +131,8 @@ function loadConn(operatorId) {
   try { cfg = row ? JSON.parse(row.configJson || '{}') : {}; } catch (e) { cfg = {}; }
   const config = { ...DEFAULT_CONFIG, ...cfg,
     accounts: { ...DEFAULT_CONFIG.accounts, ...(cfg.accounts || {}) },
-    accountLabels: { ...DEFAULT_CONFIG.accountLabels, ...(cfg.accountLabels || {}) } };
+    accountLabels: { ...DEFAULT_CONFIG.accountLabels, ...(cfg.accountLabels || {}) },
+    konto: { ...DEFAULT_CONFIG.konto, ...(cfg.konto || {}) } };
   return { config, secretEnc: row ? row.secretEnc : null, updatedAt: row ? row.updatedAt : null, updatedBy: row ? row.updatedBy : null };
 }
 
@@ -146,6 +151,10 @@ function publicView(operatorId, { isAg } = {}) {
     providers: PROVIDERS,
     encryptionReady: encryptionReady(),
     railwayTestAvailable: !!isAg && !!(process.env.PAYDAY_CLIENT_ID_TEST && process.env.PAYDAY_CLIENT_SECRET_TEST),
+    konto: {
+      connected: c.config.provider === 'konto' && !!creds,
+      appReady: { live: kontoLedger.appCredentials('live').ready, test: !!isAg && kontoLedger.appCredentials('test').ready },
+    },
     sendHourUtc: SEND_HOUR_UTC,
     updatedAt: c.updatedAt,
   };
@@ -182,6 +191,10 @@ async function diagnoseRailwayTest() {
 
 function credentialsFor(conn) {
   const cfg = conn.config;
+  if (cfg.provider === 'konto') {
+    const o = conn.secretEnc && open(conn.secretEnc);
+    return o && o.konto && o.konto.refreshToken ? { environment: cfg.environment === 'test' ? 'test' : 'live', tokens: o.konto } : null;
+  }
   if (cfg.provider !== 'payday') return null;
   if (cfg.credentialSource === 'railway-test') {
     const id = cleanSecret(process.env.PAYDAY_CLIENT_ID_TEST), secret = cleanSecret(process.env.PAYDAY_CLIENT_SECRET_TEST);
@@ -208,12 +221,18 @@ function saveConnection(operatorId, patch, { by, isAg }) {
     if (p.provider !== next.provider) {         // a different system: its accounts and login do not carry over
       next.accounts = { ...DEFAULT_CONFIG.accounts }; next.accountLabels = { ...DEFAULT_CONFIG.accountLabels };
       next.enabled = false; secretEnc = null; next.credentialSource = 'own'; next.environment = 'live';
+      next.konto = { ...DEFAULT_CONFIG.konto };
     }
     next.provider = p.provider;
   }
   if (p.environment !== undefined || p.credentialSource !== undefined) {
     if (!isAg) return { ok: false, error: 'ag_only' };
-    if (p.environment !== undefined) next.environment = p.environment === 'test' ? 'test' : 'live';
+    if (p.environment !== undefined) {
+      const env = p.environment === 'test' ? 'test' : 'live';
+      // A Konto consent belongs to one environment: changing it drops the connection.
+      if (next.provider === 'konto' && env !== next.environment) { secretEnc = null; next.enabled = false; next.konto = { ...DEFAULT_CONFIG.konto }; }
+      next.environment = env;
+    }
     if (p.credentialSource !== undefined) next.credentialSource = p.credentialSource === 'railway-test' ? 'railway-test' : 'own';
     if (next.credentialSource === 'railway-test') next.environment = 'test';
   }
@@ -237,7 +256,12 @@ function saveConnection(operatorId, patch, { by, isAg }) {
       if (p.accountLabels[k] !== undefined) next.accountLabels[k] = String(p.accountLabels[k] || '').slice(0, 120);
     }
   }
+  if (p.kontoCustomer && typeof p.kontoCustomer === 'object') {
+    next.konto = { customerGuid: p.kontoCustomer.guid ? String(p.kontoCustomer.guid).slice(0, 80) : null,
+      customerLabel: String(p.kontoCustomer.label || '').slice(0, 120) };
+  }
   if (p.entryStatus !== undefined) next.entryStatus = p.entryStatus === 'POST' ? 'POST' : 'DRAFT';
+  if (next.provider === 'konto') next.entryStatus = 'DRAFT';      // Konto invoices always go in as drafts
   if (p.startDate !== undefined) {
     if (p.startDate !== null && !DAY_RE.test(String(p.startDate))) return { ok: false, error: 'bad_start_date' };
     next.startDate = p.startDate || null;
@@ -247,11 +271,15 @@ function saveConnection(operatorId, patch, { by, isAg }) {
   if (next.enabled) {
     const a = next.accounts;
     if (next.provider === 'none') return { ok: false, error: 'no_provider' };
-    if (!a.clearing || !a.sales11 || !a.sales24) return { ok: false, error: 'accounts_incomplete' };
-    // One sales account for both rates is fine (each line names its VAT type); the clearing
-    // account booked against itself is not.
-    if (a.clearing === a.sales11 || a.clearing === a.sales24) {
-      return { ok: false, error: 'accounts_overlap' };
+    if (next.provider === 'konto') {
+      if (!next.konto.customerGuid) return { ok: false, error: 'konto_customer_missing' };
+    } else {
+      if (!a.clearing || !a.sales11 || !a.sales24) return { ok: false, error: 'accounts_incomplete' };
+      // One sales account for both rates is fine (each line names its VAT type); the clearing
+      // account booked against itself is not.
+      if (a.clearing === a.sales11 || a.clearing === a.sales24) {
+        return { ok: false, error: 'accounts_overlap' };
+      }
     }
     if (!credentialsFor({ config: next, secretEnc })) return { ok: false, error: 'no_credentials' };
     // Switching on with no start date starts with today's sales, sent tomorrow. Never backfills
@@ -270,8 +298,72 @@ function clientFor(operatorId) {
   return { conn, api: paydayLedger.client(creds) };
 }
 
-/** Sign in and list ledger accounts: the "test connection" button, and the account pickers. */
+// ── Konto: OAuth consent, and rotating tokens ────────────────────────────────
+
+/** Store a Konto token set for an operator, leaving its settings alone. */
+function saveKontoTokens(operatorId, tokens) {
+  const row = st.getConn.get(operatorId);
+  if (!row) throw new Error('No accounting connection to store Konto tokens on');
+  st.putConn.run({ operatorId, configJson: row.configJson, secretEnc: seal({ konto: tokens }), updatedAt: Date.now(), updatedBy: row.updatedBy });
+}
+
+// Konto's refresh token is single-use, so two calls refreshing at once would kill the chain.
+// Everything that talks to Konto for an operator runs one at a time, on the tokens as stored.
+const kontoQueue = new Map();
+function kontoRun(operatorId, fn) {
+  const prev = kontoQueue.get(operatorId) || Promise.resolve();
+  const p = prev.catch(() => {}).then(async () => {
+    const conn = loadConn(operatorId);
+    const creds = credentialsFor(conn);
+    if (conn.config.provider !== 'konto' || !creds) { const e = new Error('Konto is not connected'); e.code = 'no_credentials'; throw e; }
+    const api = kontoLedger.client({ environment: creds.environment, tokens: creds.tokens, saveTokens: (t) => saveKontoTokens(operatorId, t) });
+    return fn(api, conn);
+  });
+  kontoQueue.set(operatorId, p);
+  return p;
+}
+
+const kontoStates = new Map();   // state → { operatorId, by, environment, expiresAt }; one use, 15 minutes
+
+/** Start the consent: returns the Konto URL the operator's browser goes to. */
+function kontoBeginConnect(operatorId, { by, isAg }) {
+  const conn = loadConn(operatorId);
+  if (conn.config.provider !== 'konto') return { ok: false, error: 'no_provider' };
+  if (!encryptionReady()) return { ok: false, error: 'encryption_not_ready' };
+  const environment = isAg && conn.config.environment === 'test' ? 'test' : 'live';
+  if (!kontoLedger.appCredentials(environment).ready) return { ok: false, error: 'konto_not_configured' };
+  if (!st.getConn.get(operatorId)) return { ok: false, error: 'no_provider' };
+  const now = Date.now();
+  for (const [k, v] of kontoStates) if (v.expiresAt < now) kontoStates.delete(k);
+  const state = crypto.randomBytes(24).toString('hex');
+  kontoStates.set(state, { operatorId, by, environment, expiresAt: now + 15 * 60 * 1000 });
+  return { ok: true, url: kontoLedger.authorizeUrl({ environment, state }) };
+}
+
+/** Konto sent the browser back with ?code&state. Resolves to { operatorId } or throws. */
+async function kontoFinishConnect({ code, state }) {
+  const st0 = kontoStates.get(String(state || ''));
+  kontoStates.delete(String(state || ''));
+  if (!st0 || st0.expiresAt < Date.now()) { const e = new Error('This Konto sign-in has expired or was already used. Start again from the Accounting page.'); e.code = 'bad_state'; throw e; }
+  if (!code) { const e = new Error('Konto did not return a code. Consent may have been declined.'); e.code = 'no_code'; throw e; }
+  const tokens = await kontoLedger.exchangeCode(st0.environment, String(code));
+  const conn = loadConn(st0.operatorId);
+  if (conn.config.provider !== 'konto') { const e = new Error('The operator is no longer set to Konto.'); e.code = 'no_provider'; throw e; }
+  const cfg = { ...conn.config, environment: st0.environment };
+  st.putConn.run({ operatorId: st0.operatorId, configJson: JSON.stringify(cfg), secretEnc: seal({ konto: tokens }), updatedAt: Date.now(), updatedBy: st0.by || null });
+  console.log(`[ACCOUNTING] ${st0.by} connected operator ${st0.operatorId} to Konto (${st0.environment})`);
+  return { operatorId: st0.operatorId };
+}
+
+/** Sign in and list what the pickers need: Payday's ledger accounts, or Konto's customers. */
 async function testConnection(operatorId) {
+  if (loadConn(operatorId).config.provider === 'konto') {
+    return kontoRun(operatorId, async (api) => {
+      const who = await api.company();
+      const customers = await api.customers();
+      return { environment: api.environment, company: who ? { name: who.company_name || null, ssn: who.registration_no || null } : null, customers };
+    });
+  }
   const { api } = clientFor(operatorId);
   const accounts = await api.accounts();
   const company = await api.company();
@@ -280,6 +372,35 @@ async function testConnection(operatorId) {
     company: company ? { name: company.name || null, ssn: company.ssn || company.kennitala || null } : null,
     accounts,
   };
+}
+
+/**
+ * What a provider is sent for a day (or for a difference), and how it is sent. Payday gets a
+ * journal entry; Konto a draft invoice. `doc.status` is what the history shows.
+ */
+function buildDoc(cfg, { summary, reference: ref, label }) {
+  if (cfg.provider === 'konto') {
+    const b = kontoLedger.buildInvoice({ day: summary.day, byRate: summary.byRate, customerGuid: cfg.konto.customerGuid, reference: ref, label });
+    return { ...b, status: 'DRAFT', reference: ref };
+  }
+  return paydayLedger.buildJournal({ summary, accounts: cfg.accounts, status: cfg.entryStatus, reference: ref, label });
+}
+function senderFor(operatorId, conn) {
+  if (conn.config.provider === 'konto') {
+    return {
+      canReplace: false,
+      // The reference doubles as the idempotency key: a retried day cannot become two invoices.
+      create: (doc) => kontoRun(operatorId, (api) => api.createInvoice(doc.invoice, doc.reference)),
+    };
+  }
+  const api = paydayLedger.client(credentialsFor(conn) || {});
+  return { canReplace: true, create: (doc) => api.createJournal(doc), remove: (id) => api.deleteJournal(id) };
+}
+/** Is everything the provider needs chosen? Returns a reason, or null. */
+function notReady(cfg) {
+  if (cfg.provider === 'konto') return cfg.konto.customerGuid ? null : 'No cash customer chosen: pick one under Connection.';
+  return (cfg.accounts.clearing && cfg.accounts.sales11 && cfg.accounts.sales24) ? null
+    : 'No saved accounts: choose all three under Accounts (each is saved when chosen).';
 }
 
 // ─── The day's sales ─────────────────────────────────────────────────────────
@@ -340,9 +461,18 @@ function preview(operatorId, day) {
   const summary = daySummary(operatorId, day);
   const prev = st.getExp.get(operatorId, day);
   const held = summary.unknownVat.length > 0;
-  const journal = summary.grossKr && !held
-    ? paydayLedger.buildJournal({ summary, accounts: conn.config.accounts, status: conn.config.entryStatus, reference: reference(operatorId, day) })
-    : null;
+  let journal = null;
+  if (summary.grossKr && !held) {
+    const doc = buildDoc(conn.config, { summary, reference: reference(operatorId, day) });
+    if (conn.config.provider === 'konto') {
+      // Shown in the same table as a journal: one line per rate, and the customer it is billed to.
+      const vt = { AA: 'ReducedVAT', S: 'StandardVAT' };
+      journal = { description: doc.invoice.description + ' [' + doc.reference + ']', status: 'DRAFT', kind: 'invoice', roundingKr: doc.roundingKr,
+        lines: doc.invoice.items.map(i => ({ text: i.description, vatPercentType: vt[i.tax], netKr: i.unit_price,
+          amount: -Math.round(summary.byRate[i.tax === 'AA' ? '11' : '24']) }))
+          .concat([{ text: conn.config.konto.customerLabel || 'Konto customer', amount: Math.round(doc.invoice.amount) }]) };
+    } else journal = doc;
+  }
   return { summary, held, journal, accountLabels: conn.config.accountLabels, previous: prev ? exportView(prev, summary) : null };
 }
 
@@ -374,7 +504,7 @@ const busy = new Set();      // operatorId: one send at a time per operator, sch
 function record(operatorId, day, fields) {
   const prev = st.getExp.get(operatorId, day) || {};
   const row = {
-    operatorId, day, provider: 'payday', status: 'failed', grossKr: null, byRateJson: null, externalId: null,
+    operatorId, day, provider: loadConn(operatorId).config.provider, status: 'failed', grossKr: null, byRateJson: null, externalId: null,
     entryStatus: null, reason: null, attempts: 0, lastAttemptAt: null, sentAt: null, sentBy: null, correctionsJson: '[]',
     ...prev, ...fields,
   };
@@ -394,10 +524,10 @@ async function sendDay(operatorId, day, { by = 'scheduled', force = false } = {}
   try {
     const conn = loadConn(operatorId);
     const cfg = conn.config;
-    if (cfg.provider !== 'payday') return { outcome: 'refused', reason: 'No accounting system is chosen.' };
-    if (!cfg.accounts.clearing || !cfg.accounts.sales11 || !cfg.accounts.sales24) {
-      return { outcome: 'refused', reason: 'No saved accounts: choose all three under Accounts (each is saved when chosen).' };
-    }
+    if (!SENDABLE.has(cfg.provider)) return { outcome: 'refused', reason: 'No accounting system is chosen.' };
+    const missing = notReady(cfg);
+    if (missing) return { outcome: 'refused', reason: missing };
+    const sys = provName(cfg.provider);
     const prev = st.getExp.get(operatorId, day);
     // A 'sending' row outlives its send only if the process died mid-call: after ten minutes it
     // is as uncertain as a timeout.
@@ -406,7 +536,7 @@ async function sendDay(operatorId, day, { by = 'scheduled', force = false } = {}
       return { outcome: 'refused', reason: 'A send for this day is already in progress.' };
     }
     if (prev && (prev.status === 'uncertain' || stale) && !force) {
-      return { outcome: 'refused', reason: 'The last send may have reached Payday. Check its drafts before sending again.' };
+      return { outcome: 'refused', reason: `The last send may have reached ${sys}. Check its drafts before sending again.` };
     }
 
     const summary = daySummary(operatorId, day);
@@ -422,7 +552,7 @@ async function sendDay(operatorId, day, { by = 'scheduled', force = false } = {}
       return { outcome: 'held', summary };
     }
 
-    const api = paydayLedger.client(credentialsFor(conn) || {});
+    const sender = senderFor(operatorId, conn);
     const ref = reference(operatorId, day);
     const target = { '11': summary.byRate['11'], '24': summary.byRate['24'] };
 
@@ -434,20 +564,25 @@ async function sendDay(operatorId, day, { by = 'scheduled', force = false } = {}
       if (!credentialsFor(conn)) return { outcome: 'refused', reason: 'The connection has no usable credentials.' };
       let corrections = []; try { corrections = JSON.parse(prev.correctionsJson || '[]'); } catch (e) {}
 
-      if (prev.externalId && prev.entryStatus === 'DRAFT' && !corrections.length) {
+      if (sender.canReplace && prev.externalId && prev.entryStatus === 'DRAFT' && !corrections.length) {
         let deleted = false;
-        try { await api.deleteJournal(prev.externalId); deleted = true; } catch (e) { /* posted meanwhile: book the difference */ }
+        try { await sender.remove(prev.externalId); deleted = true; } catch (e) { /* posted meanwhile: book the difference */ }
         if (deleted) {
           record(operatorId, day, { status: 'sending', lastAttemptAt: now, attempts });
-          return await createAndRecord({ operatorId, day, api, cfg, summary, ref, by, attempts, outcome: 'replaced' });
+          return await createAndRecord({ operatorId, day, sender, cfg, summary, ref, by, attempts, outcome: 'replaced' });
         }
       }
+      // An invoice cannot be negative, and the API can neither edit nor delete one: a day whose
+      // sales went DOWN has to be adjusted in Konto by hand.
+      if (cfg.provider === 'konto' && (delta['11'] < 0 || delta['24'] < 0)) {
+        return { outcome: 'refused', summary,
+          reason: `Sales for this day went down (11%: ${delta['11']} kr, 24%: ${delta['24']} kr). Konto invoices cannot be reduced from here: adjust the draft in Konto.` };
+      }
       const n = corrections.length + 1;
-      const journal = paydayLedger.buildJournal({ summary: { day, byRate: delta }, accounts: cfg.accounts, status: cfg.entryStatus,
-        reference: ref + '-L' + n, label: 'Leiðrétting sölu' });
+      const journal = buildDoc(cfg, { summary: { day, byRate: delta }, reference: ref + '-L' + n, label: 'Leiðrétting sölu' });
       record(operatorId, day, { status: 'sending', lastAttemptAt: now });
       try {
-        const res = await api.createJournal(journal);
+        const res = await sender.create(journal);
         corrections.push({ at: Date.now(), by, byRate: delta, externalId: res.id, entryStatus: journal.status });
         record(operatorId, day, { status: 'sent', grossKr: target['11'] + target['24'], byRateJson: JSON.stringify(target),
           correctionsJson: JSON.stringify(corrections), reason: null });
@@ -455,7 +590,7 @@ async function sendDay(operatorId, day, { by = 'scheduled', force = false } = {}
         return { outcome: 'corrected', summary, delta };
       } catch (e) {
         // The day stays sent with its old totals; the correction did not land (or may have).
-        record(operatorId, day, { status: 'sent', reason: (e.status ? 'Correction failed: ' : 'Correction outcome unknown, check Payday: ') + e.message });
+        record(operatorId, day, { status: 'sent', reason: (e.status ? 'Correction failed: ' : `Correction outcome unknown, check ${sys}: `) + e.message });
         return { outcome: e.status ? 'failed' : 'uncertain', reason: e.message, summary };
       }
     }
@@ -470,25 +605,26 @@ async function sendDay(operatorId, day, { by = 'scheduled', force = false } = {}
       return { outcome: 'empty', summary };
     }
     record(operatorId, day, { status: 'sending', lastAttemptAt: now, attempts });
-    return await createAndRecord({ operatorId, day, api, cfg, summary, ref, by, attempts, outcome: 'sent' });
+    return await createAndRecord({ operatorId, day, sender, cfg, summary, ref, by, attempts, outcome: 'sent' });
   } finally {
     busy.delete(operatorId);
   }
 }
 
-async function createAndRecord({ operatorId, day, api, cfg, summary, ref, by, attempts, outcome }) {
-  const journal = paydayLedger.buildJournal({ summary, accounts: cfg.accounts, status: cfg.entryStatus, reference: ref });
+async function createAndRecord({ operatorId, day, sender, cfg, summary, ref, by, attempts, outcome }) {
+  const journal = buildDoc(cfg, { summary, reference: ref });
   const target = { '11': summary.byRate['11'], '24': summary.byRate['24'] };
   try {
-    const res = await api.createJournal(journal);
+    const res = await sender.create(journal);
     record(operatorId, day, { status: 'sent', grossKr: target['11'] + target['24'], byRateJson: JSON.stringify(target),
       externalId: res.id, entryStatus: journal.status, reason: null, attempts, sentAt: Date.now(), sentBy: by, correctionsJson: '[]' });
     console.log(`[ACCOUNTING] ${operatorId} ${day}: ${outcome}, ${target['11'] + target['24']} kr as ${journal.status}${res.id ? ' (' + res.id + ')' : ''}`);
     return { outcome, summary, externalId: res.id };
   } catch (e) {
-    // An HTTP answer means Payday refused it: nothing was created, a retry is safe. No answer
-    // means it may or may not exist, and only a person looking at Payday can tell.
-    const status = e.status ? 'failed' : 'uncertain';
+    // An HTTP answer means the accounting system refused it: nothing was created, a retry is safe. No answer
+    // means it may or may not exist, and only a person looking there can tell. (A Konto token
+    // failure has no status either, but is thrown before the invoice is sent: see below.)
+    const status = (e.status || e.code === 'no_credentials' || e.code === 'konto_not_configured') ? 'failed' : 'uncertain';
     record(operatorId, day, { status, reason: String(e.message || e).slice(0, 500), attempts });
     console.warn(`[ACCOUNTING] ${operatorId} ${day}: ${status}: ${e.message}`);
     // What was sent, so a refusal can be read against it. Ledger ids and amounts only, no login.
@@ -501,7 +637,7 @@ async function createAndRecord({ operatorId, day, api, cfg, summary, ref, by, at
 
 /** Days the scheduler should try now for one operator: unsent, held, or failed-and-due. */
 function dueDays(config, rowsByDay, today, nowMs) {
-  if (!config.enabled || config.provider !== 'payday' || !config.startDate) return [];
+  if (!config.enabled || !SENDABLE.has(config.provider) || !config.startDate) return [];
   const out = [];
   for (let i = CATCH_UP_DAYS; i >= 1; i--) {
     const day = addDays(today, -i);
@@ -546,6 +682,6 @@ function startScheduler() {
 
 module.exports = {
   PROVIDERS, publicView, saveConnection, testConnection, preview, history, sendDay, startScheduler,
-  encryptionReady, diagnoseRailwayTest,
+  encryptionReady, diagnoseRailwayTest, kontoBeginConnect, kontoFinishConnect,
   _test: { summarize, dueDays, seal, open, addDays },
 };

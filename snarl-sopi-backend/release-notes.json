@@ -1,5 +1,19 @@
 [
  {
+  "component": "backend",
+  "version": "6.117.0",
+  "date": "2026-11-12",
+  "title": "Accounting: operators can connect Konto.",
+  "notes": [
+   "Konto is now a choice under Business → Accounting. The operator presses Connect to Konto, signs in at Konto and approves; nothing is pasted, and the connection is stored encrypted.",
+   "Konto has no journal entries, so each day's sales go in as one draft invoice to a cash customer the operator picks, with one line per VAT rate. A draft sends nothing to anyone; the bookkeeper issues or books it in Konto.",
+   "Konto wants prices without VAT, so each line is the net amount and Konto adds the VAT. Some totals cannot be hit to the króna (350 kr. at 11% comes out as 350,01); the preview says so when it happens.",
+   "If a day's sales go up after it was sent, a second draft is made for the difference. If they go down, the page says so and the draft is adjusted in Konto by hand: an invoice cannot be edited or removed from outside.",
+   "AG can point an operator at Konto's test system (dev.konto.is). Nothing changes for operators on Payday."
+  ],
+  "check": "Accounting → an operator → Konto → Environment: Test → Connect to Konto: Konto's sign-in opens, and after approving the page says Connected to Konto. Test connection loads the customers; pick one, preview yesterday and send; a draft invoice appears in Konto."
+ },
+ {
   "component": "coil",
   "version": "0.80.27",
   "versionCode": 183,

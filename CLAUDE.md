@@ -408,3 +408,25 @@ lost its copy and stops receiving commands until its next check-in (~50 min), wh
   standard IS+EN reply and sets status `refused`. The drop sensor is NOT used (it misses items
   that pass through it and then nothing is charged), so "delivered" means the motor completed.
 - Backend 6.112.0.
+
+## Sales to the operator's accounting system (2026-11-12)
+
+- **Business → Accounting** (`src/accounting.js`): each morning from 06:00 UTC the previous day's
+  sales go to the operator's own accounting system, once. Lines not dispensed are not sales; a day
+  with a product that has no VAT rate is held, never guessed. A send with no answer is `uncertain`
+  and is never retried by itself. Logins are sealed with `ACCOUNTING_ENC_KEY`.
+- **Payday** (`accountingPayday.js`): a journal entry, gross per VAT type, Payday splits the VAT.
+  Proven on the test company 2026-11-03. The clearing account must not be 3400 Viðskiptakröfur
+  (400); a bank or card-clearing account works.
+- **Konto** (`accountingKonto.js`, backend 6.117.0): OAuth consent, the refresh token rotates on
+  every use (all calls for an operator run one at a time for that reason). No journal entries in
+  its API, so a day is ONE DRAFT INVOICE (`save: 1`) to a cash customer, net prices. Invoices
+  cannot be edited or deleted through the API. Sandbox `dev.konto.is` needs `KONTO_MAINT_CODE` on
+  every call and has a self-signed certificate. Not yet run against the sandbox.
+- **DK** (not built; read from `api.dkplus.is` 2026-11-12): bearer token; `POST
+  /api/v1/generalLedger/journal` with `Code` (max 4 characters), lines and `Option.Post`. The
+  create returns an empty 200, no id. Lines carry no VAT field: the account's tax code decides,
+  and posted entries show DK takes the amount entered as gross and books the net (entered −1.240
+  on an 11% account → −1.117). In the shared demo company every `Post: true` was refused with
+  "Mismunur í dagbók: 116.450,00-" whatever the code, so posting appears to cover more than the
+  journal sent: send unposted only, until DK says otherwise.

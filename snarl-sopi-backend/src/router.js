@@ -317,6 +317,10 @@ const routes = [
   { method:'POST', pattern:'/api/v1/operators/:operatorId/accounting/test',     handler: handleTestAccounting,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/accounting/preview',  handler: handlePreviewAccounting, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'POST', pattern:'/api/v1/operators/:operatorId/accounting/send',     handler: handleSendAccounting,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'POST', pattern:'/api/v1/operators/:operatorId/accounting/konto/connect', handler: handleKontoConnect, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  // Where Konto sends the browser back after consent. No session travels with that redirect, so
+  // it is public BY DESIGN: the one-time state issued to a signed-in operator admin is the credential.
+  { method:'GET',  pattern:'/api/v1/accounting/konto/callback',                 handler: handleKontoCallback },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/accounting/history',  handler: handleAccountingHistory, middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'GET',  pattern:'/api/v1/operators/:operatorId/invoices/:invoiceId/pdf', handler: handleOperatorInvoicePdf, middleware:[requireAuth, requireOperatorAccess] },
   // Signup automation: the leasing Zap calls this after creating the Payday customer.
@@ -7789,6 +7793,8 @@ const ACCOUNTING_ERRORS = {   // [English, Icelandic]
   accounts_incomplete: ['Choose all three accounts before switching the daily send on.', 'Veldu alla þrjá bókhaldslyklana áður en dagleg sending er sett á.'],
   accounts_overlap: ['The clearing account cannot also be a sales account.', 'Uppgjörslykillinn má ekki líka vera sölulykill.'],
   no_credentials: ['Connect the accounting system first.', 'Tengdu bókhaldskerfið fyrst.'],
+  konto_customer_missing: ['Choose the Konto customer the daily invoice goes to first.', 'Veldu fyrst viðskiptavininn í Konto sem daglegi reikningurinn fer á.'],
+  konto_not_configured: ['Konto is not set up on the server for this environment yet. Contact AG Vending.', 'Konto er ekki uppsett á þjóninum fyrir þetta umhverfi enn. Hafðu samband við AG Vending.'],
 };
 function _acctErr(res, status, code, fallback) {
   const m = ACCOUNTING_ERRORS[code] || [fallback || code, fallback || code];
@@ -7832,6 +7838,30 @@ async function handleTestAccounting(req, res) {
     // never reached the dashboard ("backend may be restarting", 2026-11-03).
     console.warn(`[ACCOUNTING] connection test for ${id} failed: ${e.message}`);
     _acctErr(res, 424, 'connection_failed', String(e.message || e));
+  }
+}
+
+/** POST /operators/:id/accounting/konto/connect — the Konto consent URL for this operator. */
+function handleKontoConnect(req, res) {
+  const id = _accountingOp(req, res); if (!id) return;
+  const r = require('./accounting').kontoBeginConnect(id, { by: req.user.id, isAg: req.user.role === 'ag_admin' });
+  if (!r.ok) return _acctErr(res, 400, r.error);
+  ok(res, { url: r.url });
+}
+
+/** GET /accounting/konto/callback?code&state — Konto's redirect after consent. */
+async function handleKontoCallback(req, res) {
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  try {
+    await require('./accounting').kontoFinishConnect({ code: req.query && req.query.code, state: req.query && req.query.state });
+    res.writeHead(302, { Location: '/#accounting' });
+    res.end();
+  } catch (e) {
+    console.warn('[ACCOUNTING] Konto callback failed:', e.message);
+    const body = '<!doctype html><meta charset="utf-8"><title>Konto</title><body style="font-family:sans-serif;max-width:560px;margin:60px auto;padding:0 16px">'
+      + '<h2>Tenging við Konto tókst ekki</h2><p>' + esc(e.message) + '</p><p><a href="/#accounting">Til baka í bókhald</a></p></body>';
+    res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(body);
   }
 }
 
