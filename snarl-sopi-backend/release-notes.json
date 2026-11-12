@@ -1,5 +1,19 @@
 [
  {
+  "component": "coil",
+  "version": "0.80.27",
+  "versionCode": 183,
+  "date": "2026-11-12",
+  "title": "The machine can sell from our planogram, with no call to Weimi.",
+  "notes": [
+   "When the dashboard sets the machine's catalog source to Kiosk (backend 6.116.0), the app builds its product grid from the planogram in its config: slots, products, prices, images, capacities and counts. Weimi's cloud is not called at all. On Weimi nothing changes.",
+   "A price or product changed on the Planogram tab reaches the grid at the next config poll, within two minutes, with no reload. Switching the source either way reloads the catalog once through the loading screen.",
+   "A Kiosk-catalog machine whose config carries no planogram shows an error naming it (\"Engin vörulisti fyrir vél …\") rather than quietly falling back to Weimi.",
+   "config_health now reports catalogSource."
+  ],
+  "check": "On 62160480: publish 0.80.27, then switch the catalog source to Kiosk. The machine log should show \"catalog: kiosk planogram, N bays (no Weimi call)\" and no deviceInfo line; change one price on the Planogram tab and see the tile follow within two minutes."
+ },
+ {
   "component": "backend",
   "version": "6.116.0",
   "date": "2026-11-12",

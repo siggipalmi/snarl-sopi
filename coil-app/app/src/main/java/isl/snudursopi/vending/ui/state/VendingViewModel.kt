@@ -39,6 +39,7 @@ import isl.snudursopi.vending.data.backend.ConfigClient
 import isl.snudursopi.vending.data.backend.QuoteClient
 import isl.snudursopi.vending.data.backend.ConfigProfile
 import isl.snudursopi.vending.data.backend.ProductDetailsClient
+import isl.snudursopi.vending.data.toAisles
 import isl.snudursopi.vending.data.toProducts
 import isl.snudursopi.vending.domain.AdOverlay
 import isl.snudursopi.vending.domain.AdSlot
@@ -267,6 +268,9 @@ class VendingViewModel(
      * what STOPS the stroke — without it the board pushes a fixed distance.
      */
     @Volatile private var dropSensorOverride: Boolean? = null
+
+    /** Where the catalog came from at the last load: "weimi" or "kiosk" (backend 6.116.0). */
+    @Volatile private var catalogSource: String = "weimi"
 
     /** Closed-lane codes the last config could not decode. See `config_health`. */
     @Volatile private var undecodableAisles: List<String> = emptyList()
@@ -638,17 +642,37 @@ class VendingViewModel(
                 WeimiApiClient.production(WeimiCredentials.APP_ID, WeimiCredentials.SECRET_KEY)
             }
 
+            // Config first (backend 6.116.0): it says where the catalog comes from. On "kiosk"
+            // the planogram in the config is the catalog and Weimi's cloud is never asked; on
+            // "weimi" the device-info call below is what every machine has done so far.
+            val config = fetchFeaturedFromConfig(deviceCode)
+            catalogSource = config.catalogSource
+            val fromPlanogram = config.catalogSource == "kiosk"
+
             // Fetch device profile (gives us the operator name) and device info (aisles).
             // The profile call may fail if it's not exposed for this device — we tolerate
             // that, since the catalog is what really matters.
-            val profile = runCatching { client.deviceProfile(listOf(deviceCode)) }
+            val profile = if (fromPlanogram) null else runCatching { client.deviceProfile(listOf(deviceCode)) }
                 .onFailure { Log.w(TAG, "deviceProfile failed (continuing): ${it.message}") }
                 .getOrNull()
                 ?.firstOrNull()
 
-            val deviceInfo = client.deviceInfo(deviceCode)
-            val aisles = deviceInfo.allAisles
-            Log.i(TAG, "deviceInfo returned ${aisles.size} aisles across ${deviceInfo.cabinetTotal} cabinets")
+            val aisles = if (fromPlanogram) {
+                if (config.planogram.isEmpty()) {
+                    // No silent fallback to Weimi: that would hide a broken import behind a
+                    // working screen. The error screen says what is missing.
+                    error(
+                        "Engin vörulisti fyrir vél $deviceCode. " +
+                        "Skráðu hólfin í stjórnborðinu (Planogram) eða skiptu vörulistanum aftur yfir á Weimi."
+                    )
+                }
+                Log.i(TAG, "catalog: kiosk planogram, ${config.planogram.size} bays (no Weimi call)")
+                config.planogram.toAisles()
+            } else {
+                val deviceInfo = client.deviceInfo(deviceCode)
+                Log.i(TAG, "deviceInfo returned ${deviceInfo.allAisles.size} aisles across ${deviceInfo.cabinetTotal} cabinets")
+                deviceInfo.allAisles
+            }
 
             val products = aisles.toProducts()
             Log.i(TAG, "Consolidated to ${products.size} unique products")
@@ -664,6 +688,7 @@ class VendingViewModel(
             if (products.isEmpty()) {
                 error(
                     "No products available for device $deviceCode. " +
+                    "Catalog: ${if (fromPlanogram) "kiosk planogram" else "weimi"}. " +
                     "Aisle count from API: ${aisles.size}. " +
                     "Possible causes: machine layout not configured in the vendor portal, " +
                     "machine is currently online (cloud may not expose aisles for live machines), " +
@@ -671,7 +696,6 @@ class VendingViewModel(
                 )
             }
 
-            val config = fetchFeaturedFromConfig(deviceCode)
             val featured = config.featured
             val heroes = resolveHeroes(featured, products)
 
@@ -2262,6 +2286,7 @@ class VendingViewModel(
                     "undecodableAisles" to undecodableAisles,
                     "columnBaseZero" to isl.snudursopi.vending.api.SlotCodeTranslator.columnBaseZero,
                     "stockSource" to stockSource,
+                    "catalogSource" to catalogSource,
                     "keySource" to keySource,
                     "directPushRows" to directPushRows.sorted(),
                     "dropSensorOverride" to dropSensorOverrideValue(),
@@ -2504,9 +2529,23 @@ class VendingViewModel(
                 delay(CONFIG_POLL_INTERVAL_MS)
                 try {
                     val config = fetchFeaturedFromConfig(deviceCode)
+                    if (config.catalogSource != catalogSource) {
+                        // The dashboard moved this machine between Weimi's catalog and ours:
+                        // a full reload, through the loading screen, from the new source.
+                        Log.i(TAG, "catalog source ${catalogSource} → ${config.catalogSource}: reloading catalog")
+                        catalogSource = config.catalogSource
+                        viewModelScope.launch { loadCatalog(deviceCode) }
+                        return@launch
+                    }
                     // Re-resolve against the catalog as it stands now — it
-                    // may have changed since the previous poll.
-                    val baseCatalog = _state.value.catalog
+                    // may have changed since the previous poll. On a Kiosk catalog the
+                    // planogram in this config IS the catalog: a price or product changed in
+                    // the dashboard lands here, within one poll, with no reload.
+                    val baseCatalog = if (config.catalogSource == "kiosk" && config.planogram.isNotEmpty()) {
+                        config.planogram.toAisles().toProducts()
+                    } else {
+                        _state.value.catalog
+                    }
                     // Refresh the live count from the backend (kiosk machines);
                     // no-op for weimi machines. localVends was cleared above iff
                     // this was a fresh load, so re-baseline lands on this count.
@@ -2608,6 +2647,8 @@ class VendingViewModel(
         val idleGuardUs: Int = 500,
         val skin: SkinId = SkinId.Classic,
         val complaintsEntry: String = "contact",
+        val catalogSource: String = "weimi",
+        val planogram: List<isl.snudursopi.vending.data.backend.PlanogramBay> = emptyList(),
     ) {
         companion object {
             val EMPTY = ConfigResult(emptyList(), emptyList(), emptyMap(), null)
@@ -2695,6 +2736,8 @@ class VendingViewModel(
                         idleGuardUs = result.idleGuardUs,
                         skin = result.skin,
                         complaintsEntry = result.complaintsEntry,
+                        catalogSource = result.catalogSource,
+                        planogram = result.planogram,
                     )
                     lastConfig = cfg  // remember for the next 304
                     cfg
