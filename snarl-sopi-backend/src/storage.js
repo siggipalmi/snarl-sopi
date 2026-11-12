@@ -686,6 +686,7 @@ ensureColumn('auth_tokens', 'label', 'TEXT');
 ensureColumn('alerts', 'params', 'TEXT');
 ensureColumn('machines', 'nayaxDataJson',   'TEXT');
 ensureColumn('machines', 'stockSource',     "TEXT NOT NULL DEFAULT 'weimi'");
+ensureColumn('machines', 'catalogSource',   "TEXT NOT NULL DEFAULT 'weimi'");  // 6.116.0: where the kiosk's catalog comes from
 // products are keyed by the device-facing product code (goodsCode); we also keep
 // Weimi's internal record id and any of the other ids so the catalog can match a
 // placed slot to its product no matter which identifier the layout carries.
@@ -812,11 +813,11 @@ const stmts = {
     (deviceCode, deviceName, location, operatorId, model, isKioskModel, isOnline, isRunning, kioskVersion,
      totalCurrStock, maxStock, unsupported, nayaxMachineId, nayaxLastSyncAt, nayaxDataJson,
      profileJson, featuredJson, adsJson, settingsJson,
-     productsJson, productOverridesJson, stockSource, configVersion, createdAt, updatedAt)
+     productsJson, productOverridesJson, stockSource, catalogSource, configVersion, createdAt, updatedAt)
     VALUES (@deviceCode, @deviceName, @location, @operatorId, @model, @isKioskModel, @isOnline, @isRunning, @kioskVersion,
             @totalCurrStock, @maxStock, @unsupported, @nayaxMachineId, @nayaxLastSyncAt, @nayaxDataJson,
             @profileJson, @featuredJson, @adsJson, @settingsJson,
-            @productsJson, @productOverridesJson, @stockSource, @configVersion, @createdAt, @updatedAt)
+            @productsJson, @productOverridesJson, @stockSource, @catalogSource, @configVersion, @createdAt, @updatedAt)
     ON CONFLICT(deviceCode) DO UPDATE SET
       deviceName=excluded.deviceName, location=excluded.location, operatorId=excluded.operatorId,
       model=excluded.model, isKioskModel=excluded.isKioskModel, isOnline=excluded.isOnline,
@@ -825,7 +826,7 @@ const stmts = {
       nayaxMachineId=excluded.nayaxMachineId, nayaxLastSyncAt=excluded.nayaxLastSyncAt, nayaxDataJson=excluded.nayaxDataJson,
       profileJson=excluded.profileJson, featuredJson=excluded.featuredJson, adsJson=excluded.adsJson,
       settingsJson=excluded.settingsJson, productsJson=excluded.productsJson,
-      productOverridesJson=excluded.productOverridesJson, stockSource=excluded.stockSource, configVersion=excluded.configVersion,
+      productOverridesJson=excluded.productOverridesJson, stockSource=excluded.stockSource, catalogSource=excluded.catalogSource, configVersion=excluded.configVersion,
       updatedAt=excluded.updatedAt`),
   updateMachineConfigVersion: db.prepare('UPDATE machines SET configVersion = ?, updatedAt = ? WHERE deviceCode = ?'),
   updateMachineField: (col) => db.prepare(`UPDATE machines SET ${col} = ?, updatedAt = ? WHERE deviceCode = ?`),
@@ -1328,6 +1329,7 @@ function rowToMachine(row) {
     products:        JSON.parse(row.productsJson || '[]'),
     productOverrides:JSON.parse(row.productOverridesJson || '{}'),
     stockSource:     row.stockSource || 'weimi',
+    catalogSource:   row.catalogSource === 'kiosk' ? 'kiosk' : 'weimi',
     configVersion:   row.configVersion,
     createdAt:       row.createdAt,
     updatedAt:       row.updatedAt,
@@ -1358,6 +1360,7 @@ function machineToRow(m) {
     productsJson:    JSON.stringify(m.products || []),
     productOverridesJson: JSON.stringify(m.productOverrides || {}),
     stockSource:     (m.stockSource === 'kiosk') ? 'kiosk' : 'weimi',
+    catalogSource:   (m.catalogSource === 'kiosk') ? 'kiosk' : 'weimi',
     configVersion:   m.configVersion || new Date().toISOString(),
     createdAt:       m.createdAt || new Date().toISOString(),
     updatedAt:       m.updatedAt || new Date().toISOString(),

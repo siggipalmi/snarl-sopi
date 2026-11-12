@@ -71,6 +71,13 @@ async function syncDeviceProducts(deviceCode) {
   const m = storage.getMachine(deviceCode);
   if (!m) throw new Error(`machine ${deviceCode} not in DB`);
 
+  // Kiosk-catalog machines (6.116.0): the planogram is ours and Weimi is read only on demand,
+  // through the dashboard's import diff. The sync does not even ask.
+  if (m.catalogSource === 'kiosk') {
+    storage.setMeta(`weimisync:products:${deviceCode}`, new Date().toISOString());
+    return { products: (m.products || []).length, totalCurrStock: m.totalCurrStock, maxStock: m.maxStock, skipped: 'kiosk catalog' };
+  }
+
   const info   = await weimi.deviceInfo(WEIMI_CFG, deviceCode);
   const aisles = flattenAisles(info);
   const products = weimi.aislesToProducts(aisles);

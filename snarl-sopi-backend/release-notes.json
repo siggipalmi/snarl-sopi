@@ -1,6 +1,19 @@
 [
  {
   "component": "backend",
+  "version": "6.116.0",
+  "date": "2026-11-12",
+  "title": "A coil machine can sell from our planogram instead of Weimi's cloud.",
+  "notes": [
+   "Controls → \"catalog source\" (AG): Weimi (as before: the kiosk reads Weimi's cloud, prices and products are written to Weimi) or Kiosk (the kiosk reads the planogram on the Planogram tab from its config; Weimi is never written for the machine). Needs coil 0.80.27 on the machine.",
+   "On Kiosk the Planogram tab is the editor: set price, change product and set stock write our layout and reach the machine within two minutes; the slot menu gains capacity and remove slot; a dashed + tile adds a slot on a layer, and \"add layer\" a new layer. Every edit is a row in count changes.",
+   "\"Weimi import\" (Controls) shows Weimi's layout against ours, slot by slot — product, price, capacity — and applies only what you tick. Added slots start at 0 with a \"telja\" badge; counts are never taken from Weimi. The 30-minute sync no longer asks Weimi about a Kiosk-catalog machine at all.",
+   "Nothing changes for a machine left on Weimi."
+  ],
+  "check": "On the canary (62160480): switch the catalog source to Kiosk once it runs 0.80.27, publish a price change from the Planogram tab and watch the grid take it within two minutes with no Weimi call in the machine log."
+ },
+ {
+  "component": "backend",
   "version": "6.115.1",
   "date": "2026-11-12",
   "title": "The machine log no longer stores the same lines twice.",

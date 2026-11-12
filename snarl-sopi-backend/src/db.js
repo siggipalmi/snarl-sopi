@@ -628,9 +628,25 @@ function buildConfigResponse(machine) {
     // Absent goodsId = not migrated yet; kiosk keeps its existing image source for those.
     images: storage.imageMapForMachine(machine.deviceCode),
     hardware: { dropSensor: cfg.dropSensor === 'on' ? 'on' : 'off' },
+    // Where the kiosk's catalog comes from (6.116.0 / coil 0.80.27): 'weimi' (Weimi's cloud at
+    // every catalog load, the fleet so far) or 'kiosk' (the planogram below, in this config; Weimi
+    // never asked). On 'kiosk' the layers carry every bay with product, price, image, capacity and
+    // count; the app builds its catalog from them and nothing else.
+    catalogSource: machine.catalogSource === 'kiosk' ? 'kiosk' : 'weimi',
+    planogram: machine.catalogSource === 'kiosk' ? coilPlanogramBlock(machine) : undefined,
     ...fridgePlanogramBlock(machine),
     configVersion: machine.configVersion,
   };
+}
+
+// Coil, Kiosk catalog: the layout as the kiosk sells from it.
+function coilPlanogramBlock(machine) {
+  const planogram = require('./planogram');
+  const code = machine.deviceCode;
+  const layout = planogram.readLayout(storage, code) || [];
+  let saved = null;
+  try { const raw = storage.getMeta(`baycfg:${code}`); saved = raw ? JSON.parse(raw) : null; } catch (e) { saved = null; }
+  return planogram.configBlock(layout, planogram.layerTypes(layout, saved), storage.imageMapForMachine(code));
 }
 
 // For fridge machines, build the per-basket planogram. Baskets store overrides; the product's
