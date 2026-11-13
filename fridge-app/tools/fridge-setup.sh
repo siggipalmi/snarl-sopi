@@ -125,7 +125,13 @@ if [ "$MODE" = "--baskets" ]; then
     [ -n "$LINE" ] && break
     sleep 3
   done
-  [ -z "$LINE" ] && { echo "no read_all_trays answer in 90 s — is the machine paired and online?"; exit 1; }
+  if [ -z "$LINE" ]; then
+    # None sent while waiting: show the last answer still in the tablet's log, and say how old it is.
+    LINE=$(s "logcat -d -s CommandRunner:I" | grep "command read_all_trays" | tail -1)
+    [ -z "$LINE" ] && { echo "no read_all_trays answer in 90 s, and none in the log — is the machine paired and online?"; exit 1; }
+    echo "no NEW read_all_trays answer in 90 s — was one sent from the dashboard while this waited?"
+    echo "showing the last one in the log, from $(echo "$LINE" | cut -c1-14) (tablet time):"
+  fi
   echo "$LINE" | grep -q -- "-> ok" || { echo "read_all_trays did not succeed:"; echo "  ${LINE#*: }"; exit 1; }
   echo "$LINE" | awk '
     function label(t) { return (t >= 20 ? "B" (t - 19) : "A" (t + 1)) }
