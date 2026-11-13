@@ -9068,7 +9068,17 @@ async function renderCatalog() {
         e = { goodsId: p.goodsId, name: '', image: '', priceIsk: 0, machineCount: 0, slotCount: 0, machines: [],
               vatRate: null, costPriceIsk: null, weightGrams: null, barcode: null, hasAttrs: false };
         byId[p.goodsId] = e;
-        cands.forEach(c => { placedByAnyId[c] = e; });
+        // This card is NOT a placed slot, so its ids deliberately do NOT go into placedByAnyId.
+        // Registering them let a LATER database row join this card whenever any one of its four
+        // identifiers matched — but goodsId, goodsCode, weimiId and customCode are different
+        // kinds of id, so a match across two of them means nothing. The row that joined then
+        // disappeared from the catalog and overwrote this card's VSK, cost and weight with its own.
+        //
+        // It was role-dependent, which is what hid it: for AG admin the first row usually matched
+        // a real planogram slot and never reached this branch at all, while an operator who cannot
+        // see that machine fell into it and lost the second product. Genuine duplicate rows are
+        // the job of /products/duplicates and /products/dedupe, which weigh up which row to keep;
+        // this merge has no business guessing.
       }
       if (!e.name)  e.name  = p.name  || '';
       // Our catalog is the system of record for images. The planogram copy can be a stale
