@@ -1841,6 +1841,7 @@ function handleSetFridgeBaskets(req, res) {
   if (!list.length) return badRequest(res, 'baskets array required');
   let n = 0;
   const rejected = [];
+  const promote = new Map();   // goodsId -> weight typed here for a product the catalog has none for
   const spec = machineFridgeSpec(m);
   const per = spec.basketsPerCabinet;
   // A restocker moves products but doesn't set prices: a basket keeps its own price override only
@@ -1902,10 +1903,44 @@ function handleSetFridgeBaskets(req, res) {
           detail: p ? `Product ${b.productId} has no weightGrams and no per-basket unitWeightG.` : `Product ${b.productId} not found.` });
         continue;
       }
+      // The catalog holds no weight for this product, so somebody typed one into this basket.
+      // Every basket already inherits product.weightGrams when it has no override of its own, so
+      // the weight only ever had to be typed once — but it was being kept on the basket and
+      // nowhere else, which meant the next machine asked again, and another operator never saw
+      // that the first one had already answered. Promote it to the product.
+      //
+      // It only ever fills a NULL; it never overwrites a weight. So it cannot change what any
+      // existing basket charges: a basket is refused above unless a weight resolves, so nothing
+      // live depends on this product having none. 20 kg is the same ceiling /products/quick uses.
+      if (b.unitWeightG != null && p && p.weightGrams == null && w <= 20000) {
+        promote.set(String(p.goodsId), { goodsId: String(p.goodsId), name: p.name || null, grams: Math.round(w) });
+      }
     }
     storage.upsertFridgeBasket({ ...b, deviceCode });
     n++;
   }
+  // Write the promoted weights, re-reading each product so a weight that arrived between the
+  // check above and here is never overwritten. Logged by name: this changes what other machines
+  // will charge for the product once they stock it, so it should be greppable afterwards.
+  const promoted = [];
+  for (const pr of promote.values()) {
+    try {
+      const fresh = storage.getProduct(pr.goodsId);
+      if (!fresh || fresh.weightGrams != null) continue;   // someone got there first
+      storage.setProductWeight(pr.goodsId, pr.grams);
+      promoted.push(pr);
+      console.log(`[weights] ${pr.name || pr.goodsId} (${pr.goodsId}) → ${pr.grams} g, from ${deviceCode} `
+        + `by ${(req.user && req.user.email) || 'unknown'} (catalog had none)`);
+      // Any other fridge holding this product without its own override now resolves a weight
+      // where it resolved none, so it needs the new config rather than a 304.
+      for (const mm of Object.values(machines)) {
+        if (mm.deviceCode === deviceCode || !fridgeSpec(mm.model).isFridge) continue;
+        if ((storage.listFridgeBaskets(mm.deviceCode) || [])
+              .some(x => String(x.productId) === pr.goodsId && x.unitWeightG == null)) touchConfig(mm);
+      }
+    } catch (e) { console.error('[weights] promote failed for ' + pr.goodsId + ':', e.message); }
+  }
+
   // The fridge planogram is delivered inside the config response, and the kiosk polls with
   // If-None-Match: <configVersion>. Without bumping the version here a planogram change would
   // return 304 and the machine would never see it — a silent failure.
@@ -1913,9 +1948,9 @@ function handleSetFridgeBaskets(req, res) {
   if (rejected.length) {
     const roleRefusal = rejected.find(x => x.reason === 'role_forbidden');
     return json(res, roleRefusal ? 403 : 400, { ok: false, error: roleRefusal ? roleRefusal.detail : 'Some baskets were rejected — see rejected[] (per-piece products need a unit weight, per-kg products a kilo price).',
-      updated: n, rejected, configVersion: m.configVersion });
+      updated: n, rejected, promoted, configVersion: m.configVersion });
   }
-  ok(res, { deviceCode, updated: n, configVersion: m.configVersion });
+  ok(res, { deviceCode, updated: n, promoted, configVersion: m.configVersion });
 }
 
 // GET /api/v1/machines/:deviceCode/fridge/settlements — recent settlement audit records.
@@ -9818,6 +9853,34 @@ function handleProductCatalog(req, res) {
 }
 
 /**
+ * A unit weight out of a Weimi goods record, if there is one.
+ *
+ * Weimi's own documentation for /ext/query/goods does not promise a weight, and nothing in this
+ * codebase has ever read one — goodsWeight appears only in a comment on a WRITE path. So this
+ * reads defensively across the plausible spellings and returns null when none of them holds a
+ * believable gram value. It is deliberately strict: the weight it produces becomes the catalog
+ * weight, which is what a gravity fridge charges on, so a junk value would mis-charge customers.
+ * It takes whole numbers only, within the same 1-20000 g range /products/quick enforces, so a
+ * field holding kilograms is refused rather than rounded into a nonsense gram figure.
+ *
+ * handleProductEnrich reports what this found, so the first real run tells us whether Weimi
+ * carries the field at all rather than us guessing from the outside.
+ */
+function weimiWeightGrams(w) {
+  if (!w) return null;
+  for (const key of ['goodsWeight', 'weight', 'weightGram', 'weightGrams', 'netWeight', 'unitWeight']) {
+    const raw = w[key];
+    if (raw == null || raw === '') continue;
+    const n = Number(raw);
+    // A whole number or it is not grams. Rounding a fraction is how a kilogram field (0.1) turns
+    // into a 1 g unit weight, and a gravity fridge with a 1 g unit weight charges for air.
+    if (!Number.isInteger(n)) continue;
+    if (n >= 1 && n <= 20000) return n;
+  }
+  return null;
+}
+
+/**
  * POST /api/v1/products/enrich   (AG admin)
  * Create product-database rows for products that are loaded on machines but
  * missing from the database — closing the migration gap. Uses the shelf data
@@ -9858,14 +9921,19 @@ async function handleProductEnrich(req, res) {
       salePriceIsk: priceIsk || null,
       vatRate:      null,   // VSK set later via import / edit
       costPriceIsk: null,   // cost set later via import / edit
-      weightGrams:  null,
+      weightGrams:  weimiWeightGrams(w),   // null when Weimi carries no believable weight
       measurement:  (w && w.measurement != null) ? w.measurement : 0,
       barcode:      w ? (w.barcode || null) : null,
       imgUrl:       (w && w.imgUrl) || layoutImg || null,
     });
-    enriched.push({ goodsId: gid, name: (w && w.goodsName) || layoutName, fromWeimi: !!w });
+    enriched.push({ goodsId: gid, name: (w && w.goodsName) || layoutName, fromWeimi: !!w,
+                    weightGrams: weimiWeightGrams(w) });
   }
-  ok(res, { enrichedCount: enriched.length, skippedCount: skipped.length, enriched, skipped });
+  // How many arrived with a weight, so one real run settles whether Weimi carries it.
+  const withWeight = enriched.filter(e => e.weightGrams != null).length;
+  console.log(`[enrich] ${enriched.length} added, ${withWeight} with a weight from Weimi`);
+  ok(res, { enrichedCount: enriched.length, skippedCount: skipped.length,
+            weightsFromWeimi: withWeight, enriched, skipped });
 }
 
 // ── Product-detail import: fuzzy name matching ───────────────────────────────
@@ -10472,4 +10540,6 @@ function publicUser(u) {
   };
 }
 
-module.exports = { router, routes };
+// handleSetFridgeBaskets and weimiWeightGrams are exported for test/basketWeight.test.js, which
+// pins the weight promotion — it writes to the shared product catalog, which every machine reads.
+module.exports = { router, routes, handleSetFridgeBaskets, weimiWeightGrams };
