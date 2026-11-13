@@ -2170,7 +2170,7 @@ select.fi{cursor:pointer;}
     <div class="modal-title" id="sw-title">change product.</div>
     <div class="rs-sub" id="sw-sub" style="margin:-4px 0 12px"></div>
     <div id="sw-pick">
-      <input class="fi" id="sw-search" placeholder="search products…" oninput="renderSwapList()" style="margin-bottom:8px">
+      <input class="fi" id="sw-search" placeholder="search all products…" oninput="onSwapSearch()" style="margin-bottom:8px">
       <div id="sw-list" style="max-height:42vh;overflow-y:auto;border:1px solid var(--line);border-radius:10px"></div>
     </div>
     <div id="sw-confirm" style="display:none">
@@ -5886,6 +5886,11 @@ async function applyProductPrice() {
 /* ---- product swap (change what's in a slot) ---- */
 let _catalog = null;
 let _swapCode = null, _swapAisle = null, _swapSlotMax = 0, _swapChosen = null;
+// What the picker is currently showing, and the guards for the server-side search. The list used
+// to be _catalog filtered in the browser — that is only what is loaded in machines THIS user can
+// reach, so an operator could never pick a product they had not already stocked, and nobody could
+// introduce a new one through this screen at all.
+let _swapShown = [], _swapSearchSeq = 0, _swapSearchTimer = null;
 
 async function loadCatalog(force) {
   if (_catalog && !force) return _catalog;
@@ -5914,6 +5919,8 @@ async function openSwap(deviceCode, aisleCode) {
   document.getElementById('sw-title').textContent = 'change product';
   document.getElementById('sw-sub').textContent = ((m && m.deviceName) || deviceCode) + ' · slot ' + physicalSlot(aisleCode) + (cur && cur.name ? ' · now: ' + cur.name : '');
   document.getElementById('sw-search').value = '';
+  // Abandon anything the last open left in flight, or its results would land on this slot.
+  clearTimeout(_swapSearchTimer); _swapSearchSeq++; _swapShown = [];
   document.getElementById('sw-msg').innerHTML = '';
   document.getElementById('sw-pick').style.display = '';
   document.getElementById('sw-confirm').style.display = 'none';
@@ -5922,42 +5929,108 @@ async function openSwap(deviceCode, aisleCode) {
   document.getElementById('modal-swap').classList.add('show');
   try {
     await loadCatalog();
+    _swapShown = (_catalog || []).map(swapRow);
     renderSwapList();
   } catch (e) {
     document.getElementById('sw-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--alert)">Could not load products: ' + rsEsc(e.message) + '</div>';
   }
 }
 
+// One row shape for the list, whether it came from the placement catalog or the server search.
+// priceIsk is null, never 0, when no price is known: 0 would prefill the price box with a free
+// product, and the apply would go through.
+function swapRow(p) {
+  const price = p.priceIsk != null ? Number(p.priceIsk)
+              : (p.salePriceIsk != null ? Number(p.salePriceIsk) : null);
+  return { goodsId: String(p.goodsId), name: p.name || ('#' + p.goodsId),
+           image: p.image || p.imgUrl || '', priceIsk: (price > 0 ? price : null),
+           machineCount: Number(p.machineCount) || 0 };
+}
+
+// The server search covers the whole product catalogue, not just what is already in a machine.
+// Under its three-character minimum we fall back to the machines' own products, which is the
+// list the modal opens with.
+function onSwapSearch() {
+  const q = (document.getElementById('sw-search').value || '').trim();
+  clearTimeout(_swapSearchTimer);
+  if (q.length < 3) {
+    _swapSearchSeq++;                       // abandon any search still in flight
+    _swapShown = (_catalog || []).map(swapRow);
+    return renderSwapList();
+  }
+  _swapSearchTimer = setTimeout(async () => {
+    const seq = ++_swapSearchSeq;
+    document.getElementById('sw-list').innerHTML =
+      '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12.5px">Searching…</div>';
+    let rows = [];
+    try {
+      const r = await API.get('/api/v1/products/search?q=' + encodeURIComponent(q));
+      if (Array.isArray(r && r.data)) rows = r.data;
+    } catch (e) { /* shown as "no products match" below */ }
+    if (seq !== _swapSearchSeq) return;     // a later keystroke already won
+    _swapShown = rows.map(swapRow);
+    renderSwapList();
+  }, 220);
+}
+
 function renderSwapList() {
-  const q = (document.getElementById('sw-search').value || '').trim().toLowerCase();
+  const host = document.getElementById('sw-list');
+  if (!host) return;
+  const q = (document.getElementById('sw-search').value || '').trim();
   const cur = curSlotInfo(_swapCode, _swapAisle);
   const curGid = (cur && cur.goodsId) || '';
-  const list = (_catalog || []).filter(p => !q || (p.name || '').toLowerCase().includes(q));
+  const list = _swapShown || [];
   if (!list.length) {
-    document.getElementById('sw-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">' + (q ? 'No products match.' : 'No products found across your machines yet.') + '</div>';
+    host.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.6">'
+      + (q.length >= 3 ? 'No products match.'
+         : 'Nothing in your machines yet — type at least three letters to search every product.')
+      + '</div>';
     return;
   }
-  document.getElementById('sw-list').innerHTML = list.map(p => {
+  const row = p => {
     const gid = String(p.goodsId).replace(/'/g, "\\'");
     const isCur = String(p.goodsId) === String(curGid);
     const img = p.image
       ? '<img src="' + rsEsc(p.image) + '" alt="" style="width:34px;height:34px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">'
       : '<div style="width:34px;height:34px;flex-shrink:0"></div>';
+    const price = p.priceIsk != null ? p.priceIsk + ' kr'
+                : '<span style="color:var(--bronze)">no price set</span>';
+    const where = p.machineCount > 0
+      ? 'in ' + p.machineCount + ' machine' + (p.machineCount === 1 ? '' : 's')
+      : '<span style="color:var(--bronze)">not in a machine yet</span>';
     return '<div class="sw-item" onclick="chooseSwap(\'' + gid + '\')">' + img +
-      '<div style="flex:1;min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + rsEsc(p.name) + (isCur ? ' <span style="color:var(--muted);font-size:11px">(current)</span>' : '') + '</div>' +
-      '<div style="font-family:var(--mono);font-size:11px;color:var(--muted)">' + p.priceIsk + ' kr · in ' + p.machineCount + ' machine' + (p.machineCount === 1 ? '' : 's') + '</div></div></div>';
-  }).join('');
+      '<div style="flex:1;min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+      + rsEsc(p.name) + (isCur ? ' <span style="color:var(--muted);font-size:11px">(current)</span>' : '') + '</div>' +
+      '<div style="font-family:var(--mono);font-size:11px;color:var(--muted)">' + price + ' · ' + where +
+      '</div></div></div>';
+  };
+  const grp = t => '<div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;'
+    + 'text-transform:uppercase;color:var(--muted);background:var(--cream-deep);padding:6px 12px;'
+    + 'border-bottom:.5px solid var(--line)">' + t + '</div>';
+  const placed = list.filter(p => p.machineCount > 0);
+  const fresh  = list.filter(p => !(p.machineCount > 0));
+  // Headings only when both kinds are present — one heading over one list is noise.
+  let html = '';
+  if (placed.length) html += (fresh.length ? grp('in your machines') : '') + placed.map(row).join('');
+  if (fresh.length)  html += (placed.length ? grp('in the product catalogue') : '') + fresh.map(row).join('');
+  host.innerHTML = html;
 }
 
 function chooseSwap(goodsId) {
-  const p = (_catalog || []).find(x => String(x.goodsId) === String(goodsId));
+  // From whatever the list is showing — a server search result is not in _catalog.
+  const p = (_swapShown || []).find(x => String(x.goodsId) === String(goodsId))
+         || (_catalog || []).map(swapRow).find(x => String(x.goodsId) === String(goodsId));
   if (!p) return;
   _swapChosen = p;
   const img = p.image ? '<img src="' + rsEsc(p.image) + '" alt="" style="width:42px;height:42px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">' : '';
   document.getElementById('sw-chosen').innerHTML = img +
     '<div style="flex:1;min-width:0"><div style="font-weight:600">' + rsEsc(p.name) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">tap another product above to change selection</div></div>';
-  document.getElementById('sw-price').value = p.priceIsk || 0;
+  // Never prefill 0. A product that has never been in a machine can have no catalog price, and
+  // a prefilled 0 is a slot that dispenses for nothing on a confirm the operator read as routine.
+  const priceBox = document.getElementById('sw-price');
+  priceBox.value = p.priceIsk != null ? p.priceIsk : '';
+  if (p.priceIsk == null) setTimeout(() => { try { priceBox.focus(); } catch (e) {} }, 0);
   const stock = document.getElementById('sw-stock');
   stock.value = 0; if (_swapSlotMax) stock.max = _swapSlotMax;
   document.getElementById('sw-confirm').style.display = '';
@@ -5970,6 +6043,10 @@ async function applySwap() {
   const stockRaw = parseInt(document.getElementById('sw-stock').value, 10);
   const msg = document.getElementById('sw-msg');
   if (isNaN(isk) || isk < 0) { msg.innerHTML = '<div class="rs-msg err">Enter a valid price.</div>'; return; }
+  // 0 kr is a real setting for a giveaway, but never by accident on a product that simply has no
+  // price yet — those arrive with the box empty, so a 0 here was typed on purpose or not at all.
+  if (isk === 0 && !confirm('Set slot ' + physicalSlot(_swapAisle) + ' to 0 kr? The machine will '
+      + 'dispense this product for nothing.')) return;
   const stk = (isNaN(stockRaw) || stockRaw < 0) ? 0 : stockRaw;
   const m = DB.machines[_swapCode];
   const where = (m && m.deviceName) || _swapCode;
