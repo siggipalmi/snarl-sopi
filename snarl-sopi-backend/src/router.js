@@ -7576,10 +7576,24 @@ function handleProductSearch(req, res) {
       soldByWeight: isSoldByWeight(p),
     })));
   }
-  const machines = String(req.query.machines || '').split(',').map(s => s.trim()).filter(Boolean);
-  // Pre-build layout maps for the relevant machines once (image/price/stock truth).
-  const codes = machines.length ? machines : storage.listMachines().map(m => m.deviceCode);
+  // Which machines count as "ours" for stock, images and the placement count below.
+  //
+  // This used to fall back to EVERY machine in the fleet, so an operator's search reported stock
+  // and prices from other operators' planograms. It now falls back to the machines this user can
+  // reach, and an explicit machines= list is narrowed to those too — a device code the caller has
+  // no access to simply contributes nothing rather than answering for someone else's machine.
+  const mine = new Set(machinesForUser(req.user).map(m => m.deviceCode));
+  const asked = String(req.query.machines || '').split(',').map(s => s.trim()).filter(Boolean);
+  const machines = asked.filter(c => mine.has(c));
+  const codes = machines.length ? machines : [...mine];
   const layoutMaps = codes.map(c => storage.layoutProductsForDevice(c));
+  // How many of those machines carry the product — the picker shows this, and distinguishes a
+  // product already in the user's machines from one that has never been placed.
+  const layoutCount = gid => layoutMaps.reduce((n, m) => n + (m[gid] ? 1 : 0), 0);
+  // Stock over those same machines. NOT storage.stockForProduct(), which falls back to the whole
+  // fleet when handed an empty list — the exact leak this block exists to close, and the one a
+  // user with no machines of their own would still have walked into.
+  const layoutStock = gid => layoutMaps.reduce((n, m) => n + ((m[gid] && m[gid].stock) || 0), 0);
   const layoutImg = gid => { for (const m of layoutMaps) if (m[gid] && m[gid].image) return m[gid].image; return null; };
   const layoutPrice = gid => { for (const m of layoutMaps) if (m[gid] && m[gid].priceIsk) return m[gid].priceIsk; return null; };
   // Candidates keyed by goodsId. Start from the catalog (name search)…
@@ -7592,7 +7606,8 @@ function handleProductSearch(req, res) {
       salePriceIsk: p.salePriceIsk != null ? p.salePriceIsk : layoutPrice(gid),
       weightGrams: p.weightGrams != null ? p.weightGrams : null,
       soldByWeight: isSoldByWeight(p),
-      stock: storage.stockForProduct(gid, machines),
+      stock: layoutStock(gid),
+      machineCount: layoutCount(gid),
     });
   }
   // …then add planogram products directly. The planogram is authoritative for
@@ -7609,12 +7624,14 @@ function handleProductSearch(req, res) {
       if (!e.imgUrl && p.image) e.imgUrl = p.image;
       if (e.salePriceIsk == null && Number(p.priceIsk) > 0) e.salePriceIsk = Number(p.priceIsk);
       if (!e.name && p.name) e.name = p.name;
+      if (!e.machineCount) e.machineCount = layoutCount(gid);
     } else {
       byId.set(gid, {
         goodsId: gid, name: p.name, barcode: null,
         imgUrl: p.image || null,
         salePriceIsk: Number(p.priceIsk) > 0 ? Number(p.priceIsk) : layoutPrice(gid),
-        stock: storage.stockForProduct(gid, machines),
+        stock: layoutStock(gid),
+        machineCount: layoutCount(gid),
       });
     }
   }));
@@ -7635,6 +7652,7 @@ function handleProductSearch(req, res) {
     inStock.forEach(k => {
       if (!k.imgUrl) { const d = donors.find(x => x.imgUrl); if (d) k.imgUrl = d.imgUrl; }
       if (k.salePriceIsk == null) { const d = donors.find(x => x.salePriceIsk != null); if (d) k.salePriceIsk = d.salePriceIsk; }
+      if (!k.machineCount) { const d = donors.find(x => x.machineCount); if (d) k.machineCount = d.machineCount; }
       out.push(k);
     });
   }
@@ -10542,4 +10560,4 @@ function publicUser(u) {
 
 // handleSetFridgeBaskets and weimiWeightGrams are exported for test/basketWeight.test.js, which
 // pins the weight promotion — it writes to the shared product catalog, which every machine reads.
-module.exports = { router, routes, handleSetFridgeBaskets, weimiWeightGrams };
+module.exports = { router, routes, handleSetFridgeBaskets, weimiWeightGrams, handleProductSearch };
