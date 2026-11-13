@@ -6,8 +6,9 @@
 #   bash fridge-app/tools/fridge-setup.sh IP:PORT --baskets  # any time: which baskets answer
 #
 # Step 1 sets automatic time, pins adb to port 5555, installs the published fridge build from the
-# backend, grants WRITE_SECURE_SETTINGS (dashboard "adb on" and the clock guard), stops the Weimi
-# apps that hold the serial ports and starts our app. Pairing stays on the screen: issue a code in
+# backend, grants WRITE_SECURE_SETTINGS (dashboard "adb on" and the clock guard), installs Tailscale
+# if the tablet has none (signing in stays on the screen), stops the Weimi apps that hold the serial
+# ports and starts our app. Pairing stays on the screen: issue a code in
 # the dashboard and type it on the kiosk. Never prints or sends the machine key.
 #
 # Step 2 sets Device Owner, which cannot be undone from outside the app, so it asks first whether
@@ -15,11 +16,20 @@
 #
 # APK: downloaded once per run from the backend (the release published in Fleet → Releases).
 # Use a local file instead with APK=/path/to/app.apk bash fridge-app/tools/fridge-setup.sh IP:PORT
+#
+# Tailscale: the link on our downloads page (the entry whose section or link says "tailscale"),
+# which needs the page's key: asked for without echo, or taken from DOWNLOADS_KEY. With no key, or
+# no usable APK there, the newest stable APK from Tailscale's own package server, checked against
+# the checksum published beside it. A local file: TAILSCALE_APK=/path/to/tailscale.apk. Skip it:
+# TAILSCALE_APK=skip.
 D="$1"; MODE="$2"
 A=~/Library/Android/sdk/platform-tools/adb
 PKG=isl.snudursopi.fridge.debug
 ADMIN=$PKG/isl.snudursopi.fridge.KioskAdminReceiver
 APK_URL=https://api.agvending.is/api/v1/app-release/fridge/apk
+DOWNLOADS_URL=https://api.agvending.is/downloads
+TS_PKG=com.tailscale.ipn
+TS_INDEX=https://pkgs.tailscale.com/stable/
 [ -z "$D" ] && { echo "usage: bash $0 IP:PORT [--owner|--baskets]"; exit 1; }
 $A connect "$D" | grep -q "connected" || { echo "could not connect to $D"; exit 1; }
 s() { $A -s "$D" shell "$@" | tr -d '\r'; }
@@ -30,6 +40,46 @@ owner() { s dumpsys device_policy | grep -i -A3 "device owner" | grep -o 'Compon
 # Tailscale's range is 100.64.0.0/10. Not tied to an interface name: it is not always tun0.
 tailscale_ip() {
   s ip -4 addr 2>/dev/null | grep -oE 'inet 100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9.]+' | head -1 | cut -d' ' -f2
+}
+
+is_apk() { [ -s "$1" ] && head -c 2 "$1" | grep -q PK; }
+
+# The Tailscale link on our downloads page. The key goes to curl on stdin, never on a command line.
+tailscale_link() {
+  printf 'url = "%s"\nget\ndata-urlencode = "key=%s"\n' "$DOWNLOADS_URL" "$1" | curl -fsSL -K - 2>/dev/null | awk '
+    { l = $0; while (match(l, /<h2>[^<]*<\/h2>/)) { h = substr(l, RSTART + 4, RLENGTH - 9); l = substr(l, RSTART + RLENGTH) } }
+    match($0, /class="pkg" href="[^"]*"/) {
+      u = substr($0, RSTART + 18, RLENGTH - 19); gsub(/&amp;/, "\\&", u)
+      if (tolower(h) ~ /tailscale/ || tolower(u) ~ /tailscale/) { print u; exit }
+    }'
+}
+
+# Prints the path of a Tailscale APK ready to install, or nothing. Messages go to stderr.
+tailscale_apk() {
+  local dir url file want got
+  dir=$(mktemp -d)
+  if [ -z "$DOWNLOADS_KEY" ] && [ -t 0 ]; then
+    read -r -s -p "downloads page key (Enter to use Tailscale's own server): " DOWNLOADS_KEY; echo >&2
+  fi
+  if [ -n "$DOWNLOADS_KEY" ]; then
+    url=$(tailscale_link "$DOWNLOADS_KEY")
+    if [ -z "$url" ]; then
+      echo "  no Tailscale entry read from our downloads page (wrong key, or no such entry)" >&2
+    elif curl -fsSL -o "$dir/tailscale.apk" "$url" && is_apk "$dir/tailscale.apk"; then
+      echo "  Tailscale from our downloads page" >&2; echo "$dir/tailscale.apk"; return
+    else
+      echo "  the downloads page link did not give an APK: $url" >&2
+    fi
+  fi
+  file=$(curl -fsSL "$TS_INDEX" | grep -oE 'tailscale-android-universal-[0-9.]+\.apk' | head -1)
+  [ -z "$file" ] && { echo "  no Android APK found on $TS_INDEX" >&2; return; }
+  echo "  downloading $file from Tailscale…" >&2
+  curl -fsSL -o "$dir/$file" "$TS_INDEX$file" && is_apk "$dir/$file" || { echo "  download failed: $TS_INDEX$file" >&2; return; }
+  want=$(curl -fsSL "$TS_INDEX$file.sha256" | grep -oE '[0-9a-f]{64}' | head -1)
+  got=$(shasum -a 256 "$dir/$file" | cut -d' ' -f1)
+  [ -z "$want" ] && { echo "  no published checksum for $file — not installing" >&2; return; }
+  [ "$want" = "$got" ] || { echo "  checksum mismatch on $file — not installing" >&2; return; }
+  echo "$dir/$file"
 }
 
 report() {
@@ -143,6 +193,17 @@ else
   s pm grant $PKG android.permission.WRITE_SECURE_SETTINGS
 fi
 
+# Tailscale, when the tablet has none. A failure here never stops the setup: the report says so.
+if [ "$TAILSCALE_APK" != skip ] && ! s pm list packages | grep -q $TS_PKG; then
+  echo "Tailscale is not installed — fetching it…"
+  [ -z "$TAILSCALE_APK" ] && TAILSCALE_APK=$(tailscale_apk)
+  if [ -n "$TAILSCALE_APK" ] && is_apk "$TAILSCALE_APK"; then
+    $A -s "$D" install -r "$TAILSCALE_APK" || echo "  Tailscale install failed — send this output on"
+  else
+    echo "  no Tailscale APK to install — pass one with TAILSCALE_APK=/path/to/tailscale.apk"
+  fi
+fi
+
 # Tailscale as the always-on VPN, so it comes back after a restart. Never over another VPN.
 if s pm list packages | grep -q com.tailscale.ipn; then
   case "$(s settings get secure always_on_vpn_app)" in
@@ -159,6 +220,18 @@ s am force-stop com.weimi.gs_vendor
 s monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
 sleep 8
 report
+
+# Signing in needs the screen (and Android's VPN prompt answered), so put Tailscale in front for it.
+if s pm list packages | grep -q $TS_PKG && [ -z "$(tailscale_ip)" ]; then
+  s monkey -p $TS_PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+  cat <<TS
+
+Tailscale is open on the screen and not connected:
+  · sign in there and allow the VPN connection when Android asks
+  · then run this same command again: it brings our app back to the front, and the report
+    should read "Tailscale up" with the machine's address.
+TS
+fi
 cat <<NEXT
 
 Next, at the machine:
