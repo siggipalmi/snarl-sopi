@@ -114,7 +114,9 @@ report() {
 # read_all_trays issued from the dashboard and read its answer from the app's log. Tray numbers
 # are the board's: cabinet A from 0 (A1 = 0), cabinet B from 20 (B1 = 20), 10 or 16 per cabinet.
 if [ "$MODE" = "--baskets" ]; then
-  SINCE=$(s date +'%m-%d %H:%M:%S.000')
+  # One string, like the logcat call below: adb joins its arguments with spaces, so the tablet's
+  # shell saw the format as two words and answered with the date alone, which logcat refuses.
+  SINCE=$(s "date +'%m-%d %H:%M:%S.000'")
   echo "Dashboard → this machine → read_all_trays, now. Waiting up to 90 s…"
   LINE=""
   for _ in $(seq 1 30); do
