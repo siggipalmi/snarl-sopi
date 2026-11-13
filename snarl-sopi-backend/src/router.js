@@ -101,8 +101,7 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/slots/stock',        handler: handleSlotStock, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/slots/price',        handler: handleSlotPrice, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/products/price',                          handler: handleProductPrice, middleware:[requireAuth] },
-  { method:'GET',  pattern:'/api/v1/products/catalog',                        handler: handleProductCatalog, middleware:[requireAuth] },
-  { method:'GET',  pattern:'/api/v1/products/search',                         handler: handleProductSearch,  middleware:[requireAuth] },
+  { method:'GET',  pattern:'/api/v1/products/unmapped',                       handler: handleUnmappedProducts, middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/products/images/review',                  handler: handleImageReview,   middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/products/images/resolution',              handler: handleImageResolution, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/products/images/backfill-dims',           handler: handleBackfillDims,  middleware:[requireAuth, requireAgAdmin] },
@@ -7562,102 +7561,6 @@ function handleDedupeProducts(req, res) {
 // PUT /operators/:operatorId/payday-link — AG-admin links an operator to its Payday customer.
 const _isGuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || '').trim());
 
-function handleProductSearch(req, res) {
-  const q = String(req.query.q || '').trim();
-  if (q.length < 3) return ok(res, []);
-  // scope=catalog: our own products only. The fridge basket picker needs this — the merged search
-  // below prefers a coil machine's in-stock Weimi layout id over our catalog record (right for a
-  // deal), and a basket linked to such an id has no name, image or VSK on the fridge.
-  if (String(req.query.scope || '') === 'catalog') {
-    return ok(res, storage.searchProducts(q, 10).map(p => ({
-      goodsId: String(p.goodsId), name: p.name, barcode: p.barcode || null, imgUrl: p.imgUrl || null,
-      salePriceIsk: p.salePriceIsk != null ? p.salePriceIsk : null,
-      weightGrams: p.weightGrams != null ? p.weightGrams : null,
-      soldByWeight: isSoldByWeight(p),
-    })));
-  }
-  // Which machines count as "ours" for stock, images and the placement count below.
-  //
-  // This used to fall back to EVERY machine in the fleet, so an operator's search reported stock
-  // and prices from other operators' planograms. It now falls back to the machines this user can
-  // reach, and an explicit machines= list is narrowed to those too — a device code the caller has
-  // no access to simply contributes nothing rather than answering for someone else's machine.
-  const mine = new Set(machinesForUser(req.user).map(m => m.deviceCode));
-  const asked = String(req.query.machines || '').split(',').map(s => s.trim()).filter(Boolean);
-  const machines = asked.filter(c => mine.has(c));
-  const codes = machines.length ? machines : [...mine];
-  const layoutMaps = codes.map(c => storage.layoutProductsForDevice(c));
-  // How many of those machines carry the product — the picker shows this, and distinguishes a
-  // product already in the user's machines from one that has never been placed.
-  const layoutCount = gid => layoutMaps.reduce((n, m) => n + (m[gid] ? 1 : 0), 0);
-  // Stock over those same machines. NOT storage.stockForProduct(), which falls back to the whole
-  // fleet when handed an empty list — the exact leak this block exists to close, and the one a
-  // user with no machines of their own would still have walked into.
-  const layoutStock = gid => layoutMaps.reduce((n, m) => n + ((m[gid] && m[gid].stock) || 0), 0);
-  const layoutImg = gid => { for (const m of layoutMaps) if (m[gid] && m[gid].image) return m[gid].image; return null; };
-  const layoutPrice = gid => { for (const m of layoutMaps) if (m[gid] && m[gid].priceIsk) return m[gid].priceIsk; return null; };
-  // Candidates keyed by goodsId. Start from the catalog (name search)…
-  const byId = new Map();
-  for (const p of storage.searchProducts(q, 10)) {
-    const gid = String(p.goodsId);
-    byId.set(gid, {
-      goodsId: gid, name: p.name, barcode: p.barcode || null,
-      imgUrl: p.imgUrl || layoutImg(gid) || null,
-      salePriceIsk: p.salePriceIsk != null ? p.salePriceIsk : layoutPrice(gid),
-      weightGrams: p.weightGrams != null ? p.weightGrams : null,
-      soldByWeight: isSoldByWeight(p),
-      stock: layoutStock(gid),
-      machineCount: layoutCount(gid),
-    });
-  }
-  // …then add planogram products directly. The planogram is authoritative for
-  // goodsId/stock/image: a product can live there under an id that differs from
-  // (or isn't in) the catalog. Surfacing it as a candidate lets the name-dedup
-  // below keep the real in-stock entry instead of an orphaned catalog record —
-  // and means a deal stores the goodsId the kiosk actually matches at checkout.
-  const termLc = q.toLowerCase();
-  layoutMaps.forEach(lm => Object.values(lm).forEach(p => {
-    if (!p || !p.name || !String(p.name).toLowerCase().includes(termLc)) return;
-    const gid = String(p.goodsId);
-    if (byId.has(gid)) {
-      const e = byId.get(gid);
-      if (!e.imgUrl && p.image) e.imgUrl = p.image;
-      if (e.salePriceIsk == null && Number(p.priceIsk) > 0) e.salePriceIsk = Number(p.priceIsk);
-      if (!e.name && p.name) e.name = p.name;
-      if (!e.machineCount) e.machineCount = layoutCount(gid);
-    } else {
-      byId.set(gid, {
-        goodsId: gid, name: p.name, barcode: null,
-        imgUrl: p.image || null,
-        salePriceIsk: Number(p.priceIsk) > 0 ? Number(p.priceIsk) : layoutPrice(gid),
-        stock: layoutStock(gid),
-        machineCount: layoutCount(gid),
-      });
-    }
-  }));
-  const rows = [...byId.values()];
-  // Collapse duplicate catalog records for one physical product: when the same
-  // name appears as an in-stock record and an out-of-stock one (the planogram id
-  // vs an orphaned catalog id), keep the in-stock record and carry over its
-  // image/price so the picker shows a single, complete entry.
-  const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  const groups = new Map();
-  rows.forEach(r => { const k = norm(r.name); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); });
-  const out = [];
-  for (const grp of groups.values()) {
-    if (grp.length === 1) { out.push(grp[0]); continue; }
-    const inStock = grp.filter(r => (r.stock || 0) > 0);
-    if (!inStock.length) { grp.forEach(r => out.push(r)); continue; }
-    const donors = grp.filter(r => (r.stock || 0) <= 0);
-    inStock.forEach(k => {
-      if (!k.imgUrl) { const d = donors.find(x => x.imgUrl); if (d) k.imgUrl = d.imgUrl; }
-      if (k.salePriceIsk == null) { const d = donors.find(x => x.salePriceIsk != null); if (d) k.salePriceIsk = d.salePriceIsk; }
-      if (!k.machineCount) { const d = donors.find(x => x.machineCount); if (d) k.machineCount = d.machineCount; }
-      out.push(k);
-    });
-  }
-  ok(res, out);
-}
 
 const _DEAL_TYPES = ['markdown', 'expiry', 'multibuy', 'combo'];
 function dealStatus(d) {
@@ -9251,18 +9154,162 @@ async function handleUpdateProduct(req, res) {
 }
 
 /**
- * GET /api/v1/products — list the products we've stored locally (with our own
- * weight / VSK / cost attributes). Source for the catalog and the VSK report.
+ * Where each product sits, for ONE caller.
+ *
+ * This is the half that legitimately differs between accounts: the catalogue is AG's master
+ * list and is the same for everyone, but "which of MY machines is it in" obviously is not.
+ * Keeping the two apart is the whole point of this file's product section. Placement DESCRIBES
+ * a product; it must never decide whether the product is listed at all. Every product bug
+ * reported in November 2026 came from a screen asking "what products exist" and being handed
+ * "what is in your machines" instead.
+ *
+ * Returns goodsId -> { machineCount, slotCount, stock, priceIsk, image, name, machines[] },
+ * built from the planograms of the machines this user can reach, optionally one machine.
+ */
+function placementIndex(user, deviceCode) {
+  const reachable = machinesForUser(user);
+  const list = deviceCode ? reachable.filter(m => m.deviceCode === deviceCode) : reachable;
+  const idx = {};
+  for (const m of list) {
+    let layout;
+    try { const raw = storage.getMeta(`layout:${m.deviceCode}`); layout = raw ? JSON.parse(raw) : null; }
+    catch { layout = null; }
+    if (!Array.isArray(layout)) continue;
+    layout.forEach(layer => (layer.bays || []).forEach(b => {
+      const gid = (b && b.goodsId != null) ? String(b.goodsId) : '';
+      if (!gid) return;
+      const e = idx[gid] || (idx[gid] = { machineCount: 0, slotCount: 0, stock: 0,
+        priceCounts: {}, image: '', name: '', machines: [], seen: new Set() });
+      if (!e.seen.has(m.deviceCode)) {
+        e.seen.add(m.deviceCode); e.machineCount++;
+        e.machines.push({ deviceCode: m.deviceCode, deviceName: m.deviceName || m.deviceCode });
+      }
+      e.slotCount++;
+      e.stock += Number(b.currStock) || 0;
+      const isk = Number(b.priceIsk);
+      if (Number.isFinite(isk) && isk > 0) e.priceCounts[isk] = (e.priceCounts[isk] || 0) + 1;
+      if (!e.image && b.image) e.image = b.image;
+      if (!e.name && b.name) e.name = b.name;
+    }));
+  }
+  for (const e of Object.values(idx)) {
+    // Representative machine price: the one most slots charge.
+    let best = -1, price = null;
+    for (const [k, n] of Object.entries(e.priceCounts)) if (n > best) { best = n; price = Number(k); }
+    e.priceIsk = price;
+    delete e.priceCounts; delete e.seen;
+  }
+  return idx;
+}
+
+/**
+ * A machine layout can carry a product under any of the four identifiers a catalogue row holds,
+ * so a row is matched against the placement index on all of them. This used to be done in the
+ * browser, where it also decided which cards existed — and a row that matched nothing claimed
+ * its spare ids and swallowed the next row (fixed in 6.118.0). Here it only ever decorates.
+ */
+function placementFor(idx, p) {
+  for (const id of [p.goodsId, p.goodsCode, p.weimiId, p.customCode]) {
+    if (id && idx[String(id)]) return idx[String(id)];
+  }
+  return null;
+}
+const EMPTY_PLACEMENT = { machineCount: 0, slotCount: 0, stock: 0, priceIsk: null, machines: [] };
+
+/**
+ * Cost price is the one product field that is NOT catalogue-wide.
+ *
+ * Siggi, 2026-11-13: "operators should not see each other's cost price." Receipts are per
+ * operator (receipts.operatorId) but setProductNetCost writes a single shared column keyed on
+ * goodsId alone, so one operator's scanned receipt overwrites another's and they all read the
+ * same number. Until cost is stored per operator, the honest thing is to send it only to AG,
+ * whose figures these in practice are — an operator reading it is reading somebody else's.
+ */
+function maySeeCost(user) { return !!user && user.role === 'ag_admin'; }
+
+/**
+ * GET /api/v1/products — THE product catalogue. One source, for every screen.
+ *
+ *   ?q=            name, barcode or customCode, matched on the server
+ *   ?inMachine=    only products in that one machine (the hero and expiry pickers mean this)
+ *
+ * The product fields are identical for every caller, because the catalogue is AG's master list
+ * and not an operator's. What differs is `placement`, computed over the caller's own machines,
+ * and `costPriceIsk`, which is withheld per maySeeCost() above.
  */
 function handleListProducts(req, res) {
-  const products = storage.listProducts().map(p => ({
-    goodsId: p.goodsId, weimiId: p.weimiId || null, goodsCode: p.goodsCode || null,
-    customCode: p.customCode, name: p.name,
-    salePriceIsk: p.salePriceIsk, vatRate: p.vatRate, costPriceIsk: p.costPriceIsk,
-    weightGrams: p.weightGrams, measurement: p.measurement, barcode: p.barcode,
-    imgUrl: p.imgUrl, updatedAt: p.updatedAt, perishable: p.perishable === 1 || p.perishable === true,
-    imageNormalizedAt: p.imageNormalizedAt || null, imageHasBackground: p.imageHasBackground === 1,
-  }));
+  const q = String(req.query?.q || '').trim().toLowerCase();
+  const inMachine = String(req.query?.inMachine || '').trim();
+  if (inMachine && !userCanAccessMachine(req.user, inMachine)) return json(res, 403, { error: 'Forbidden' });
+
+  const idx = placementIndex(req.user, inMachine || null);
+  const showCost = maySeeCost(req.user);
+  const hit = (p, pl) => {
+    if (!q) return true;
+    const name = String(p.name || (pl && pl.name) || '').toLowerCase();
+    return name.includes(q)
+        || String(p.barcode || '').toLowerCase().includes(q)
+        || String(p.customCode || '').toLowerCase().includes(q);
+  };
+
+  const products = [];
+  for (const p of storage.listProducts()) {
+    const pl = placementFor(idx, p);
+    if (inMachine && !pl) continue;          // the picker asked for one machine's products
+    if (!hit(p, pl)) continue;
+    products.push({
+      goodsId: p.goodsId, weimiId: p.weimiId || null, goodsCode: p.goodsCode || null,
+      customCode: p.customCode,
+      name: p.name || (pl && pl.name) || ('#' + p.goodsId),
+      // The catalogue price, and separately what the machines actually charge. Keeping them
+      // apart is why a product with no catalogue price read "0 kr" to an operator: the number
+      // on screen came from a planogram she could not see.
+      salePriceIsk: p.salePriceIsk != null ? p.salePriceIsk : null,
+      vatRate: p.vatRate,
+      weightGrams: p.weightGrams, measurement: p.measurement, barcode: p.barcode,
+      soldByWeight: isSoldByWeight(p),
+      imgUrl: p.imgUrl || (pl && pl.image) || null,
+      updatedAt: p.updatedAt, perishable: p.perishable === 1 || p.perishable === true,
+      imageNormalizedAt: p.imageNormalizedAt || null, imageHasBackground: p.imageHasBackground === 1,
+      ...(showCost ? { costPriceIsk: p.costPriceIsk, costPriceNetIsk: p.costPriceNetIsk } : {}),
+      placement: pl
+        ? { machineCount: pl.machineCount, slotCount: pl.slotCount, stock: pl.stock,
+            priceIsk: pl.priceIsk, machines: pl.machines }
+        : EMPTY_PLACEMENT,
+    });
+  }
+  products.sort((a, b) => String(a.name).localeCompare(String(b.name), 'is'));
+  ok(res, { products, costVisible: showCost });
+}
+
+/**
+ * GET /api/v1/products/unmapped — planogram entries with NO catalogue row.
+ *
+ * This is what /products/catalog became. Its old job, "the product list", was the bug: it
+ * answered placements and every picker treated that as the catalogue. The one question only it
+ * can answer is the reconcile screen's — which products are loaded in machines but missing from
+ * the database, and so carry no VSK, cost or image anywhere.
+ */
+function handleUnmappedProducts(req, res) {
+  const operatorId = req.query?.operatorId || null;
+  if (operatorId && !userCanAccessOperator(req.user, operatorId)) return json(res, 403, { error: 'Forbidden' });
+  let user = req.user;
+  if (operatorId) user = { ...req.user, role: 'operator_admin', operatorId };
+  const idx = placementIndex(user, req.query?.deviceCode || null);
+  if (req.query?.deviceCode && !userCanAccessMachine(req.user, String(req.query.deviceCode))) {
+    return json(res, 403, { error: 'Forbidden' });
+  }
+  // Every identifier any catalogue row holds. A planogram entry matching one of them is mapped.
+  const known = new Set();
+  for (const p of storage.listProducts()) {
+    for (const id of [p.goodsId, p.goodsCode, p.weimiId, p.customCode]) if (id) known.add(String(id));
+  }
+  const products = Object.entries(idx)
+    .filter(([gid]) => !known.has(gid))
+    .map(([gid, e]) => ({ goodsId: gid, name: e.name || ('#' + gid), image: e.image || '',
+      priceIsk: e.priceIsk || 0, machineCount: e.machineCount, slotCount: e.slotCount,
+      currStock: e.stock, soldOut: e.stock <= 0, machines: e.machines }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'is'));
   ok(res, { products });
 }
 
@@ -9833,42 +9880,6 @@ async function handleOrderTimes(req, res) {
   }
 }
 
-function handleProductCatalog(req, res) {
-  const storage = require('./storage');
-  const codes = getAccessibleDeviceCodes(req.user, req.query?.deviceCode, req.query?.operatorId);
-  if (codes === null) return json(res, 403, { error: 'Forbidden' });
-
-  const byGoods = {};   // goodsId → aggregate
-  for (const code of (codes || [])) {
-    let layout;
-    try { const raw = storage.getMeta(`layout:${code}`); layout = raw ? JSON.parse(raw) : null; }
-    catch { layout = null; }
-    if (!Array.isArray(layout)) continue;
-    layout.forEach(layer => (layer.bays || []).forEach(b => {
-      const gid = (b && b.goodsId != null) ? String(b.goodsId) : '';
-      if (!gid) return;
-      if (!byGoods[gid]) byGoods[gid] = { goodsId: gid, name: b.name || '', image: b.image || '', priceCounts: {}, machines: new Set(), slotCount: 0, currStock: 0, codes: [] };
-      const g = byGoods[gid];
-      if (!g.name && b.name) g.name = b.name;
-      if (!g.image && b.image) g.image = b.image;
-      const isk = Number(b.priceIsk);
-      if (Number.isFinite(isk) && isk > 0) g.priceCounts[isk] = (g.priceCounts[isk] || 0) + 1;
-      g.currStock += Number(b.currStock) || 0;
-      if (b.code) g.codes.push(b.code);
-      g.machines.add(code);
-      g.slotCount += 1;
-    }));
-  }
-
-  const products = Object.values(byGoods).map(g => {
-    let priceIsk = 0, best = -1;   // representative price = most common across slots
-    for (const [p, n] of Object.entries(g.priceCounts)) { if (n > best) { best = n; priceIsk = Number(p); } }
-    const machineList = [...g.machines].map(code => ({ deviceCode: code, deviceName: (machines[code] && machines[code].deviceName) || code }));
-    return { goodsId: g.goodsId, name: g.name || ('#' + g.goodsId), image: g.image || '', priceIsk, machineCount: g.machines.size, slotCount: g.slotCount, machines: machineList, currStock: g.currStock, soldOut: g.currStock <= 0, slots: g.codes };
-  }).sort((a, b) => a.name.localeCompare(b.name));
-
-  ok(res, { products });
-}
 
 /**
  * A unit weight out of a Weimi goods record, if there is one.
@@ -10560,4 +10571,7 @@ function publicUser(u) {
 
 // handleSetFridgeBaskets and weimiWeightGrams are exported for test/basketWeight.test.js, which
 // pins the weight promotion — it writes to the shared product catalog, which every machine reads.
-module.exports = { router, routes, handleSetFridgeBaskets, weimiWeightGrams, handleProductSearch };
+// Exported for the tests that pin behaviour writing to shared state: the weight promotion
+// (test/basketWeight.test.js) and the one product catalogue (test/productCatalogue.test.js).
+module.exports = { router, routes, handleSetFridgeBaskets, weimiWeightGrams,
+                   handleListProducts, handleUnmappedProducts };

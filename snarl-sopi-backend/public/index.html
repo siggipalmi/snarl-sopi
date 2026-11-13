@@ -5894,8 +5894,7 @@ let _swapShown = [], _swapSearchSeq = 0, _swapSearchTimer = null;
 
 async function loadCatalog(force) {
   if (_catalog && !force) return _catalog;
-  const r = await API.get('/api/v1/products/catalog');
-  _catalog = (r.ok && r.data && r.data.products) ? r.data.products : [];
+  _catalog = await fetchProducts('').catch(() => []);
   return _catalog;
 }
 
@@ -5964,8 +5963,7 @@ function onSwapSearch() {
       '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12.5px">Searching…</div>';
     let rows = [];
     try {
-      const r = await API.get('/api/v1/products/search?q=' + encodeURIComponent(q));
-      if (Array.isArray(r && r.data)) rows = r.data;
+      rows = await fetchProducts('q=' + encodeURIComponent(q));
     } catch (e) { /* shown as "no products match" below */ }
     if (seq !== _swapSearchSeq) return;     // a later keystroke already won
     _swapShown = rows.map(swapRow);
@@ -6584,7 +6582,7 @@ async function renderExpiryEditor(){
   const code = document.getElementById('exp-machine') ? document.getElementById('exp-machine').value : '';
   if (!code) { host.innerHTML = ''; return; }
   host.innerHTML = '<div style="padding:16px;color:var(--muted)">'+t('exp.loading')+'</div>';
-  let cat; try { cat = await API.get('/api/v1/products/catalog?deviceCode='+encodeURIComponent(code)); } catch(e){ cat=null; }
+  let cat; try { cat = { ok: true, data: { products: await fetchProducts('inMachine=' + encodeURIComponent(code)) } }; } catch(e){ cat=null; }
   if (!cat || !cat.ok) { host.innerHTML = '<div class="panel" style="padding:16px;color:var(--alert)">'+t('exp.loadErr')+'</div>'; return; }
   const prods = (((cat.data && cat.data.products) || [])).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
   if (!prods.length){ host.innerHTML = '<div class="panel" style="padding:22px;text-align:center;color:var(--muted)">'+t('exp.noProducts')+'</div>'; return; }
@@ -8802,7 +8800,7 @@ async function fbDoSearch() {
   try {
     // Catalog only: a fridge basket must link to our product record (name, image, VSK), not to a
     // coil machine's Weimi layout id.
-    const r = await API.get('/api/v1/products/search?scope=catalog&q=' + encodeURIComponent(q));
+    const r = { ok: true, data: await fetchProducts('q=' + encodeURIComponent(q)) };
     const list = (r && r.data) || [];
     // Always offer a new product as the last row, named after the search (Siggi, 2026-10-21).
     const addRow = `<div onclick="fbNewOpen()" style="display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer;color:var(--bronze);font-weight:500;font-size:12.5px;border-top:1px solid var(--line)">＋ New product “${rsEsc(q)}”</div>`;
@@ -9108,6 +9106,48 @@ async function startCatalogImport() {
   await renderCatalog();
 }
 
+// One shape for every screen, out of the one catalogue endpoint.
+//
+// GET /api/v1/products is the catalogue: identical product fields for every caller, because
+// the catalogue is AG's master list and not an operator's. `placement` rides along, computed
+// by the server over the caller's own machines, and only ever describes — it can never decide
+// whether a product is listed. The browser used to stitch a catalogue list and a placement
+// list together itself, and every product bug reported in November 2026 came out of that seam.
+function prodRow(p) {
+  const pl = p.placement || {};
+  const catalogPrice = p.salePriceIsk != null ? Number(p.salePriceIsk) : null;
+  const machinePrice = pl.priceIsk != null ? Number(pl.priceIsk) : null;
+  return {
+    goodsId: String(p.goodsId), name: p.name || ('#' + p.goodsId),
+    goodsCode: p.goodsCode || null, weimiId: p.weimiId || null, customCode: p.customCode || null,
+    image: p.imgUrl || '', imgUrl: p.imgUrl || '',
+    // The catalogue price, then what the machines charge. Null, never 0: a product with no
+    // price at all must not read "0 kr" or prefill a slot that dispenses for nothing.
+    salePriceIsk: catalogPrice,
+    priceIsk: catalogPrice != null ? catalogPrice : machinePrice,
+    machinePriceIsk: machinePrice,
+    vatRate: p.vatRate != null ? p.vatRate : null,
+    costPriceIsk: p.costPriceIsk != null ? p.costPriceIsk : null,
+    weightGrams: p.weightGrams != null ? p.weightGrams : null,
+    barcode: p.barcode || null, measurement: p.measurement,
+    soldByWeight: !!p.soldByWeight, perishable: !!p.perishable,
+    imageNormalizedAt: p.imageNormalizedAt || null,
+    machineCount: pl.machineCount || 0, slotCount: pl.slotCount || 0,
+    machines: pl.machines || [], currStock: pl.stock || 0, stock: pl.stock || 0,
+    // "no VSK set" on the card. Cost cannot stand in for it: operators are not sent cost.
+    hasAttrs: p.vatRate != null,
+  };
+}
+
+// The catalogue, with placement for this user. qs is optional (q=, inMachine=).
+async function fetchProducts(qs) {
+  const r = await API.get('/api/v1/products' + (qs ? '?' + qs : ''));
+  const list = (r && r.ok && r.data && Array.isArray(r.data.products)) ? r.data.products : [];
+  _costVisible = !!(r && r.ok && r.data && r.data.costVisible);
+  return list.map(prodRow);
+}
+let _costVisible = false;
+
 async function renderCatalog() {
   const grid = document.getElementById('catalog-grid');
   if (!grid) return;
@@ -9117,63 +9157,7 @@ async function renderCatalog() {
   }
   grid.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12.5px">Loading catalog…</div>';
   try {
-    const [placedRes, ourRes] = await Promise.all([
-      API.get('/api/v1/products/catalog'),
-      API.get('/api/v1/products'),
-    ]);
-    const placed = (placedRes && placedRes.ok && placedRes.data.products) || [];
-    const ours   = (ourRes   && ourRes.ok   && ourRes.data.products)   || [];
-    const byId = {};
-    placed.forEach(p => {
-      byId[p.goodsId] = {
-        goodsId: p.goodsId, name: p.name || '', image: p.image || '',
-        priceIsk: p.priceIsk || 0, machineCount: p.machineCount || 0, slotCount: p.slotCount || 0,
-        machines: p.machines || [],
-        vatRate: null, costPriceIsk: null, weightGrams: null, barcode: null, hasAttrs: false,
-      };
-    });
-    // Index placed entries by every id a product might be matched on, so an
-    // imported/created product lands on the same card as its placed slot
-    // regardless of which identifier the machine layout carries.
-    const placedByAnyId = {};
-    Object.values(byId).forEach(e => { placedByAnyId[String(e.goodsId)] = e; });
-    ours.forEach(p => {
-      const cands = [p.goodsId, p.goodsCode, p.weimiId, p.customCode].filter(Boolean).map(String);
-      let e = null;
-      for (const c of cands) { if (placedByAnyId[c]) { e = placedByAnyId[c]; break; } }
-      if (!e) {
-        e = { goodsId: p.goodsId, name: '', image: '', priceIsk: 0, machineCount: 0, slotCount: 0, machines: [],
-              vatRate: null, costPriceIsk: null, weightGrams: null, barcode: null, hasAttrs: false };
-        byId[p.goodsId] = e;
-        // This card is NOT a placed slot, so its ids deliberately do NOT go into placedByAnyId.
-        // Registering them let a LATER database row join this card whenever any one of its four
-        // identifiers matched — but goodsId, goodsCode, weimiId and customCode are different
-        // kinds of id, so a match across two of them means nothing. The row that joined then
-        // disappeared from the catalog and overwrote this card's VSK, cost and weight with its own.
-        //
-        // It was role-dependent, which is what hid it: for AG admin the first row usually matched
-        // a real planogram slot and never reached this branch at all, while an operator who cannot
-        // see that machine fell into it and lost the second product. Genuine duplicate rows are
-        // the job of /products/duplicates and /products/dedupe, which weigh up which row to keep;
-        // this merge has no business guessing.
-      }
-      if (!e.name)  e.name  = p.name  || '';
-      // Our catalog is the system of record for images. The planogram copy can be a stale
-      // Weimi URL, so a normalized image always wins — otherwise an operator's upload only
-      // appears here once the planogram happens to refresh.
-      //
-      // Duplicate catalog rows (same product under two ids) both land on this card, and
-      // each would overwrite the last — letting a STALE duplicate clobber a fresh upload.
-      // So track when the winning image was normalized and only replace it with a NEWER one.
-      if (p.imageNormalizedAt && p.imgUrl) {
-        if (!e._imgAt || p.imageNormalizedAt > e._imgAt) { e.image = p.imgUrl; e._imgAt = p.imageNormalizedAt; }
-      } else if (!e.image) e.image = p.imgUrl || '';
-      if (!e.priceIsk) e.priceIsk = p.salePriceIsk || 0;
-      e.vatRate = p.vatRate; e.costPriceIsk = p.costPriceIsk; e.weightGrams = p.weightGrams; e.barcode = p.barcode;
-      e.soldByWeight = Number(p.soldByWeight) === 1;
-      e.hasAttrs = true;
-    });
-    _catalogMerged = Object.values(byId).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    _catalogMerged = await fetchProducts('');
     renderCatalogList();
     renderReconcile();
   } catch (e) {
@@ -9198,24 +9182,21 @@ async function renderReconcile(operatorId) {
   if (!backendOnline || !API_TOKEN) { body.innerHTML = 'Backend offline.'; return; }
   body.innerHTML = 'Checking…';
   try {
+    // The server answers this one directly now: planogram entries with no catalogue row. Working
+    // it out in the browser meant downloading both lists and intersecting four identifiers each
+    // time, which is exactly the stitching that kept going wrong elsewhere.
     const qs = _reconcileOp ? ('?operatorId=' + encodeURIComponent(_reconcileOp)) : '';
-    const [placedRes, ourRes] = await Promise.all([API.get('/api/v1/products/catalog' + qs), API.get('/api/v1/products')]);
-    const placed = (placedRes && placedRes.ok && placedRes.data.products) || [];
-    const ours   = (ourRes   && ourRes.ok   && ourRes.data.products)   || [];
-    const ourIds = new Set();
-    ours.forEach(p => [p.goodsId, p.goodsCode, p.weimiId, p.customCode].filter(Boolean).forEach(x => ourIds.add(String(x))));
-    const unmapped = placed.filter(p => !ourIds.has(String(p.goodsId)));
+    const r = await API.get('/api/v1/products/unmapped' + qs);
+    const unmapped = (r && r.ok && r.data && r.data.products) || [];
     _reconcileUnmapped = unmapped;
-    const loaded = placed.length, mapped = loaded - unmapped.length;
-    if (!loaded) { body.innerHTML = 'No products loaded on these machines yet.'; return; }
-    if (!unmapped.length) { body.innerHTML = `<div style="color:var(--success)">✓ All ${loaded} products on these machines are in your database.</div>`; return; }
+    if (!unmapped.length) { body.innerHTML = '<div style="color:var(--success)">✓ Every product on these machines is in your database.</div>'; return; }
     const rows = unmapped.map(p => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--line)">
       ${p.image ? `<img src="${rsEsc(p.image)}" style="width:30px;height:30px;object-fit:contain;border-radius:5px;background:var(--cream-deep);flex:none">` : `<div style="width:30px;height:30px;border-radius:5px;background:var(--cream-deep);flex:none"></div>`}
       <div style="flex:1;min-width:0;color:var(--ink)"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rsEsc(p.name || ('#' + p.goodsId))}</div><div style="font-size:11px;color:var(--muted)">${p.priceIsk ? p.priceIsk + ' kr · ' : ''}${p.machineCount || 0} ${(p.machineCount === 1 ? 'machine' : 'machines')}</div></div>
     </div>`).join('');
     const canEnrich = currentUser?.role === 'ag_admin';
     body.innerHTML = `
-      <div style="margin-bottom:10px;color:var(--ink)"><span style="color:var(--alert);font-weight:600">${unmapped.length}</span> of ${loaded} products on these machines are <strong>not in your database</strong> (${mapped} are). They have no VSK or cost and won't show full detail until added.</div>
+      <div style="margin-bottom:10px;color:var(--ink)"><span style="color:var(--alert);font-weight:600">${unmapped.length}</span> product${unmapped.length === 1 ? '' : 's'} on these machines ${unmapped.length === 1 ? 'is' : 'are'} <strong>not in your database</strong>. They have no VSK or cost, and nobody can pick them for another machine until they are added.</div>
       <div style="max-height:300px;overflow:auto">${rows}</div>
       ${canEnrich ? `<button class="btn btn-full" style="margin-top:12px" onclick="enrichUnmapped()"><span>add ${unmapped.length} to database (auto-fill from Weimi)</span><span>→</span></button><div style="margin-top:8px;font-size:11px;color:var(--muted)">Pulls name, image and price. You still set VSK and cost via import or edit.</div>` : ''}`;
   } catch (e) {
@@ -9578,7 +9559,7 @@ async function renderHeroPage() {
     // The products actually in THIS machine (from its layout) — the only valid heroes.
     _heroMachineProducts = [];
     try {
-      const r = await API.get('/api/v1/products/catalog?deviceCode=' + encodeURIComponent(code));
+      const r = { ok: true, data: { products: await fetchProducts('inMachine=' + encodeURIComponent(code)) } };
       if (r.ok && r.data && Array.isArray(r.data.products)) _heroMachineProducts = r.data.products;
     } catch (e) {}
   }
@@ -10205,7 +10186,7 @@ async function rcptFind(i, q) {
   const box = document.getElementById('rcpt-res-' + i);
   box.innerHTML = '<span style="font-size:11px;color:var(--muted)">searching…</span>';
   try {
-    const r = await API.get('/api/v1/products/search?q=' + encodeURIComponent(q));
+    const r = { ok: true, data: await fetchProducts('q=' + encodeURIComponent(q)) };
     const list = (r.data || []).slice(0, 6);
     box.innerHTML = list.length
       ? list.map(p => '<span class="rcpt-cand" onclick="rcptPick(' + i + ',\'' + rcptEsc(p.goodsId) + '\')">' + rcptEsc(p.name) + '</span>').join('')
@@ -11708,7 +11689,7 @@ function dlProdSearch(pid, q) {
   _dlPickTimer[pid] = setTimeout(async () => {
     try {
       const machines = dlScopeMachinesCsv();
-      const r = await API.get('/api/v1/products/search?q=' + encodeURIComponent(term) + (machines ? '&machines=' + encodeURIComponent(machines) : ''));
+      const r = { ok: true, data: await fetchProducts('q=' + encodeURIComponent(term)) };
       _dlPickResults[pid] = (r && r.data) || [];
     } catch (e) { _dlPickResults[pid] = []; }
     dlRenderProdResults(pid);
