@@ -701,6 +701,22 @@ ensureColumn('products', 'imageClearedPct',    'REAL');     // % removed by knoc
 // ordinary products, so everyday items turned "per kg" — served disabled to older apps (free goods)
 // and blank on the price tags (Nordic Hostel, 2026-10-15). Only our dashboard and import set this.
 ensureColumn('products', 'soldByWeight', 'INTEGER NOT NULL DEFAULT 0');
+
+// Where this product stands with Weimi, as a RECORDED FACT rather than something each code path
+// infers for itself (6.123.0). There are two catalogues — ours and Weimi's — and nothing used to
+// say how a given product stood between them, so five creation paths each guessed, and so did
+// every reader. A product that exists only here cannot go in a coil slot: Weimi takes the unknown
+// id rather than refusing it, and the slot comes back empty.
+//
+//   registered  Weimi has it. We created it there, or asked and it answered.
+//   local       It exists only here. Either by design (a fridge-only product) or because we
+//               asked Weimi and it had no record.
+//   failed      We tried to register it with Weimi and Weimi refused.
+//   unknown     Nobody has asked yet. Every row starts here; the backfill resolves them.
+//
+// weimiCheckedAt is when we last asked, so a stale answer can be told from a fresh one.
+ensureColumn('products', 'weimiStatus',    "TEXT NOT NULL DEFAULT 'unknown'");
+ensureColumn('products', 'weimiCheckedAt', 'INTEGER');
 (function migrateSoldByWeight() {
   try {
     const done = db.prepare("SELECT value FROM schema_meta WHERE key = 'migration:soldByWeight'").get();
@@ -3443,6 +3459,27 @@ const storage = {
     });
     tx(batches);
     return stmts.listBatchesForSlot.all(deviceCode, goodsId);
+  },
+  // Deliberately NOT part of upsertProduct: that is called from a dozen places with no opinion
+  // about Weimi, and letting it carry a default would quietly reset a status somebody established.
+  setWeimiStatus(goodsId, status, checkedAt) {
+    const ok = ['registered', 'local', 'failed', 'unknown'];
+    const v = ok.includes(status) ? status : 'unknown';
+    return db.prepare('UPDATE products SET weimiStatus = ?, weimiCheckedAt = ?, updatedAt = ? WHERE goodsId = ?')
+      .run(v, checkedAt == null ? Date.now() : checkedAt, Date.now(), String(goodsId)).changes;
+  },
+  weimiStatusCounts() {
+    const rows = db.prepare('SELECT weimiStatus AS s, COUNT(*) AS n FROM products GROUP BY weimiStatus').all();
+    const out = { registered: 0, local: 0, failed: 0, unknown: 0 };
+    for (const r of rows) if (out[r.s] != null) out[r.s] = r.n;
+    out.total = Object.values(out).reduce((a, b) => a + b, 0);
+    return out;
+  },
+  // The next rows to ask Weimi about: never-asked first, then the ones that failed.
+  productsNeedingWeimiCheck(limit) {
+    return db.prepare(`SELECT * FROM products WHERE weimiStatus IN ('unknown','failed')
+                       ORDER BY CASE weimiStatus WHEN 'unknown' THEN 0 ELSE 1 END, updatedAt DESC
+                       LIMIT ?`).all(Math.max(1, Math.min(Number(limit) || 25, 200)));
   },
   setProductWeight(goodsId, grams) { return db.prepare('UPDATE products SET weightGrams = ?, updatedAt = ? WHERE goodsId = ?').run(Math.round(grams), Date.now(), goodsId).changes; },
   setProductSoldByWeight(goodsId, on) { db.prepare('UPDATE products SET soldByWeight = ?, updatedAt = ? WHERE goodsId = ?').run(on ? 1 : 0, Date.now(), goodsId); },

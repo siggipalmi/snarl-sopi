@@ -102,6 +102,7 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/slots/price',        handler: handleSlotPrice, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/products/price',                          handler: handleProductPrice, middleware:[requireAuth] },
   { method:'GET',  pattern:'/api/v1/products/unmapped',                       handler: handleUnmappedProducts, middleware:[requireAuth] },
+  { method:'POST', pattern:'/api/v1/products/weimi-check',                    handler: handleWeimiCheck,    middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/products/images/review',                  handler: handleImageReview,   middleware:[requireAuth, requireAgAdmin] },
   { method:'GET',  pattern:'/api/v1/products/images/resolution',              handler: handleImageResolution, middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/products/images/backfill-dims',           handler: handleBackfillDims,  middleware:[requireAuth, requireAgAdmin] },
@@ -9068,6 +9069,9 @@ async function handleUpdateProduct(req, res) {
   // our catalog is the system of record for images. Save what we can locally.
   if (!current || !current.goodsId) {
     if (!newImgUrl && !existing.goodsId) return json(res, 404, { ok: false, error: 'product not found' });
+    // We asked Weimi by all three identifiers and it had no record. That is an answer, so keep
+    // it: an edit used to save locally with a warning and leave the next reader to guess again.
+    try { storage.setWeimiStatus(goodsId, 'local'); } catch (e) {}
     const numField = (v, keep) => (v === undefined) ? keep : (v == null || v === '' ? null : Math.max(0, Math.round(Number(v))));
     const name = (b.goodsName != null && String(b.goodsName).trim()) ? String(b.goodsName).trim().slice(0, 200) : (existing.name || null);
     try {
@@ -9089,6 +9093,8 @@ async function handleUpdateProduct(req, res) {
                      imageHasBackground, weimi: 'not_found', warnings });
   }
 
+  // Weimi answered for this one, so whatever it was before, it is registered.
+  try { storage.setWeimiStatus(goodsId, 'registered'); } catch (e) {}
   const imgUrl       = newImgUrl || current.imgUrl;
   const thumbnailUrl = newImgUrl || current.thumbnailUrl || current.imgUrl;
   const goodsName   = (b.goodsName != null && String(b.goodsName).trim()) ? String(b.goodsName).trim().slice(0, 200) : current.goodsName;
@@ -9268,9 +9274,11 @@ function handleListProducts(req, res) {
       vatRate: p.vatRate,
       weightGrams: p.weightGrams, measurement: p.measurement, barcode: p.barcode,
       soldByWeight: isSoldByWeight(p),
-      // False for a product that exists only here, so a picker can say so instead of letting
-      // somebody assign it to a coil machine and silently empty the slot.
-      weimiKnown: !isLocalOnlyProduct(p.goodsId),
+      // Where this product stands with Weimi. weimiStatus is the recorded fact; weimiKnown is
+      // the old inferred flag, kept until the pickers read the status directly.
+      weimiStatus: p.weimiStatus || 'unknown',
+      weimiCheckedAt: p.weimiCheckedAt || null,
+      weimiKnown: !isLocalOnlyProduct(p.goodsId) && p.weimiStatus !== 'local',
       imgUrl: p.imgUrl || (pl && pl.image) || null,
       updatedAt: p.updatedAt, perishable: p.perishable === 1 || p.perishable === true,
       imageNormalizedAt: p.imageNormalizedAt || null, imageHasBackground: p.imageHasBackground === 1,
@@ -9282,7 +9290,40 @@ function handleListProducts(req, res) {
     });
   }
   products.sort((a, b) => String(a.name).localeCompare(String(b.name), 'is'));
-  ok(res, { products, costVisible: showCost });
+  ok(res, { products, costVisible: showCost, weimiCounts: storage.weimiStatusCounts() });
+}
+
+/**
+ * POST /api/v1/products/weimi-check   (AG admin)   body: { limit? }
+ *
+ * Asks Weimi about rows whose status is still unknown (or failed), a batch at a time, and
+ * records the answer. Nothing is created or changed in Weimi and no product field is touched —
+ * this only fills in the fact that nothing has ever recorded.
+ *
+ * Batched and resumable on purpose: there are several hundred rows, each worth up to three
+ * lookups, and a single long request would hold a connection open for minutes and lose its work
+ * if anything dropped. The dashboard calls it repeatedly and shows the counts going down.
+ */
+async function handleWeimiCheck(req, res) {
+  const weimi = require('./weimi');
+  const limit = Math.max(1, Math.min(Number(req.body?.limit) || 25, 100));
+  const rows = storage.productsNeedingWeimiCheck(limit);
+  const checked = [];
+  let unreachable = false;
+  for (const p of rows) {
+    const known = await weimiKnowsProduct(weimi, p, p.goodsId);
+    if (known === null) { unreachable = true; break; }   // leave the rest for the next call
+    const status = known ? 'registered' : 'local';
+    storage.setWeimiStatus(p.goodsId, status);
+    checked.push({ goodsId: p.goodsId, name: p.name, status });
+  }
+  const counts = storage.weimiStatusCounts();
+  console.log(`[weimi-check] ${checked.length} checked `
+    + `(${checked.filter(c => c.status === 'registered').length} registered, `
+    + `${checked.filter(c => c.status === 'local').length} local)`
+    + `${unreachable ? ' — stopped early, Weimi unreachable' : ''}; remaining ${counts.unknown + counts.failed}`);
+  ok(res, { checked: checked.length, results: checked, counts,
+            remaining: counts.unknown + counts.failed, unreachable });
 }
 
 /**
@@ -9652,6 +9693,7 @@ async function handleImportProducts(req, res) {
         storage.upsertProduct({
           goodsId: code,                                   // catalog/order key = product code
           weimiId: found.goodsId,                          // Weimi internal record id
+          // (status set to 'registered' below — Weimi answered for this one)
           goodsCode: found.goodsCode || code,
           customCode: found.goodsCustomCode || row.customCode || null,
           name: (rowWins && row.name) ? String(row.name) : (weimi.fixMojibake(found.goodsName) || row.name || null),
@@ -9665,11 +9707,16 @@ async function handleImportProducts(req, res) {
           imgUrl: found.imgUrl || null,
         });
         if (rowWins) { try { storage.setProductSoldByWeight(code, Number(row.measurement) === 1); } catch (e) {} }
+        storage.setWeimiStatus(code, 'registered');
         return { code, status: 'ok', name: weimi.fixMojibake(found.goodsName) || row.name || '' };
       } catch (e) { return { code, status: 'error', error: e.message }; }
     }
 
     // Not found in Weimi — keep the attributes anyway (no live image / id yet).
+    //
+    // This is the row that used to be indistinguishable from a registered one. It has a hex id,
+    // not a 'p-' one, so no prefix test catches it, and sending it to a coil slot empties the
+    // slot exactly as a quick product does. Now it says what it is.
     try {
       storage.upsertProduct({
         goodsId: code, weimiId: null, goodsCode: code,
@@ -9680,6 +9727,7 @@ async function handleImportProducts(req, res) {
       });
     } catch (e) { return { code, status: 'error', error: e.message }; }
     if (rowWins) { try { storage.setProductSoldByWeight(code, Number(row.measurement) === 1); } catch (e) {} }
+    storage.setWeimiStatus(code, 'local');   // asked, and Weimi had no record
     return { code, status: 'notfound', name: row.name || '' };
   }
 
@@ -9728,6 +9776,9 @@ async function handleQuickProduct(req, res) {
       salePriceIsk: Math.round(price), vatRate: Number(b.vatRate) === 24 ? 24 : 11,
       weightGrams: byWeight ? null : w, measurement: 0, imgUrl });
     if (byWeight) storage.setProductSoldByWeight(goodsId, true);
+    // Local by construction: this path writes a row and never contacts Weimi. Recorded rather
+    // than left for a reader to infer from the 'p-' prefix.
+    storage.setWeimiStatus(goodsId, 'local');
   } catch (e) { return serverError(res, e); }
   console.log(`[PRODUCTS] ${(req.user && req.user.email) || '?'} created ${goodsId} "${name}" from the planogram`);
   const p = storage.getProduct(goodsId) || {};
@@ -9805,11 +9856,13 @@ async function handleCreateProduct(req, res) {
   // Store our own attributes (weight / VSK / cost).
   try {
     storage.upsertProduct({
+      // registered: Weimi created it a few lines above and gave us these ids.
       goodsId: catalogKey, weimiId: goodsId, goodsCode: goodsCode || null,
       customCode, name: fields.goodsName,
       salePriceIsk: Math.round(isk), vatRate, costPriceIsk, weightGrams,
       measurement, barcode: fields.barcode || null, imgUrl,
     });
+    storage.setWeimiStatus(catalogKey, 'registered');
   } catch (e) { console.error('[products] upsert failed:', e.message); }
 
   // If this creation resolves a receipt draft, transfer the parked net cost onto
@@ -9958,6 +10011,9 @@ async function handleProductEnrich(req, res) {
       barcode:      w ? (w.barcode || null) : null,
       imgUrl:       (w && w.imgUrl) || layoutImg || null,
     });
+    // The product is in a planogram, so the machine is selling it — but that only proves the
+    // id works for an aisle write, not that /ext/query/goods resolves it. Record what we saw.
+    storage.setWeimiStatus(gid, w ? 'registered' : 'unknown');
     enriched.push({ goodsId: gid, name: (w && w.goodsName) || layoutName, fromWeimi: !!w,
                     weightGrams: weimiWeightGrams(w) });
   }
