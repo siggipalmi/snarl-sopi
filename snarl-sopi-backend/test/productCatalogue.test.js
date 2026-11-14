@@ -209,3 +209,121 @@ test('AG can scope unmapped to one operator, and cannot be asked for a foreign o
   assert.deepStrictEqual(rows.map(r => r.goodsId), ['OTHER']);
   assert.strictEqual(call(handleUnmappedProducts, ALH, { operatorId: 'ag' }).status, 403);
 });
+
+// ─── What a Weimi machine can actually stock ──────────────────────────────────
+//
+// 2026-11-13, live: Alhliða lausnir could not find products, created some by hand, assigned them
+// to coil slots, and the slots went blank — showing their raw aisle codes ("0-F00") on the
+// restock list and nothing on the machine. POST /products/quick writes a catalogue row and
+// stops; Weimi is never told. Weimi does not refuse the unknown id on an aisle update, it takes
+// it, and the slot comes back empty. 6.120.0 made this reachable by offering the whole catalogue
+// in the slot picker — before that only products already in a machine could be chosen, so a
+// local-only product never got near a coil slot.
+
+test('a product created here only is flagged as unstockable by a Weimi machine', () => {
+  storage.upsertProduct({ goodsId: 'p-abc123', name: 'Made from the planogram', goodsCode: 'p-abc123',
+    customCode: 'p-abc123', weimiId: null, salePriceIsk: 399, vatRate: 11, measurement: 0 });
+  const p = byId(products(AG), 'p-abc123');
+  assert.strictEqual(p.weimiKnown, false);
+});
+
+test('an ordinary catalogue product is not flagged', () => {
+  for (const id of ['ORIG-PLACED', 'SYRD-SEED']) {
+    assert.strictEqual(byId(products(AG), id).weimiKnown, true, id);
+  }
+});
+
+test('the flag reaches operators too, who are the ones placing products', () => {
+  assert.strictEqual(byId(products(ALH), 'p-abc123').weimiKnown, false);
+});
+
+test('a Weimi machine refuses it, before anything is written to the machine', async () => {
+  // The refusal has to come first. Weimi takes the unknown id rather than rejecting it, so by
+  // the time we could read an error back, the slot is already empty.
+  const { handleSlotProduct } = require('../src/router');
+  const cap = { status: 200, body: null };
+  const res = { writeHead(c) { cap.status = c; }, setHeader() {},
+                end(b) { try { cap.body = JSON.parse(b); } catch { cap.body = b; } } };
+  await handleSlotProduct({ params: { deviceCode: 'AG1' }, user: AG,
+    body: { aisleCode: '0-F00', goodsId: 'p-abc123', priceIsk: 399, currStock: 5 } }, res);
+  assert.strictEqual(cap.status, 400);
+  assert.strictEqual(cap.body.error.code || cap.body.code, 'not_in_weimi');
+  assert.match(String(cap.body.error.message || cap.body.error), /never been told/);
+});
+
+test('the refusal names the product, so it is actionable', async () => {
+  const { handleSlotProduct } = require('../src/router');
+  const cap = { body: null };
+  const res = { writeHead() {}, setHeader() {}, end(b) { try { cap.body = JSON.parse(b); } catch { cap.body = b; } } };
+  await handleSlotProduct({ params: { deviceCode: 'AG1' }, user: AG,
+    body: { aisleCode: '0-F00', goodsId: 'p-abc123', priceIsk: 399 } }, res);
+  assert.match(String(cap.body.error.message || cap.body.error), /Made from the planogram/);
+  assert.match(String(cap.body.error.message || cap.body.error), /\+ new product/);
+});
+
+test('only "p-" ids are treated as local; a Weimi id that merely starts with p is not', () => {
+  const { isLocalOnlyProduct } = require('../src/router');
+  assert.strictEqual(isLocalOnlyProduct('p-abc123'), true);
+  assert.strictEqual(isLocalOnlyProduct('pabc123'), false, 'no hyphen, not ours');
+  assert.strictEqual(isLocalOnlyProduct('ea1c9ae257294b0c9668f832f5803df7'), false);
+  assert.strictEqual(isLocalOnlyProduct(''), false);
+  assert.strictEqual(isLocalOnlyProduct(null), false);
+});
+
+// ─── Asking Weimi, rather than inferring from our own columns ─────────────────
+//
+// The 'p-' prefix only covers products /products/quick minted. /products/import stores a row
+// with weimiId null and the seed's own hex code when Weimi did not recognise it, and one of
+// those empties a coil slot in exactly the same way. Guessing from our columns is what got this
+// wrong twice, so the question goes to Weimi.
+
+const { weimiKnowsProduct } = require('../src/router');
+const fakeWeimi = (answers) => ({
+  calls: [],
+  async queryGoodsRaw(_cfg, params) {
+    const [key, val] = Object.entries(params)[0];
+    this.calls.push(key + '=' + val);
+    if (answers instanceof Error) throw answers;
+    const hit = answers[val];
+    return { ok: true, bodyPreview: JSON.stringify({ data: hit ? { goodsId: hit } : null }) };
+  },
+});
+
+test('a product Weimi knows is allowed', async () => {
+  const w = fakeWeimi({ 'abc': 'W1' });
+  assert.strictEqual(await weimiKnowsProduct(w, { goodsId: 'abc' }, 'abc'), true);
+});
+
+test('a seed-imported row Weimi never recognised is refused, despite its hex id', async () => {
+  // weimiId null, a hex goodsId, and no 'p-' anywhere: the case the prefix check misses.
+  const row = { goodsId: 'ea1c9ae257294b0c9668f832f5803df7', weimiId: null,
+                goodsCode: 'ea1c9ae257294b0c9668f832f5803df7', customCode: '1e8f9772d76249f8' };
+  assert.strictEqual(await weimiKnowsProduct(fakeWeimi({}), row, row.goodsId), false);
+});
+
+test('every identifier the row carries is tried before giving up', async () => {
+  // A layout can carry the product under any of them, so a match on one is a match.
+  const row = { goodsId: 'ours', weimiId: null, goodsCode: null, customCode: 'CUSTOM-1' };
+  const w = fakeWeimi({ 'CUSTOM-1': 'W9' });
+  assert.strictEqual(await weimiKnowsProduct(w, row, 'ours'), true);
+});
+
+test('an identifier is not asked about twice', async () => {
+  const row = { goodsId: 'same', weimiId: 'same', goodsCode: 'same', customCode: 'same' };
+  const w = fakeWeimi({});
+  await weimiKnowsProduct(w, row, 'same');
+  assert.strictEqual(w.calls.length, 3, 'three key names, one value — not twelve calls');
+});
+
+test('an unreachable Weimi gives null, which is not the same as "no"', async () => {
+  // The caller must be able to refuse without telling the operator the product does not exist.
+  assert.strictEqual(await weimiKnowsProduct(fakeWeimi(new Error('ECONNRESET')), {}, 'x'), null);
+  const refusing = { async queryGoodsRaw() { return { ok: false }; } };
+  assert.strictEqual(await weimiKnowsProduct(refusing, {}, 'x'), null);
+});
+
+test('a slot assignment fails closed when Weimi cannot be reached', async () => {
+  // Weimi takes an unknown id rather than refusing it, so guessing wrong here costs a live slot
+  // and guessing wrong the other way costs one retry.
+  assert.strictEqual(await weimiKnowsProduct(fakeWeimi(new Error('timeout')), {}, 'y'), null);
+});
