@@ -1425,6 +1425,7 @@ select.fi{cursor:pointer;}
       </div>
       <div class="panel">
         <div class="ph"><div class="ph-title">products.</div><div class="ph-action" id="catalog-count" style="cursor:default"></div></div>
+        <div id="catalog-weimi" style="padding:0 18px"></div>
         <div id="catalog-grid" style="padding:14px 18px 18px"></div>
       </div>
     </div>
@@ -9147,6 +9148,7 @@ function prodRow(p) {
     // gets its products from Weimi, so it cannot stock one — the server refuses it, and the
     // picker says so rather than letting somebody find out by emptying a slot.
     weimiKnown: p.weimiKnown !== false,
+    weimiStatus: p.weimiStatus || 'unknown',
     imageNormalizedAt: p.imageNormalizedAt || null,
     machineCount: pl.machineCount || 0, slotCount: pl.slotCount || 0,
     machines: pl.machines || [], currStock: pl.stock || 0, stock: pl.stock || 0,
@@ -9160,9 +9162,11 @@ async function fetchProducts(qs) {
   const r = await API.get('/api/v1/products' + (qs ? '?' + qs : ''));
   const list = (r && r.ok && r.data && Array.isArray(r.data.products)) ? r.data.products : [];
   _costVisible = !!(r && r.ok && r.data && r.data.costVisible);
+  if (r && r.ok && r.data && r.data.weimiCounts) _weimiCounts = r.data.weimiCounts;
   return list.map(prodRow);
 }
 let _costVisible = false;
+let _weimiCounts = null;
 
 async function renderCatalog() {
   const grid = document.getElementById('catalog-grid');
@@ -9175,6 +9179,7 @@ async function renderCatalog() {
   try {
     _catalogMerged = await fetchProducts('');
     renderCatalogList();
+    renderWeimiPanel();
     renderReconcile();
   } catch (e) {
     grid.innerHTML = '<div style="padding:20px;text-align:center;color:var(--alert);font-size:12.5px">Could not load catalog: ' + rsEsc(e.message) + '</div>';
@@ -9438,10 +9443,64 @@ function renderCatalogList() {
         placedLine +
         (extras.length ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + extras.join(' · ') + '</div>' : '') +
         (!p.hasAttrs ? '<div style="font-size:9.5px;color:var(--bronze);margin-top:4px">no VSK / cost set</div>' : '') +
+        weimiChip(p.weimiStatus) +
         '<div onclick="catalogEdit(\'' + p.goodsId + '\')" style="margin-top:8px;text-align:center;font-size:11px;color:var(--bronze);cursor:pointer;border-top:.5px solid var(--line);padding-top:7px">edit product</div>' +
       '</div>';
     }).join('') +
   '</div>';
+}
+
+// Where the product stands with Weimi, shown only when it is not simply registered. A machine
+// that reads its products from Weimi cannot stock one Weimi has no record of, and that used to
+// be invisible until a slot went blank.
+function weimiChip(status) {
+  if (status === 'registered') return '';
+  const t = status === 'local'  ? ['not in Weimi', 'var(--alert)']
+          : status === 'failed' ? ['Weimi refused it', 'var(--alert)']
+          :                       ['not checked with Weimi', 'var(--muted)'];
+  return '<div style="font-size:9.5px;color:' + t[1] + ';margin-top:3px">' + t[0] + '</div>';
+}
+
+// How the catalogue as a whole stands with Weimi, and the button that fills in the rows nobody
+// has ever asked about. AG only: it is a read against Weimi for the whole fleet's catalogue.
+let _weimiChecking = false;
+function renderWeimiPanel() {
+  const host = document.getElementById('catalog-weimi');
+  if (!host) return;
+  const c = _weimiCounts;
+  if (!c || currentUser?.role !== 'ag_admin') { host.innerHTML = ''; return; }
+  const pending = (c.unknown || 0) + (c.failed || 0);
+  const bits = [c.registered + ' in Weimi'];
+  if (c.local)   bits.push('<span style="color:var(--alert)">' + c.local + ' not in Weimi</span>');
+  if (c.failed)  bits.push('<span style="color:var(--alert)">' + c.failed + ' refused</span>');
+  if (c.unknown) bits.push('<span style="color:var(--muted)">' + c.unknown + ' not checked</span>');
+  host.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;'
+    + 'background:var(--cream-deep);border-radius:10px;font-size:12px">'
+    + '<div style="flex:1;min-width:180px">' + bits.join(' · ') + '</div>'
+    + (pending
+        ? '<button class="btn btn-sm" id="weimi-check-btn" onclick="runWeimiCheck()"'
+          + (_weimiChecking ? ' disabled' : '') + '><span>'
+          + (_weimiChecking ? 'checking…' : 'check ' + Math.min(pending, 25) + ' with Weimi')
+          + '</span><span>→</span></button>'
+        : '')
+    + '</div>';
+}
+
+async function runWeimiCheck() {
+  if (_weimiChecking) return;
+  _weimiChecking = true; renderWeimiPanel();
+  try {
+    const r = await API.post('/api/v1/products/weimi-check', { limit: 25 });
+    if (r && r.ok && r.data) {
+      _weimiCounts = r.data.counts;
+      if (r.data.unreachable) showToast('Weimi could not be reached — stopped, nothing was changed');
+      else showToast('Checked ' + r.data.checked + ' · ' + r.data.remaining + ' left');
+      // The chips on the cards come from the rows, so re-read them rather than guess.
+      await renderCatalog();
+    } else showToast((r && r.error && (r.error.message || r.error)) || 'check failed');
+  } catch (e) { showToast('error: ' + e.message); }
+  _weimiChecking = false; renderWeimiPanel();
 }
 
 function catalogFind(goodsId) { return _catalogMerged.find(p => String(p.goodsId) === String(goodsId)); }
