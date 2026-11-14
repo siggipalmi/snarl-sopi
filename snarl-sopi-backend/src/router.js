@@ -9268,6 +9268,9 @@ function handleListProducts(req, res) {
       vatRate: p.vatRate,
       weightGrams: p.weightGrams, measurement: p.measurement, barcode: p.barcode,
       soldByWeight: isSoldByWeight(p),
+      // False for a product that exists only here, so a picker can say so instead of letting
+      // somebody assign it to a coil machine and silently empty the slot.
+      weimiKnown: !isLocalOnlyProduct(p.goodsId),
       imgUrl: p.imgUrl || (pl && pl.image) || null,
       updatedAt: p.updatedAt, perishable: p.perishable === 1 || p.perishable === true,
       imageNormalizedAt: p.imageNormalizedAt || null, imageHasBackground: p.imageHasBackground === 1,
@@ -10155,6 +10158,22 @@ function handleDebugProductDetails(req, res) {
 }
 
 /**
+ * A product that exists only in our catalogue, never in Weimi.
+ *
+ * POST /products/quick creates one: it writes a row and stops, with weimiId null and a 'p-' id
+ * that comes from nowhere else in this codebase. That is right for a fridge, where OUR planogram
+ * is the catalog and Weimi is never written. It is ruinous on a coil machine, where the slot
+ * assignment goes to Weimi's /ext/aisle/goods/update: Weimi does not refuse the unknown id, it
+ * takes it, and the aisle comes back from the next sync with no product behind it. The slot then
+ * shows its raw aisle code — "0-F00" — on the restock list and nothing at all on the machine.
+ *
+ * That happened to live slots on 2026-11-13, after 6.120.0 started offering the whole catalogue
+ * in the slot picker. Before it, the picker only listed products already in a machine, so a
+ * local-only product could never be chosen and the gap never showed.
+ */
+function isLocalOnlyProduct(goodsId) { return /^p-/.test(String(goodsId || '')); }
+
+/**
  * POST /api/v1/machines/:deviceCode/slots/product
  * Swap the product in a single slot. Assigns the new product + price via the
  * proven per-aisle goods/update endpoint, then sets the loaded stock count.
@@ -10195,6 +10214,17 @@ async function handleSlotProduct(req, res) {
     }
     afterPlanogramWrite(mk);
     return ok(res, { deviceCode: code, aisleCode, goodsId, priceIsk: Math.round(isk), stockSet, mode: 'kiosk' });
+  }
+
+  // A Weimi machine can only stock a product Weimi knows. Refused BEFORE the write, because
+  // Weimi accepts the unknown id rather than rejecting it, and what it leaves behind is a slot
+  // with no product — which cannot be told apart from a slot that was always empty.
+  if (isLocalOnlyProduct(goodsId)) {
+    const lp = storage.getProduct(goodsId);
+    return json(res, 400, { ok: false, code: 'not_in_weimi',
+      error: `"${(lp && lp.name) || goodsId}" was created here only and Weimi has never been told `
+        + `about it, so this machine cannot stock it. Create it with "+ new product", which `
+        + `registers it with Weimi, then assign that one instead.` });
   }
 
   // 1) Assign the new product + price to this one slot.
@@ -10574,4 +10604,5 @@ function publicUser(u) {
 // Exported for the tests that pin behaviour writing to shared state: the weight promotion
 // (test/basketWeight.test.js) and the one product catalogue (test/productCatalogue.test.js).
 module.exports = { router, routes, handleSetFridgeBaskets, weimiWeightGrams,
-                   handleListProducts, handleUnmappedProducts };
+                   handleListProducts, handleUnmappedProducts, handleSlotProduct,
+                   isLocalOnlyProduct };

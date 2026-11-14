@@ -5985,9 +5985,13 @@ function renderSwapList() {
       + '</div>';
     return;
   }
+  // A coil machine stocks what Weimi knows. Default to that when we have not hydrated the
+  // machine yet: assuming "kiosk" would offer products this machine cannot take.
+  const kioskCatalog = (DB.machines[_swapCode] || {}).catalogSource === 'kiosk';
   const row = p => {
     const gid = String(p.goodsId).replace(/'/g, "\\'");
     const isCur = String(p.goodsId) === String(curGid);
+    const blocked = !kioskCatalog && p.weimiKnown === false;
     const img = p.image
       ? '<img src="' + rsEsc(p.image) + '" alt="" style="width:34px;height:34px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">'
       : '<div style="width:34px;height:34px;flex-shrink:0"></div>';
@@ -5996,10 +6000,14 @@ function renderSwapList() {
     const where = p.machineCount > 0
       ? 'in ' + p.machineCount + ' machine' + (p.machineCount === 1 ? '' : 's')
       : '<span style="color:var(--bronze)">not in a machine yet</span>';
-    return '<div class="sw-item" onclick="chooseSwap(\'' + gid + '\')">' + img +
+    const meta = blocked
+      ? '<span style="color:var(--alert)">not in Weimi — this machine cannot stock it</span>'
+      : price + ' · ' + where;
+    return '<div class="sw-item"' + (blocked ? ' style="opacity:.5;cursor:default"'
+                                             : ' onclick="chooseSwap(\'' + gid + '\')"') + '>' + img +
       '<div style="flex:1;min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
       + rsEsc(p.name) + (isCur ? ' <span style="color:var(--muted);font-size:11px">(current)</span>' : '') + '</div>' +
-      '<div style="font-family:var(--mono);font-size:11px;color:var(--muted)">' + price + ' · ' + where +
+      '<div style="font-family:var(--mono);font-size:11px;color:var(--muted)">' + meta +
       '</div></div></div>';
   };
   const grp = t => '<div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;'
@@ -6019,6 +6027,10 @@ function chooseSwap(goodsId) {
   const p = (_swapShown || []).find(x => String(x.goodsId) === String(goodsId))
          || (_catalog || []).map(swapRow).find(x => String(x.goodsId) === String(goodsId));
   if (!p) return;
+  if (p.weimiKnown === false && (DB.machines[_swapCode] || {}).catalogSource !== 'kiosk') {
+    showToast('"' + (p.name || goodsId) + '" is not in Weimi, so this machine cannot stock it');
+    return;
+  }
   _swapChosen = p;
   const img = p.image ? '<img src="' + rsEsc(p.image) + '" alt="" style="width:42px;height:42px;object-fit:contain;flex-shrink:0" onerror="this.style.visibility=\'hidden\'">' : '';
   document.getElementById('sw-chosen').innerHTML = img +
@@ -9131,6 +9143,10 @@ function prodRow(p) {
     weightGrams: p.weightGrams != null ? p.weightGrams : null,
     barcode: p.barcode || null, measurement: p.measurement,
     soldByWeight: !!p.soldByWeight, perishable: !!p.perishable,
+    // A product created from the fridge planogram lives only in our catalogue. A coil machine
+    // gets its products from Weimi, so it cannot stock one — the server refuses it, and the
+    // picker says so rather than letting somebody find out by emptying a slot.
+    weimiKnown: p.weimiKnown !== false,
     imageNormalizedAt: p.imageNormalizedAt || null,
     machineCount: pl.machineCount || 0, slotCount: pl.slotCount || 0,
     machines: pl.machines || [], currStock: pl.stock || 0, stock: pl.stock || 0,
