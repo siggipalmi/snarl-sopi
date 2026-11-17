@@ -15,7 +15,8 @@ data class BasketStock(val cabinet: String, val basket: Int, val grams: Int, val
  *
  * The backend has no scales of its own — without this the operator dashboard
  * cannot show stock per basket, empty baskets, or when a cabinet was last
- * restocked. Reported at startup, after every sale and after every restock.
+ * restocked. Reported at startup, after every sale and after every restock, and
+ * from 0.70.15 whenever the idle read disagrees with the last report (`idle`).
  *
  * *** ONLY THE LATEST IS KEPT. Stock is a current state, not a ledger: if a
  * report can't be sent, the next one supersedes it. A RESTOCK report is the
@@ -35,9 +36,12 @@ class StockClient(
     /** The latest door report not yet delivered; a newer one replaces it. */
     private var pendingDoor: Map<String, Any?>? = null
 
-    suspend fun report(reason: String, cabinet: Int?, baskets: List<BasketStock>) {
+    /** True when the backend has it. */
+    suspend fun report(reason: String, cabinet: Int?, baskets: List<BasketStock>): Boolean {
         val r = Report(reason, cabinet, baskets)
-        if (!send(r) && reason == "restock") lock.withLock { pendingRestock = r }
+        val sent = send(r)
+        if (!sent && reason == "restock") lock.withLock { pendingRestock = r }
+        return sent
     }
 
     /**
