@@ -1,6 +1,19 @@
 [
  {
   "component": "backend",
+  "version": "6.122.1",
+  "date": "2026-11-17",
+  "title": "Read weight updates the basket's count on the planogram.",
+  "notes": [
+   "Reading a basket's weight from the basket editor now also refreshes its tile: the count is worked out from that weight and the basket's unit weight, and the planogram behind the editor redraws. Before, the editor could say 479 g while the tile still said 0 from hours earlier.",
+   "\"Read all trays\" does the same for every assigned basket; reload the planogram to see it.",
+   "This works on every fridge app already in the field.",
+   "Fridge 0.70.15 reports basket counts by itself when its scales disagree with the last report; the backend stores them like any other count and does not treat them as a restock."
+  ],
+  "check": "On 8626020618: open A14, press read weight. The tile should go from 0 to 10 (479 g at 50 g) and the header should read counts as of now."
+ },
+ {
+  "component": "backend",
   "version": "6.117.0",
   "date": "2026-11-12",
   "title": "Accounting: operators can connect Konto.",
