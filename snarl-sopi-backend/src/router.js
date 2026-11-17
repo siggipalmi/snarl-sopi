@@ -3046,8 +3046,9 @@ function handleFridgeStockReport(req, res) {
   const m = machines[deviceCode];
   if (!m) return notFound(res, `Device ${deviceCode} not found`);
   const b = req.body || {};
-  const reason = ['boot', 'sale', 'restock'].includes(b.reason) ? b.reason : null;
-  if (!reason) return badRequest(res, 'reason must be boot, sale or restock');
+  // 'idle' (fridge 0.70.15): the scales disagree with the last report, with no sale or restock between.
+  const reason = ['boot', 'sale', 'restock', 'idle'].includes(b.reason) ? b.reason : null;
+  if (!reason) return badRequest(res, 'reason must be boot, sale, restock or idle');
   const spec = machineFridgeSpec(m);
   const cab = b.cabinet != null ? String(b.cabinet).toUpperCase() : null;
   if (cab && !spec.cabinets.includes(cab)) return badRequest(res, `no cabinet ${cab} on this machine`);
@@ -4504,6 +4505,44 @@ function handleGetCommands(req, res) {
   ok(res, { commands });
 }
 
+// A weight read from the dashboard is also the newest count of that basket. Until 6.122.1 the read
+// showed 479 g in the basket editor while the tile behind it kept the 0 from the last sale or
+// restock (8626020618 A14, 2026-11-17). scale_read answers "cabinet A basket 14: 479 g";
+// read_all_trays answers "#0=546g #1=…" by tray address, 20 addresses per cabinet.
+// Returns how many baskets were updated.
+function stockFromScaleResult(deviceCode, cmd, detail) {
+  const m = machines[deviceCode];
+  if (!m || typeof detail !== 'string') return 0;
+  const spec = machineFridgeSpec(m);
+  const reads = [];
+  if (cmd.type === 'scale_read') {
+    let params = cmd.params;
+    if (typeof params === 'string') { try { params = JSON.parse(params); } catch (e) { params = null; } }
+    const g = /(-?\d+)\s*g\s*$/.exec(detail);
+    if (params && g) reads.push({ cabinet: String(params.cabinet || '').toUpperCase(), basket: Math.round(Number(params.basket)), grams: Number(g[1]) });
+  } else if (cmd.type === 'read_all_trays') {
+    for (const t of detail.matchAll(/#(\d+)=(-?\d+)g/g)) {
+      const tray = Number(t[1]);
+      reads.push({ cabinet: spec.cabinets[Math.floor(tray / 20)], basket: (tray % 20) + 1, grams: Number(t[2]) });
+    }
+  }
+  if (!reads.length) return 0;
+  const rows = {};
+  for (const b of (storage.listFridgeBaskets(deviceCode) || [])) rows[b.cabinet + ':' + b.basket] = b;
+  let n = 0;
+  for (const r of reads) {
+    const b = rows[r.cabinet + ':' + r.basket];
+    if (!b || !b.productId) continue;
+    const p = storage.getProduct(b.productId);
+    const w = b.unitWeightG != null ? Number(b.unitWeightG) : (p && p.weightGrams != null ? Number(p.weightGrams) : null);
+    // The machine's own arithmetic (StockDrift.units): nearest whole item, never below zero.
+    const units = isSoldByWeight(p) ? null : (w > 0 ? Math.floor(Math.max(0, r.grams) / w + 0.5) : null);
+    storage.setBasketStockCount(deviceCode, r.cabinet, r.basket, r.grams, units);
+    n++;
+  }
+  return n;
+}
+
 // POST /machines/:deviceCode/commands/:id/result  (kiosk, X-Machine-Key).
 function handleCommandResult(req, res) {
   const { deviceCode, id } = req.params;
@@ -4557,6 +4596,9 @@ function handleCommandResult(req, res) {
       });
       console.warn('[CMD] ' + detail);
     } catch (e) { /* non-fatal */ }
+  }
+  if ((cmd.type === 'scale_read' || cmd.type === 'read_all_trays') && finalStatus === 'done') {
+    try { stockFromScaleResult(deviceCode, cmd, result.detail); } catch (e) { /* never block a command result on bookkeeping */ }
   }
   // A set_led answer is the ONLY signal that a machine can drive its lights: the led config block is
   // simply ignored by a build that doesn't implement it, silently, so a schedule can look saved and do
@@ -10650,6 +10692,6 @@ function publicUser(u) {
 // pins the weight promotion — it writes to the shared product catalog, which every machine reads.
 // Exported for the tests that pin behaviour writing to shared state: the weight promotion
 // (test/basketWeight.test.js) and the one product catalogue (test/productCatalogue.test.js).
-module.exports = { router, routes, handleSetFridgeBaskets, weimiWeightGrams,
+module.exports = { router, routes, handleSetFridgeBaskets, weimiWeightGrams, stockFromScaleResult,
                    handleListProducts, handleUnmappedProducts, handleSlotProduct,
                    isLocalOnlyProduct, weimiKnowsProduct };

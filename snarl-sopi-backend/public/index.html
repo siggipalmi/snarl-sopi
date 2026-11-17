@@ -8762,6 +8762,8 @@ function scaleDone(type, cmd) {
   if (cmd.status === 'done') {
     scaleForceOffer(false);
     scaleShow('ok', t('sc.done'), detail);
+    // The backend stored this read as the basket's count: show it on the tile behind the editor.
+    if (type === 'scale_read' && _fpDeviceCode) renderFridgePlanogram(_fpDeviceCode, _fpModel);
     return;
   }
   if (cmd.status === 'unsupported') {
