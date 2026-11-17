@@ -8,6 +8,7 @@ import isl.snudursopi.fridge.domain.Language
 import isl.snudursopi.fridge.domain.LanguageCycle
 import isl.snudursopi.fridge.domain.PartialPayment
 import isl.snudursopi.fridge.domain.Settlement
+import isl.snudursopi.fridge.domain.StockDrift
 import isl.snudursopi.fridge.domain.Misplacement
 import isl.snudursopi.fridge.hardware.FridgeHardwareController
 import kotlinx.coroutines.delay
@@ -189,19 +190,50 @@ class FridgeViewModel(
      */
     private fun reportStock(reason: String, cabinet: Int?, weights: Map<Int, Int>) {
         val client = stockClient() ?: return
-        val baskets = planogram.baskets
+        val sent = planogram.baskets
             .filter { it.productId != null && (cabinet == null || it.cabinet.ordinal + 1 == cabinet) }
-            .mapNotNull { b ->
-                val grams = weights[b.trayIndex] ?: return@mapNotNull null
-                val units = when {
-                    b.soldByWeight -> null
-                    b.unitWeightG > 0 -> ((grams.coerceAtLeast(0).toDouble() / b.unitWeightG) + 0.5).toInt()
-                    else -> null
-                }
-                isl.snudursopi.fridge.data.backend.BasketStock(b.cabinet.name, b.basket, grams, units)
-            }
+        val baskets = sent.mapNotNull { b ->
+            val grams = weights[b.trayIndex] ?: return@mapNotNull null
+            isl.snudursopi.fridge.data.backend.BasketStock(b.cabinet.name, b.basket, grams, StockDrift.units(b, grams))
+        }
         if (baskets.isEmpty()) return
-        viewModelScope.launch { runCatching { client.report(reason, cabinet, baskets) } }
+        val shown = StockDrift.shown(sent, weights)
+        viewModelScope.launch {
+            // Remembered only once the backend has it, so a report that did not get through is
+            // made again by the idle loop instead of leaving the dashboard on the old count.
+            val ok = runCatching { client.report(reason, cabinet, baskets) }.getOrDefault(false)
+            if (ok) reportedStock = reportedStock + shown
+        }
+    }
+
+    /** What the backend was last told per tray ([StockDrift.shown]); empty until a report lands. */
+    private var reportedStock: Map<Int, Int> = emptyMap()
+    private var driftCandidate: Map<Int, Int>? = null
+    private var driftReads = 0
+    private var driftReportedAtMs = 0L
+
+    /**
+     * The idle read disagrees with what the dashboard shows: a basket filled or emptied with no
+     * sale and no recorded restock, a report that was lost, or a unit weight changed since.
+     * Believed after two matching reads, sent at most once in five minutes.
+     */
+    private fun reportStockIfDrifted(weights: Map<Int, Int>) {
+        if (!bootStockReported) return
+        val now = StockDrift.shown(planogram.baskets, weights)
+        if (!StockDrift.differs(reportedStock, now)) {
+            driftCandidate = null
+            return
+        }
+        driftReads = if (now == driftCandidate) driftReads + 1 else 1
+        driftCandidate = now
+        if (driftReads < StockDrift.STABLE_READS) return
+        val t = System.currentTimeMillis()
+        if (t - driftReportedAtMs < StockDrift.MIN_INTERVAL_MS) return
+        driftReportedAtMs = t
+        val moved = now.filter { (tray, v) -> reportedStock[tray] != v }
+            .map { (tray, v) -> "tray $tray ${reportedStock[tray] ?: "?"}→$v" }
+        android.util.Log.i("FridgeFlow", "stock drifted from the last report: ${moved.joinToString(", ")}")
+        reportStock("idle", null, weights)
     }
 
     /**
@@ -299,6 +331,8 @@ class FridgeViewModel(
                         if (!bootStockReported && stockClient() != null && planogram.baskets.isNotEmpty()) {
                             bootStockReported = true
                             reportStock("boot", null, it)
+                        } else {
+                            reportStockIfDrifted(it)
                         }
                     }
                 }

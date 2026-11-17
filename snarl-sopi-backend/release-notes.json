@@ -1,5 +1,19 @@
 [
  {
+  "component": "fridge",
+  "version": "0.70.15",
+  "versionCode": 181,
+  "date": "2026-11-17",
+  "title": "The dashboard's basket counts follow the scales, not only sales and restocks.",
+  "notes": [
+   "Until now a fridge told the dashboard what was in its baskets at app start, after a sale that took something and after a recorded restock. A basket filled or emptied any other way kept its old count: 8626020618 showed A14 at 0 for hours while its scale read 479 g of 50 g bars.",
+   "The machine now compares its idle scale read (every five seconds) with what it last reported and sends the counts again when they disagree. A change must hold for two reads, and it sends at most once in five minutes.",
+   "A count report that did not reach the backend is made again, where before it was lost until the next sale.",
+   "Charging is untouched: this only changes what the dashboard is told. Needs backend 6.122.1."
+  ],
+  "check": "On the canary: put items in a basket with the door opened by a card tap (take nothing) and see the tile follow within a few minutes with no read weight pressed. The machine log says \"stock drifted from the last report\"."
+ },
+ {
   "component": "backend",
   "version": "6.122.1",
   "date": "2026-11-17",
