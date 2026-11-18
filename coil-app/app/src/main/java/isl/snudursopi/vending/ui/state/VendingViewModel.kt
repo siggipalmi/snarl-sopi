@@ -1752,6 +1752,69 @@ class VendingViewModel(
         _state.update { it.copy(visibleProducts = visible) }
     }
 
+    /**
+     * Give the tablet back to Weimi's app (0.80.29; Grótta, 2026-11-18). Order matters: everything
+     * that needs Device Owner runs first, releasing it comes last, and our own components are
+     * disabled in between so neither HOME nor an alarm brings us back. Each step logs and goes on
+     * if it fails: a half-done handover with Weimi's launcher pinned is still a machine that sells.
+     */
+    private fun handoverToWeimi(home: String) {
+        val ctx = appContext
+        val pkg = ctx.packageName
+        val target = android.content.ComponentName.unflattenFromString(home)
+        Log.w(TAG, "HANDOVER to $home begins")
+        try { stopProxy() } catch (t: Throwable) { Log.w(TAG, "handover: stopProxy: ${t.message}") }
+        val dpm = ctx.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+        val admin = isl.snudursopi.shared.Kiosk.adminComponent(ctx)
+        val owner = runCatching { dpm.isDeviceOwnerApp(pkg) }.getOrDefault(false)
+        if (owner && target != null) {
+            runCatching { dpm.clearPackagePersistentPreferredActivities(admin, pkg) }
+                .onFailure { Log.w(TAG, "handover: clear our home pin: ${it.message}") }
+            runCatching {
+                val f = android.content.IntentFilter(android.content.Intent.ACTION_MAIN).apply {
+                    addCategory(android.content.Intent.CATEGORY_HOME)
+                    addCategory(android.content.Intent.CATEGORY_DEFAULT)
+                }
+                dpm.addPersistentPreferredActivity(admin, f, target)
+                Log.i(TAG, "handover: $home pinned as HOME")
+            }.onFailure { Log.w(TAG, "handover: pin Weimi home: ${it.message}") }
+            runCatching { dpm.setLockTaskPackages(admin, emptyArray()) }
+                .onFailure { Log.w(TAG, "handover: lock task: ${it.message}") }
+        }
+        // Our own entry points: no HOME match, no watchdog tick, no boot start, no installer callback.
+        val pm = ctx.packageManager
+        listOf(
+            "isl.snudursopi.vending.MainActivity",
+            "isl.snudursopi.vending.BootReceiver",
+            "isl.snudursopi.vending.WatchdogReceiver",
+            "isl.snudursopi.vending.update.UpdateResultReceiver",
+        ).forEach { cls ->
+            runCatching {
+                pm.setComponentEnabledSetting(
+                    android.content.ComponentName(pkg, cls),
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    android.content.pm.PackageManager.DONT_KILL_APP,
+                )
+            }.onFailure { Log.w(TAG, "handover: disable $cls: ${it.message}") }
+        }
+        if (owner) {
+            runCatching { dpm.clearDeviceOwnerApp(pkg); Log.w(TAG, "handover: Device Owner released") }
+                .onFailure { Log.w(TAG, "handover: clearDeviceOwnerApp: ${it.message}") }
+        } else {
+            Log.w(TAG, "handover: not Device Owner on this tablet; home pin skipped")
+        }
+        runCatching {
+            val i = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
+                addCategory(android.content.Intent.CATEGORY_HOME)
+                if (target != null) component = target
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            }
+            ctx.startActivity(i)
+            Log.w(TAG, "handover: started $home — exiting")
+        }.onFailure { Log.w(TAG, "handover: start $home: ${it.message}") }
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ kotlin.system.exitProcess(0) }, 1_500)
+    }
+
     /** Apply the desired drop-sensor mode to the board if motor + config ready. */
     private fun applyDropSensorIfPossible() {
         val on = desiredDropSensorOn ?: return
@@ -2048,6 +2111,23 @@ class VendingViewModel(
                     "detail" to "queryAllChannelStatus returned ${frames.size} frame(s)",
                     // Raw board frames, verbatim — backend defines the shape from these.
                     "channelStatus" to frames,
+                    "completedAt" to now,
+                )
+            }
+            "clear_device_owner" -> {
+                // Hand the tablet back to Weimi (0.80.29). The backend already demanded confirm=yes
+                // and the machine's own code. Nothing on the tablet is wiped: Weimi's launcher
+                // becomes home, we give up Device Owner, switch off our own restart machinery and
+                // exit. The result is posted first, because nothing can be posted afterwards.
+                val home = cmd.params?.get("home")?.asText()?.takeIf { it.contains("/") }
+                    ?: "com.weimi.launcher/com.weimi.launcher.MainActivity"
+                viewModelScope.launch {
+                    delay(3_000)
+                    handoverToWeimi(home)
+                }
+                mapOf(
+                    "status" to "ok",
+                    "detail" to "handing the tablet to $home in 3 s: Weimi launcher pinned as home, Device Owner released, our restarts disabled, app exits",
                     "completedAt" to now,
                 )
             }

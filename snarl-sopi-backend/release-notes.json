@@ -1,6 +1,18 @@
 [
  {
   "component": "coil",
+  "version": "0.80.29",
+  "versionCode": 185,
+  "date": "2026-11-18",
+  "title": "A machine can be handed back to Weimi's app from the dashboard.",
+  "notes": [
+   "The clear_device_owner command (AG, console only, needs confirm and the machine's own code) now does the whole handover on a coil machine: Weimi's launcher is pinned as the home screen, the app gives up Device Owner, switches off its own restarts and exits. Nothing on the tablet is wiped; Nayax, the board and Weimi's data are untouched.",
+   "After it the app can be uninstalled over adb. Coming back to our app later means setting Device Owner again on site."
+  ],
+  "check": "Grótta hægri: after the command the screen shows Weimi's launcher within five seconds and the machine disappears from the dashboard."
+ },
+ {
+  "component": "coil",
   "version": "0.80.28",
   "versionCode": 184,
   "date": "2026-11-18",
