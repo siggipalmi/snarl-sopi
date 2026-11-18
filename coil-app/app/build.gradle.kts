@@ -32,8 +32,8 @@ android {
         applicationId = "isl.snudursopi.vending"
         minSdk = 24
         targetSdk = 34
-        versionCode = 184
-        versionName = "0.80.28"
+        versionCode = 185
+        versionName = "0.80.29"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
