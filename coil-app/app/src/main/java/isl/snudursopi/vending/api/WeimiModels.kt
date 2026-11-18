@@ -105,7 +105,11 @@ data class Aisle(
     val thumbnailUrl: String? = null,
     val isEnable: Boolean = false,
     val isBroken: Boolean = false,
-    val goodsTypeList: List<GoodsType> = emptyList(),
+    // Nullable on purpose (0.80.28). Weimi sent an explicit null here for slot 61 on both Grótta
+    // machines from 2026-11-14, and with a non-null type Jackson refused the whole device-info:
+    // "ekki tókst að sækja vörulistann" on every retry for four days, 5,456 attempts. A missing
+    // category is nothing to stop a machine over — the mapper only uses it as a hint.
+    val goodsTypeList: List<GoodsType>? = null,
 ) {
     /** Backwards-compat name used elsewhere. */
     val aisleCode: String get() = code
