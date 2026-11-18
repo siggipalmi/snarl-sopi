@@ -789,6 +789,18 @@ class VendingViewModel(
             )
         }
         cancelPendingRetry()
+        // Lifelines (0.80.28). Until now every background loop started only after a successful
+        // catalog load, so a machine stuck on the error screen could not take an update, relay
+        // its log or answer a command — both Grótta machines sat four days in that state while
+        // the dashboard showed them offline. A paired machine keeps these running from the first
+        // failure on, so the fix can reach it over the air. Started once; the success path
+        // restarts them as before.
+        val code = _state.value.deviceCode
+        if (code != null && storedMachineKey != null) {
+            if (commandPollJob?.isActive != true) startCommandPoll(code)
+            if (updateJob?.isActive != true) startUpdateLoop(code)
+            startLogRelay(code)
+        }
         retryJob = viewModelScope.launch {
             delay(backoffSec * 1000L)
             // Only retry if we're still in Error phase (user may have reset

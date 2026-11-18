@@ -1,5 +1,18 @@
 [
  {
+  "component": "coil",
+  "version": "0.80.28",
+  "versionCode": 184,
+  "date": "2026-11-18",
+  "title": "A Weimi product without a category no longer stops the machine, and a stuck machine stays reachable.",
+  "notes": [
+   "Both Grótta machines showed \"ekki tókst að sækja vörulistann frá vefþjónustu\" from 2026-11-14: Weimi's catalog carried a product with no category (slot 61) and the app refused the whole list, on every retry, for four days. A missing category is now ignored.",
+   "Until now a machine on the error screen started none of its background work: no update check, no log relay, no commands. So nothing could reach it. From this build a paired machine keeps those running from the first failure on, so a fix can arrive over the air and the dashboard shows its log.",
+   "On a machine whose catalog source is Kiosk (0.80.27+) Weimi is not asked at all, so this failure cannot occur there."
+  ],
+  "check": "Grótta: after install the grid is back within a minute; the machine page shows the log again and the header the new build."
+ },
+ {
   "component": "fridge",
   "version": "0.70.15",
   "versionCode": 181,

@@ -56,7 +56,7 @@ fun List<Aisle>.toProducts(): List<Product> {
         if (slots.isEmpty()) return@mapNotNull null
 
         val totalStock = aisles.sumOf { it.currStock }
-        val goodsTypeNames = first.goodsTypeList.map { it.name }
+        val goodsTypeNames = first.goodsTypeList.orEmpty().map { it.name }
         val category = inferCategory(name, goodsTypeNames)
         val image = first.thumbnailUrl ?: first.imgUrl
 
