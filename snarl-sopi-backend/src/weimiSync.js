@@ -15,6 +15,7 @@
 
 const weimi   = require('./weimi');
 const storage = require('./storage');
+const { isLockerModel } = require('./machineModels');
 
 // Force production unless explicitly overridden. The hardcoded creds in
 // weimi.getCredentials are valid for prod (proven by the live diagnostic).
@@ -39,7 +40,9 @@ function flattenAisles(info) {
 // ─── Status (whole fleet in one call) ─────────────────────────────────────────
 
 async function syncStatusAll() {
-  const machines = storage.listMachines();
+  // Parcel lockers (6.125.0) are not Weimi machines: their codes are never sent to Weimi, and
+  // their online state comes from their own app alone.
+  const machines = storage.listMachines().filter(m => !isLockerModel(m.model));
   const codes = machines.map(m => m.deviceCode);
   if (!codes.length) return { updated: 0, fetched: 0 };
 
@@ -281,6 +284,10 @@ async function syncOrders(deviceCode, days = 7) {
 
 async function syncMachine(deviceCode, { orders = true, days = 7 } = {}) {
   const result = { deviceCode, ok: true };
+  // A parcel locker has no products, stock or orders at Weimi. Asking would send its code to a
+  // third party for nothing and log an error on every sync.
+  const known = storage.getMachine(deviceCode);
+  if (known && isLockerModel(known.model)) { result.skipped = 'locker'; return result; }
   try {
     result.products = await syncDeviceProducts(deviceCode);
   } catch (e) {

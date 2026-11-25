@@ -1138,10 +1138,73 @@ select.fi{cursor:pointer;}
       <div class="tabs" id="md-tabbar" style="margin:14px 0 16px;justify-content:space-between">
         <div class="tab active" data-mdtab="overview" onclick="showMdTab('overview',this)" data-i18n="md.tab.overview">Overview</div>
         <div class="tab" data-mdtab="layout" onclick="showMdTab('layout',this)" id="md-tab-layout" data-i18n="md.tab.planogram">Planogram</div>
+        <div class="tab" data-mdtab="locker" onclick="showMdTab('locker',this)" id="md-tab-locker" style="display:none" data-i18n="md.tab.locker">Locker details</div>
         <div class="tab" data-mdtab="kiosk" onclick="openKioskDesigner(_mdDeviceCode)" id="md-tab-kiosk" style="display:none" data-i18n="md.tab.kiosk">Kiosk</div>
         <div class="tab" data-mdtab="activity" onclick="showMdTab('activity',this)" data-i18n="md.tab.activity">Activity</div>
         <div class="tab" data-mdtab="controls" onclick="showMdTab('controls',this)" data-i18n="md.tab.controls">Controls</div>
         <div class="tab" data-mdtab="notifications" onclick="showMdTab('notifications',this)" data-i18n="md.tab.notifications">Notifications</div>
+      </div>
+
+      <!-- ── LOCKER DETAILS (parcel lockers only, model LK-*) ── -->
+      <div class="md-tabpanel" data-panel="locker" style="display:none">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:16px">
+          <div class="panel" style="flex:999 1 420px;min-width:0">
+            <div class="ph"><div class="ph-title" data-i18n="lk.info.title">what customers are told.</div></div>
+            <div style="padding:14px 18px 18px">
+              <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px" data-i18n="lk.info.help">These details appear in the SMS and on the pickup page. Changes apply to the next message sent.</div>
+              <div class="field"><label class="fl" for="lk-name" style="display:block" data-i18n="lk.name">name</label>
+                <input class="fi" id="lk-name" maxlength="60" oninput="lockerPreview()">
+                <div style="font-size:11px;color:var(--muted);margin-top:5px" data-i18n="lk.name.hint">What customers know the locker as.</div></div>
+              <div class="field"><label class="fl" for="lk-address" style="display:block" data-i18n="lk.address">address</label>
+                <input class="fi" id="lk-address" maxlength="120" oninput="lockerPreview()"></div>
+              <div class="field"><label class="fl" for="lk-find" style="display:block" data-i18n="lk.find">where to find it (optional)</label>
+                <input class="fi" id="lk-find" maxlength="120" oninput="lockerPreview()">
+                <div style="font-size:11px;color:var(--muted);margin-top:5px" data-i18n="lk.find.hint">Written in the language your customers read.</div></div>
+              <div class="field">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                  <label class="fl" for="lk-access" style="display:block" data-i18n="lk.access">access note (optional)</label>
+                  <span id="lk-access-count" style="font-size:11px;color:var(--muted)">0 / 240</span>
+                </div>
+                <textarea class="fi" id="lk-access" rows="3" maxlength="240" oninput="lockerPreview()" style="resize:vertical;line-height:1.45"></textarea>
+                <div style="font-size:11px;color:var(--muted);margin-top:5px" data-i18n="lk.access.hint">Shown on the pickup page only, never in the SMS. For example an after-hours door code. Leave empty if customers need nothing extra to reach the locker.</div></div>
+              <div style="display:flex;gap:14px;flex-wrap:wrap">
+                <div class="field" style="flex:1 1 180px"><label class="fl" for="lk-phone" style="display:block" data-i18n="lk.phone">help phone (optional)</label>
+                  <input class="fi" id="lk-phone" maxlength="20" inputmode="tel">
+                  <div style="font-size:11px;color:var(--muted);margin-top:5px" data-i18n="lk.phone.hint">Shown on the locker when a code is not recognised.</div></div>
+                <div class="field" style="flex:1 1 180px"><label class="fl" for="lk-map" style="display:block" data-i18n="lk.map">map position (optional)</label>
+                  <input class="fi mono" id="lk-map" placeholder="64.1397, -21.8571" oninput="lockerPreview()">
+                  <div style="font-size:11px;color:var(--muted);margin-top:5px" data-i18n="lk.map.hint">Latitude, longitude. Without it the map link uses the address.</div></div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:4px">
+                <div id="lk-changed" style="font-size:11.5px;color:var(--muted)"></div>
+                <button class="btn" id="lk-save" onclick="saveLockerInfo()"><span data-i18n="lk.save">save</span></button>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:16px">
+            <div class="panel">
+              <div class="ph"><div class="ph-title" data-i18n="lk.sms.title">the SMS.</div><div class="ph-action" id="lk-sms-parts" style="cursor:default"></div></div>
+              <div style="padding:14px 18px 16px">
+                <div id="lk-sms" style="font-size:13.5px;line-height:1.5;font-weight:500"></div>
+                <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45" data-i18n="lk.sms.hint">A sample with an invented order, code and link. Icelandic letters make each SMS part 67 characters.</div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="ph"><div class="ph-title" data-i18n="lk.page.title">on the pickup page.</div></div>
+              <div style="padding:14px 18px 16px">
+                <div id="lk-page" style="background:var(--cream-deep);padding:14px;font-size:13px;line-height:1.5"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title" data-i18n="lk.boxes.title">boxes.</div><div class="ph-action" id="lk-boxes-counts" style="cursor:default"></div></div>
+          <div style="padding:14px 18px 18px">
+            <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px;max-width:720px" data-i18n="lk.boxes.help">The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.</div>
+            <div id="lk-boxes" style="overflow-x:auto"></div>
+            <div id="lk-boxes-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"></div>
+          </div>
+        </div>
       </div>
 
       <!-- ── OVERVIEW ── -->
@@ -2509,6 +2572,29 @@ const I18N = {
     'alr.summary':'{unread} unread · {total} total','alr.none':'No alerts','alr.resolved':'resolved',
     'sev.critical':'critical','sev.warning':'warning','sev.info':'info',
     'md.tab.kiosk':'Kiosk',
+    'md.tab.locker':'Locker details',
+    'lk.info.title':'what customers are told.',
+    'lk.info.help':'These details appear in the SMS and on the pickup page. Changes apply to the next message sent.',
+    'lk.name':'name','lk.name.hint':'What customers know the locker as.',
+    'lk.address':'address',
+    'lk.find':'where to find it (optional)','lk.find.hint':'Written in the language your customers read.',
+    'lk.access':'access note (optional)',
+    'lk.access.hint':'Shown on the pickup page only, never in the SMS. For example an after-hours door code. Leave empty if customers need nothing extra to reach the locker.',
+    'lk.phone':'help phone (optional)','lk.phone.hint':'Shown on the locker when a code is not recognised.',
+    'lk.map':'map position (optional)','lk.map.hint':'Latitude, longitude. Without it the map link uses the address.',
+    'lk.save':'save','lk.saved':'Locker details saved','lk.changed':'Last changed {when} by {who}',
+    'lk.sms.title':'the SMS.','lk.sms.parts':'{n} SMS parts','lk.sms.part1':'1 SMS part',
+    'lk.sms.hint':'A sample with an invented order, code and link. Icelandic letters make each SMS part 67 characters.',
+    'lk.page.title':'on the pickup page.','lk.page.noNote':'No access note is set, so the page shows none.',
+    'lk.boxes.title':'boxes.',
+    'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
+    'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
+    'lk.col.door':'door','lk.col.size':'size','lk.col.board':'board','lk.col.lock':'lock',
+    'lk.size.small':'Small','lk.size.middle':'Middle','lk.size.big':'Big',
+    'lk.boxes.edit':'edit box list','lk.boxes.add':'add a box','lk.boxes.removeLast':'remove last',
+    'lk.boxes.save':'save box list','lk.boxes.cancel':'cancel','lk.boxes.preset':'fill in the {model} layout','lk.boxes.saved':'Box list saved',
+    'lk.err.map':'Map position must be two numbers: latitude, longitude','lk.load.fail':'Could not load the locker details',
+    'lk.qa.details':'Locker details',
     'md.tab.activity':'Activity',
     'md.tab.controls':'Controls',
     'md.tab.notifications':'Notifications',
@@ -2804,6 +2890,29 @@ const I18N = {
     'alr.summary':'{unread} ólesnar · {total} alls','alr.none':'Engar viðvaranir','alr.resolved':'leyst',
     'sev.critical':'alvarlegt','sev.warning':'viðvörun','sev.info':'upplýsingar',
     'md.tab.kiosk':'Skjár',
+    'md.tab.locker':'Upplýsingar um skáp',
+    'lk.info.title':'það sem viðskiptavinir sjá.',
+    'lk.info.help':'Þessar upplýsingar birtast í SMS-inu og á afhendingarsíðunni. Breytingar gilda frá næstu sendingu.',
+    'lk.name':'nafn','lk.name.hint':'Það sem viðskiptavinir kalla skápinn.',
+    'lk.address':'heimilisfang',
+    'lk.find':'hvar hann er (valfrjálst)','lk.find.hint':'Skrifað á því máli sem viðskiptavinir þínir lesa.',
+    'lk.access':'aðgangsleiðbeiningar (valfrjálst)',
+    'lk.access.hint':'Birtist aðeins á afhendingarsíðunni, aldrei í SMS-inu. Til dæmis dyrakóði utan opnunartíma. Hafðu autt ef ekkert þarf til að komast að skápnum.',
+    'lk.phone':'símanúmer aðstoðar (valfrjálst)','lk.phone.hint':'Birtist á skápnum þegar kóði finnst ekki.',
+    'lk.map':'staðsetning á korti (valfrjálst)','lk.map.hint':'Breiddargráða, lengdargráða. Án hennar notar kortahlekkurinn heimilisfangið.',
+    'lk.save':'vista','lk.saved':'Upplýsingar um skáp vistaðar','lk.changed':'Síðast breytt {when} af {who}',
+    'lk.sms.title':'SMS-ið.','lk.sms.parts':'{n} SMS-hlutar','lk.sms.part1':'1 SMS-hluti',
+    'lk.sms.hint':'Sýnishorn með tilbúinni pöntun, kóða og hlekk. Íslenskir stafir gera hvern SMS-hluta 67 stafi.',
+    'lk.page.title':'á afhendingarsíðunni.','lk.page.noNote':'Engar aðgangsleiðbeiningar eru skráðar, svo síðan sýnir engar.',
+    'lk.boxes.title':'hólf.',
+    'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
+    'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
+    'lk.col.door':'hurð','lk.col.size':'stærð','lk.col.board':'stýriborð','lk.col.lock':'lás',
+    'lk.size.small':'Lítið','lk.size.middle':'Miðstærð','lk.size.big':'Stórt',
+    'lk.boxes.edit':'breyta hólfalista','lk.boxes.add':'bæta við hólfi','lk.boxes.removeLast':'fjarlægja síðasta',
+    'lk.boxes.save':'vista hólfalista','lk.boxes.cancel':'hætta við','lk.boxes.preset':'fylla inn uppröðun {model}','lk.boxes.saved':'Hólfalisti vistaður',
+    'lk.err.map':'Staðsetning á korti þarf að vera tvær tölur: breiddargráða, lengdargráða','lk.load.fail':'Ekki tókst að sækja upplýsingar um skápinn',
+    'lk.qa.details':'Upplýsingar um skáp',
     'md.tab.activity':'Virkni',
     'md.tab.controls':'Stýringar',
     'md.tab.notifications':'Tilkynningar',
@@ -7857,6 +7966,9 @@ function showMdTab(name, el) {
   if (name === 'notifications' && _mdDeviceCode) {
     try { renderNotifications(_mdDeviceCode); } catch (e) { /* non-fatal */ }
   }
+  if (name === 'locker' && _mdDeviceCode) {
+    try { renderLockerDetails(_mdDeviceCode); } catch (e) { /* non-fatal */ }
+  }
   if (name === 'controls' && _mdDeviceCode) {
     try {
       renderMachineTemp(_mdDeviceCode);
@@ -7893,7 +8005,12 @@ function renderMachineActions(code, machine) {
   var isAdmin = !!(typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'ag_admin');
   var a = [];
   var toLayout = "showMdTab('layout',document.querySelector('#md-tabbar [data-mdtab=layout]'))";
-  if (isFridge) {
+  var isLocker = isLockerModel(machine && machine.model);
+  if (isLocker) {
+    // A locker has no bays to edit, nothing to restock and no Weimi record.
+    a.push({ t: t('lk.qa.details'), i: '▤', on: "showMdTab('locker',document.querySelector('#md-tabbar [data-mdtab=locker]'))", primary: true });
+    a.push({ t: t('md.qa.checkUpdate'), i: '↻', on: 'checkMachineUpdate(_mdDeviceCode)' });
+  } else if (isFridge) {
     // One "Open door" button PER cabinet the model has: single = A only, double = A + B.
     var model = String((machine && machine.model) || '');
     var cabinets = /1260/.test(model) ? ['A', 'B'] : ['A'];
@@ -7918,7 +8035,7 @@ function renderMachineActions(code, machine) {
       '<span style="font-size:15px">' + x.i + '</span>' + x.t + '</div>';
   });
   // Weimi sync — coil + admin only
-  if (!isFridge && isAdmin) {
+  if (!isFridge && !isLocker && isAdmin) {
     html += '<div onclick="syncMachineWeimi(_mdDeviceCode)" style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 12px;border:1px dashed var(--bronze);border-radius:6px;font-size:13px;font-weight:500;color:var(--bronze);cursor:pointer">' + rsEsc(t('md.qa.syncWeimi')) + ' <span style="font-size:10px;color:var(--muted)">· admin</span></div>';
   }
   html += '</div>';
@@ -7995,6 +8112,18 @@ async function renderMachineSoldOut(code) {
 // and retitle the section; coil machines keep the bay layout unchanged.
 function renderMachineLayoutOrFridge(code, machine) {
   const isFridge = /^GR-/.test(String((machine && machine.model) || ''));
+  // A parcel locker has no planogram, bays or kiosk designer: it gets the Locker details tab
+  // instead. The tabs are shared by every machine page, so both states are set every time.
+  const isLocker = isLockerModel(machine && machine.model);
+  const lockerTab = document.getElementById('md-tab-locker');
+  if (lockerTab) lockerTab.style.display = isLocker ? '' : 'none';
+  const layoutTab = document.getElementById('md-tab-layout');
+  if (layoutTab) layoutTab.style.display = isLocker ? 'none' : '';
+  if (isLocker) {
+    const kt = document.getElementById('md-tab-kiosk');
+    if (kt) kt.style.display = 'none';
+    return;
+  }
   const tabLabel = document.getElementById('md-tab-layout');
   if (tabLabel) tabLabel.textContent = t(isFridge ? 'md.tab.planogram' : 'md.tab.bays');
   // Kiosk screen designer is a coil-only feature (fridges show the basket display, no hero tiles).
@@ -8012,6 +8141,195 @@ function renderMachineLayoutOrFridge(code, machine) {
     _mdLedgerAisle = null;
     loadStockLedger(code);
   }
+}
+
+// ─── Parcel lockers: the Locker details tab ────────────────────────────────────
+// What customers are told about a locker, and its box list. The record lives on the machine
+// (GET/PUT /machines/:code/locker); the backend checks everything, this only shows and sends it.
+var _lkRecord = null;      // the record as last read from the backend
+var _lkEditBoxes = null;   // a working copy of the box list while AG is editing it, else null
+var LK_SIZES = ['small', 'middle', 'big'];
+// Box layouts by model, so a new locker's list does not have to be typed door by door.
+var LK_PRESETS = {
+  'LK-AGV19': function () {
+    var out = [];
+    for (var n = 1; n <= 19; n++) {
+      out.push({ n: n, size: [1, 2, 12, 13].indexOf(n) >= 0 ? 'middle' : ([11, 19].indexOf(n) >= 0 ? 'big' : 'small'), board: 1, lock: n });
+    }
+    return out;
+  },
+};
+function lkIsAg() { return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'ag_admin'); }
+function lkErrText(r) {
+  var e = r && r.error;
+  if (!e) return '';
+  if (typeof e === 'string') return e;
+  return (LANG === 'is' ? e.message : (e.messageEn || e.message)) || '';
+}
+function lkVal(id) { var el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; }
+
+async function renderLockerDetails(code) {
+  var r = null;
+  try { r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/locker'); } catch (e) { r = null; }
+  if (code !== _mdDeviceCode) return;                       // another machine was opened meanwhile
+  if (!r || !r.ok || !r.data) { showToast(t('lk.load.fail') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return; }
+  _lkRecord = r.data; _lkEditBoxes = null;
+  lockerFillForm();
+  lockerPreview();
+  renderLockerBoxes();
+}
+
+function lockerFillForm() {
+  var info = (_lkRecord && _lkRecord.info) || {};
+  var set = function (id, v) { var el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+  set('lk-name', info.name); set('lk-address', info.address); set('lk-find', info.findNote);
+  set('lk-access', info.accessNote); set('lk-phone', info.helpPhone);
+  set('lk-map', (typeof info.lat === 'number' && typeof info.lng === 'number') ? (info.lat + ', ' + info.lng) : '');
+  var ch = document.getElementById('lk-changed');
+  if (ch) {
+    ch.textContent = (_lkRecord && _lkRecord.updatedAt)
+      ? tv('lk.changed', { when: String(_lkRecord.updatedAt).slice(0, 16).replace('T', ' '), who: _lkRecord.updatedBy || '—' })
+      : '';
+  }
+}
+
+// How many SMS parts a text takes. Any character outside the plain GSM alphabet (þ, ð, í and
+// most other Icelandic letters) switches the whole message to 70 characters, 67 per part when split.
+function lkSmsParts(text) {
+  var gsm = /^[A-Za-z0-9 \r\n@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ!"#¤%&'()*+,\-.\/:;<=>?¡ÄÖÑÜ§¿äöñüà]*$/.test(text);
+  var n = text.length;
+  if (gsm) return n <= 160 ? 1 : Math.ceil(n / 153);
+  return n <= 70 ? 1 : Math.ceil(n / 67);
+}
+
+// The preview follows the form as it is typed, before anything is saved.
+function lockerPreview() {
+  var name = lkVal('lk-name'), address = lkVal('lk-address'), find = lkVal('lk-find'), access = lkVal('lk-access');
+  var cnt = document.getElementById('lk-access-count');
+  if (cnt) cnt.textContent = access.length + ' / 240';
+  var sms = 'Pöntunin þín 58754 er tilbúin í skápnum' + (name ? ' ' + name : '') + '. Kóði: 523213. QR-kóði: sms.agvending.is/p/7K3M9QX2RT5W';
+  var smsEl = document.getElementById('lk-sms');
+  if (smsEl) smsEl.textContent = sms;
+  var parts = lkSmsParts(sms), partsEl = document.getElementById('lk-sms-parts');
+  if (partsEl) partsEl.textContent = parts === 1 ? t('lk.sms.part1') : tv('lk.sms.parts', { n: parts });
+  var page = document.getElementById('lk-page');
+  if (page) {
+    var where = [address, find].filter(Boolean).join(', ');
+    page.innerHTML =
+      '<div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px">SKÁPURINN</div>' +
+      '<div style="font-size:15px;font-weight:700;margin-top:2px">' + rsEsc(name || '—') + '</div>' +
+      (where ? '<div style="color:var(--muted)">' + rsEsc(where) + '</div>' : '') +
+      (access ? '<div style="margin-top:8px">' + rsEsc(access) + '</div>' : '') +
+      ((address || lkVal('lk-map')) ? '<div style="font-weight:700;text-decoration:underline;margin-top:6px">Opna á korti</div>' : '') +
+      (access ? '' : '<div style="font-size:11px;color:var(--muted);margin-top:8px">' + rsEsc(t('lk.page.noNote')) + '</div>');
+  }
+}
+
+async function saveLockerInfo() {
+  var code = _mdDeviceCode;
+  var info = { name: lkVal('lk-name'), address: lkVal('lk-address'), findNote: lkVal('lk-find'),
+               accessNote: lkVal('lk-access'), helpPhone: lkVal('lk-phone') };
+  var map = lkVal('lk-map');
+  if (!map) { info.lat = null; info.lng = null; }
+  else {
+    var m = /^(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)$/.exec(map);
+    if (!m) { showToast(t('lk.err.map')); return; }
+    info.lat = Number(m[1]); info.lng = Number(m[2]);
+  }
+  var btn = document.getElementById('lk-save');
+  if (btn) btn.disabled = true;
+  var r = null;
+  try { r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/locker', { info: info }); } catch (e) { r = null; }
+  if (btn) btn.disabled = false;
+  if (!r || !r.ok) { showToast(lkErrText(r) || t('lk.load.fail')); return; }
+  if (code !== _mdDeviceCode) return;
+  _lkRecord = r.data;
+  lockerFillForm(); lockerPreview();
+  showToast(t('lk.saved'));
+}
+
+function lkSizeLabel(size) { return t('lk.size.' + size); }
+
+function renderLockerBoxes() {
+  var el = document.getElementById('lk-boxes'), actions = document.getElementById('lk-boxes-actions');
+  if (!el || !actions) return;
+  var editing = !!_lkEditBoxes;
+  var boxes = editing ? _lkEditBoxes : ((_lkRecord && _lkRecord.boxes) || []);
+  var counts = { small: 0, middle: 0, big: 0 };
+  boxes.forEach(function (b) { if (counts[b.size] != null) counts[b.size]++; });
+  var cEl = document.getElementById('lk-boxes-counts');
+  if (cEl) cEl.textContent = boxes.length ? tv('lk.boxes.counts', counts) : '';
+
+  var head = '<tr style="text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">' +
+    ['lk.col.door', 'lk.col.size', 'lk.col.board', 'lk.col.lock'].map(function (k) { return '<th style="padding:6px 10px 6px 0;font-weight:500">' + rsEsc(t(k)) + '</th>'; }).join('') + '</tr>';
+  var rows = boxes.map(function (b, i) {
+    if (!editing) {
+      return '<tr style="border-top:1px solid var(--cream-deep)"><td style="padding:6px 10px 6px 0;font-weight:700">' + rsEsc(b.n) + '</td>' +
+        '<td style="padding:6px 10px 6px 0">' + rsEsc(lkSizeLabel(b.size)) + '</td>' +
+        '<td style="padding:6px 10px 6px 0">' + rsEsc(b.board) + '</td><td style="padding:6px 0">' + rsEsc(b.lock) + '</td></tr>';
+    }
+    var num = function (field, label) {
+      return '<input class="fi mono" type="number" min="1" style="width:76px;padding:5px 8px" aria-label="' + rsEsc(t(label)) + ' ' + rsEsc(b.n) +
+        '" value="' + rsEsc(b[field]) + '" onchange="lockerBoxSet(' + i + ',\'' + field + '\',this.value)">';
+    };
+    var sel = '<select class="fi" style="width:auto;padding:5px 8px" aria-label="' + rsEsc(t('lk.col.size')) + ' ' + rsEsc(b.n) + '" onchange="lockerBoxSet(' + i + ',\'size\',this.value)">' +
+      LK_SIZES.map(function (s) { return '<option value="' + s + '"' + (s === b.size ? ' selected' : '') + '>' + rsEsc(lkSizeLabel(s)) + '</option>'; }).join('') + '</select>';
+    return '<tr style="border-top:1px solid var(--cream-deep)"><td style="padding:5px 10px 5px 0">' + num('n', 'lk.col.door') + '</td>' +
+      '<td style="padding:5px 10px 5px 0">' + sel + '</td><td style="padding:5px 10px 5px 0">' + num('board', 'lk.col.board') + '</td>' +
+      '<td style="padding:5px 0">' + num('lock', 'lk.col.lock') + '</td></tr>';
+  }).join('');
+  el.innerHTML = boxes.length
+    ? '<table style="border-collapse:collapse;font-size:13px;min-width:360px">' + head + rows + '</table>'
+    : '<div style="font-size:12.5px;color:var(--muted)">' + rsEsc(t('lk.boxes.none')) + '</div>';
+
+  // Only AG changes the list; the backend refuses anyone else, so nobody else is offered it.
+  var html = '';
+  if (lkIsAg()) {
+    if (!editing) {
+      html += '<button class="btn btn-sm" onclick="lockerBoxesEdit()"><span>' + rsEsc(t('lk.boxes.edit')) + '</span></button>';
+    } else {
+      var preset = LK_PRESETS[String(_mdModel || '').toUpperCase()];
+      html += '<button class="btn btn-sm" onclick="lockerBoxesSave()"><span>' + rsEsc(t('lk.boxes.save')) + '</span></button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="lockerBoxAdd()">' + rsEsc(t('lk.boxes.add')) + '</button>' +
+        (boxes.length ? '<button class="btn btn-ghost btn-sm" onclick="lockerBoxRemoveLast()">' + rsEsc(t('lk.boxes.removeLast')) + '</button>' : '') +
+        (preset ? '<button class="btn btn-ghost btn-sm" onclick="lockerBoxesPreset()">' + rsEsc(tv('lk.boxes.preset', { model: String(_mdModel).toUpperCase() })) + '</button>' : '') +
+        '<button class="btn btn-ghost btn-sm" onclick="lockerBoxesCancel()">' + rsEsc(t('lk.boxes.cancel')) + '</button>';
+    }
+  }
+  actions.innerHTML = html;
+}
+
+function lockerBoxesEdit() {
+  _lkEditBoxes = ((_lkRecord && _lkRecord.boxes) || []).map(function (b) { return { n: b.n, size: b.size, board: b.board, lock: b.lock }; });
+  renderLockerBoxes();
+}
+function lockerBoxesCancel() { _lkEditBoxes = null; renderLockerBoxes(); }
+function lockerBoxSet(i, field, value) {
+  if (!_lkEditBoxes || !_lkEditBoxes[i]) return;
+  _lkEditBoxes[i][field] = field === 'size' ? String(value) : Number(value);
+  if (field === 'size') renderLockerBoxes();                // the counts in the panel header follow
+}
+function lockerBoxAdd() {
+  if (!_lkEditBoxes) return;
+  var next = _lkEditBoxes.reduce(function (mx, b) { return Math.max(mx, Number(b.n) || 0); }, 0) + 1;
+  _lkEditBoxes.push({ n: next, size: 'small', board: 1, lock: next });
+  renderLockerBoxes();
+}
+function lockerBoxRemoveLast() { if (_lkEditBoxes) { _lkEditBoxes.pop(); renderLockerBoxes(); } }
+function lockerBoxesPreset() {
+  var preset = LK_PRESETS[String(_mdModel || '').toUpperCase()];
+  if (preset) { _lkEditBoxes = preset(); renderLockerBoxes(); }
+}
+async function lockerBoxesSave() {
+  var code = _mdDeviceCode;
+  if (!_lkEditBoxes) return;
+  var r = null;
+  try { r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/locker', { boxes: _lkEditBoxes }); } catch (e) { r = null; }
+  if (!r || !r.ok) { showToast(lkErrText(r) || t('lk.load.fail')); return; }   // the list stays open for correction
+  if (code !== _mdDeviceCode) return;
+  _lkRecord = r.data; _lkEditBoxes = null;
+  renderLockerBoxes();
+  showToast(t('lk.boxes.saved'));
 }
 
 // ─── Bay layout + spiral/push configuration ────────────────────────────────────
@@ -13366,8 +13684,10 @@ const MACHINE_MODELS = [
   ['VM-WM55DL',    'VM-WM55DL \u2014 coil machine (spiral lanes)'],
   ['GR-WM22Z680',  'GR-WM22Z680 \u2014 fridge, single door (16 baskets, cabinet A)'],
   ['GR-WM22Z1260', 'GR-WM22Z1260 \u2014 fridge, double door (32 baskets, cabinets A+B)'],
+  ['LK-AGV19',     'LK-AGV19 \u2014 parcel locker, 19 boxes'],
 ];
 function isFridgeModel(model) { return /^GR-/.test(String(model || '')); }
+function isLockerModel(model) { return /^LK-/i.test(String(model || '')); }
 function machineModelField(current) {
   const cur = String(current || 'VM-WM55DL');
   // Keep an unrecognised current model as an option, so opening the edit form on a machine with an
