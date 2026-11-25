@@ -43,6 +43,7 @@ const planogram = require('./planogram');
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
 const lockerRecords = require('./lockers');
+const parcels = require('./parcels');
 
 // Which app a machine runs, for release lines and version counts. A parcel locker is told by its
 // model family (LK-*, machineModels.js). For everything else the long-standing rule stands
@@ -228,6 +229,22 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/stock-ledger',      handler: handleStockLedger,    middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker',            handler: handleGetLocker,      middleware:[requireAuth, requireMachineAccess] },
   { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/locker',            handler: handleSetLocker,      middleware:[requireAuth, requireMachineAccess] },
+  // Parcels (6.126.0). The dashboard's side:
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/boxes',                 handler: handleLockerBoxes,         middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/boxes/:n/service',      handler: handleLockerBoxService,    middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/parcels',               handler: handleLockerParcels,       middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id',           handler: handleLockerParcel,        middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/collected', handler: handleLockerParcelCollected, middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/clear',     handler: handleLockerParcelClear,   middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrders,        middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrderAdd,      middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders/:id/cancel',     handler: handleLockerOrderCancel,   middleware:[requireAuth, requireMachineAccess] },
+  // ...and the locker's own, with its machine key:
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/lookup',        handler: handleLockerDepositLookup, middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/start',         handler: handleLockerDepositStart,  middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/:id/result',    handler: handleLockerDepositResult, middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup',                handler: handleLockerPickup,        middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup/:id/result',     handler: handleLockerPickupResult,  middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetrySeries, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/app-update',        handler: handleAppUpdate,      middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/revert-report',     handler: handleRevertReport,   middleware:[requireMachineKey] },
@@ -5164,6 +5181,101 @@ function handleSetLocker(req, res) {
   touchConfig(m);
   console.log(`[LOCKER] ${(req.user && req.user.email) || '?'} changed ${m.deviceCode}: ${Object.keys(change).join(' + ')}`);
   ok(res, lockerRecords.lockerRecord(m));
+}
+
+// ── Locker parcels (6.126.0) ───────────────────────────────────────────────────
+// What is in each box. The rules are in src/parcels.js; these only carry requests to it.
+// The dashboard's routes answer { ok, data } or { ok:false, error, code }; the locker's answer
+// the machine contract's { error: { code, message, messageEn } }, so the app can branch on code.
+function parcelAnswer(res, r, data) {
+  if (r && r.ok === false) { const { ok: _ok, status, ...rest } = r; return json(res, status || 400, { ok: false, ...rest }); }
+  ok(res, data === undefined ? r : data);
+}
+const LOCKER_ERRORS_IS = {
+  order_not_found: 'Pöntun fannst ekki.', order_used: 'Þessi pöntun er þegar komin í skáp.',
+  no_free_box: 'Ekkert laust hólf í þessari stærð.', wrong_code: 'Kóðinn fannst ekki.',
+  too_many_attempts: 'Of margar tilraunir. Reyndu aftur eftir nokkrar mínútur.',
+  other_locker: 'Sendingin er í öðrum skáp.', already_collected: 'Sendingin hefur þegar verið sótt.',
+};
+function lockerAppAnswer(res, r) {
+  if (r.ok) { const { ok: _ok, ...data } = r; return ok(res, data); }
+  const { ok: _ok, status, code, error, ...extra } = r;
+  json(res, status || 400, { error: { code, message: LOCKER_ERRORS_IS[code] || error, messageEn: error, ...extra } });
+}
+const lockerWho = (req) => (req.user && req.user.email) || 'operator';
+
+function handleLockerBoxes(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  ok(res, parcels.boxView(m));
+}
+function handleLockerBoxService(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const r = parcels.setBoxService(m, req.params.n, req.body || {}, lockerWho(req));
+  if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} set ${m.deviceCode} box ${req.params.n} ${req.body.outOfService ? 'out of' : 'in'} service`);
+  parcelAnswer(res, r, r.ok ? parcels.boxView(m) : undefined);
+}
+function handleLockerParcels(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  ok(res, { deviceCode: m.deviceCode, parcels: parcels.listParcels(m, { state: req.query.state, limit: req.query.limit }) });
+}
+function handleLockerParcel(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const r = parcels.getParcel(m, req.params.id);
+  parcelAnswer(res, r, r.ok ? { parcel: r.parcel, events: r.events } : undefined);
+}
+function handleLockerParcelCollected(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const r = parcels.markCollected(m, req.params.id, lockerWho(req));
+  if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} marked a parcel collected at ${m.deviceCode} box ${r.parcel.boxN}`);
+  parcelAnswer(res, r, r.ok ? { parcel: r.parcel } : undefined);
+}
+function handleLockerParcelClear(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const r = parcels.clearParcel(m, req.params.id, lockerWho(req), req.body || {});
+  if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} cleared ${m.deviceCode} box ${r.parcel.boxN}`);
+  parcelAnswer(res, r, r.ok ? { parcel: r.parcel } : undefined);
+}
+// Orders belong to the locker's operator; the machine in the path decides which operator that is.
+function handleLockerOrders(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  ok(res, { orders: parcels.listOrders(m.operatorId, { status: req.query.status, limit: req.query.limit }) });
+}
+function handleLockerOrderAdd(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const b = req.body || {};
+  const r = parcels.registerOrder(m.operatorId, { orderNumber: b.orderNumber, phone: b.phone, firstName: b.firstName, source: 'manual' });
+  parcelAnswer(res, r, r.ok ? { order: r.order, created: r.created, unchanged: !!r.unchanged } : undefined);
+}
+function handleLockerOrderCancel(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const r = parcels.cancelOrder(m.operatorId, req.params.id);
+  parcelAnswer(res, r, r.ok ? { order: r.order } : undefined);
+}
+
+function lockerAppMachine(req, res) {
+  const m = machines[req.params.deviceCode];
+  if (!m || !machineModels.isLockerModel(m.model)) { contractError(res, 400, 'not_a_locker', 'Þessi vél er ekki afhendingarskápur.', 'This machine is not a parcel locker.'); return null; }
+  return m;
+}
+function handleLockerDepositLookup(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  lockerAppAnswer(res, parcels.lookupForDeposit(m, (req.body || {}).orderNumber));
+}
+function handleLockerDepositStart(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  lockerAppAnswer(res, parcels.startDeposit(m, req.body || {}));
+}
+function handleLockerDepositResult(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  lockerAppAnswer(res, parcels.finishDeposit(m, req.params.id, req.body || {}));
+}
+function handleLockerPickup(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  lockerAppAnswer(res, parcels.startPickup(m, req.body || {}));
+}
+function handleLockerPickupResult(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  lockerAppAnswer(res, parcels.finishPickup(m, req.params.id, req.body || {}));
 }
 
 function handleGetKioskLogs(req, res) {

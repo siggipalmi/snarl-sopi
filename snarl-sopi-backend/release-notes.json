@@ -40,6 +40,20 @@
  },
  {
   "component": "backend",
+  "version": "6.126.0",
+  "date": "2026-11-25",
+  "title": "Parcel lockers: the backend now keeps track of what is in each box",
+  "notes": [
+   "A locker's operator can report an order that is coming to a locker (order number, phone, first name). A deposit starts only from a reported order, and each order once.",
+   "A deposit gets the lowest free box of the size asked for. When the locker reports the door closed, the parcel is stored and gets a six-digit pickup code and a link token, neither derived from the order number.",
+   "Pickup by code or by scanning the link; five wrong codes in five minutes at one locker and codes are refused for five minutes. A link scanned at the wrong locker is answered with the right locker's name and address.",
+   "For the operator: every box with what is in it (order number, first name, phone, hours stored), mark a parcel collected, clear a box, take a box out of service, and a history of every step per parcel.",
+   "No SMS is sent yet and the dashboard has no box view yet: both read from this and come next. Nothing changes for fridges or coil machines."
+  ],
+  "check": "Nothing to see in the dashboard yet. The routes are under /api/v1/machines/<locker>/locker/ (boxes, parcels, orders)."
+ },
+ {
+  "component": "backend",
   "version": "6.125.0",
   "date": "2026-11-25",
   "title": "A parcel locker can be added to the fleet and its details entered in the dashboard.",
