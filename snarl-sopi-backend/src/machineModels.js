@@ -25,6 +25,8 @@ const KNOWN = {
   'GR-WM22Z680':  { kind: 'fridge', app: 'fridge', is: 'Snjallkælir — einfaldur', en: 'Smart fridge — single cabinet' },
   'GR-WM22Z1260': { kind: 'fridge', app: 'fridge', is: 'Snjallkælir — tvöfaldur', en: 'Smart fridge — double cabinet' },
   'VM-WM55DL':    { kind: 'coil',   app: 'coil',   is: 'Sjálfsali 55"',           en: 'Vending machine 55"' },
+  // Lockers are built to AG Vending's order, so the code is ours: AGV + the number of boxes.
+  'LK-AGV19':     { kind: 'locker', app: 'locker', is: 'Afhendingarskápur — 19 hólf', en: 'Parcel locker — 19 boxes' },
 };
 
 // A model we have not catalogued but whose family is unmistakable still gets
@@ -34,8 +36,8 @@ const KNOWN = {
 const FAMILY = [
   { test: /^GR-/i, kind: 'fridge', app: 'fridge' },
   { test: /^VM-/i, kind: 'coil',   app: 'coil' },
-  // Parcel lockers (6.123.0). No model is catalogued yet: the family alone gives a
-  // locker its own app line, so it is never offered the coil or fridge APK.
+  // Parcel lockers (6.123.0). The family alone gives a locker its own app line, so a
+  // model not yet catalogued is still never offered the coil or fridge APK.
   { test: /^LK-/i, kind: 'locker', app: 'locker' },
 ];
 
