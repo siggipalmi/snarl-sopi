@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.124.0",
+  "date": "2026-11-25",
+  "title": "A parcel locker has a record: what customers are told about it, and its boxes.",
+  "notes": [
+   "Each locker now holds its own name, address, where to find it on site, an optional access note (an after-hours door code, for example), a help phone number and an optional map position. The SMS and the pickup page will read these, so nothing about a site is written into the code.",
+   "A locker also holds its list of boxes: the number on each door, its size (small, middle or big) and which lock opens it.",
+   "Operators can change the customer-facing details of their own lockers. Only AG can change the box list, because a wrong list sends a customer to the wrong door.",
+   "There is no dashboard form yet: the record is read and written through GET and PUT /api/v1/machines/:deviceCode/locker. No locker is in the fleet, so nothing changes for machines in service."
+  ],
+  "check": "Nothing to see on the dashboard yet. Fleet and machine pages should read exactly as before."
+ },
+ {
+  "component": "backend",
   "version": "6.123.0",
   "date": "2026-11-25",
   "title": "The backend knows a parcel locker from a vending machine.",
