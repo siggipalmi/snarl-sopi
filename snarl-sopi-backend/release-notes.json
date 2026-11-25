@@ -40,6 +40,20 @@
  },
  {
   "component": "backend",
+  "version": "6.125.0",
+  "date": "2026-11-25",
+  "title": "A parcel locker can be added to the fleet and its details entered in the dashboard.",
+  "notes": [
+   "Add machine now offers the model LK-AGV19 (parcel locker, 19 boxes).",
+   "A locker's machine page has a Locker details tab in place of the planogram and kiosk tabs. It holds what customers are told: name, address, where to find it, an optional access note (an after-hours door code, for example), a help phone number and a map position. A preview beside the form shows the SMS with its number of parts, and the locker's box on the pickup page, as you type.",
+   "The same tab lists the locker's boxes with their sizes and locks. Operators see the list; only AG can change it, and the 19-box layout can be filled in with one button.",
+   "The Weimi sync leaves lockers alone: a locker's code is never sent to Weimi, for status, products or orders.",
+   "A locker that has been added but has no app reporting yet is listed on Mondays in the morning report as never seen online, like any other machine not yet set up."
+  ],
+  "check": "Machines → add machine → model LK-AGV19. Open it: the tabs should read Overview, Locker details, Activity, Controls, Notifications. Fill in the details and save; as AG, edit box list → fill in the LK-AGV19 layout → save, and the header should read 13 small · 4 middle · 2 big. A fridge or coil machine's page should look exactly as before."
+ },
+ {
+  "component": "backend",
   "version": "6.124.1",
   "date": "2026-11-25",
   "title": "The 19-box parcel locker has a model code: LK-AGV19.",
