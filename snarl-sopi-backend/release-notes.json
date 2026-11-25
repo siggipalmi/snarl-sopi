@@ -40,6 +40,17 @@
  },
  {
   "component": "backend",
+  "version": "6.124.1",
+  "date": "2026-11-25",
+  "title": "The 19-box parcel locker has a model code: LK-AGV19.",
+  "notes": [
+   "The lockers are built to AG Vending's order, so the model code is our own: LK-AGV, then the number of boxes. LK-AGV19 is now in the model catalogue as \"Afhendingarskápur — 19 hólf\" / \"Parcel locker — 19 boxes\".",
+   "Any other LK- model is still recognised as a locker; it only shows without a catalogue name until it is added."
+  ],
+  "check": "Nothing changes on the dashboard: no machine carries this model yet."
+ },
+ {
+  "component": "backend",
   "version": "6.124.0",
   "date": "2026-11-25",
   "title": "A parcel locker has a record: what customers are told about it, and its boxes.",
