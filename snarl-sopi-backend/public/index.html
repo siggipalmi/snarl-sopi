@@ -1230,6 +1230,15 @@ select.fi{cursor:pointer;}
             <div id="lk-boxes-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"></div>
           </div>
         </div>
+        <div class="panel" id="lk-sender-panel" style="margin-bottom:16px;display:none">
+          <div class="ph"><div class="ph-title" data-i18n="lk.sender.title">SMS sender.</div></div>
+          <div style="padding:14px 18px 18px">
+            <div class="field" style="max-width:460px"><label class="fl" for="lk-sender" style="display:block" data-i18n="lk.sender">Twilio Messaging Service</label>
+              <input class="fi mono" id="lk-sender" maxlength="34" placeholder="MG…" autocomplete="off">
+              <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.45" data-i18n="lk.sender.hint">The service this locker's messages go out through; it decides the sender name customers see. Without it no SMS is sent. Only AG Vending sees and sets this.</div></div>
+            <button class="btn btn-sm" onclick="saveLockerSender()"><span data-i18n="lk.sender.save">save sender</span></button>
+          </div>
+        </div>
       </div>
 
       <!-- ── OVERVIEW ── -->
@@ -2674,6 +2683,35 @@ const I18N = {
     'bx.ev.cancelled':'Box freed',
     'bx.ev.code_shown':'Pickup code shown',
     'bx.ev.used_link':'Link scanned again after pickup',
+    'lk.sender.title':'SMS sender.',
+    'lk.sender':'Twilio Messaging Service',
+    'lk.sender.save':'save sender',
+    'lk.sender.hint':'The service this locker’s messages go out through; it decides the sender name customers see. Without it no SMS is sent. Only AG Vending sees and sets this.',
+    'bx.f.sms':'SMS',
+    'bx.sms.none':'none sent yet',
+    'bx.sms.queued':'Handed to Twilio',
+    'bx.sms.accepted':'Handed to Twilio',
+    'bx.sms.scheduled':'Handed to Twilio',
+    'bx.sms.sending':'Being sent',
+    'bx.sms.sent':'Sent, no delivery report yet',
+    'bx.sms.delivered':'Delivered to the phone',
+    'bx.sms.undelivered':'NOT delivered',
+    'bx.sms.failed':'FAILED',
+    'bx.sms.error':'Twilio error {code}',
+    'bx.sms.k.first':'first message',
+    'bx.sms.k.reminder':'reminder',
+    'bx.sms.k.resend':'sent again',
+    'bx.a.sms':'send the SMS again',
+    'bx.a.sms.help':'Same code and link, to the same number.',
+    'bx.q.sms':'Send the SMS for order {order} again, to the number ending {tail}?',
+    'bx.sms.asked':'Handed to Twilio. The delivery report appears in the history.',
+    'bx.ev.sms_accepted':'SMS handed to Twilio',
+    'bx.ev.sms_sending':'SMS being sent',
+    'bx.ev.sms_sent':'Twilio: SMS sent to the network',
+    'bx.ev.sms_delivered':'Twilio: SMS delivered to the phone',
+    'bx.ev.sms_undelivered':'Twilio: SMS NOT delivered',
+    'bx.ev.sms_failed':'Twilio: SMS failed',
+    'bx.ev.sms_not_sent':'SMS not sent',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3055,6 +3093,35 @@ const I18N = {
     'bx.ev.cancelled':'Hólf losað',
     'bx.ev.code_shown':'Afhendingarkóði sýndur',
     'bx.ev.used_link':'Hlekkur skannaður aftur eftir afhendingu',
+    'lk.sender.title':'SMS-sendandi.',
+    'lk.sender':'Twilio Messaging Service',
+    'lk.sender.save':'vista sendanda',
+    'lk.sender.hint':'Þjónustan sem skilaboð þessa skáps fara í gegnum; hún ræður nafni sendanda sem viðskiptavinir sjá. Án hennar er ekkert SMS sent. Aðeins AG Vending sér þetta og stillir.',
+    'bx.f.sms':'SMS',
+    'bx.sms.none':'ekkert sent enn',
+    'bx.sms.queued':'Afhent Twilio',
+    'bx.sms.accepted':'Afhent Twilio',
+    'bx.sms.scheduled':'Afhent Twilio',
+    'bx.sms.sending':'Í sendingu',
+    'bx.sms.sent':'Sent, afhending óstaðfest',
+    'bx.sms.delivered':'Komið í símann',
+    'bx.sms.undelivered':'KOMST EKKI til skila',
+    'bx.sms.failed':'MISTÓKST',
+    'bx.sms.error':'Twilio-villa {code}',
+    'bx.sms.k.first':'fyrstu skilaboð',
+    'bx.sms.k.reminder':'áminning',
+    'bx.sms.k.resend':'sent aftur',
+    'bx.a.sms':'senda SMS aftur',
+    'bx.a.sms.help':'Sami kóði og hlekkur, í sama númer.',
+    'bx.q.sms':'Senda SMS fyrir pöntun {order} aftur, í númerið sem endar á {tail}?',
+    'bx.sms.asked':'Afhent Twilio. Staðfesting á afhendingu birtist í sögunni.',
+    'bx.ev.sms_accepted':'SMS afhent Twilio',
+    'bx.ev.sms_sending':'SMS í sendingu',
+    'bx.ev.sms_sent':'Twilio: SMS sent út á símkerfið',
+    'bx.ev.sms_delivered':'Twilio: SMS komið í símann',
+    'bx.ev.sms_undelivered':'Twilio: SMS komst EKKI til skila',
+    'bx.ev.sms_failed':'Twilio: SMS mistókst',
+    'bx.ev.sms_not_sent':'SMS ekki sent',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -8444,6 +8511,7 @@ function bxRenderDetail() {
       row('bx.f.customer', rsEsc([p.firstName, p.phoneTail ? tv('bx.f.phone', { tail: p.phoneTail }) : ''].filter(Boolean).join(' · ') || '—')) +
       (b.state === 'occupied'
         ? row('bx.f.putin', rsEsc(bxWhen(p.storedAt) + ' (' + bxAge(p) + ')')) +
+          row('bx.f.sms', rsEsc(bxSmsText(p))) +
           row('bx.f.code', shown
             ? '<span class="mono" style="font-weight:700;letter-spacing:2px">' + rsEsc(shown.slice(0, 3) + ' ' + shown.slice(3)) + '</span>'
             : '<span style="letter-spacing:2px">••• •••</span> <button class="btn btn-sm btn-ghost" style="margin-left:8px" onclick="bxShowCode()"><span>' + rsEsc(t('bx.code.show')) + '</span></button>')
@@ -8455,6 +8523,7 @@ function bxRenderDetail() {
       h += act(t('bx.a.collected'), 'bxMarkCollected()', rsEsc(t('bx.a.collected.help')), true);
       h += act(t('bx.a.clear'), 'bxClear()', rsEsc(t('bx.a.clear.help')) +
         '<label style="display:flex;gap:7px;align-items:center;margin-top:6px;color:var(--ink,#111111);font-weight:600"><input type="checkbox" id="bx-again"> ' + rsEsc(t('bx.a.again')) + '</label>');
+      h += act(t('bx.a.sms'), 'bxResend()', rsEsc(t('bx.a.sms.help')));
     } else {
       h += '<div style="font-size:12.5px;line-height:1.5;margin-top:12px">' + rsEsc(t('bx.opening.note')) + '</div>' + act(t('bx.a.free'), 'bxClear()', '', true);
     }
@@ -8472,7 +8541,8 @@ function bxRenderDetail() {
         var key = 'bx.ev.' + e.type, label = t(key);
         if (label === key) label = e.type;
         var who = e.actor && e.actor.indexOf('@') > 0 ? ' · ' + e.actor : '';
-        var why = (e.type === 'cleared' || e.type === 'deposit_cancelled') && e.detail ? ' (' + e.detail + ')' : '';
+        var why = (e.type === 'cleared' || e.type === 'deposit_cancelled' || e.type.indexOf('sms_') === 0) && e.detail ? ' (' + bxSmsDetail(e.detail) + ')' : '';
+        if (e.type === 'reminder_attempted') return '';
         return '<span style="color:var(--muted);white-space:nowrap">' + rsEsc(bxWhen(e.at)) + '</span><span>' + rsEsc(label + why + who) + '</span>';
       }).join('') + '</div>';
   }
@@ -8484,6 +8554,22 @@ async function bxPost(tail, body) {
   try { r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/locker/' + tail, body || {}); } catch (e) { r = null; }
   if (!r || !r.ok) { showToast(t('bx.failed') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return null; }
   return code === _mdDeviceCode ? r : null;
+}
+// The last message about a parcel, in words: what Twilio last said happened to it.
+function bxSmsText(p) {
+  var m = p.sms;
+  if (!m) return t('bx.sms.none');
+  var key = 'bx.sms.' + m.status, label = t(key);
+  if (label === key) label = t('bx.sms.queued');
+  return label + ' · ' + bxWhen(m.updatedAt) + (m.kind === 'reminder' ? ' · ' + t('bx.sms.k.reminder') : '') + (m.errorCode ? ' · ' + tv('bx.sms.error', { code: m.errorCode }) : '');
+}
+function bxSmsDetail(detail) {
+  return String(detail).replace(/^first\b/, t('bx.sms.k.first')).replace(/^reminder\b/, t('bx.sms.k.reminder')).replace(/^resend\b/, t('bx.sms.k.resend'));
+}
+async function bxResend() {
+  var b = bxBox(_bxSel); if (!b || !b.parcel) return;
+  if (!confirm(tv('bx.q.sms', { order: b.parcel.orderNumber, tail: b.parcel.phoneTail }))) return;
+  if (await bxPost('parcels/' + encodeURIComponent(b.parcel.id) + '/sms')) { showToast(t('bx.sms.asked')); renderLockerBoxView(_mdDeviceCode, true); }
 }
 async function bxShowCode() {
   var b = bxBox(_bxSel); if (!b || !b.parcel) return;
@@ -8545,6 +8631,18 @@ async function renderLockerDetails(code) {
   lockerFillForm();
   lockerPreview();
   renderLockerBoxes();
+  var sp = document.getElementById('lk-sender-panel'), se = document.getElementById('lk-sender');
+  if (sp) sp.style.display = lkIsAg() ? '' : 'none';
+  if (se) se.value = (_lkRecord.sms && _lkRecord.sms.messagingServiceSid) || '';
+}
+
+async function saveLockerSender() {
+  var code = _mdDeviceCode, r = null;
+  try { r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/locker', { sms: { messagingServiceSid: lkVal('lk-sender') } }); } catch (e) { r = null; }
+  if (!r || !r.ok) { showToast(lkErrText(r) || t('lk.load.fail')); return; }
+  if (code !== _mdDeviceCode) return;
+  _lkRecord = r.data;
+  showToast(t('lk.saved'));
 }
 
 function lockerFillForm() {

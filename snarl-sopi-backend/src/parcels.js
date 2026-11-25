@@ -72,6 +72,17 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_locker_events_device ON locker_events(deviceCode, at);
   CREATE INDEX IF NOT EXISTS idx_locker_events_parcel ON locker_events(parcelId);
+  CREATE TABLE IF NOT EXISTS locker_sms (
+    sid        TEXT PRIMARY KEY,
+    parcelId   TEXT NOT NULL,
+    deviceCode TEXT NOT NULL,
+    kind       TEXT NOT NULL,
+    status     TEXT NOT NULL,
+    errorCode  TEXT,
+    createdAt  TEXT NOT NULL,
+    updatedAt  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_locker_sms_parcel ON locker_sms(parcelId, createdAt);
   CREATE TABLE IF NOT EXISTS locker_box_state (
     deviceCode   TEXT NOT NULL,
     boxN         INTEGER NOT NULL,
@@ -114,6 +125,13 @@ const q = {
   eventsOfParcel: db.prepare('SELECT type, actor, detail, boxN, at FROM locker_events WHERE parcelId = ? ORDER BY id'),
   wrongCodesSince: db.prepare(`SELECT COUNT(*) AS c FROM locker_events WHERE deviceCode = ? AND type = 'wrong_code' AND at >= ?`),
 
+  insertSms: db.prepare('INSERT OR IGNORE INTO locker_sms (sid, parcelId, deviceCode, kind, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+  smsBySid: db.prepare('SELECT * FROM locker_sms WHERE sid = ?'),
+  updateSms: db.prepare('UPDATE locker_sms SET status = ?, errorCode = ?, updatedAt = ? WHERE sid = ?'),
+  lastSms: db.prepare('SELECT kind, status, errorCode, createdAt, updatedAt FROM locker_sms WHERE parcelId = ? ORDER BY createdAt DESC, rowid DESC LIMIT 1'),
+  setNotified: db.prepare('UPDATE locker_parcels SET notifiedAt = COALESCE(notifiedAt, ?) WHERE id = ?'),
+  needReminder: db.prepare(`SELECT id FROM locker_parcels p WHERE state = 'stored' AND storedAt < ?
+                            AND NOT EXISTS (SELECT 1 FROM locker_events e WHERE e.parcelId = p.id AND e.type = 'reminder_attempted')`),
   boxStates: db.prepare('SELECT * FROM locker_box_state WHERE deviceCode = ?'),
   setBoxState: db.prepare(`INSERT INTO locker_box_state (deviceCode, boxN, outOfService, reason, by, at) VALUES (?, ?, ?, ?, ?, ?)
                            ON CONFLICT(deviceCode, boxN) DO UPDATE SET outOfService = excluded.outOfService, reason = excluded.reason, by = excluded.by, at = excluded.at`),
@@ -209,7 +227,7 @@ function parcelView(p, now) {
   return {
     id: p.id, deviceCode: p.deviceCode, boxN: p.boxN, orderNumber: p.orderNumber, firstName: p.firstName, phoneTail: p.phone ? p.phone.slice(-4) : '',
     state: p.state, createdAt: p.createdAt, storedAt: p.storedAt, endedAt: p.endedAt, endedBy: p.endedBy, endReason: p.endReason,
-    notifiedAt: p.notifiedAt,
+    notifiedAt: p.notifiedAt, sms: q.lastSms.get(p.id) || null,
     hoursStored: p.state === 'stored' && p.storedAt ? Math.floor((now - Date.parse(p.storedAt)) / 3600000) : null,
   };
 }
@@ -487,6 +505,55 @@ function setBoxService(machine, boxN, input, who, now = Date.now()) {
   return { ok: true };
 }
 
+// ── Messages ──────────────────────────────────────────────────────────────────────────────────
+// The sending is in src/lockerSms.js. What is kept here is the record: each message Twilio
+// accepted, and every delivery report Twilio sends about it, in the parcel's history.
+
+const SMS_RANK = { queued: 1, accepted: 1, scheduled: 1, sending: 2, sent: 3, delivered: 4, undelivered: 4, failed: 4 };
+
+/** Everything needed to write a parcel's message. Never leaves the backend. */
+function smsFacts(parcelId) {
+  const p = q.parcelById.get(String(parcelId));
+  return p ? { id: p.id, deviceCode: p.deviceCode, boxN: p.boxN, state: p.state, orderNumber: p.orderNumber, phone: p.phone,
+               code: p.code, token: p.token, lastSms: q.lastSms.get(p.id) || null } : null;
+}
+function noteEvent(parcelId, type, actor, detail, now = Date.now()) {
+  const p = q.parcelById.get(String(parcelId));
+  if (p) event(p.deviceCode, p.id, p.boxN, type, actor, detail, now);
+}
+/** Twilio took the message: it has a SID, and its delivery reports will name it. */
+function smsAccepted(parcelId, sid, kind, status, actor, now = Date.now()) {
+  const p = q.parcelById.get(String(parcelId));
+  if (!p) return;
+  q.insertSms.run(String(sid), p.id, p.deviceCode, kind, String(status || 'queued'), iso(now), iso(now));
+  q.setNotified.run(iso(now), p.id);
+  event(p.deviceCode, p.id, p.boxN, 'sms_accepted', actor || 'backend', kind, now);
+}
+/**
+ * A delivery report from Twilio. Reports can arrive out of order, so a message never goes back
+ * from a later state to an earlier one; each new state is one line in the parcel's history.
+ */
+function smsReport(sid, status, errorCode, now = Date.now()) {
+  const m = q.smsBySid.get(String(sid));
+  if (!m) return { ok: false, unknown: true };
+  const st = String(status || '').toLowerCase();
+  if (!SMS_RANK[st]) return { ok: true, ignored: true };
+  if (st === m.status || SMS_RANK[st] < (SMS_RANK[m.status] || 0)) return { ok: true, ignored: true };
+  q.updateSms.run(st, errorCode ? String(errorCode).slice(0, 12) : null, iso(now), m.sid);
+  const p = q.parcelById.get(m.parcelId);
+  if (p) event(p.deviceCode, p.id, p.boxN, 'sms_' + st, 'twilio', m.kind + (errorCode ? ', error ' + String(errorCode).slice(0, 12) : ''), now);
+  return { ok: true, parcelId: m.parcelId, status: st };
+}
+/** Stored parcels older than `hours` for which no reminder has been attempted. */
+function parcelsNeedingReminder(hours, now = Date.now()) {
+  return q.needReminder.all(iso(now - hours * 3600000)).map(r => r.id);
+}
+/** For the pickup page: the parcel behind a link token, with its locker. */
+function byToken(token) {
+  const p = token ? q.byToken.get(String(token).toLowerCase()) : null;
+  return p ? { state: p.state, orderNumber: p.orderNumber, code: p.code, token: p.token, deviceCode: p.deviceCode } : null;
+}
+
 // ── Forgetting ────────────────────────────────────────────────────────────────────────────────
 
 const KEEP_PERSONAL_DAYS = 30;
@@ -523,6 +590,7 @@ setInterval(forgetTick, 24 * 3600 * 1000).unref();
 
 module.exports = {
   KEEP_PERSONAL_DAYS, forgetOldPersonalData, revealCode,
+  smsFacts, noteEvent, smsAccepted, smsReport, parcelsNeedingReminder, byToken,
   WRONG_CODE_LIMIT, WRONG_CODE_WINDOW_MS,
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels,

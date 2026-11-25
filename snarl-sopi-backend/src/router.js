@@ -44,6 +44,7 @@ const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
 const lockerRecords = require('./lockers');
 const parcels = require('./parcels');
+const lockerSms = require('./lockerSms');
 
 // Which app a machine runs, for release lines and version counts. A parcel locker is told by its
 // model family (LK-*, machineModels.js). For everything else the long-standing rule stands
@@ -237,6 +238,11 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/collected', handler: handleLockerParcelCollected, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/clear',     handler: handleLockerParcelClear,   middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/code',      handler: handleLockerParcelCode,    middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/sms',       handler: handleLockerParcelSms,     middleware:[requireAuth, requireMachineAccess] },
+  // Twilio's delivery reports (authenticated by Twilio's signature) and the page an SMS links to
+  // (the link's token is the only key; it is served on sms.agvending.is).
+  { method:'POST', pattern:lockerSms.CALLBACK_PATH,                                     handler: handleLockerSmsStatus,     middleware:[] },
+  { method:'GET',  pattern:'/p/:token',                                                 handler: handleLockerPickupPage,    middleware:[] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrders,        middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrderAdd,      middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders/:id/cancel',     handler: handleLockerOrderCancel,   middleware:[requireAuth, requireMachineAccess] },
@@ -5164,7 +5170,7 @@ function handleSetLocker(req, res) {
   const m = lockerMachineOr404(req, res);
   if (!m) return;
   const body = req.body || {};
-  if (body.info === undefined && body.boxes === undefined) return badRequest(res, 'Send info, boxes or both.');
+  if (body.info === undefined && body.boxes === undefined && body.sms === undefined) return badRequest(res, 'Send info, boxes or sms.');
   const change = {};
   if (body.info !== undefined) {
     const r = lockerRecords.normalizeInfo(body.info);
@@ -5176,6 +5182,13 @@ function handleSetLocker(req, res) {
     const r = lockerRecords.normalizeBoxes(body.boxes);
     if (!r.ok) return badRequest(res, r.error);
     change.boxes = r.value;
+  }
+  if (body.sms !== undefined) {
+    // The sender decides whose name customers see on the message: AG sets it.
+    if (req.user.role !== 'ag_admin') return json(res, 403, { ok: false, error: 'Only AG Vending can change a locker\'s SMS sender.' });
+    const r = lockerRecords.normalizeSms(body.sms);
+    if (!r.ok) return badRequest(res, r.error);
+    change.sms = r.value;
   }
   m.settings = m.settings || {};
   m.settings.locker = lockerRecords.applyChange(m, change, (req.user && req.user.email) || null, new Date().toISOString());
@@ -5276,8 +5289,45 @@ function handleLockerDepositStart(req, res) {
 }
 function handleLockerDepositResult(req, res) {
   const m = lockerAppMachine(req, res); if (!m) return;
-  lockerAppAnswer(res, parcels.finishDeposit(m, req.params.id, req.body || {}));
+  const r = parcels.finishDeposit(m, req.params.id, req.body || {});
+  lockerAppAnswer(res, r);
+  // The door closed on the parcel: tell the customer. The locker is not kept waiting for Twilio.
+  if (r.ok && r.state === 'stored' && !r.repeated) {
+    lockerSms.send(m, r.parcelId, 'first', 'backend')
+      .then(x => { if (!x.ok) console.warn(`[LOCKER] ${m.deviceCode}: first SMS not sent (${x.code})`); })
+      .catch(e => console.error('[LOCKER] first SMS failed:', e.message));
+  }
 }
+
+// POST …/locker/parcels/:id/sms — an operator asks for the customer's message again.
+function handleLockerParcelSms(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  lockerSms.resend(m, req.params.id, lockerWho(req))
+    .then(r => { if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} sent the SMS again for a parcel at ${m.deviceCode}`); parcelAnswer(res, r, r.ok ? { status: r.status } : undefined); })
+    .catch(e => json(res, 500, { ok: false, error: e.message }));
+}
+
+// Twilio posts a form here each time a message changes state. Unsigned or wrongly signed: 403.
+function handleLockerSmsStatus(req, res) {
+  const r = lockerSms.handleReport(req.rawBody, req.headers['x-twilio-signature']);
+  res.writeHead(r.status); res.end();
+}
+
+function handleLockerPickupPage(req, res) {
+  lockerSms.pickupPage(req.params.token, code => machines[code])
+    .then(page => {
+      res.writeHead(page.status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex, nofollow' });
+      res.end(page.html);
+    })
+    .catch(e => { console.error('[LOCKER] pickup page failed:', e.message); res.writeHead(500); res.end(); });
+}
+
+// One reminder per parcel that has waited 48 hours, looked for once an hour.
+setInterval(() => {
+  lockerSms.remindWaiting(code => machines[code])
+    .then(r => { if (r.sent || r.failed) console.log(`[LOCKER] reminders: ${r.sent} sent, ${r.failed} not sent`); })
+    .catch(e => console.error('[LOCKER] reminders failed:', e.message));
+}, 60 * 60 * 1000).unref();
 function handleLockerPickup(req, res) {
   const m = lockerAppMachine(req, res); if (!m) return;
   lockerAppAnswer(res, parcels.startPickup(m, req.body || {}));
