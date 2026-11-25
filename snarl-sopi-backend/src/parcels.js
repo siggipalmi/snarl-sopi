@@ -203,11 +203,11 @@ function wiring(machine, boxN) {
   return b ? { n: b.n, size: b.size, board: b.board, lock: b.lock } : { n: boxN, size: null, board: null, lock: null };
 }
 
-/** A parcel as the dashboard shows it. The pickup code is not part of it. */
+/** A parcel as the dashboard shows it: the last four digits of the phone, and no pickup code. */
 function parcelView(p, now) {
   if (!p) return null;
   return {
-    id: p.id, deviceCode: p.deviceCode, boxN: p.boxN, orderNumber: p.orderNumber, firstName: p.firstName, phone: p.phone,
+    id: p.id, deviceCode: p.deviceCode, boxN: p.boxN, orderNumber: p.orderNumber, firstName: p.firstName, phoneTail: p.phone ? p.phone.slice(-4) : '',
     state: p.state, createdAt: p.createdAt, storedAt: p.storedAt, endedAt: p.endedAt, endedBy: p.endedBy, endReason: p.endReason,
     notifiedAt: p.notifiedAt,
     hoursStored: p.state === 'stored' && p.storedAt ? Math.floor((now - Date.parse(p.storedAt)) / 3600000) : null,
@@ -241,13 +241,25 @@ function boxView(machine, now = Date.now()) {
   });
   // Parcels in a box number the box list no longer has: never hidden.
   const unplaced = [...byBox.values()].map(p => parcelView(p, now));
-  return { deviceCode: machine.deviceCode, boxes, counts, unplaced };
+  return { deviceCode: machine.deviceCode, model: machine.model || '', boxes, counts, unplaced };
 }
 
 function getParcel(machine, parcelId, now = Date.now()) {
   const p = q.parcelById.get(String(parcelId));
   if (!p || p.deviceCode !== machine.deviceCode) return fail(404, 'parcel_not_found', 'No such parcel at this locker.');
   return { ok: true, parcel: parcelView(p, now), events: q.eventsOfParcel.all(p.id) };
+}
+
+/**
+ * The pickup code of a stored parcel, for an operator helping a customer at the locker. Asking
+ * is written to the parcel's history with who asked.
+ */
+function revealCode(machine, parcelId, who, now = Date.now()) {
+  const p = q.parcelById.get(String(parcelId));
+  if (!p || p.deviceCode !== machine.deviceCode) return fail(404, 'parcel_not_found', 'No such parcel at this locker.');
+  if (p.state !== 'stored') return fail(409, 'wrong_state', `This parcel is ${p.state}; it has no working code.`);
+  event(machine.deviceCode, p.id, p.boxN, 'code_shown', who || 'operator', null, now);
+  return { ok: true, code: p.code };
 }
 
 function listParcels(machine, { state, limit } = {}, now = Date.now()) {
@@ -475,7 +487,42 @@ function setBoxService(machine, boxN, input, who, now = Date.now()) {
   return { ok: true };
 }
 
+// ── Forgetting ────────────────────────────────────────────────────────────────────────────────
+
+const KEEP_PERSONAL_DAYS = 30;
+const DROP_EXPECTED_DAYS = 90;
+const forget = {
+  stale: db.prepare(`UPDATE locker_orders SET status = 'cancelled', phone = '', firstName = '', updatedAt = ?
+                     WHERE status = 'expected' AND updatedAt < ?
+                       AND NOT EXISTS (SELECT 1 FROM locker_parcels p WHERE p.orderId = locker_orders.id AND p.state IN ('opening','stored'))`),
+  parcels: db.prepare(`UPDATE locker_parcels SET phone = '', firstName = '', code = NULL, token = NULL
+                       WHERE state NOT IN ('opening','stored') AND endedAt < ? AND (phone <> '' OR firstName <> '' OR code IS NOT NULL OR token IS NOT NULL)`),
+  orders: db.prepare(`UPDATE locker_orders SET phone = '', firstName = ''
+                      WHERE status <> 'expected' AND updatedAt < ? AND (phone <> '' OR firstName <> '')
+                        AND NOT EXISTS (SELECT 1 FROM locker_parcels p WHERE p.orderId = locker_orders.id AND p.state IN ('opening','stored'))`),
+};
+/**
+ * Thirty days after a parcel has left its box, the customer's phone number and first name are
+ * blanked on it and on its order, and its code and token dropped. The order number, the box
+ * and the times stay, so the history still reads. A parcel still in a box is never touched.
+ * An order reported and never brought to a locker is withdrawn and blanked after ninety days.
+ */
+function forgetOldPersonalData(now = Date.now()) {
+  const before = iso(now - KEEP_PERSONAL_DAYS * 86400000);
+  const stale = forget.stale.run(iso(now), iso(now - DROP_EXPECTED_DAYS * 86400000)).changes;
+  return { parcels: forget.parcels.run(before).changes, orders: forget.orders.run(before).changes, stale };
+}
+function forgetTick() {
+  try {
+    const r = forgetOldPersonalData();
+    if (r.parcels || r.orders || r.stale) console.log(`[LOCKER] personal data blanked on ${r.parcels} parcel(s) and ${r.orders} order(s); ${r.stale} stale order(s) withdrawn`);
+  } catch (e) { console.error('[LOCKER] forgetting failed:', e.message); }
+}
+setTimeout(forgetTick, 60 * 1000).unref();
+setInterval(forgetTick, 24 * 3600 * 1000).unref();
+
 module.exports = {
+  KEEP_PERSONAL_DAYS, forgetOldPersonalData, revealCode,
   WRONG_CODE_LIMIT, WRONG_CODE_WINDOW_MS,
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels,

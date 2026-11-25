@@ -1138,11 +1138,36 @@ select.fi{cursor:pointer;}
       <div class="tabs" id="md-tabbar" style="margin:14px 0 16px;justify-content:space-between">
         <div class="tab active" data-mdtab="overview" onclick="showMdTab('overview',this)" data-i18n="md.tab.overview">Overview</div>
         <div class="tab" data-mdtab="layout" onclick="showMdTab('layout',this)" id="md-tab-layout" data-i18n="md.tab.planogram">Planogram</div>
+        <div class="tab" data-mdtab="boxes" onclick="showMdTab('boxes',this)" id="md-tab-boxes" style="display:none" data-i18n="md.tab.boxes">Boxes</div>
         <div class="tab" data-mdtab="locker" onclick="showMdTab('locker',this)" id="md-tab-locker" style="display:none" data-i18n="md.tab.locker">Locker details</div>
         <div class="tab" data-mdtab="kiosk" onclick="openKioskDesigner(_mdDeviceCode)" id="md-tab-kiosk" style="display:none" data-i18n="md.tab.kiosk">Kiosk</div>
         <div class="tab" data-mdtab="activity" onclick="showMdTab('activity',this)" data-i18n="md.tab.activity">Activity</div>
         <div class="tab" data-mdtab="controls" onclick="showMdTab('controls',this)" data-i18n="md.tab.controls">Controls</div>
         <div class="tab" data-mdtab="notifications" onclick="showMdTab('notifications',this)" data-i18n="md.tab.notifications">Notifications</div>
+      </div>
+
+      <!-- ── BOXES (parcel lockers only): what is in each box, drawn as the cabinet stands ── -->
+      <div class="md-tabpanel" data-panel="boxes" style="display:none">
+        <div id="bx-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:16px">
+          <div class="panel" style="flex:999 1 480px;min-width:0">
+            <div class="ph"><div class="ph-title" data-i18n="bx.title">the locker, as it stands.</div>
+              <div class="ph-action" onclick="renderLockerBoxView(_mdDeviceCode)" data-i18n="bx.refresh">refresh</div></div>
+            <div style="padding:14px 18px 18px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+                <div id="bx-legend" style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;font-weight:600"></div>
+                <div><label class="fl" for="bx-search" style="display:block" data-i18n="bx.search">find an order, name or phone ending</label>
+                  <input class="fi" id="bx-search" type="search" style="width:220px;max-width:100%" oninput="bxRenderCabinet()"></div>
+              </div>
+              <div id="bx-cabinet"></div>
+              <div id="bx-unplaced" style="margin-top:10px"></div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.45" data-i18n="bx.hint">Drawn as the cabinet stands. Select a door to see its parcel.</div>
+            </div>
+          </div>
+          <div class="panel" style="flex:1 1 320px;min-width:0">
+            <div id="bx-detail" style="padding:16px 18px 18px"></div>
+          </div>
+        </div>
       </div>
 
       <!-- ── LOCKER DETAILS (parcel lockers only, model LK-*) ── -->
@@ -2586,6 +2611,69 @@ const I18N = {
     'lk.sms.title':'the SMS.','lk.sms.parts':'{n} SMS parts','lk.sms.part1':'1 SMS part',
     'lk.sms.hint':'A sample with an invented order, code and link. Icelandic letters make each SMS part 67 characters.',
     'lk.page.title':'on the pickup page.','lk.page.noNote':'No access note is set, so the page shows none.',
+    'md.tab.boxes':'Boxes',
+    'bx.title':'the locker, as it stands.',
+    'bx.refresh':'refresh',
+    'bx.search':'find an order, name or phone ending',
+    'bx.hint':'Drawn as the cabinet stands. Select a door to see its parcel.',
+    'bx.load.fail':'Could not load the boxes',
+    'bx.none':'This locker has no boxes yet. AG Vending sets them under Locker details.',
+    'bx.stat.occupied':'occupied',
+    'bx.stat.free':'free: {small} small, {middle} middle, {big} big',
+    'bx.stat.late':'waiting more than 48 hours',
+    'bx.stat.out':'out of service',
+    'bx.lg.occupied':'Occupied',
+    'bx.lg.free':'Free',
+    'bx.lg.late':'Waiting over 48 hours',
+    'bx.lg.out':'Out of service',
+    'bx.lg.opening':'Being filled',
+    'bx.t.free':'Free',
+    'bx.t.out':'Out of service',
+    'bx.t.opening':'being filled',
+    'bx.t.screen':'Screen and scanner',
+    'bx.today':'today',
+    'bx.days':'{n} d',
+    'bx.box':'Box {n}',
+    'bx.pick':'Select a door to see what is in it.',
+    'bx.f.order':'Order',
+    'bx.f.customer':'Customer',
+    'bx.f.phone':'phone ends {tail}',
+    'bx.f.putin':'Put in',
+    'bx.f.code':'Pickup code',
+    'bx.f.started':'Started',
+    'bx.code.show':'show',
+    'bx.code.note':'Showing the code is written to the history below.',
+    'bx.late':'Waiting more than 48 hours',
+    'bx.opening.note':'A deposit was started here and the locker has not said the door closed. If the box is empty, free it.',
+    'bx.out.note':'Out of service since {when}{reason}. Skipped for new parcels.',
+    'bx.a.collected':'mark as picked up',
+    'bx.a.collected.help':'The customer has the parcel but the locker did not register it. Frees the box and cancels the code.',
+    'bx.a.clear':'clear box',
+    'bx.a.clear.help':'You are taking the parcel back. Frees the box and cancels the customer’s code. It does not open the door.',
+    'bx.a.again':'the order may be put in a locker again',
+    'bx.a.free':'free the box',
+    'bx.a.out':'take box out of service',
+    'bx.a.out.help':'For a broken door or lock. The box is skipped for new parcels until you put it back. A parcel already in it can still be collected.',
+    'bx.a.in':'put box back in service',
+    'bx.q.collected':'Mark order {order} in box {n} as picked up?\n\nThe box becomes free and the customer’s code stops working.',
+    'bx.q.clear':'Clear box {n} (order {order})?\n\nThe box becomes free and the customer’s code stops working. Take the parcel out yourself.',
+    'bx.q.free':'Free box {n}?\n\nOnly if nothing was left in it.',
+    'bx.q.out':'Why is box {n} out of service? (shown here, not to customers)',
+    'bx.done':'Done',
+    'bx.failed':'That did not work',
+    'bx.history':'history of this parcel',
+    'bx.unplaced':'Parcels in a box number this locker no longer lists:',
+    'bx.ev.deposit_started':'Order scanned at the locker, box opened',
+    'bx.ev.deposit_resumed':'Order scanned again, same box reopened',
+    'bx.ev.deposit_cancelled':'Deposit given up',
+    'bx.ev.stored':'Door closed, parcel stored',
+    'bx.ev.pickup_started':'Code accepted, door opening',
+    'bx.ev.door_did_not_open':'The door did not open',
+    'bx.ev.collected':'Picked up',
+    'bx.ev.cleared':'Box cleared',
+    'bx.ev.cancelled':'Box freed',
+    'bx.ev.code_shown':'Pickup code shown',
+    'bx.ev.used_link':'Link scanned again after pickup',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -2904,6 +2992,69 @@ const I18N = {
     'lk.sms.title':'SMS-ið.','lk.sms.parts':'{n} SMS-hlutar','lk.sms.part1':'1 SMS-hluti',
     'lk.sms.hint':'Sýnishorn með tilbúinni pöntun, kóða og hlekk. Íslenskir stafir gera hvern SMS-hluta 67 stafi.',
     'lk.page.title':'á afhendingarsíðunni.','lk.page.noNote':'Engar aðgangsleiðbeiningar eru skráðar, svo síðan sýnir engar.',
+    'md.tab.boxes':'Hólf',
+    'bx.title':'skápurinn eins og hann stendur.',
+    'bx.refresh':'uppfæra',
+    'bx.search':'finna pöntun, nafn eða endi símanúmers',
+    'bx.hint':'Teiknað eins og skápurinn stendur. Veldu hurð til að sjá sendinguna.',
+    'bx.load.fail':'Ekki tókst að sækja hólfin',
+    'bx.none':'Þessi skápur hefur engin hólf enn. AG Vending setur þau undir Upplýsingar um skáp.',
+    'bx.stat.occupied':'í notkun',
+    'bx.stat.free':'laus: {small} lítil, {middle} miðstærð, {big} stór',
+    'bx.stat.late':'beðið lengur en 48 klst.',
+    'bx.stat.out':'ekki í notkun',
+    'bx.lg.occupied':'Í notkun',
+    'bx.lg.free':'Laust',
+    'bx.lg.late':'Beðið yfir 48 klst.',
+    'bx.lg.out':'Ekki í notkun',
+    'bx.lg.opening':'Verið að setja í',
+    'bx.t.free':'Laust',
+    'bx.t.out':'Ekki í notkun',
+    'bx.t.opening':'verið að setja í',
+    'bx.t.screen':'Skjár og skanni',
+    'bx.today':'í dag',
+    'bx.days':'{n} d.',
+    'bx.box':'Hólf {n}',
+    'bx.pick':'Veldu hurð til að sjá hvað er í hólfinu.',
+    'bx.f.order':'Pöntun',
+    'bx.f.customer':'Viðskiptavinur',
+    'bx.f.phone':'sími endar á {tail}',
+    'bx.f.putin':'Sett í',
+    'bx.f.code':'Afhendingarkóði',
+    'bx.f.started':'Hófst',
+    'bx.code.show':'sýna',
+    'bx.code.note':'Þegar kóðinn er sýndur er það skráð í söguna hér að neðan.',
+    'bx.late':'Beðið lengur en 48 klst.',
+    'bx.opening.note':'Byrjað var að setja í þetta hólf en skápurinn hefur ekki staðfest að hurðin hafi lokast. Ef hólfið er tómt, losaðu það.',
+    'bx.out.note':'Ekki í notkun síðan {when}{reason}. Sleppt fyrir nýjar sendingar.',
+    'bx.a.collected':'merkja sem sótt',
+    'bx.a.collected.help':'Viðskiptavinurinn er með sendinguna en skápurinn skráði það ekki. Losar hólfið og ógildir kóðann.',
+    'bx.a.clear':'tæma hólf',
+    'bx.a.clear.help':'Þú tekur sendinguna til baka. Losar hólfið og ógildir kóða viðskiptavinarins. Opnar ekki hurðina.',
+    'bx.a.again':'pöntunina má setja aftur í skáp',
+    'bx.a.free':'losa hólfið',
+    'bx.a.out':'taka hólf úr notkun',
+    'bx.a.out.help':'Fyrir bilaða hurð eða lás. Hólfinu er sleppt fyrir nýjar sendingar þar til þú setur það aftur í notkun. Sendingu sem er þegar í því er enn hægt að sækja.',
+    'bx.a.in':'setja hólf aftur í notkun',
+    'bx.q.collected':'Merkja pöntun {order} í hólfi {n} sem sótta?\n\nHólfið losnar og kóði viðskiptavinarins hættir að virka.',
+    'bx.q.clear':'Tæma hólf {n} (pöntun {order})?\n\nHólfið losnar og kóði viðskiptavinarins hættir að virka. Þú tekur sendinguna sjálf(ur) úr hólfinu.',
+    'bx.q.free':'Losa hólf {n}?\n\nAðeins ef ekkert var skilið eftir í því.',
+    'bx.q.out':'Hvers vegna er hólf {n} ekki í notkun? (sést hér, ekki hjá viðskiptavinum)',
+    'bx.done':'Lokið',
+    'bx.failed':'Þetta tókst ekki',
+    'bx.history':'saga þessarar sendingar',
+    'bx.unplaced':'Sendingar í hólfanúmeri sem skápurinn hefur ekki lengur:',
+    'bx.ev.deposit_started':'Pöntun skönnuð við skápinn, hólf opnað',
+    'bx.ev.deposit_resumed':'Pöntun skönnuð aftur, sama hólf opnað',
+    'bx.ev.deposit_cancelled':'Hætt við að setja í',
+    'bx.ev.stored':'Hurð lokað, sending geymd',
+    'bx.ev.pickup_started':'Kóði samþykktur, hurð opnast',
+    'bx.ev.door_did_not_open':'Hurðin opnaðist ekki',
+    'bx.ev.collected':'Sótt',
+    'bx.ev.cleared':'Hólf tæmt',
+    'bx.ev.cancelled':'Hólf losað',
+    'bx.ev.code_shown':'Afhendingarkóði sýndur',
+    'bx.ev.used_link':'Hlekkur skannaður aftur eftir afhendingu',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -7966,6 +8117,9 @@ function showMdTab(name, el) {
   if (name === 'notifications' && _mdDeviceCode) {
     try { renderNotifications(_mdDeviceCode); } catch (e) { /* non-fatal */ }
   }
+  if (name === 'boxes' && _mdDeviceCode) {
+    try { renderLockerBoxView(_mdDeviceCode); } catch (e) { /* non-fatal */ }
+  }
   if (name === 'locker' && _mdDeviceCode) {
     try { renderLockerDetails(_mdDeviceCode); } catch (e) { /* non-fatal */ }
   }
@@ -8117,6 +8271,8 @@ function renderMachineLayoutOrFridge(code, machine) {
   const isLocker = isLockerModel(machine && machine.model);
   const lockerTab = document.getElementById('md-tab-locker');
   if (lockerTab) lockerTab.style.display = isLocker ? '' : 'none';
+  const boxesTab = document.getElementById('md-tab-boxes');
+  if (boxesTab) boxesTab.style.display = isLocker ? '' : 'none';
   const layoutTab = document.getElementById('md-tab-layout');
   if (layoutTab) layoutTab.style.display = isLocker ? 'none' : '';
   if (isLocker) {
@@ -8141,6 +8297,218 @@ function renderMachineLayoutOrFridge(code, machine) {
     _mdLedgerAisle = null;
     loadStockLedger(code);
   }
+}
+
+// ─── Parcel lockers: the Boxes tab ─────────────────────────────────────────────
+// What is in each box, drawn as the cabinet stands (GET /machines/:code/locker/boxes), and what
+// an operator may do about it. The rules are the backend's; this shows and asks.
+var _bxView = null;      // the box view as last read
+var _bxSel = null;       // the selected door number
+var _bxEvents = null;    // { parcelId, events } for the selected door's parcel
+var _bxCode = null;      // { parcelId, code } once an operator asked to see it
+var BX_LATE_HOURS = 48;
+var BX_COL = { occupied: '#F05A3C', free: '#CDEBD8', late: '#111111', out: '#E2DED7', opening: '#FFC72C', screen: '#2C3A68' };
+// How the doors sit on the front, by model: columns of [door, height in units]; door 0 is the
+// screen. A model not listed is drawn as two columns in door order, sized by box size.
+var BX_LAYOUTS = {
+  'LK-AGV19': [
+    [[1, 2], [2, 2], [3, 1], [4, 1], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [10, 1], [11, 3]],
+    [[12, 2], [13, 2], [0, 2.5], [14, 1], [15, 1], [16, 1], [17, 1], [18, 1], [19, 3.5]],
+  ],
+};
+function bxLayout(view) {
+  var boxes = view.boxes || [], preset = BX_LAYOUTS[view.model];
+  var have = {}; boxes.forEach(function (b) { have[b.n] = true; });
+  if (preset) {
+    var drawn = {}, ok = true;
+    preset.forEach(function (col) { col.forEach(function (c) { if (c[0]) { drawn[c[0]] = true; if (!have[c[0]]) ok = false; } }); });
+    if (ok && boxes.every(function (b) { return drawn[b.n]; })) return preset;
+  }
+  var units = { small: 1, middle: 2, big: 3 }, half = Math.ceil(boxes.length / 2);
+  var cols = [boxes.slice(0, half), boxes.slice(half)].filter(function (c) { return c.length; });
+  return cols.map(function (c) { return c.map(function (b) { return [b.n, units[b.size] || 1]; }); });
+}
+function bxWhen(isoStr) {
+  if (!isoStr) return '';
+  try { return new Date(isoStr).toLocaleString(LANG === 'is' ? 'is-IS' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  catch (e) { return String(isoStr).slice(0, 16).replace('T', ' '); }
+}
+function bxAge(p) {
+  var d = Math.floor((p.hoursStored || 0) / 24);
+  return d < 1 ? t('bx.today') : tv('bx.days', { n: d });
+}
+function bxIsLate(p) { return !!p && p.state === 'stored' && (p.hoursStored || 0) >= BX_LATE_HOURS; }
+function bxBox(n) { return ((_bxView && _bxView.boxes) || []).find(function (b) { return b.n === n; }) || null; }
+
+async function renderLockerBoxView(code, keep) {
+  var r = null;
+  try { r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/locker/boxes'); } catch (e) { r = null; }
+  if (code !== _mdDeviceCode) return;
+  if (!r || !r.ok || !r.data) { showToast(t('bx.load.fail') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return; }
+  var same = _bxView && _bxView.deviceCode === r.data.deviceCode;
+  _bxView = r.data;
+  if (!same || !keep || !bxBox(_bxSel)) { if (!same || !bxBox(_bxSel)) _bxSel = null; }
+  _bxEvents = null; _bxCode = null;
+  bxRenderStats(); bxRenderCabinet(); bxRenderDetail();
+  bxLoadEvents();
+}
+
+function bxRenderStats() {
+  var el = document.getElementById('bx-stats'); if (!el || !_bxView) return;
+  var boxes = _bxView.boxes || [], free = { small: 0, middle: 0, big: 0 }, late = 0;
+  boxes.forEach(function (b) { if (b.state === 'vacant' && free[b.size] != null) free[b.size]++; if (bxIsLate(b.parcel)) late++; });
+  var c = _bxView.counts || {};
+  var tile = function (n, label) {
+    return '<div class="panel" style="flex:1 1 150px;padding:14px 18px"><div style="font-size:28px;line-height:32px;font-weight:700">' + rsEsc(n) +
+      '</div><div style="font-size:12px;color:var(--muted)">' + rsEsc(label) + '</div></div>';
+  };
+  el.innerHTML = tile((c.occupied || 0) + (c.opening || 0), t('bx.stat.occupied')) + tile(c.vacant || 0, tv('bx.stat.free', free)) +
+    tile(late, t('bx.stat.late')) + tile(boxes.filter(function (b) { return b.outOfService; }).length, t('bx.stat.out'));
+  var lg = document.getElementById('bx-legend');
+  if (lg) lg.innerHTML = [['occupied', 'bx.lg.occupied'], ['free', 'bx.lg.free'], ['late', 'bx.lg.late'], ['opening', 'bx.lg.opening'], ['out', 'bx.lg.out']].map(function (x) {
+    return '<span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;display:block;background:' + BX_COL[x[0]] + '"></span>' + rsEsc(t(x[1])) + '</span>';
+  }).join('');
+}
+
+function bxRenderCabinet() {
+  var el = document.getElementById('bx-cabinet'); if (!el || !_bxView) return;
+  var boxes = _bxView.boxes || [];
+  if (!boxes.length) { el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">' + rsEsc(t('bx.none')) + '</div>'; return; }
+  var qEl = document.getElementById('bx-search'), q = qEl ? String(qEl.value || '').trim().toLowerCase() : '';
+  var base = 'border:0;font-family:inherit;text-align:left;min-height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;cursor:pointer;width:100%;box-sizing:border-box;';
+  var cell = function (c) {
+    var n = c[0], flex = 'flex:' + c[1] + ' 1 0;';
+    if (!n) return '<div style="' + base + flex + 'cursor:default;background:' + BX_COL.screen + ';color:#FFFFFF;font-size:12.5px;font-weight:600">' + rsEsc(t('bx.t.screen')) + '</div>';
+    var b = bxBox(n); if (!b) return '';
+    var p = b.parcel, text, bg, fg, badge = '', label;
+    if (p && b.state === 'occupied') {
+      text = p.orderNumber + (p.firstName ? ' · ' + p.firstName : ''); bg = BX_COL.occupied; fg = '#111111';
+      var late = bxIsLate(p);
+      badge = '<span style="font-size:11px;font-weight:700;padding:2px 6px;white-space:nowrap;' + (late ? 'background:#111111;color:#FFFFFF' : 'background:#FFFFFF;color:#111111') + '">' + rsEsc(bxAge(p)) + '</span>';
+      label = t('bx.lg.occupied') + ', ' + text + ', ' + bxAge(p);
+    } else if (p) {
+      text = p.orderNumber + ' · ' + t('bx.t.opening'); bg = BX_COL.opening; fg = '#111111'; label = text;
+    } else if (b.state === 'out_of_service') { text = t('bx.t.out'); bg = BX_COL.out; fg = '#555555'; label = text; }
+    else { text = t('bx.t.free'); bg = BX_COL.free; fg = '#0E5C2C'; label = text; }
+    var hit = !q || (p && [p.orderNumber, p.firstName, p.phoneTail].some(function (v) { return String(v || '').toLowerCase().indexOf(q) >= 0; }));
+    var ring = n === _bxSel ? 'outline:4px solid #FFC72C;outline-offset:-4px;' : '';
+    return '<button type="button" onclick="bxSelect(' + n + ')" aria-pressed="' + (n === _bxSel) + '" aria-label="' + rsEsc(tv('bx.box', { n: n }) + ', ' + label) +
+      '" style="' + base + flex + ring + 'background:' + bg + ';color:' + fg + ';opacity:' + (hit ? 1 : 0.3) + '">' +
+      '<span style="font-size:14px;font-weight:800;min-width:20px">' + n + '</span>' +
+      '<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:600">' + rsEsc(text) + '</span>' + badge + '</button>';
+  };
+  var cols = bxLayout(_bxView);
+  var units = Math.max.apply(null, cols.map(function (col) { return col.reduce(function (a, c) { return a + c[1]; }, 0); }));
+  el.innerHTML = '<div style="display:flex;gap:8px;background:#111111;padding:8px;box-sizing:border-box;height:' + Math.round(Math.max(units, 6) * 46) + 'px">' +
+    cols.map(function (col) { return '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">' + col.map(cell).join('') + '</div>'; }).join('') + '</div>';
+  var un = document.getElementById('bx-unplaced');
+  if (un) un.innerHTML = (_bxView.unplaced || []).length
+    ? '<div style="font-size:12.5px;font-weight:600">' + rsEsc(t('bx.unplaced')) + ' ' + _bxView.unplaced.map(function (p) { return rsEsc(tv('bx.box', { n: p.boxN }) + ': ' + p.orderNumber); }).join(', ') + '</div>' : '';
+}
+
+function bxSelect(n) {
+  _bxSel = n; _bxEvents = null; _bxCode = null;
+  bxRenderCabinet(); bxRenderDetail(); bxLoadEvents();
+}
+
+async function bxLoadEvents() {
+  var b = bxBox(_bxSel), code = _mdDeviceCode;
+  if (!b || !b.parcel) return;
+  var id = b.parcel.id, r = null;
+  try { r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/locker/parcels/' + encodeURIComponent(id)); } catch (e) { r = null; }
+  var now = bxBox(_bxSel);
+  if (code !== _mdDeviceCode || !now || !now.parcel || now.parcel.id !== id || !r || !r.ok) return;
+  _bxEvents = { parcelId: id, events: (r.data && r.data.events) || [] };
+  bxRenderDetail();
+}
+
+function bxRenderDetail() {
+  var el = document.getElementById('bx-detail'); if (!el) return;
+  var b = bxBox(_bxSel);
+  if (!b) { el.innerHTML = '<div style="font-size:13px;color:var(--muted)">' + rsEsc(t('bx.pick')) + '</div>'; return; }
+  var p = b.parcel, late = bxIsLate(p);
+  var chipKey = p ? (b.state === 'occupied' ? 'bx.lg.occupied' : 'bx.lg.opening') : (b.state === 'out_of_service' ? 'bx.lg.out' : 'bx.lg.free');
+  var chipBg = p ? (b.state === 'occupied' ? BX_COL.occupied : BX_COL.opening) : (b.state === 'out_of_service' ? BX_COL.out : BX_COL.free);
+  var h = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px">' +
+    '<div style="font-size:19px;font-weight:700">' + rsEsc(tv('bx.box', { n: b.n })) + '</div>' +
+    '<span style="font-size:12px;font-weight:700;padding:3px 8px;color:#111111;background:' + chipBg + '">' + rsEsc(t(chipKey) + ' · ' + lkSizeLabel(b.size).toLowerCase()) + '</span></div>';
+  var row = function (k, v) { return '<span style="color:var(--muted)">' + rsEsc(t(k)) + '</span><span style="font-weight:600;min-width:0">' + v + '</span>'; };
+  var act = function (label, fn, help, primary) {
+    return '<div style="margin-top:10px"><button class="btn' + (primary ? '' : ' btn-ghost') + '" style="width:100%;text-align:left" onclick="' + fn + '"><span>' + rsEsc(label) + '</span></button>' +
+      (help ? '<div style="font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:4px">' + help + '</div>' : '') + '</div>';
+  };
+  if (p) {
+    var shown = _bxCode && _bxCode.parcelId === p.id ? _bxCode.code : null;
+    h += '<div style="display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13px;line-height:1.45">' +
+      row('bx.f.order', rsEsc(p.orderNumber)) +
+      row('bx.f.customer', rsEsc([p.firstName, p.phoneTail ? tv('bx.f.phone', { tail: p.phoneTail }) : ''].filter(Boolean).join(' · ') || '—')) +
+      (b.state === 'occupied'
+        ? row('bx.f.putin', rsEsc(bxWhen(p.storedAt) + ' (' + bxAge(p) + ')')) +
+          row('bx.f.code', shown
+            ? '<span class="mono" style="font-weight:700;letter-spacing:2px">' + rsEsc(shown.slice(0, 3) + ' ' + shown.slice(3)) + '</span>'
+            : '<span style="letter-spacing:2px">••• •••</span> <button class="btn btn-sm btn-ghost" style="margin-left:8px" onclick="bxShowCode()"><span>' + rsEsc(t('bx.code.show')) + '</span></button>')
+        : row('bx.f.started', rsEsc(bxWhen(p.createdAt)))) +
+      '</div>';
+    if (b.state === 'occupied' && !shown) h += '<div style="font-size:11px;color:var(--muted);margin-top:6px">' + rsEsc(t('bx.code.note')) + '</div>';
+    if (late) h += '<div style="background:#111111;color:#FFFFFF;padding:9px 12px;font-size:13px;font-weight:600;margin-top:12px">' + rsEsc(t('bx.late')) + '</div>';
+    if (b.state === 'occupied') {
+      h += act(t('bx.a.collected'), 'bxMarkCollected()', rsEsc(t('bx.a.collected.help')), true);
+      h += act(t('bx.a.clear'), 'bxClear()', rsEsc(t('bx.a.clear.help')) +
+        '<label style="display:flex;gap:7px;align-items:center;margin-top:6px;color:var(--ink,#111111);font-weight:600"><input type="checkbox" id="bx-again"> ' + rsEsc(t('bx.a.again')) + '</label>');
+    } else {
+      h += '<div style="font-size:12.5px;line-height:1.5;margin-top:12px">' + rsEsc(t('bx.opening.note')) + '</div>' + act(t('bx.a.free'), 'bxClear()', '', true);
+    }
+  }
+  if (b.outOfService) {
+    h += '<div style="font-size:12.5px;line-height:1.5;margin-top:12px">' + rsEsc(tv('bx.out.note', { when: bxWhen(b.outOfService.at), reason: b.outOfService.reason ? ': ' + b.outOfService.reason : '' })) + '</div>' +
+      act(t('bx.a.in'), 'bxService(false)', '');
+  } else {
+    h += act(t('bx.a.out'), 'bxService(true)', rsEsc(t('bx.a.out.help')));
+  }
+  if (p && _bxEvents && _bxEvents.parcelId === p.id && _bxEvents.events.length) {
+    h += '<div style="font-size:12.5px;font-weight:700;margin:16px 0 6px">' + rsEsc(t('bx.history')) + '</div>' +
+      '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;line-height:1.5">' +
+      _bxEvents.events.slice().reverse().map(function (e) {
+        var key = 'bx.ev.' + e.type, label = t(key);
+        if (label === key) label = e.type;
+        var who = e.actor && e.actor.indexOf('@') > 0 ? ' · ' + e.actor : '';
+        var why = (e.type === 'cleared' || e.type === 'deposit_cancelled') && e.detail ? ' (' + e.detail + ')' : '';
+        return '<span style="color:var(--muted);white-space:nowrap">' + rsEsc(bxWhen(e.at)) + '</span><span>' + rsEsc(label + why + who) + '</span>';
+      }).join('') + '</div>';
+  }
+  el.innerHTML = h;
+}
+
+async function bxPost(tail, body) {
+  var code = _mdDeviceCode, r = null;
+  try { r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/locker/' + tail, body || {}); } catch (e) { r = null; }
+  if (!r || !r.ok) { showToast(t('bx.failed') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return null; }
+  return code === _mdDeviceCode ? r : null;
+}
+async function bxShowCode() {
+  var b = bxBox(_bxSel); if (!b || !b.parcel) return;
+  var id = b.parcel.id, r = await bxPost('parcels/' + encodeURIComponent(id) + '/code');
+  if (!r || !r.data) return;
+  _bxCode = { parcelId: id, code: String(r.data.code || '') };
+  bxRenderDetail(); bxLoadEvents();
+}
+async function bxMarkCollected() {
+  var b = bxBox(_bxSel); if (!b || !b.parcel) return;
+  if (!confirm(tv('bx.q.collected', { order: b.parcel.orderNumber, n: b.n }))) return;
+  if (await bxPost('parcels/' + encodeURIComponent(b.parcel.id) + '/collected')) { showToast(t('bx.done')); renderLockerBoxView(_mdDeviceCode, true); }
+}
+async function bxClear() {
+  var b = bxBox(_bxSel); if (!b || !b.parcel) return;
+  var stored = b.state === 'occupied';
+  if (!confirm(tv(stored ? 'bx.q.clear' : 'bx.q.free', { order: b.parcel.orderNumber, n: b.n }))) return;
+  var again = document.getElementById('bx-again');
+  if (await bxPost('parcels/' + encodeURIComponent(b.parcel.id) + '/clear', { again: !!(again && again.checked) })) { showToast(t('bx.done')); renderLockerBoxView(_mdDeviceCode, true); }
+}
+async function bxService(out) {
+  var b = bxBox(_bxSel); if (!b) return;
+  var reason = '';
+  if (out) { reason = prompt(tv('bx.q.out', { n: b.n }), ''); if (reason === null) return; }
+  if (await bxPost('boxes/' + b.n + '/service', { outOfService: !!out, reason: reason })) { showToast(t('bx.done')); renderLockerBoxView(_mdDeviceCode, true); }
 }
 
 // ─── Parcel lockers: the Locker details tab ────────────────────────────────────

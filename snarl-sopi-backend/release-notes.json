@@ -40,6 +40,20 @@
  },
  {
   "component": "backend",
+  "version": "6.127.0",
+  "date": "2026-11-25",
+  "title": "Parcel lockers: a Boxes tab that shows the cabinet door by door",
+  "notes": [
+   "A locker's machine page has a Boxes tab: the cabinet drawn as it stands, each door red when occupied (order number, first name, days waiting), green when free, grey when out of service, and black-badged past 48 hours. Search by order number, name or the last digits of a phone number.",
+   "Select a door to see its parcel and its history, and to mark it picked up, clear the box, or take the box out of service and put it back.",
+   "The pickup code is hidden until someone asks to see it, and each showing is written to the parcel's history with who asked. Only the last four digits of the customer's phone number are shown.",
+   "Thirty days after a parcel has left its box, the customer's phone number and first name are blanked on it and its order. An order reported and never brought to a locker is withdrawn after ninety days.",
+   "Not there yet: opening a door from the dashboard (needs the locker app) and SMS. Nothing changes for fridges or coil machines."
+  ],
+  "check": "Open a locker's machine page: the Boxes tab should draw every door from the box list under Locker details, all green until a parcel is stored."
+ },
+ {
+  "component": "backend",
   "version": "6.126.0",
   "date": "2026-11-25",
   "title": "Parcel lockers: the backend now keeps track of what is in each box",
