@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.123.0",
+  "date": "2026-11-25",
+  "title": "The backend knows a parcel locker from a vending machine.",
+  "notes": [
+   "A machine whose model starts with LK- is a parcel locker, a third kind beside fridges and coil machines. No locker is in the fleet yet, so nothing changes for the machines in service.",
+   "A locker has its own app release line. Before this, any app other than the fridge app read the coil line, so a locker would have been offered the coil app as its update.",
+   "Fleet health does not look for sales on a locker, so it will not report one as silent.",
+   "Lockers still cannot be published to from the dashboard, and the stock, planogram and Weimi paths have not been taught about them yet: do not add a locker to the fleet until those follow."
+  ],
+  "check": "Fleet and Releases should read exactly as before: same machines on the fridge and coil lines, same versions, no new warnings."
+ },
+ {
+  "component": "backend",
   "version": "6.122.1",
   "date": "2026-11-17",
   "title": "Read weight updates the basket's count on the planogram.",

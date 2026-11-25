@@ -2687,15 +2687,20 @@ const storage = {
   },
 
   // ── OTA app-update (single active release + per-machine version) ───────────
+  // Per-app release line. appKey 'fridge' | 'locker' | 'coil' (default). Legacy single-release
+  // installs stored under 'app_release'; treat that as the coil line so nothing regresses.
+  // 'locker' has to be named here: before 6.123.0 every key but 'fridge' read the coil line,
+  // so a locker asking for its release would have been handed the coil APK.
+  appReleaseMetaKey(appKey) {
+    if (appKey === 'fridge') return 'app_release_fridge';
+    if (appKey === 'locker') return 'app_release_locker';
+    return 'app_release';
+  },
   getAppRelease(appKey) {
-    // Per-app release line. appKey 'fridge' | 'coil' (default). Legacy single-release installs
-    // stored under 'app_release'; treat that as the coil line so nothing regresses.
-    const key = appKey === 'fridge' ? 'app_release_fridge' : 'app_release';
-    try { const raw = this.getMeta(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+    try { const raw = this.getMeta(this.appReleaseMetaKey(appKey)); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
   },
   setAppRelease(rel, appKey) {
-    const key = appKey === 'fridge' ? 'app_release_fridge' : 'app_release';
-    this.setMeta(key, JSON.stringify(rel));
+    this.setMeta(this.appReleaseMetaKey(appKey), JSON.stringify(rel));
   },
 
   // Downloads registry — a simple list of published packages (coil / fridge apps) that the

@@ -14,6 +14,7 @@
  * a model set.
  *
  * Every machine in the fleet is GR-* or VM-*, so nothing in service changes.
+ * LK-* (parcel lockers) is a third family, with its own app line.
  *
  * Geometry (how many cabinets, how many baskets) stays in db.js fridgeSpec().
  * Both read the same GR- prefix, so they agree by construction; this module
@@ -33,6 +34,9 @@ const KNOWN = {
 const FAMILY = [
   { test: /^GR-/i, kind: 'fridge', app: 'fridge' },
   { test: /^VM-/i, kind: 'coil',   app: 'coil' },
+  // Parcel lockers (6.123.0). No model is catalogued yet: the family alone gives a
+  // locker its own app line, so it is never offered the coil or fridge APK.
+  { test: /^LK-/i, kind: 'locker', app: 'locker' },
 ];
 
 const UNKNOWN = Object.freeze({ kind: 'unknown', app: null, known: false, catalogued: false });
@@ -53,4 +57,7 @@ function appLineFor(model) { return modelInfo(model).app; }
 /** True when we cannot say what this machine is. */
 function isUnknownModel(model) { return modelInfo(model).kind === 'unknown'; }
 
-module.exports = { KNOWN, modelInfo, appLineFor, isUnknownModel };
+/** True for a parcel locker: a machine that holds parcels and sells nothing. */
+function isLockerModel(model) { return modelInfo(model).kind === 'locker'; }
+
+module.exports = { KNOWN, modelInfo, appLineFor, isUnknownModel, isLockerModel };
