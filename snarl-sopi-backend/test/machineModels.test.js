@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { modelInfo, appLineFor, isUnknownModel, KNOWN } = require('../src/machineModels');
+const { modelInfo, appLineFor, isUnknownModel, isLockerModel, KNOWN } = require('../src/machineModels');
 
 test('the catalogued models map to their app line', () => {
   assert.equal(appLineFor('GR-WM22Z680'), 'fridge');
@@ -36,6 +36,20 @@ test('"not a fridge" and "unknown" are different answers', () => {
 test('the prefix test ignores case and surrounding space', () => {
   assert.equal(appLineFor('  gr-wm22z680  '), 'fridge');
   assert.equal(appLineFor('vm-wm55dl'), 'coil');
+});
+
+test('a parcel locker is its own kind with its own app line', () => {
+  // No locker model is catalogued yet; the LK- family alone decides.
+  for (const m of ['LK-UPUS24', 'lk-anything', '  LK-1  ']) {
+    assert.equal(appLineFor(m), 'locker', m);
+    assert.equal(modelInfo(m).kind, 'locker', m);
+    assert.equal(isLockerModel(m), true, m);
+    assert.equal(isUnknownModel(m), false, m);
+  }
+  // And nothing in service becomes a locker.
+  for (const m of [...Object.keys(KNOWN), '', null, 'XX-1', 'LOCKER', 'VM-LK-1']) {
+    assert.equal(isLockerModel(m), false, JSON.stringify(m));
+  }
 });
 
 test('an unknown model still gets a label to show in the fleet list', () => {

@@ -42,6 +42,16 @@ const fridgeSale = require('./fridgeSale');
 const planogram = require('./planogram');
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
+
+// Which app a machine runs, for release lines and version counts. A parcel locker is told by its
+// model family (LK-*, machineModels.js). For everything else the long-standing rule stands
+// unchanged: a gravity fridge is 'fridge' and any other machine, a blank model included, counts
+// as 'coil'.
+function appLineOfMachine(m) {
+  const model = (m && m.model) || '';
+  if (machineModels.isLockerModel(model)) return 'locker';
+  return fridgeSpec(model).isFridge ? 'fridge' : 'coil';
+}
 const twoFactor = require('./twoFactor');
 const authAlerts = require('./authAlerts');
 const { createToken, requireAuth, requireAdmin, requireAgAdmin,
@@ -3169,12 +3179,14 @@ function handleFleetHealth(req, res) {
 // Every set-up machine with its issues, worst first. Shared by Fleet → Health and the morning report.
 function computeFleetHealth(now) {
   const alertCounts = storage.openAlertCountsByDevice();
-  const rel = { fridge: storage.getAppRelease('fridge'), coil: storage.getAppRelease('coil') };
+  const rel = { fridge: storage.getAppRelease('fridge'), coil: storage.getAppRelease('coil'), locker: storage.getAppRelease('locker') };
   const list = Object.values(machines)
     .filter(m => m.isOnline || m.kioskVersion || (m.deviceName && m.deviceName !== m.deviceCode))
     .map(m => {
       const isFridge = fridgeSpec(m.model).isFridge;
-      const app = isFridge ? 'fridge' : 'coil';
+      const app = appLineOfMachine(m);
+      // A locker sells nothing, so the checks that read sales do not apply to it.
+      const sells = app !== 'locker';
       const v = storage.getAppVersion(m.deviceCode);
       const rv = storage.getAppRevert(m.deviceCode);
       const vc = (v && v.vc != null) ? v.vc : null;
@@ -3203,7 +3215,7 @@ function computeFleetHealth(now) {
         issues.push({ kind: 'closed', level: 3, label: closure.by === 'ag' ? 'master closed' : 'closed by operator',
                       detail: [closure.since ? 'since ' + String(closure.since).slice(0, 16).replace('T', ' ') : '', closure.note || closure.reason || ''].filter(Boolean).join(' · ') });
       }
-      if (m.isOnline && !closure.closed) {
+      if (m.isOnline && !closure.closed && sells) {
         try {
           const silent = fleetHealth.silenceIssue(storage.saleTimesSince(m.deviceCode, now - 28 * 86400000, isFridge), now);
           if (silent) issues.push(silent);
@@ -3232,7 +3244,8 @@ function computeFleetHealth(now) {
     })
     .sort((a, b) => a.worst - b.worst || (b.issues.length - a.issues.length) || a.name.localeCompare(b.name, 'is'));
   return { machines: list, operators: Object.keys(operators).length,
-           latest: { fridge: rel.fridge ? rel.fridge.targetVersionCode : null, coil: rel.coil ? rel.coil.targetVersionCode : null } };
+           latest: { fridge: rel.fridge ? rel.fridge.targetVersionCode : null, coil: rel.coil ? rel.coil.targetVersionCode : null,
+                     locker: rel.locker ? rel.locker.targetVersionCode : null } };
 }
 
 // POST /machines/:code/self-test — fridge app 0.67.0+, every 15 minutes while idle.
@@ -5419,15 +5432,16 @@ function handleServeApk(req, res) {
 function handleGetAppRelease(req, res) {
   const relCoil = storage.getAppRelease('coil');
   const relFridge = storage.getAppRelease('fridge');
+  const relLocker = storage.getAppRelease('locker');
   const list = Object.values(machines).map(m => {
     const v = storage.getAppVersion(m.deviceCode);
     const rv = storage.getAppRevert(m.deviceCode);
     return { deviceCode: m.deviceCode, deviceName: m.deviceName, operatorId: m.operatorId,
-      app: fridgeSpec(m.model).isFridge ? 'fridge' : 'coil',
+      app: appLineOfMachine(m),
       versionCode: (v && v.vc != null) ? v.vc : null, versionName: (v && v.vn) ? String(v.vn) : null, lastCheck: (v && v.at) ? v.at : null,
       rejectedVersionCode: (rv && rv.rejected != null) ? rv.rejected : null };
   });
-  ok(res, { release: relCoil || null, releaseCoil: relCoil || null, releaseFridge: relFridge || null, machines: list });
+  ok(res, { release: relCoil || null, releaseCoil: relCoil || null, releaseFridge: relFridge || null, releaseLocker: relLocker || null, machines: list });
 }
 
 // GET what's new: the release notes file (one entry per version of coil, fridge and
@@ -5441,10 +5455,10 @@ function handleGetReleaseNotes(req, res) {
   const isAg = req.user.role === 'ag_admin';
   let fleet = Object.values(machines);
   if (!isAg) fleet = fleet.filter(m => m.operatorId === req.user.operatorId);
-  const counts = { coil: {}, fridge: {} };
-  const totals = { coil: 0, fridge: 0 };
+  const counts = { coil: {}, fridge: {}, locker: {} };
+  const totals = { coil: 0, fridge: 0, locker: 0 };
   for (const m of fleet) {
-    const app = fridgeSpec(m.model).isFridge ? 'fridge' : 'coil';
+    const app = appLineOfMachine(m);
     totals[app]++;
     const v = storage.getAppVersion(m.deviceCode);
     if (v && v.vc != null) counts[app][v.vc] = (counts[app][v.vc] || 0) + 1;
@@ -5462,6 +5476,7 @@ function handleGetReleaseNotes(req, res) {
     backendVersion,
     coil:   { release: releaseOf('coil'),   counts: counts.coil,   total: totals.coil },
     fridge: { release: releaseOf('fridge'), counts: counts.fridge, total: totals.fridge },
+    locker: { release: releaseOf('locker'), counts: counts.locker, total: totals.locker },
   } });
 }
 
@@ -6641,7 +6656,7 @@ function livePresence(m) {
       if (!appVer) return null;
       if (appVer.vn) return String(appVer.vn);
       if (appVer.vc == null) return null;
-      const rel = storage.getAppRelease(fridgeSpec(m.model || '').isFridge ? 'fridge' : 'coil');
+      const rel = storage.getAppRelease(appLineOfMachine(m));
       return (rel && Number(rel.targetVersionCode) === Number(appVer.vc) && rel.versionName) ? String(rel.versionName) : null;
     })(),
   };
@@ -10662,7 +10677,7 @@ function machineSummary(m) {
       if (!v) return null;
       if (v.vn) return String(v.vn);
       if (v.vc == null) return null;
-      const rel = storage.getAppRelease(require('./db').fridgeSpec(m.model || '').isFridge ? 'fridge' : 'coil');
+      const rel = storage.getAppRelease(appLineOfMachine(m));
       return (rel && Number(rel.targetVersionCode) === Number(v.vc) && rel.versionName) ? String(rel.versionName) : null;
     })(),
     operatorName: m.profile.operatorName,
