@@ -42,6 +42,7 @@ const fridgeSale = require('./fridgeSale');
 const planogram = require('./planogram');
 const alertAudience = require('./alertAudience');
 const machineModels = require('./machineModels');
+const lockerRecords = require('./lockers');
 
 // Which app a machine runs, for release lines and version counts. A parcel locker is told by its
 // model family (LK-*, machineModels.js). For everything else the long-standing rule stands
@@ -225,6 +226,8 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleKioskLogs,      middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/logs',              handler: handleGetKioskLogs,   middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/stock-ledger',      handler: handleStockLedger,    middleware:[requireAuth, requireMachineAccess] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker',            handler: handleGetLocker,      middleware:[requireAuth, requireMachineAccess] },
+  { method:'PUT',  pattern:'/api/v1/machines/:deviceCode/locker',            handler: handleSetLocker,      middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetrySeries, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/app-update',        handler: handleAppUpdate,      middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/revert-report',     handler: handleRevertReport,   middleware:[requireMachineKey] },
@@ -5117,6 +5120,50 @@ function handleStockLedger(req, res) {
   const rows = storage.listStockLedger(code, { aisle: aisle || null, limit, sinceMs: Date.now() - days * 86400000 });
   const m = machines[code];
   ok(res, { deviceCode: code, stockSource: (m && m.stockSource) || 'weimi', days, rows });
+}
+
+// ── Locker records (6.124.0) ───────────────────────────────────────────────────
+// What customers are told about a parcel locker (name, address, how to find it, how to get in)
+// and which boxes it has. Kept on the machine in settings.locker; src/lockers.js checks it.
+function lockerMachineOr404(req, res) {
+  const m = machines[req.params.deviceCode];
+  if (!m) { notFound(res, `Machine ${req.params.deviceCode} not found`); return null; }
+  if (!machineModels.isLockerModel(m.model)) { badRequest(res, `Machine ${m.deviceCode} is not a parcel locker (model ${JSON.stringify(m.model || '')}).`); return null; }
+  return m;
+}
+
+// GET /machines/:deviceCode/locker
+function handleGetLocker(req, res) {
+  const m = lockerMachineOr404(req, res);
+  if (!m) return;
+  ok(res, lockerRecords.lockerRecord(m));
+}
+
+// PUT /machines/:deviceCode/locker  { info?: {...}, boxes?: [...] }
+// The operator edits the customer-facing info. The box list is hardware, so only AG sets it:
+// a wrong list sends a customer to the wrong door.
+function handleSetLocker(req, res) {
+  const m = lockerMachineOr404(req, res);
+  if (!m) return;
+  const body = req.body || {};
+  if (body.info === undefined && body.boxes === undefined) return badRequest(res, 'Send info, boxes or both.');
+  const change = {};
+  if (body.info !== undefined) {
+    const r = lockerRecords.normalizeInfo(body.info);
+    if (!r.ok) return badRequest(res, r.error);
+    change.info = r.value;
+  }
+  if (body.boxes !== undefined) {
+    if (req.user.role !== 'ag_admin') return json(res, 403, { ok: false, error: 'Only AG Vending can change a locker\'s box list.' });
+    const r = lockerRecords.normalizeBoxes(body.boxes);
+    if (!r.ok) return badRequest(res, r.error);
+    change.boxes = r.value;
+  }
+  m.settings = m.settings || {};
+  m.settings.locker = lockerRecords.applyChange(m, change, (req.user && req.user.email) || null, new Date().toISOString());
+  touchConfig(m);
+  console.log(`[LOCKER] ${(req.user && req.user.email) || '?'} changed ${m.deviceCode}: ${Object.keys(change).join(' + ')}`);
+  ok(res, lockerRecords.lockerRecord(m));
 }
 
 function handleGetKioskLogs(req, res) {
