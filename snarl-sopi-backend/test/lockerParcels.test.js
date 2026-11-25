@@ -295,3 +295,57 @@ test('a machine that is not a locker has no parcels', () => {
   assert.equal(call('POST', '/pickup', { deviceCode: 'VMP-1', body: { code: '123456' } }).body.error.code, 'not_a_locker');
   assert.equal(call('GET', '/boxes', { deviceCode: 'NOPE' }).status, 404);
 });
+
+// ── 6.127.0: what the dashboard is shown, and what is forgotten ───────────────────────────────
+
+test('the dashboard sees the last four digits of the phone, and the code only by asking', () => {
+  const p = stored(A1, 'small');
+  const view = parcels.boxView(A1).boxes.find(b => b.n === p.box.n).parcel;
+  assert.equal(view.phoneTail, '0100');
+  assert.equal(view.phone, undefined);
+  assert.equal(parcels.boxView(A1).model, 'LK-AGV19');
+  const shown = call('POST', '/parcels/:id/code', { params: { id: p.parcelId } });
+  assert.equal(shown.body.data.code, p.code);
+  assert.deepEqual(shown.guards, ['requireAuth', 'requireMachineAccess']);
+  const last = parcels.getParcel(A1, p.parcelId).events.at(-1);
+  assert.equal(last.type, 'code_shown');
+  assert.equal(last.actor, 'op@example.test');
+  assert.equal(parcels.revealCode(A2, p.parcelId, 'x').code, 'parcel_not_found');
+  parcels.markCollected(A1, p.parcelId, 'op@example.test');
+  assert.equal(call('POST', '/parcels/:id/code', { params: { id: p.parcelId } }).status, 409);
+});
+
+test('thirty days after a parcel left its box its personal data is blanked; one still in a box is kept', () => {
+  const DAY = 86400000, t0 = Date.parse('2026-06-01T12:00:00Z');
+  const gone = stored(A2, 'small', t0), still = stored(A2, 'small', t0);
+  parcels.markCollected(A2, gone.parcelId, 'op@example.test', t0 + DAY);
+  parcels.registerOrder('op-parcel-a', { orderNumber: 'NEVER-CAME', phone: '5550120', firstName: 'Gunnar' }, t0);
+
+  parcels.forgetOldPersonalData(t0 + 30 * DAY);            // 29 days after it was collected
+  assert.equal(parcels.getParcel(A2, gone.parcelId).parcel.phoneTail, '0100');
+
+  const r = parcels.forgetOldPersonalData(t0 + 32 * DAY);
+  assert.ok(r.parcels >= 1 && r.orders >= 1);
+  const after = parcels.getParcel(A2, gone.parcelId).parcel;
+  assert.equal(after.phoneTail, '');
+  assert.equal(after.firstName, '');
+  assert.equal(after.orderNumber, gone.orderNumber, 'the order number and the history stay');
+  assert.deepEqual(parcels._secretsOf(gone.parcelId), { code: null, token: null });
+  const order = parcels.listOrders('op-parcel-a', { limit: 500 }).find(o => o.orderNumber === gone.orderNumber);
+  assert.equal(order.phone, '');
+
+  // Still in its box after 32 days: untouched, and its code still opens the door.
+  assert.equal(parcels.getParcel(A2, still.parcelId).parcel.phoneTail, '0100');
+  assert.equal(parcels.startPickup(A2, { code: still.code }, t0 + 32 * DAY).ok, true);
+  const stillOrder = parcels.listOrders('op-parcel-a', { limit: 500 }).find(o => o.orderNumber === still.orderNumber);
+  assert.equal(stillOrder.phone, '+3545550100');
+
+  // An order that never came is kept for ninety days, then withdrawn and blanked.
+  const never = () => parcels.listOrders('op-parcel-a', { limit: 500 }).find(o => o.orderNumber === 'NEVER-CAME');
+  assert.equal(never().status, 'expected');
+  parcels.forgetOldPersonalData(t0 + 91 * DAY);
+  assert.equal(never().status, 'cancelled');
+  assert.equal(never().phone, '');
+  assert.equal(parcels.getParcel(A2, still.parcelId).parcel.phoneTail, '0100', 'ninety days on, the parcel still in its box is intact');
+  empty(A2);
+});

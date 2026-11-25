@@ -236,6 +236,7 @@ const routes = [
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id',           handler: handleLockerParcel,        middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/collected', handler: handleLockerParcelCollected, middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/clear',     handler: handleLockerParcelClear,   middleware:[requireAuth, requireMachineAccess] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/code',      handler: handleLockerParcelCode,    middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrders,        middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrderAdd,      middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders/:id/cancel',     handler: handleLockerOrderCancel,   middleware:[requireAuth, requireMachineAccess] },
@@ -5234,6 +5235,14 @@ function handleLockerParcelClear(req, res) {
   const r = parcels.clearParcel(m, req.params.id, lockerWho(req), req.body || {});
   if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} cleared ${m.deviceCode} box ${r.parcel.boxN}`);
   parcelAnswer(res, r, r.ok ? { parcel: r.parcel } : undefined);
+}
+// The pickup code, for an operator helping a customer. A POST: every showing is written to the
+// parcel's history with who asked.
+function handleLockerParcelCode(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const r = parcels.revealCode(m, req.params.id, lockerWho(req));
+  if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} was shown the pickup code of ${m.deviceCode} box parcel ${req.params.id}`);
+  parcelAnswer(res, r, r.ok ? { code: r.code } : undefined);
 }
 // Orders belong to the locker's operator; the machine in the path decides which operator that is.
 function handleLockerOrders(req, res) {
