@@ -94,6 +94,17 @@ function normalizeBoxes(input) {
   return { ok: true, value: out };
 }
 
+/**
+ * Which Twilio Messaging Service a locker's messages go out through: { messagingServiceSid }.
+ * An empty string clears it. Set by AG: it decides the sender customers see.
+ */
+function normalizeSms(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return fail('sms must be an object');
+  const sid = cleanText(input.messagingServiceSid);
+  if (sid && !/^MG[0-9a-f]{32}$/i.test(sid)) return fail('messagingServiceSid must be MG followed by 32 hex characters');
+  return { ok: true, value: { messagingServiceSid: sid } };
+}
+
 function boxCounts(boxes) {
   const counts = { small: 0, middle: 0, big: 0 };
   for (const b of boxes || []) if (counts[b.size] !== undefined) counts[b.size]++;
@@ -132,6 +143,7 @@ function lockerRecord(machine) {
     deviceCode: machine ? machine.deviceCode : null,
     info, mapUrl: mapUrl(info),
     boxes, boxCounts: boxCounts(boxes),
+    sms: { messagingServiceSid: (stored.sms && stored.sms.messagingServiceSid) || '' },
     updatedAt: stored.updatedAt || null, updatedBy: stored.updatedBy || null,
   };
 }
@@ -145,7 +157,7 @@ function publicInfo(machine) {
 
 /**
  * Applies a change to a machine's stored locker record and returns the new `settings.locker`.
- * `change` is { info?, boxes? }, both already normalised. Info fields merge; boxes replace.
+ * `change` is { info?, boxes?, sms? }, all already normalised. Info fields merge; the rest replace.
  */
 function applyChange(machine, change, who, nowIso) {
   const stored = (machine.settings && machine.settings.locker) || {};
@@ -156,10 +168,12 @@ function applyChange(machine, change, who, nowIso) {
     }
   }
   if (change.boxes) next.boxes = change.boxes;
+  if (stored.sms) next.sms = stored.sms;
+  if (change.sms) next.sms = change.sms;
   next.updatedAt = nowIso;
   next.updatedBy = who || null;
   return next;
 }
 
-module.exports = { BOX_SIZES, MAX_BOXES, INFO_TEXT_FIELDS, normalizeInfo, normalizeBoxes, boxCounts, mapUrl,
+module.exports = { BOX_SIZES, MAX_BOXES, INFO_TEXT_FIELDS, normalizeInfo, normalizeBoxes, normalizeSms, boxCounts, mapUrl,
                    lockerRecord, publicInfo, applyChange };

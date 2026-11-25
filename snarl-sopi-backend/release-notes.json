@@ -40,6 +40,22 @@
  },
  {
   "component": "backend",
+  "version": "6.128.0",
+  "date": "2026-11-25",
+  "title": "Parcel lockers: the SMS, Twilio's delivery reports, and the pickup page",
+  "notes": [
+   "When a locker reports the door closed on a parcel, the customer gets an SMS with the order number, the locker's name, the six-digit code and a link. One reminder goes out after 48 hours, between 10:00 and 18:00.",
+   "Every message asks Twilio to report back, and each report is a line in the parcel's history: handed to Twilio, sent to the network, delivered to the phone, or not delivered / failed with Twilio's error code. The box detail shows the latest state.",
+   "When a message cannot be sent (no Twilio login on the backend, no sender on the locker, Twilio refused) the history says so and why.",
+   "Operators can send the message again from the box detail, not within a minute of the last one.",
+   "The link opens a page with the QR code, the code and the locker's details from Locker details. Once the parcel is collected it only says so.",
+   "The Twilio Messaging Service a locker sends through is set under Locker details, by AG only.",
+   "Needs TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN on the backend. Until they are set, and a sender is set on the locker, nothing is sent."
+  ],
+  "check": "Locker details (as AG) shows an SMS sender field. A stored parcel's box detail shows an SMS row, and its history a line per Twilio report."
+ },
+ {
+  "component": "backend",
   "version": "6.127.0",
   "date": "2026-11-25",
   "title": "Parcel lockers: a Boxes tab that shows the cabinet door by door",
