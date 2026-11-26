@@ -118,3 +118,28 @@ test('open box is within a staff member\'s reach; other machine commands are not
   assert.equal(send('open_box', { n: 1 }, 'operator_restocker'), 200);
   assert.equal(send('restart_machine', {}, 'operator_restocker'), 403);
 });
+
+// ── 6.138.0: the roles in locker words ────────────────────────────────────────────────────────
+
+test('an operator with only lockers reads "Staff" where a vending operator reads "Restocker"', () => {
+  const roles = require('../src/roles');
+  assert.equal(roles.roleInfo('operator_restocker').label, 'Restocker');
+  assert.deepEqual([roles.roleInfo('operator_restocker', true).label, roles.roleInfo('operator_restocker', true).labelIs], ['Staff', 'Starfsmaður']);
+  assert.equal(roles.roleInfo('operator_viewer', true).label, 'Staff', 'the old viewer role follows');
+  assert.equal(roles.roleInfo('operator_manager', true).label, 'Manager', 'only the words that differ are replaced');
+  assert.match(roles.roleInfo('operator_admin', true).description, /SMS texts/);
+  assert.deepEqual(roles.CAPS.operator_restocker, ['restock'], 'the rules are the same table');
+
+  const list = (user) => { let text = ''; routes.find(r => r.method === 'GET' && r.pattern === '/api/v1/roles').handler({ user, query: {}, headers: {}, params: {} }, { writeHead() {}, end(b) { text = b.toString(); } }); return JSON.parse(text).data; };
+  // op-locker-test owns a locker and a coil machine: mixed, so vending words.
+  assert.equal(list({ role: 'operator_admin', operatorId: 'op-locker-test' }).lockerOperators.includes('op-locker-test'), false);
+  storage.upsertOperator({ id: 'op-only-lockers', name: 'Only lockers', isAGVending: 0, contactEmail: '', contactPhone: '', address: '', logoUrl: '', createdAt: new Date().toISOString() });
+  const lk = { ...machine('LKT9', 'LK-AGV47'), operatorId: 'op-only-lockers' };
+  storage.upsertMachine(lk); machines.LKT9 = lk;
+  const mine = list({ role: 'operator_admin', operatorId: 'op-only-lockers' });
+  assert.deepEqual(mine.lockerOperators, ['op-only-lockers']);
+  assert.equal(mine.lockerText.operator_restocker.labelIs, 'Starfsmaður');
+  // Another operator's admin is not told which operators run lockers; AG is.
+  assert.deepEqual(list({ role: 'operator_admin', operatorId: 'op-locker-test' }).lockerOperators, []);
+  assert.ok(list({ role: 'ag_admin', operatorId: 'op-ag' }).lockerOperators.includes('op-only-lockers'));
+});

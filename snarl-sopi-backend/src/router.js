@@ -7075,11 +7075,21 @@ function parseMachineAccess(raw, role, operatorId) {
  * GET /api/v1/roles — the roles, what each may do, and which ones the caller may give. The invite and
  * edit screens show these texts, so what a user reads is what the backend enforces (roles.js).
  */
+// An operator whose machines are all parcel lockers. Its roles read differently: there is nothing
+// to restock, so the "Restocker" is "Staff" (roles.LOCKER_TEXT).
+function lockerOnlyOperator(operatorId) {
+  const mine = Object.values(machines).filter(m => m && m.operatorId === operatorId);
+  return mine.length > 0 && mine.every(m => machineModels.isLockerModel(m.model));
+}
 function handleListRoles(req, res) {
   const grantable = roles.grantableRoles(req.user);
+  const isAg = req.user.role === 'ag_admin';
+  const lockerOperators = [...new Set(Object.values(machines).map(m => m && m.operatorId).filter(Boolean))]
+    .filter(id => (isAg || id === req.user.operatorId) && lockerOnlyOperator(id));
   const myRole = roles.normalizeRole(req.user.role);
   ok(res, { mine: { role: myRole, caps: myRole === 'ag_admin' ? Object.keys(roles.CAP_TEXT) : (roles.CAPS[myRole] || []) },
             roles: roles.ROLES.map(r => ({ ...r, grantable: grantable.includes(r.id) })),
+            lockerText: roles.LOCKER_TEXT, lockerOperators,
             changes: Object.fromEntries(roles.ROLE_IDS.map(a => [a, Object.fromEntries(roles.ROLE_IDS.map(b => [b, roles.roleChange(a, b)]))])) });
 }
 
@@ -7140,7 +7150,7 @@ async function handleUpdateUser(req, res) {
   if (newRole !== oldRole && target.email) {
     const machineNames = Array.isArray(ma.list) ? ma.list.map(c => (machines[c] && machines[c].deviceName) || c) : null;
     email.sendRoleChanged({ to: target.email, name: newName, operatorName: operators[newOpId].name,
-      changedBy: req.user.name, role: newRole, machineNames }).catch(e => console.error('[USER] role email failed:', e.message));
+      changedBy: req.user.name, role: newRole, locker: lockerOnlyOperator(newOpId), machineNames }).catch(e => console.error('[USER] role email failed:', e.message));
   }
   ok(res, publicUser(storage.getUser(target.id)));
 }
@@ -7190,7 +7200,7 @@ async function handleInviteUser(req, res) {
       name,
       inviterName:  req.user.name,
       operatorName: operators[targetOpId].name,
-      role,
+      role, locker: lockerOnlyOperator(targetOpId),
       inviteToken:  invite.token,
     });
     emailed = !!(r && r.mocked === false);
@@ -7434,7 +7444,7 @@ async function handleResendInvitation(req, res) {
   try {
     const r = await email.sendInvitation({
       to: inv.email, name: inv.name, inviterName: req.user.name,
-      operatorName: operators[inv.operatorId]?.name || '', role: inv.role, inviteToken: inv.token,
+      operatorName: operators[inv.operatorId]?.name || '', role: inv.role, locker: lockerOnlyOperator(inv.operatorId), inviteToken: inv.token,
     });
     emailed = !!(r && r.mocked === false);
   } catch (e) { console.error('[INVITE] resend failed:', e.message); }

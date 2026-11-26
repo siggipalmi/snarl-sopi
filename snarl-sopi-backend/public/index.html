@@ -1139,9 +1139,10 @@ select.fi{cursor:pointer;}
       <div id="md-health-banner" style="display:none;margin-bottom:12px"></div>
 
       <div class="tabs" id="md-tabbar" style="margin:14px 0 16px;justify-content:space-between">
-        <div class="tab active" data-mdtab="overview" onclick="showMdTab('overview',this)" data-i18n="md.tab.overview">Overview</div>
+        <div class="tab active vend-only" data-mdtab="overview" onclick="showMdTab('overview',this)" data-i18n="md.tab.overview">Overview</div>
         <div class="tab" data-mdtab="layout" onclick="showMdTab('layout',this)" id="md-tab-layout" data-i18n="md.tab.planogram">Planogram</div>
-        <div class="tab" data-mdtab="boxes" onclick="showMdTab('boxes',this)" id="md-tab-boxes" style="display:none" data-i18n="md.tab.boxes">Boxes</div>
+        <div class="tab" data-mdtab="boxes" onclick="showMdTab('boxes',this)" id="md-tab-boxes" style="display:none" data-i18n="md.tab.overview">Overview</div>
+        <div class="tab" data-mdtab="log" onclick="showMdTab('log',this)" id="md-tab-log" style="display:none" data-i18n="md.tab.log">Parcel log</div>
         <div class="tab" data-mdtab="locker" onclick="showMdTab('locker',this)" id="md-tab-locker" style="display:none" data-i18n="md.tab.locker">Locker details</div>
         <div class="tab" data-mdtab="kiosk" onclick="openKioskDesigner(_mdDeviceCode)" id="md-tab-kiosk" style="display:none" data-i18n="md.tab.kiosk">Kiosk</div>
         <div class="tab vend-only" data-mdtab="activity" onclick="showMdTab('activity',this)" data-i18n="md.tab.activity">Activity</div>
@@ -1151,6 +1152,7 @@ select.fi{cursor:pointer;}
 
       <!-- ── BOXES (parcel lockers only): what is in each box, drawn as the cabinet stands ── -->
       <div class="md-tabpanel" data-panel="boxes" style="display:none">
+        <div id="bx-top"></div>
         <div id="bx-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:16px">
           <div class="panel" style="flex:999 1 480px;min-width:0">
@@ -1203,6 +1205,37 @@ select.fi{cursor:pointer;}
                 <input class="fi" id="sh-new-match" style="background:#FFFFFF" maxlength="200" autocomplete="off"></div>
               <button class="btn" id="sh-add" onclick="shCreate()"><span data-i18n="sh.connect">connect a shop</span></button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PARCEL LOG (parcel lockers only): every parcel the locker has held, with its times ── -->
+      <div class="md-tabpanel" data-panel="log" style="display:none">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:16px">
+          <div class="panel" style="flex:999 1 520px;min-width:0">
+            <div class="ph"><div class="ph-title" data-i18n="lg.title">every parcel this locker has held.</div>
+              <div class="ph-action" onclick="lgCsv()" data-i18n="lg.csv">download as a spreadsheet</div></div>
+            <div style="padding:14px 18px 18px">
+              <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px;max-width:760px" data-i18n="lg.help">For when a customer says something did not arrive. Times are kept for good; the customer's name and number are removed after 30 days.</div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+                <div style="flex:1 1 160px"><label class="fl" for="lg-q" style="display:block" data-i18n="lg.q">order number</label>
+                  <input class="fi" id="lg-q" type="search" maxlength="40" oninput="lgSoon()"></div>
+                <div><label class="fl" for="lg-from" style="display:block" data-i18n="lg.from">from</label>
+                  <input class="fi" id="lg-from" type="date" style="width:auto" onchange="lgLoad(true)"></div>
+                <div><label class="fl" for="lg-to" style="display:block" data-i18n="lg.to">to</label>
+                  <input class="fi" id="lg-to" type="date" style="width:auto" onchange="lgLoad(true)"></div>
+                <div><label class="fl" for="lg-state" style="display:block" data-i18n="lg.show">show</label>
+                  <select class="fi" id="lg-state" style="width:auto" onchange="lgLoad(true)"></select></div>
+              </div>
+              <div id="lg-list" style="overflow-x:auto"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px">
+                <span id="lg-count" style="font-size:11.5px;color:var(--muted)"></span>
+                <button class="btn btn-sm btn-ghost" id="lg-more" style="display:none" onclick="lgLoad(false)"><span data-i18n="lg.more">show older</span></button>
+              </div>
+            </div>
+          </div>
+          <div class="panel" style="flex:1 1 340px;min-width:0">
+            <div id="lg-detail" style="padding:16px 18px 18px"></div>
           </div>
         </div>
       </div>
@@ -1287,6 +1320,7 @@ select.fi{cursor:pointer;}
       <div class="md-tabpanel" data-panel="overview">
         <div class="g4 mb vend-only" id="md-stats"></div>
 
+        <div id="md-attention-home"></div>
         <div class="panel" id="md-attention-panel" style="margin-bottom:16px;display:none">
           <div class="ph"><div class="ph-title" data-i18n="dash.alerts">needs attention.</div><div class="ph-action" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])" data-i18n="common.viewAll">all alerts →</div></div>
           <div id="md-attention" style="padding:0 4px"></div>
@@ -1297,6 +1331,7 @@ select.fi{cursor:pointer;}
           <div id="md-actions" style="padding:4px 14px 16px"></div>
         </div>
 
+        <div id="md-pair-home"></div>
         <div class="panel" style="margin-bottom:16px;display:none" id="md-pair-panel">
           <div class="ph"><div class="ph-title" data-i18n="md.pairingCode">pairing code.</div></div>
           <div style="padding:14px 18px 16px">
@@ -1436,6 +1471,7 @@ select.fi{cursor:pointer;}
 
       <!-- ── CONTROLS ── -->
       <div class="md-tabpanel" data-panel="controls" style="display:none">
+        <div id="lk-controls-top"></div>
         <div class="panel vend-only" id="md-temp-panel" style="margin-bottom:16px">
           <div class="ph">
             <div class="ph-title" data-i18n="md.cabinetTemp">cabinet temperature.</div>
@@ -2860,6 +2896,45 @@ const I18N = {
     'lk.controls.help':'What has been sent to this locker, and what it answered. Open a box from the Boxes tab.',
     'lk.qa.boxes':'Boxes and parcels',
     'lk.msg.adminOnly':'Only an operator admin can change the messages.',
+    'md.tab.log':'Parcel log',
+    'lg.title':'every parcel this locker has held.',
+    'lg.csv':'download as a spreadsheet',
+    'lg.help':'For when a customer says something did not arrive. Times are kept for good; the customer’s name and number are removed after 30 days.',
+    'lg.q':'order number',
+    'lg.from':'from',
+    'lg.to':'to',
+    'lg.show':'show',
+    'lg.more':'show older',
+    'lg.s.all':'Everything',
+    'lg.s.stored':'In a box now',
+    'lg.s.collected':'Picked up',
+    'lg.s.cleared':'Cleared by the operator',
+    'lg.s.cancelled':'Deposit given up',
+    'lg.col.order':'Order',
+    'lg.col.box':'Box',
+    'lg.col.in':'Put in',
+    'lg.col.out':'Left the box',
+    'lg.col.how':'How',
+    'lg.col.dur':'In the box',
+    'lg.still':'still in the box',
+    'lg.how.code':'Picked up, code',
+    'lg.how.scan':'Picked up, scanned link',
+    'lg.how.offline':'Picked up, locker offline',
+    'lg.how.operator':'Marked picked up by the operator',
+    'lg.how.customer':'Picked up',
+    'lg.how.cleared':'Cleared by the operator',
+    'lg.how.cancelled':'Deposit given up',
+    'lg.d.min':'{n} min',
+    'lg.d.hours':'{n} hours',
+    'lg.d.days':'{d} d {h} h',
+    'lg.count':'{n} shown',
+    'lg.count.more':'{n} shown, older ones exist',
+    'lg.none':'No parcels match.',
+    'lg.load.fail':'Could not load the log',
+    'lg.pick':'Select an order to see everything that happened to it, to the second.',
+    'lg.order':'Order {order}',
+    'lg.forgotten':'removed (older than 30 days)',
+    'lg.events':'everything that happened',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3375,6 +3450,45 @@ const I18N = {
     'lk.controls.help':'Það sem hefur verið sent á þennan skáp og hverju hann svaraði. Hólf er opnað á flipanum Hólf.',
     'lk.qa.boxes':'Hólf og sendingar',
     'lk.msg.adminOnly':'Aðeins rekstrarstjóri getur breytt skilaboðunum.',
+    'md.tab.log':'Sendingaskrá',
+    'lg.title':'allar sendingar sem þessi skápur hefur geymt.',
+    'lg.csv':'sækja sem töflureikni',
+    'lg.help':'Fyrir þegar viðskiptavinur segir að eitthvað hafi ekki borist. Tímasetningar eru geymdar áfram; nafn og símanúmer viðskiptavinar eru fjarlægð eftir 30 daga.',
+    'lg.q':'pöntunarnúmer',
+    'lg.from':'frá',
+    'lg.to':'til',
+    'lg.show':'sýna',
+    'lg.more':'sýna eldri',
+    'lg.s.all':'Allt',
+    'lg.s.stored':'Í hólfi núna',
+    'lg.s.collected':'Sótt',
+    'lg.s.cleared':'Tæmt af rekstraraðila',
+    'lg.s.cancelled':'Hætt við að setja í',
+    'lg.col.order':'Pöntun',
+    'lg.col.box':'Hólf',
+    'lg.col.in':'Sett í',
+    'lg.col.out':'Fór úr hólfi',
+    'lg.col.how':'Hvernig',
+    'lg.col.dur':'Í hólfi',
+    'lg.still':'enn í hólfinu',
+    'lg.how.code':'Sótt, með kóða',
+    'lg.how.scan':'Sótt, hlekkur skannaður',
+    'lg.how.offline':'Sótt, skápur án nettengingar',
+    'lg.how.operator':'Merkt sótt af rekstraraðila',
+    'lg.how.customer':'Sótt',
+    'lg.how.cleared':'Tæmt af rekstraraðila',
+    'lg.how.cancelled':'Hætt við að setja í',
+    'lg.d.min':'{n} mín.',
+    'lg.d.hours':'{n} klst.',
+    'lg.d.days':'{d} d. {h} klst.',
+    'lg.count':'{n} sýndar',
+    'lg.count.more':'{n} sýndar, eldri eru til',
+    'lg.none':'Engar sendingar passa.',
+    'lg.load.fail':'Ekki tókst að sækja skrána',
+    'lg.pick':'Veldu pöntun til að sjá allt sem gerðist, upp á sekúndu.',
+    'lg.order':'Pöntun {order}',
+    'lg.forgotten':'fjarlægt (eldra en 30 dagar)',
+    'lg.events':'allt sem gerðist',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -5862,12 +5976,20 @@ function applyCapVisibility() {
   document.querySelectorAll('.nav-item[data-cap]').forEach(el => { if (!canDo(el.dataset.cap)) el.style.display = 'none'; });
   try { refreshNavGroupBadges(); } catch (e) {}
 }
-function roleLabelOf(role) {
-  const r = _roles && _roles.roles.find(x => x.id === (role === 'operator_viewer' ? 'operator_restocker' : role));
+// An operator that runs only parcel lockers reads the roles in locker words ("Staff", not
+// "Restocker"). Without an operator named, a non-AG user's own operator decides.
+function rolesFor(operatorId) {
+  const all = _roles ? _roles.roles : [];
+  const opId = operatorId || (currentUser && currentUser.role !== 'ag_admin' ? currentUser.operatorId : null);
+  const locker = !!(_roles && opId && (_roles.lockerOperators || []).includes(opId));
+  return locker ? all.map(r => Object.assign({}, r, (_roles.lockerText || {})[r.id] || {})) : all;
+}
+function roleLabelOf(role, operatorId) {
+  const r = rolesFor(operatorId).find(x => x.id === (role === 'operator_viewer' ? 'operator_restocker' : role));
   return r ? r.label : String(role || '').replace(/_/g, ' ');
 }
-function roleRadiosHtml(group, selected, onchange) {
-  return (_roles ? _roles.roles : []).filter(r => r.grantable).map(r => `<label class="role-opt">
+function roleRadiosHtml(group, selected, onchange, operatorId) {
+  return rolesFor(operatorId).filter(r => r.grantable).map(r => `<label class="role-opt">
       <input type="radio" name="${group}" value="${r.id}"${r.id === selected ? ' checked' : ''} onchange="${onchange}">
       <span><b>${rsEsc(r.label)}</b><small>${rsEsc(r.description)}</small></span></label>`).join('');
 }
@@ -8455,6 +8577,9 @@ function showMdTab(name, el) {
   if (name === 'notifications' && _mdDeviceCode) {
     try { renderNotifications(_mdDeviceCode); } catch (e) { /* non-fatal */ }
   }
+  if (name === 'log' && _mdDeviceCode) {
+    try { lgOpen(_mdDeviceCode); } catch (e) { /* non-fatal */ }
+  }
   if (name === 'boxes' && _mdDeviceCode) {
     try { renderLockerBoxView(_mdDeviceCode); } catch (e) { /* non-fatal */ }
   }
@@ -8611,6 +8736,9 @@ function renderMachineLayoutOrFridge(code, machine) {
   if (lockerTab) lockerTab.style.display = isLocker ? '' : 'none';
   const boxesTab = document.getElementById('md-tab-boxes');
   if (boxesTab) boxesTab.style.display = isLocker ? '' : 'none';
+  const logTab = document.getElementById('md-tab-log');
+  if (logTab) logTab.style.display = isLocker ? '' : 'none';
+  mdPlacePanels(isLocker);
   const layoutTab = document.getElementById('md-tab-layout');
   if (layoutTab) layoutTab.style.display = isLocker ? 'none' : '';
   if (isLocker) {
@@ -8635,6 +8763,131 @@ function renderMachineLayoutOrFridge(code, machine) {
     _mdLedgerAisle = null;
     loadStockLedger(code);
   }
+}
+
+// On a locker the boxes are the overview, so the two overview panels it still needs move: what
+// needs attention goes above the cabinet, the pairing code to Controls. They move back for any
+// other machine. The panels keep their ids, so the code that fills them is unchanged.
+function mdPlacePanels(isLocker) {
+  var put = function (panelId, lockerHome, home) {
+    var panel = document.getElementById(panelId), to = document.getElementById(isLocker ? lockerHome : home);
+    if (panel && to && panel.parentNode !== to) to.appendChild(panel);
+  };
+  put('md-attention-panel', 'bx-top', 'md-attention-home');
+  put('md-pair-panel', 'lk-controls-top', 'md-pair-home');
+}
+
+// ─── Parcel lockers: the Parcel log tab ────────────────────────────────────────
+// Every parcel the locker has held (GET …/locker/parcels?log=1), for answering "it never came".
+var _lgCode = null, _lgRows = [], _lgNext = null, _lgSel = null, _lgDetail = null, _lgTimer = null;
+function lgWhen(isoStr, seconds) {
+  if (!isoStr) return '';
+  var o = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
+  if (seconds) o.second = '2-digit';
+  try { return new Date(isoStr).toLocaleString(LANG === 'is' ? 'is-IS' : 'en-GB', o); } catch (e) { return String(isoStr).slice(0, 19).replace('T', ' '); }
+}
+function lgDuration(hours) {
+  if (hours == null) return '';
+  if (hours < 1) return tv('lg.d.min', { n: Math.max(1, Math.round(hours * 60)) });
+  if (hours < 48) return tv('lg.d.hours', { n: Math.round(hours) });
+  return tv('lg.d.days', { d: Math.floor(hours / 24), h: Math.round(hours % 24) });
+}
+function lgHow(p) {
+  if (p.state === 'collected') return t('lg.how.' + (p.how || 'customer'));
+  if (p.state === 'cleared') return t('lg.how.cleared');
+  if (p.state === 'cancelled') return t('lg.how.cancelled');
+  if (p.state === 'opening') return t('bx.lg.opening');
+  return '';
+}
+function lgOpen(code) {
+  var sel = document.getElementById('lg-state');
+  if (sel && !sel.options.length) sel.innerHTML = [['', 'lg.s.all'], ['stored', 'lg.s.stored'], ['collected', 'lg.s.collected'], ['cleared', 'lg.s.cleared'], ['cancelled', 'lg.s.cancelled']]
+    .map(function (x) { return '<option value="' + x[0] + '">' + rsEsc(t(x[1])) + '</option>'; }).join('');
+  if (_lgCode !== code) {
+    _lgCode = code; _lgSel = null; _lgDetail = null;
+    ['lg-q', 'lg-from', 'lg-to'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
+    if (sel) sel.value = '';
+  }
+  lgLoad(true);
+}
+function lgSoon() { clearTimeout(_lgTimer); _lgTimer = setTimeout(function () { lgLoad(true); }, 350); }
+async function lgLoad(reset) {
+  var code = _mdDeviceCode; if (!code) return;
+  var qs = 'log=1&limit=50';
+  [['q', 'lg-q'], ['from', 'lg-from'], ['to', 'lg-to'], ['state', 'lg-state']].forEach(function (x) { var v = lkVal(x[1]); if (v) qs += '&' + x[0] + '=' + encodeURIComponent(v); });
+  if (!reset && _lgNext) qs += '&before=' + encodeURIComponent(_lgNext);
+  var r = null;
+  try { r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/locker/parcels?' + qs); } catch (e) { r = null; }
+  if (code !== _mdDeviceCode) return;
+  if (!r || !r.ok || !r.data) { showToast(t('lg.load.fail') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return; }
+  _lgRows = reset ? r.data.parcels : _lgRows.concat(r.data.parcels);
+  _lgNext = r.data.more ? r.data.next : null;
+  lgRender(); lgRenderDetail();
+}
+function lgRender() {
+  var el = document.getElementById('lg-list'); if (!el) return;
+  var more = document.getElementById('lg-more'); if (more) more.style.display = _lgNext ? '' : 'none';
+  var cnt = document.getElementById('lg-count'); if (cnt) cnt.textContent = tv(_lgNext ? 'lg.count.more' : 'lg.count', { n: _lgRows.length });
+  if (!_lgRows.length) { el.innerHTML = '<div style="font-size:12.5px;color:var(--muted);padding:8px 0">' + rsEsc(t('lg.none')) + '</div>'; return; }
+  var th = function (k) { return '<th style="padding:6px 10px 6px 0;font-weight:500">' + rsEsc(t(k)) + '</th>'; };
+  el.innerHTML = '<table style="border-collapse:collapse;font-size:13px;width:100%;min-width:560px">' +
+    '<tr style="text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">' +
+    th('lg.col.order') + th('lg.col.box') + th('lg.col.in') + th('lg.col.out') + th('lg.col.how') + th('lg.col.dur') + '</tr>' +
+    _lgRows.map(function (p) {
+      var on = p.id === _lgSel, td = 'padding:8px 10px 8px 0';
+      return '<tr style="border-top:1px solid var(--cream-deep);cursor:pointer' + (on ? ';background:#FFF3C4' : '') + '" onclick="lgSelect(\'' + rsEsc(p.id) + '\')">' +
+        '<td style="' + td + '"><button type="button" aria-pressed="' + on + '" style="border:0;background:none;font:inherit;font-weight:700;color:inherit;padding:0;cursor:pointer;text-align:left">' + rsEsc(p.orderNumber) + '</button></td>' +
+        '<td style="' + td + '">' + rsEsc(p.boxN) + '</td>' +
+        '<td style="' + td + ';white-space:nowrap">' + rsEsc(lgWhen(p.storedAt || p.createdAt)) + '</td>' +
+        '<td style="' + td + ';white-space:nowrap">' + rsEsc(p.endedAt ? lgWhen(p.endedAt) : (p.state === 'stored' ? t('lg.still') : '')) + '</td>' +
+        '<td style="' + td + '">' + rsEsc(lgHow(p)) + '</td>' +
+        '<td style="padding:8px 0;white-space:nowrap">' + rsEsc(lgDuration(p.hoursInBox)) + '</td></tr>';
+    }).join('') + '</table>';
+}
+async function lgSelect(id) {
+  _lgSel = id; _lgDetail = null; lgRender(); lgRenderDetail();
+  var code = _mdDeviceCode, r = null;
+  try { r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/locker/parcels/' + encodeURIComponent(id)); } catch (e) { r = null; }
+  if (code !== _mdDeviceCode || _lgSel !== id || !r || !r.ok) return;
+  _lgDetail = r.data; lgRenderDetail();
+}
+function lgRenderDetail() {
+  var el = document.getElementById('lg-detail'); if (!el) return;
+  var p = _lgRows.find(function (x) { return x.id === _lgSel; });
+  if (!p) { el.innerHTML = '<div style="font-size:13px;color:var(--muted)">' + rsEsc(t('lg.pick')) + '</div>'; return; }
+  var chip = { stored: ['#F05A3C', '#111111', 'lg.s.stored'], collected: ['#CDEBD8', '#0E5C2C', 'lg.s.collected'], cleared: ['#E2DED7', '#111111', 'lg.s.cleared'],
+               cancelled: ['#E2DED7', '#111111', 'lg.s.cancelled'], opening: ['#FFC72C', '#111111', 'bx.lg.opening'] }[p.state] || ['#E2DED7', '#111111', 'lg.s.all'];
+  var row = function (k, v) { return v ? '<span style="color:var(--muted)">' + rsEsc(t(k)) + '</span><span style="font-weight:600;min-width:0">' + rsEsc(v) + '</span>' : ''; };
+  var who = [p.firstName, p.phoneTail ? tv('bx.f.phone', { tail: p.phoneTail }) : ''].filter(Boolean).join(' · ');
+  var h = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px">' +
+    '<div style="font-size:19px;font-weight:700">' + rsEsc(tv('lg.order', { order: p.orderNumber })) + '</div>' +
+    '<span style="font-size:12px;font-weight:700;padding:3px 8px;background:' + chip[0] + ';color:' + chip[1] + '">' + rsEsc(t(chip[2])) + '</span></div>' +
+    '<div style="display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13px;line-height:1.45">' +
+    row('lg.col.box', String(p.boxN)) + row('bx.f.customer', who || t('lg.forgotten')) +
+    row('lg.col.in', lgWhen(p.storedAt, true)) + row('lg.col.out', p.endedAt ? lgWhen(p.endedAt, true) + (lgHow(p) ? ', ' + lgHow(p).toLowerCase() : '') : '') +
+    row('lg.col.dur', lgDuration(p.hoursInBox)) + '</div>';
+  var ev = _lgDetail && _lgDetail.parcel && _lgDetail.parcel.id === p.id ? _lgDetail.events : null;
+  h += '<div style="font-size:12.5px;font-weight:700;margin:16px 0 6px">' + rsEsc(t('lg.events')) + '</div>';
+  if (!ev) h += '<div style="font-size:12px;color:var(--muted)">…</div>';
+  else h += '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;line-height:1.5">' +
+    ev.slice().reverse().filter(function (e) { return e.type !== 'reminder_attempted'; }).map(function (e) {
+      var key = 'bx.ev.' + e.type, label = t(key); if (label === key) label = e.type;
+      var detail = e.detail ? ' (' + bxSmsDetail(e.detail) + ')' : '';
+      return '<span style="color:var(--muted);white-space:nowrap">' + rsEsc(lgWhen(e.at, true)) + '</span><span>' +
+        rsEsc(label + detail + (e.actor && e.actor.indexOf('@') > 0 ? ' · ' + e.actor : '')) + '</span>';
+    }).join('') + '</div>';
+  el.innerHTML = h;
+}
+// What is on screen, as a file a spreadsheet opens. Times are written out in full (UTC).
+function lgCsv() {
+  if (!_lgRows.length) { showToast(t('lg.none')); return; }
+  var cell = function (v) { v = v == null ? '' : String(v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+  var lines = [['order', 'box', 'status', 'how it left', 'started (UTC)', 'put in (UTC)', 'left the box (UTC)', 'hours in the box'].map(cell).join(',')]
+    .concat(_lgRows.map(function (p) { return [p.orderNumber, p.boxN, p.state, lgHow(p), p.createdAt, p.storedAt, p.endedAt, p.hoursInBox].map(cell).join(','); }));
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'parcel-log-' + (_mdDeviceCode || 'locker') + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
 // ─── Parcel lockers: the Boxes tab ─────────────────────────────────────────────
@@ -13531,9 +13784,9 @@ function renderUsersTable(userList, pendingInvites) {
     + (pending.length ? ' · ' + pending.length + ' pending invitation' + (pending.length===1?'':'s') : '');
   document.getElementById('users-sub').textContent = subText;
 
-  const rolePill = role => {
+  const rolePill = (role, opId) => {
     const map = { ag_admin:'pill-dark', operator_admin:'pill-bz', operator_manager:'pill-out', operator_restocker:'pill-out', operator_viewer:'pill-out' };
-    return pill(map[role] || 'pill-out', rsEsc(roleLabelOf(role)));
+    return pill(map[role] || 'pill-out', rsEsc(roleLabelOf(role, opId)));
   };
   const machinesOf = u => Array.isArray(u.machineAccess)
     ? `${u.machineAccess.length} machine${u.machineAccess.length === 1 ? '' : 's'}` : '';
@@ -13547,7 +13800,7 @@ function renderUsersTable(userList, pendingInvites) {
         <div><div style="font-weight:500;font-size:13px">${rsEsc(p.name||'—')}</div><div class="tsub" style="font-family:var(--mono);font-size:9.5px">invited by ${rsEsc(p.invitedBy)}</div></div>
       </div></td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${rsEsc(p.email)}</td>
-      <td>${rolePill(p.role)}</td>
+      <td>${rolePill(p.role, p.operatorId)}</td>
       <td style="font-size:12.5px">${rsEsc(p.operatorName || '—')}</td>
       <td><span class="pill pill-warn" style="font-size:9.5px">awaiting acceptance</span></td>
       <td><span class="pill pill-out" style="cursor:pointer;font-size:9.5px" onclick="resendInvite('${p.token}')">resend email</span>&nbsp;<span class="pill pill-out" style="cursor:pointer;font-size:9.5px" onclick="copyInviteLink('${p.token}')">copy link</span>&nbsp;<span class="pill pill-dn" style="cursor:pointer;font-size:9.5px" onclick="revokeInvite('${p.token}')">revoke</span></td>
@@ -13558,7 +13811,7 @@ function renderUsersTable(userList, pendingInvites) {
     <tr>
       <td><div style="display:flex;align-items:center;gap:9px"><div class="avatar" style="width:24px;height:24px;font-size:9px">${rsEsc(u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase())}</div><div style="font-weight:500;font-size:13px">${rsEsc(u.name)}</div></div></td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${rsEsc(u.email)}</td>
-      <td>${rolePill(u.role)}</td>
+      <td>${rolePill(u.role, u.operatorId)}</td>
       <td style="font-size:12.5px">${rsEsc(u.operatorName || '—')}${machinesOf(u) ? `<div class="tsub">${machinesOf(u)}</div>` : ''}</td>
       <td style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">${u.lastActiveAt?timeAgo(u.lastActiveAt):'never'}</td>
       <td>${canEdit(u) ? `<span class="pill pill-out" style="cursor:pointer" onclick="openEditUser('${rsEsc(u.id)}')">edit</span>&nbsp;<span class="pill pill-out" style="cursor:pointer" onclick="issueResetLink('${rsEsc(u.id)}')">reset password</span>` : ''}</td>
@@ -13581,7 +13834,7 @@ async function openEditUser(userId) {
     <div class="modal-title">edit user.</div>
     <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:14px">${rsEsc(u.email)}</div>
     <div class="field"><div class="fl">name</div><input class="fi" id="eu-name" value="${rsEsc(u.name||'')}"></div>
-    <div class="field"><div class="fl">role</div><div id="eu-roles">${roleRadiosHtml('eu-role', role, 'onEditUserRole()')}</div></div>
+    <div class="field"><div class="fl">role</div><div id="eu-roles">${roleRadiosHtml('eu-role', role, 'onEditUserRole()', u.operatorId)}</div></div>
     <div id="eu-change"></div>
     ${isAg ? `<div class="field" id="eu-op-field"><div class="fl">operator</div><select class="fi" id="eu-operator" onchange="onEditUserRole()">${opOpts}</select></div>` : ''}
     <div class="field" id="eu-machines-field" style="display:none"><div class="fl">machines</div><div class="mach-list" id="eu-machines"></div></div>
@@ -13685,7 +13938,11 @@ function openAddUser() {
   const isAg = currentUser && currentUser.role === 'ag_admin';
 
   // Only the roles this user may give, each with what it allows.
-  document.getElementById('u-roles').innerHTML = roleRadiosHtml('u-role', 'operator_manager', 'onInviteRole()');
+  // The words follow the operator the invitation is for: a locker operator's roles read differently.
+  const drawRoles = () => { const keep = checkedValue('u-role') || 'operator_manager';
+    document.getElementById('u-roles').innerHTML = roleRadiosHtml('u-role', keep, 'onInviteRole()', (sel && sel.value) || undefined); };
+  drawRoles();
+  if (sel) sel.onchange = () => { drawRoles(); try { onInviteRole(); } catch (e) {} };
   sel.onchange = onInviteRole;
   if (isAg && backendOnline) {
     opField.style.display = 'block';
