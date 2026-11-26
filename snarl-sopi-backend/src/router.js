@@ -261,6 +261,7 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/:id/result',    handler: handleLockerDepositResult, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup',                handler: handleLockerPickup,        middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/offline',               handler: handleLockerOffline,       middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/doors',                 handler: handleLockerDoors,         middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup/:id/result',     handler: handleLockerPickupResult,  middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetrySeries, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/app-update',        handler: handleAppUpdate,      middleware:[requireMachineKey] },
@@ -5430,6 +5431,26 @@ function handleLockerPickupResult(req, res) {
   const r = parcels.finishPickup(m, req.params.id, req.body || {});
   lockerAppAnswer(res, r);
   if (r.ok && r.doorFailed) lockerDoorAlert(m, r.boxN, 'pickup');
+}
+// POST …/locker/doors { open: [door numbers], at } — which doors stand open, as the lock board
+// reads them. A door open for more than ten minutes is told to the operator, once per box per day.
+function handleLockerDoors(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  const r = parcels.reportDoors(m, req.body || {});
+  lockerAppAnswer(res, r.ok ? { ok: true, open: r.open } : r);
+  if (!r.ok) return;
+  for (const n of r.tooLong) {
+    try {
+      const id = 'alert_locker_door_open_' + m.deviceCode + '_' + n + '_' + Math.floor(Date.now() / (24 * 3600 * 1000));
+      if (storage.getAlert(id)) continue;
+      storage.insertAlert({
+        id, type: 'locker_door_left_open', severity: 'warning',
+        title: `Box ${n} has been open over 10 minutes — ${m.deviceName || m.deviceCode}`,
+        detail: `${m.deviceCode} · the door of box ${n} has stood open for more than ten minutes. An open box is not given to new orders. Close it, or check the box on the Boxes tab.`,
+        deviceCode: m.deviceCode, resolved: false, createdAt: new Date().toISOString(),
+      });
+    } catch (e) { /* never let alerting break the locker's call */ }
+  }
 }
 // A door that did not open is a customer or a staff member standing at a locker that let them
 // down. The operator is told in the dashboard's alerts, once per box per day.

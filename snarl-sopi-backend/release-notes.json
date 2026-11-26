@@ -40,6 +40,20 @@
  },
  {
   "component": "backend",
+  "version": "6.134.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: the dashboard knows which doors stand open",
+  "notes": [
+   "The locker reports which doors are open. On the Boxes tab an open door carries a door open mark, and the box detail says since when.",
+   "A box whose door stands open is not given to a new order.",
+   "A door open for more than ten minutes raises an alert, once per box per day.",
+   "When the locker has not reported its doors for ten minutes, the dashboard says the door states are not known and nothing is assumed shut or open.",
+   "Needs a locker app that sends the report (after app 0.4.0); until then the box detail says the door state is not known."
+  ],
+  "check": "A locker's box detail says the door state is not known until the locker app reports doors."
+ },
+ {
+  "component": "backend",
   "version": "6.133.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: connect a web shop from the dashboard, and a door that will not open is dealt with",

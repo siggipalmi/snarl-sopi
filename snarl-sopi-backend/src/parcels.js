@@ -83,6 +83,12 @@ db.exec(`
     updatedAt  TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_locker_sms_parcel ON locker_sms(parcelId, createdAt);
+  CREATE TABLE IF NOT EXISTS locker_doors (
+    deviceCode TEXT PRIMARY KEY,
+    openSince  TEXT NOT NULL,
+    at         TEXT NOT NULL,
+    receivedAt TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS locker_box_state (
     deviceCode   TEXT NOT NULL,
     boxN         INTEGER NOT NULL,
@@ -200,16 +206,63 @@ function freeCounts(boxes, busy, closed) {
   return counts;
 }
 
+// ── Doors ─────────────────────────────────────────────────────────────────────────────────────
+// The locker reports which doors stand open. Only the latest report is kept, with the time
+// each open door was first seen open. A report older than DOORS_FRESH_MS says nothing: the
+// locker may be offline or its lock board silent, and "all shut" is never assumed.
+
+const DOORS_FRESH_MS = 10 * 60 * 1000;
+const DOOR_OPEN_TOO_LONG_MS = 10 * 60 * 1000;
+const doorsQ = {
+  get: db.prepare('SELECT * FROM locker_doors WHERE deviceCode = ?'),
+  set: db.prepare(`INSERT INTO locker_doors (deviceCode, openSince, at, receivedAt) VALUES (?, ?, ?, ?)
+                   ON CONFLICT(deviceCode) DO UPDATE SET openSince = excluded.openSince, at = excluded.at, receivedAt = excluded.receivedAt`),
+};
+
+/** { fresh, at, open: Map(door number -> ISO time first seen open) } as last reported. */
+function doorState(machine, now = Date.now()) {
+  const row = doorsQ.get.get(machine.deviceCode);
+  if (!row) return { fresh: false, at: null, open: new Map() };
+  let since = {}; try { since = JSON.parse(row.openSince) || {}; } catch (e) { since = {}; }
+  const fresh = now - Date.parse(row.receivedAt) <= DOORS_FRESH_MS;
+  return { fresh, at: row.receivedAt, open: new Map(Object.entries(since).map(([n, t]) => [Number(n), t])) };
+}
+
+/**
+ * Takes the locker's report { open: [door numbers], at }. Returns the doors that have now
+ * stood open longer than ten minutes, for the caller to tell the operator about.
+ */
+function reportDoors(machine, input, now = Date.now()) {
+  if (!input || !Array.isArray(input.open)) return fail(400, 'bad_request', 'open must be a list of door numbers.');
+  const known = new Set(boxesOf(machine).map(b => b.n));
+  const open = [...new Set(input.open.map(Number))].filter(n => known.has(n));
+  if (open.length !== new Set(input.open.map(Number)).size) {
+    const bad = input.open.find(n => !known.has(Number(n)));
+    return fail(400, 'box_not_found', `This locker has no box ${bad}.`);
+  }
+  const before = doorState(machine, now);
+  // A door keeps its first-seen time only across an unbroken run of fresh reports.
+  const since = {};
+  for (const n of open) since[n] = before.fresh && before.open.has(n) ? before.open.get(n) : iso(now);
+  doorsQ.set.run(machine.deviceCode, JSON.stringify(since), iso(Number.isFinite(Date.parse(input.at)) ? Math.min(Date.parse(input.at), now) : now), iso(now));
+  const tooLong = open.filter(n => now - Date.parse(since[n]) >= DOOR_OPEN_TOO_LONG_MS);
+  return { ok: true, open: open.sort((a, b) => a - b), tooLong };
+}
+
 // ── Reading a locker's state ──────────────────────────────────────────────────────────────────
 
 function boxesOf(machine) { return lockers.lockerRecord(machine).boxes; }
 
-function occupancy(machine) {
+function occupancy(machine, now = Date.now()) {
   const active = q.activeAtDevice.all(machine.deviceCode);
   const busy = new Set(active.map(p => p.boxN));
   const states = q.boxStates.all(machine.deviceCode);
   const closed = new Set(states.filter(s => s.outOfService).map(s => s.boxN));
-  return { active, busy, closed, states };
+  // A door reported open is not given to a new deposit: staff could not tell it from the one
+  // that just opened for them, and something may still be in it.
+  const doors = doorState(machine, now);
+  if (doors.fresh) for (const n of doors.open.keys()) closed.add(n);
+  return { active, busy, closed, states, doors };
 }
 
 function event(deviceCode, parcelId, boxN, type, actor, detail, now) {
@@ -243,7 +296,7 @@ function orderView(o) {
  * confirmed yet), `out_of_service` or `vacant`.
  */
 function boxView(machine, now = Date.now()) {
-  const { active, states } = occupancy(machine);
+  const { active, states, doors } = occupancy(machine, now);
   const byBox = new Map(active.map(p => [p.boxN, p]));
   const stateOf = new Map(states.map(s => [s.boxN, s]));
   const counts = { vacant: 0, occupied: 0, opening: 0, out_of_service: 0 };
@@ -255,11 +308,13 @@ function boxView(machine, now = Date.now()) {
     counts[state]++;
     byBox.delete(b.n);
     return { n: b.n, size: b.size, state, outOfService: out ? { reason: s.reason || '', by: s.by || null, at: s.at } : null,
+             doorOpenSince: doors.fresh && doors.open.has(b.n) ? doors.open.get(b.n) : null,
              parcel: parcelView(p, now), recent: p ? [] : boxEvents(machine, b.n, 3) };
   });
   // Parcels in a box number the box list no longer has: never hidden.
   const unplaced = [...byBox.values()].map(p => parcelView(p, now));
-  return { deviceCode: machine.deviceCode, operatorId: machine.operatorId || null, model: machine.model || '', boxes, counts, unplaced };
+  return { deviceCode: machine.deviceCode, operatorId: machine.operatorId || null, model: machine.model || '', boxes, counts, unplaced,
+           doors: { known: doors.fresh, reportedAt: doors.at } };
 }
 
 function getParcel(machine, parcelId, now = Date.now()) {
@@ -384,7 +439,7 @@ const startDeposit = db.transaction((machine, input, now = Date.now()) => {
   }
   const size = input && input.size;
   if (!lockers.BOX_SIZES.includes(size)) return fail(400, 'bad_size', `size must be one of ${lockers.BOX_SIZES.join(', ')}.`);
-  const { busy, closed } = occupancy(machine);
+  const { busy, closed } = occupancy(machine, now);
   const boxes = boxesOf(machine);
   const box = pickBox(boxes, busy, closed, size);
   if (!box) return fail(409, 'no_free_box', `No free ${size} box.`, { free: freeCounts(boxes, busy, closed) });
@@ -675,7 +730,7 @@ module.exports = {
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels,
   registerOrder, listOrders, orderCounts, cancelOrder, withdrawOrderByNumber,
-  offlineList, lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
+  offlineList, reportDoors, doorState, DOORS_FRESH_MS, DOOR_OPEN_TOO_LONG_MS, lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
   markCollected, clearParcel, setBoxService,
   // For the SMS and the pickup page, which are built on this next. Never sent to the dashboard.
   _secretsOf(parcelId) { const p = q.parcelById.get(String(parcelId)); return p ? { code: p.code, token: p.token } : null; },
