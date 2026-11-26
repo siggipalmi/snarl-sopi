@@ -45,6 +45,7 @@ const machineModels = require('./machineModels');
 const lockerRecords = require('./lockers');
 const parcels = require('./parcels');
 const lockerSms = require('./lockerSms');
+const lockerShops = require('./lockerShops');
 
 // Which app a machine runs, for release lines and version counts. A parcel locker is told by its
 // model family (LK-*, machineModels.js). For everything else the long-standing rule stands
@@ -243,6 +244,14 @@ const routes = [
   // (the link's token is the only key; it is served on sms.agvending.is).
   { method:'POST', pattern:lockerSms.CALLBACK_PATH,                                     handler: handleLockerSmsStatus,     middleware:[] },
   { method:'GET',  pattern:'/p/:token',                                                 handler: handleLockerPickupPage,    middleware:[] },
+  // Web shops reporting orders for a locker (6.132.0). The shop's delivery is authenticated by its
+  // own signature; the connections are the operator's to manage.
+  { method:'POST', pattern:lockerShops.PATH + ':hookId',                                handler: handleLockerShopDelivery,  middleware:[] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/locker-shops',                handler: handleLockerShopsList,     middleware:[requireAuth, requireOperatorAccess] },
+  { method:'POST', pattern:'/api/v1/operators/:operatorId/locker-shops',                handler: handleLockerShopCreate,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'PUT',  pattern:'/api/v1/operators/:operatorId/locker-shops/:id',            handler: handleLockerShopUpdate,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'POST', pattern:'/api/v1/operators/:operatorId/locker-shops/:id/secret',     handler: handleLockerShopSecret,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
+  { method:'DELETE', pattern:'/api/v1/operators/:operatorId/locker-shops/:id',          handler: handleLockerShopRemove,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrders,        middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrderAdd,      middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders/:id/cancel',     handler: handleLockerOrderCancel,   middleware:[requireAuth, requireMachineAccess] },
@@ -5360,6 +5369,34 @@ function handleLockerParcelSms(req, res) {
 function handleLockerSmsStatus(req, res) {
   const r = lockerSms.handleReport(req.rawBody, req.headers['x-twilio-signature']);
   res.writeHead(r.status); res.end();
+}
+
+// ── Web shops reporting locker orders (6.132.0, src/lockerShops.js) ────────────
+function handleLockerShopDelivery(req, res) {
+  const r = lockerShops.handleDelivery(req.params.hookId, req.rawBody, req.headers['x-wc-webhook-signature']);
+  json(res, r.status, r.body);
+}
+function handleLockerShopsList(req, res) {
+  ok(res, { shops: lockerShops.list(req.params.operatorId) });
+}
+function handleLockerShopCreate(req, res) {
+  const r = lockerShops.create(req.params.operatorId, req.body || {}, lockerWho(req));
+  if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} connected a shop for operator ${req.params.operatorId}`);
+  parcelAnswer(res, r, r.ok ? { shop: r.shop, secret: r.secret } : undefined);
+}
+function handleLockerShopUpdate(req, res) {
+  const r = lockerShops.update(req.params.operatorId, req.params.id, req.body || {});
+  parcelAnswer(res, r, r.ok ? { shop: r.shop } : undefined);
+}
+function handleLockerShopSecret(req, res) {
+  const r = lockerShops.newSecretFor(req.params.operatorId, req.params.id);
+  if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} made a new secret for a shop of operator ${req.params.operatorId}`);
+  parcelAnswer(res, r, r.ok ? { shop: r.shop, secret: r.secret } : undefined);
+}
+function handleLockerShopRemove(req, res) {
+  const r = lockerShops.remove(req.params.operatorId, req.params.id);
+  if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} removed a shop connection of operator ${req.params.operatorId}`);
+  parcelAnswer(res, r, r.ok ? { removed: true } : undefined);
 }
 
 function handleLockerPickupPage(req, res) {

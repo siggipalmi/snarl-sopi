@@ -305,8 +305,11 @@ function registerOrder(operatorId, input, now = Date.now()) {
     const r = q.insertOrder.run(operatorId, orderNumber, phone, firstName, source, iso(now), iso(now));
     return { ok: true, created: true, order: orderView(q.orderById.get(r.lastInsertRowid)) };
   }
-  if (existing.status === 'expected' && !q.activeForOrder.get(existing.id)) {
+  // An order withdrawn and then reported again (the shop un-cancelled it, or it was withdrawn
+  // by mistake) is expected once more. One that has been in a locker stays used.
+  if ((existing.status === 'expected' || existing.status === 'cancelled') && !q.activeForOrder.get(existing.id)) {
     q.updateOrder.run(phone, firstName, source, iso(now), existing.id);
+    if (existing.status === 'cancelled') q.setOrderStatus.run('expected', iso(now), existing.id);
     return { ok: true, created: false, order: orderView(q.orderById.get(existing.id)) };
   }
   return { ok: true, created: false, unchanged: true, order: orderView(existing) };
@@ -331,6 +334,15 @@ function cancelOrder(operatorId, orderId, now = Date.now()) {
   if (o.status !== 'expected' || q.activeForOrder.get(o.id)) return fail(409, 'order_used', 'This order is already in a locker or has been.');
   q.setOrderStatus.run('cancelled', iso(now), o.id);
   return { ok: true, order: orderView(q.orderById.get(o.id)) };
+}
+
+/** The shop cancelled an order or moved it off locker delivery: withdrawn if still only expected. */
+function withdrawOrderByNumber(operatorId, rawOrderNumber, now = Date.now()) {
+  const orderNumber = normalizeOrderNumber(rawOrderNumber);
+  const o = orderNumber ? q.orderByNumber.get(operatorId, orderNumber) : null;
+  if (!o || o.status !== 'expected' || q.activeForOrder.get(o.id)) return false;
+  q.setOrderStatus.run('cancelled', iso(now), o.id);
+  return true;
 }
 
 // ── Deposit (the locker) ──────────────────────────────────────────────────────────────────────
@@ -653,7 +665,7 @@ module.exports = {
   WRONG_CODE_LIMIT, WRONG_CODE_WINDOW_MS,
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels,
-  registerOrder, listOrders, orderCounts, cancelOrder,
+  registerOrder, listOrders, orderCounts, cancelOrder, withdrawOrderByNumber,
   offlineList, lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
   markCollected, clearParcel, setBoxService,
   // For the SMS and the pickup page, which are built on this next. Never sent to the dashboard.
