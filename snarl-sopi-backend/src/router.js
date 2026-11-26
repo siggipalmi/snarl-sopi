@@ -3990,7 +3990,7 @@ function handleSetFeatured(req, res) {
 async function handleUploadAd(req, res) {
   const m = machines[req.params.deviceCode];
   if (!m) return notFound(res, `Machine ${req.params.deviceCode} not found`);
-  return storePosterUpload(req, res, String(req.params.deviceCode));
+  return storePosterUpload(req, res, String(req.params.deviceCode), machineModels.isLockerModel(m.model));
 }
 
 async function handleUploadOperatorAd(req, res) {
@@ -3999,7 +3999,18 @@ async function handleUploadOperatorAd(req, res) {
 }
 
 // Host a poster on R2, checked against the 16:9 target. Shared by the machine and operator uploads.
-async function storePosterUpload(req, res, namePrefix) {
+// A parcel locker's screen is 1280x800 (16:10) and shows a picture whole, so for a locker the
+// advice is about that screen: any other shape gets black bands, it is never cropped.
+function lockerPosterNote(width, height) {
+  const ratio = width / height;
+  if (Math.abs(ratio - 1280 / 800) <= 0.02) {
+    return width < 1280 ? `This image is ${width}x${height}. It is the right shape but will look soft on the locker's screen — 1280x800 is the target.` : null;
+  }
+  const where = ratio > 1280 / 800 ? 'above and below' : 'at the sides';
+  return `This image is ${width}x${height}. The locker's screen is 1280x800, so it will show with a black band ${where}. A 1280x800 picture fills the screen.`;
+}
+
+async function storePosterUpload(req, res, namePrefix, forLocker) {
   const r2 = require('./r2');
   if (!r2.isConfigured()) return badRequest(res, 'Image hosting is not configured (R2 env missing)');
   const b = req.body || {};
@@ -4019,7 +4030,9 @@ async function storePosterUpload(req, res, namePrefix) {
     if (width && height) {
       const ratio = width / height;
       const off = Math.abs(ratio - 16 / 9);
-      if (off > 0.02) {
+      if (forLocker) {
+        note = lockerPosterNote(width, height);
+      } else if (off > 0.02) {
         note = `This image is ${width}x${height} (${ratio.toFixed(2)}:1). The kiosk ad region is 16:9, so it will be cropped or letterboxed. 1920x1080 fits exactly.`;
       } else if (width < 1280) {
         note = `This image is ${width}x${height}. It is the right shape but will look soft on a 1080p screen — 1920x1080 is the target.`;

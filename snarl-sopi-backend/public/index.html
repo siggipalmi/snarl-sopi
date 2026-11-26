@@ -1405,7 +1405,7 @@ select.fi{cursor:pointer;}
             <div class="ph-action" onclick="addAdSlot()" data-i18n="md.add">+ add</div>
           </div>
           <div id="md-ads" style="padding:14px 18px 16px"></div>
-          <div class="locker-only" style="padding:0 18px 16px;font-size:11.5px;color:var(--muted);line-height:1.5;max-width:720px" data-i18n="lk.ads.note">On a locker these are its screen saver, shown when nobody is at it. The locker's screen is 1280×800: a 1920×1080 picture fits its width and shows with a black band above and below. A 1280×800 picture fills the screen.</div>
+          <div class="locker-only" style="padding:0 18px 16px;font-size:11.5px;color:var(--muted);line-height:1.5;max-width:720px" data-i18n="lk.ads.note">On a locker these are its screen saver, shown when nobody is at it. Make the pictures 1280×800, the size of the locker's screen. A 1920×1080 picture also works, but shows with a black band above and below.</div>
         </div>
       </div>
 
@@ -2687,6 +2687,7 @@ const I18N = {
     'md.qa.clearFault':'Clear fault','md.qa.checkUpdate':'Check update','md.qa.syncWeimi':'⟳ Sync from Weimi',
     'md.posterToggle':"Show the poster area on this machine's screen",
     'md.posterNone':'No poster set for this machine. Add one — 1920×1080 (16:9) is the size the screen expects.',
+    'lk.posterNone':'No picture set for this locker. Add one — 1280×800 is the size of the locker’s screen.',
     'md.pinShared':'Still on the shared PIN (123456). Generate one for this machine; needs fridge app 0.69.0 or coil app 0.80.6 or newer.',
     'md.resolve':'resolve','md.alertsFailed':'Could not load alerts.',
     'md.connected':'online','md.appUnknown':'app unknown','md.appPrefix':'app','md.keyUnknown':'key unknown',
@@ -2904,7 +2905,7 @@ const I18N = {
     'bx.door.open':'door open',
     'bx.door.since':'The door has stood open since {when}. An open box is not given to new orders.',
     'bx.door.unknown':'Whether this door is open is not known: the locker has not reported its doors in the last 10 minutes.',
-    'lk.ads.note':'On a locker these are its screen saver, shown when nobody is at it. The locker’s screen is 1280×800: a 1920×1080 picture fits its width and shows with a black band above and below. A 1280×800 picture fills the screen.',
+    'lk.ads.note':'On a locker these are its screen saver, shown when nobody is at it. Make the pictures 1280×800, the size of the locker’s screen. A 1920×1080 picture also works, but shows with a black band above and below.',
     'lk.key.title':'machine key.',
     'lk.key.help':'The key this locker signs its calls with. It gets one by pairing: Overview, pairing code. Revoking it cuts the locker off until it is paired again.',
     'lk.controls.help':'What has been sent to this locker, and what it answered. Open a box from the Boxes tab.',
@@ -3257,6 +3258,7 @@ const I18N = {
     'md.qa.clearFault':'Hreinsa villu','md.qa.checkUpdate':'Athuga uppfærslu','md.qa.syncWeimi':'⟳ Samstilla frá Weimi',
     'md.posterToggle':'Sýna auglýsingasvæðið á skjá þessarar vélar',
     'md.posterNone':'Engin auglýsing valin fyrir þessa vél. Bættu við einni — 1920×1080 (16:9) er stærðin sem skjárinn gerir ráð fyrir.',
+    'lk.posterNone':'Engin mynd valin fyrir þennan skáp. Bættu við einni — 1280×800 er stærð skjásins á skápnum.',
     'md.pinShared':'Enn á sameiginlega PIN-inum (123456). Búðu til einn fyrir þessa vél; krefst kæliforrits 0.69.0 eða sjálfsalaforrits 0.80.6 eða nýrra.',
     'md.resolve':'leysa','md.alertsFailed':'Tókst ekki að sækja viðvaranir.',
     'md.connected':'nettengt','md.appUnknown':'Óþekkt útgáfa','md.appPrefix':'útgáfa','md.keyUnknown':'lykill óþekktur',
@@ -3474,7 +3476,7 @@ const I18N = {
     'bx.door.open':'hurð opin',
     'bx.door.since':'Hurðin hefur staðið opin síðan {when}. Opið hólf er ekki notað fyrir nýjar pantanir.',
     'bx.door.unknown':'Ekki er vitað hvort þessi hurð er opin: skápurinn hefur ekki tilkynnt stöðu hurða síðustu 10 mínútur.',
-    'lk.ads.note':'Á skáp eru þetta skjáhvílumyndir, sýndar þegar enginn er við skápinn. Skjár skápsins er 1280×800: mynd í 1920×1080 fyllir breiddina og birtist með svartri rönd að ofan og neðan. Mynd í 1280×800 fyllir skjáinn.',
+    'lk.ads.note':'Á skáp eru þetta skjáhvílumyndir, sýndar þegar enginn er við skápinn. Hafðu myndirnar 1280×800, sem er stærð skjásins á skápnum. Mynd í 1920×1080 virkar líka en birtist með svartri rönd að ofan og neðan.',
     'lk.key.title':'lykill vélar.',
     'lk.key.help':'Lykillinn sem þessi skápur notar til að auðkenna sig. Hann fær lykil við pörun: Yfirlit, pörunarkóði. Ef lykillinn er afturkallaður missir skápurinn sambandið þar til hann er paraður aftur.',
     'lk.controls.help':'Það sem hefur verið sent á þennan skáp og hverju hann svaraði. Hólf er opnað á flipanum Hólf.',
@@ -7654,7 +7656,7 @@ async function renderMachineAds(code, machine) {
     h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">The area is hidden, so posters below won\'t appear until it\'s switched on.</div>';
   }
   if (!_mdAds.length) {
-    h += '<div id="ads-inherit" style="font-size:12.5px;color:var(--muted)">' + rsEsc(t('md.posterNone')) + '</div>';
+    h += '<div id="ads-inherit" style="font-size:12.5px;color:var(--muted)">' + rsEsc(t(isLockerModel(_mdModel) ? 'lk.posterNone' : 'md.posterNone')) + '</div>';
   } else {
     h += _mdAds.map(function (ad, i) { return adRow(ad, i); }).join('');
     h += '<div style="margin-top:12px"><button class="btn btn-sm" onclick="saveAds()">save posters</button></div>';
