@@ -40,6 +40,17 @@
  },
  {
   "component": "backend",
+  "version": "6.140.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: pickup photos are switched on per locker, by AG",
+  "notes": [
+   "Locker details has a new AG-only switch, photograph each pickup. It is off for every locker until AG switches it on, which is done once the site has a sign telling customers a photo is taken.",
+   "The locker learns the setting with its next config poll, within two minutes. While it is off the backend refuses and keeps no photo from that locker."
+  ],
+  "check": "As AG, a locker's Locker details ends with a photo at pickup panel, switched off."
+ },
+ {
+  "component": "backend",
   "version": "6.139.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: the backend can keep a photo taken at pickup",

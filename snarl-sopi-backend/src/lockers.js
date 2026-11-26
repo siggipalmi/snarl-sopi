@@ -187,6 +187,9 @@ function lockerRecord(machine) {
     info, mapUrl: mapUrl(info),
     boxes, boxCounts: boxCounts(boxes),
     sms: { messagingServiceSid: (stored.sms && stored.sms.messagingServiceSid) || '' },
+    // Whether the locker photographs each pickup. Off unless AG switched it on for this locker,
+    // which is done once its site has a sign saying so.
+    pickupPhoto: stored.pickupPhoto === true,
     messages: Object.fromEntries(Object.keys(DEFAULT_MESSAGES).map(k => [k, (stored.messages && stored.messages[k]) || DEFAULT_MESSAGES[k]])),
     messagesCustom: Object.fromEntries(Object.keys(DEFAULT_MESSAGES).map(k => [k, !!(stored.messages && stored.messages[k])])),
     messageDefaults: { ...DEFAULT_MESSAGES },
@@ -215,6 +218,8 @@ function applyChange(machine, change, who, nowIso) {
   }
   if (change.boxes) next.boxes = change.boxes;
   if (stored.sms) next.sms = stored.sms;
+  if (stored.pickupPhoto === true) next.pickupPhoto = true;
+  if (change.pickupPhoto !== undefined) { if (change.pickupPhoto === true) next.pickupPhoto = true; else delete next.pickupPhoto; }
   if (change.sms) next.sms = change.sms;
   if (stored.messages || change.messages) {
     next.messages = { ...(stored.messages || {}) };

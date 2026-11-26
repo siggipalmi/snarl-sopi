@@ -1314,6 +1314,16 @@ select.fi{cursor:pointer;}
             <button class="btn btn-sm" onclick="saveLockerSender()"><span data-i18n="lk.sender.save">save sender</span></button>
           </div>
         </div>
+        <div class="panel" id="lk-photo-panel" style="margin-bottom:16px;display:none">
+          <div class="ph"><div class="ph-title" data-i18n="lk.photo.title">photo at pickup.</div></div>
+          <div style="padding:14px 18px 18px">
+            <div class="toggle-row" style="border:none;padding:0 0 8px">
+              <div><div class="tgl-label" id="lk-photo-label" data-i18n="lk.photo.label">photograph each pickup</div></div>
+              <label class="tgl"><input type="checkbox" id="lk-photo" aria-labelledby="lk-photo-label" onchange="saveLockerPhoto(this.checked)"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+            </div>
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.5;max-width:720px" data-i18n="lk.photo.help">The locker's camera takes one picture when a parcel is collected, as proof of delivery. Admins can see it in the Parcel log for 30 days. Switch it on only when the site has a sign telling customers a photo is taken at pickup. Only AG Vending sees and sets this; the locker follows within two minutes.</div>
+          </div>
+        </div>
       </div>
 
       <!-- ── OVERVIEW ── -->
@@ -2944,6 +2954,12 @@ const I18N = {
     'lg.photo.note':'Each viewing is written to the history below, with who looked.',
     'bx.ev.photo_taken':'Photo taken at the locker',
     'bx.ev.photo_viewed':'Pickup photo viewed',
+    'lk.photo.title':'photo at pickup.',
+    'lk.photo.label':'photograph each pickup',
+    'lk.photo.help':'The locker’s camera takes one picture when a parcel is collected, as proof of delivery. Admins can see it in the Parcel log for 30 days. Switch it on only when the site has a sign telling customers a photo is taken at pickup. Only AG Vending sees and sets this; the locker follows within two minutes.',
+    'lk.photo.q':'Switch on pickup photos for this locker?\n\nOnly if the site has a sign telling customers a photo is taken at pickup.',
+    'lk.photo.on':'Pickup photos switched on',
+    'lk.photo.off':'Pickup photos switched off',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3507,6 +3523,12 @@ const I18N = {
     'lg.photo.note':'Hver skoðun er skráð í söguna hér að neðan, ásamt því hver skoðaði.',
     'bx.ev.photo_taken':'Mynd tekin við skápinn',
     'bx.ev.photo_viewed':'Mynd við afhendingu skoðuð',
+    'lk.photo.title':'mynd við afhendingu.',
+    'lk.photo.label':'taka mynd við hverja afhendingu',
+    'lk.photo.help':'Myndavél skápsins tekur eina mynd þegar sending er sótt, sem staðfestingu á afhendingu. Stjórnendur geta séð hana í sendingaskránni í 30 daga. Kveiktu aðeins á þessu þegar skilti á staðnum segir viðskiptavinum að mynd sé tekin við afhendingu. Aðeins AG Vending sér þetta og stillir; skápurinn fylgir innan tveggja mínútna.',
+    'lk.photo.q':'Kveikja á myndatöku við afhendingu fyrir þennan skáp?\n\nAðeins ef skilti á staðnum segir viðskiptavinum að mynd sé tekin við afhendingu.',
+    'lk.photo.on':'Kveikt á myndatöku við afhendingu',
+    'lk.photo.off':'Slökkt á myndatöku við afhendingu',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -9402,6 +9424,20 @@ async function renderLockerDetails(code) {
   var sp = document.getElementById('lk-sender-panel'), se = document.getElementById('lk-sender');
   if (sp) sp.style.display = lkIsAg() ? '' : 'none';
   if (se) se.value = (_lkRecord.sms && _lkRecord.sms.messagingServiceSid) || '';
+  var pp = document.getElementById('lk-photo-panel'), pc = document.getElementById('lk-photo');
+  if (pp) pp.style.display = lkIsAg() ? '' : 'none';
+  if (pc) pc.checked = !!_lkRecord.pickupPhoto;
+}
+
+async function saveLockerPhoto(on) {
+  var code = _mdDeviceCode, box = document.getElementById('lk-photo');
+  if (on && !confirm(t('lk.photo.q'))) { if (box) box.checked = false; return; }
+  var r = null;
+  try { r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/locker', { pickupPhoto: !!on }); } catch (e) { r = null; }
+  if (!r || !r.ok) { showToast(lkErrText(r) || t('lk.load.fail')); if (box) box.checked = !on; return; }
+  if (code !== _mdDeviceCode) return;
+  _lkRecord = r.data;
+  showToast(t(on ? 'lk.photo.on' : 'lk.photo.off'));
 }
 
 // The wording of the locker's messages: one box per message, a sample beside it as the customer
