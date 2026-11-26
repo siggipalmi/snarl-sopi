@@ -1305,6 +1305,7 @@ select.fi{cursor:pointer;}
             <div id="lk-boxes-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"></div>
           </div>
         </div>
+        <div id="lk-ads-top"></div>
         <div class="panel" id="lk-sender-panel" style="margin-bottom:16px;display:none">
           <div class="ph"><div class="ph-title" data-i18n="lk.sender.title">SMS sender.</div></div>
           <div style="padding:14px 18px 18px">
@@ -1397,7 +1398,8 @@ select.fi{cursor:pointer;}
 
         <!-- Last on the overview: the poster is set once and then left alone, while the
              buttons above it are what a visit to this page is usually for. -->
-        <div class="panel vend-only" id="md-ads-panel" style="margin-bottom:16px">
+        <div id="md-ads-home"></div>
+        <div class="panel" id="md-ads-panel" style="margin-bottom:16px">
           <div class="ph">
             <div class="ph-title" data-i18n="md.screenPoster">screen poster.</div>
             <div class="ph-action" onclick="addAdSlot()" data-i18n="md.add">+ add</div>
@@ -8816,6 +8818,8 @@ function mdPlacePanels(isLocker) {
   };
   put('md-attention-panel', 'bx-top', 'md-attention-home');
   put('md-pair-panel', 'lk-controls-top', 'md-pair-home');
+  // The screen poster is what a locker shows when nobody is at it: its screen saver.
+  put('md-ads-panel', 'lk-ads-top', 'md-ads-home');
 }
 
 // ─── Parcel lockers: the Parcel log tab ────────────────────────────────────────
@@ -8944,8 +8948,8 @@ function lgRenderDetail() {
 function lgCsv() {
   if (!_lgRows.length) { showToast(t('lg.none')); return; }
   var cell = function (v) { v = v == null ? '' : String(v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
-  var lines = [['order', 'box', 'status', 'how it left', 'started (UTC)', 'put in (UTC)', 'left the box (UTC)', 'hours in the box'].map(cell).join(',')]
-    .concat(_lgRows.map(function (p) { return [p.orderNumber, p.boxN, p.state, lgHow(p), p.createdAt, p.storedAt, p.endedAt, p.hoursInBox].map(cell).join(','); }));
+  var lines = [['order', 'box', 'status', 'how it left', 'customer', 'mobile', 'started (UTC)', 'put in (UTC)', 'left the box (UTC)', 'hours in the box'].map(cell).join(',')]
+    .concat(_lgRows.map(function (p) { return [p.orderNumber, p.boxN, p.state, lgHow(p), p.firstName, lkPhone(p.phone), p.createdAt, p.storedAt, p.endedAt, p.hoursInBox].map(cell).join(','); }));
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
   a.download = 'parcel-log-' + (_mdDeviceCode || 'locker') + '-' + new Date().toISOString().slice(0, 10) + '.csv';

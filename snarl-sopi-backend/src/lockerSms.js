@@ -21,6 +21,7 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 const parcels = require('./parcels');
 const lockers = require('./lockers');
+const AG_LOGO = require('./agLogo');
 
 const REMINDER_AFTER_HOURS = 48;
 const REMINDER_HOURS_UTC = [10, 18];   // reminders go out by day, Iceland time (UTC)
@@ -150,7 +151,10 @@ p{margin:0;font-size:17px;line-height:24px;color:#555555}
 .locker small{font-size:13px;font-weight:800;letter-spacing:1.5px}.locker strong{font-size:18px;line-height:24px;font-weight:800}
 .locker span{font-size:15px;line-height:21px;color:#555555}.locker .note{color:#111111;border-top:2px solid #E2DED7;padding-top:8px;margin-top:6px}
 a{color:#111111;font-size:15px;font-weight:800;margin-top:4px}
-</style></head><body><main>${body}</main></body></html>`;
+footer{padding:18px 24px 26px;display:flex;justify-content:center}
+footer a{display:flex;align-items:center;gap:10px;margin:0;font-size:12px;font-weight:700;letter-spacing:.4px;color:#555555;text-decoration:none}
+footer img{height:30px;width:auto;display:block}
+</style></head><body><main>${body}<footer><a href="https://agvending.is" rel="noopener">Knúið af <img src="${AG_LOGO}" alt="AG Vending"></a></footer></main></body></html>`;
 }
 
 function lockerBlock(info) {
