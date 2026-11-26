@@ -110,7 +110,12 @@ function normalizeSms(input) {
 const DEFAULT_MESSAGES = {
   first: 'Pöntunin þín {order} er tilbúin í skápnum {locker}. Kóði: {code}. QR-kóði: {link}',
   reminder: 'Áminning: Pöntunin þín {order} bíður þín enn í skápnum {locker}. Kóði: {code}. QR-kóði: {link}',
+  // Sent when the operator takes a parcel back out before it was collected, if they choose to.
+  removed: 'Pöntunin þín {order} hefur verið tekin úr skápnum {locker} og er ekki lengur þar. Kóðinn virkar ekki lengur.',
 };
+// A message that asks the customer to come must carry the code; one that says the parcel is gone
+// must not offer a code or link that no longer works.
+const NEEDS_CODE = { first: true, reminder: true, removed: false };
 const MESSAGE_MAX = 320;
 const MESSAGE_FIELDS = ['order', 'locker', 'code', 'link'];
 
@@ -129,7 +134,8 @@ function normalizeMessages(input) {
     if (text) {
       const unknown = (text.match(/\{[^{}]*\}/g) || []).filter(f => !MESSAGE_FIELDS.includes(f.slice(1, -1)));
       if (unknown.length) return fail(`${kind}: ${unknown[0]} is not a field. Use ${MESSAGE_FIELDS.map(f => '{' + f + '}').join(' ')}`);
-      if (!text.includes('{code}')) return fail(`${kind} must contain {code}, the customer's pickup code`);
+      if (NEEDS_CODE[kind] && !text.includes('{code}')) return fail(`${kind} must contain {code}, the customer's pickup code`);
+      if (!NEEDS_CODE[kind] && /\{(code|link)\}/.test(text)) return fail(`${kind} cannot contain {code} or {link}: they stop working when the parcel is removed`);
     }
     out[kind] = text;
   }
@@ -181,9 +187,9 @@ function lockerRecord(machine) {
     info, mapUrl: mapUrl(info),
     boxes, boxCounts: boxCounts(boxes),
     sms: { messagingServiceSid: (stored.sms && stored.sms.messagingServiceSid) || '' },
-    messages: { first: (stored.messages && stored.messages.first) || DEFAULT_MESSAGES.first,
-                reminder: (stored.messages && stored.messages.reminder) || DEFAULT_MESSAGES.reminder },
-    messagesCustom: { first: !!(stored.messages && stored.messages.first), reminder: !!(stored.messages && stored.messages.reminder) },
+    messages: Object.fromEntries(Object.keys(DEFAULT_MESSAGES).map(k => [k, (stored.messages && stored.messages[k]) || DEFAULT_MESSAGES[k]])),
+    messagesCustom: Object.fromEntries(Object.keys(DEFAULT_MESSAGES).map(k => [k, !!(stored.messages && stored.messages[k])])),
+    messageDefaults: { ...DEFAULT_MESSAGES },
     updatedAt: stored.updatedAt || null, updatedBy: stored.updatedBy || null,
   };
 }

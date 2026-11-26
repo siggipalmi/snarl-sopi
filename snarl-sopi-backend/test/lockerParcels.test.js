@@ -362,3 +362,97 @@ test('the orders list shows phone endings and counts per status, never a whole n
   const order = list.orders.find(o => o.orderNumber === '70050');
   assert.equal(call('POST', '/orders/:id/cancel', { params: { id: String(order.id) } }).body.data.order.phone, undefined);
 });
+
+// ── 6.130.0: collecting with no connection, and the locker's config ───────────────────────────
+
+test('the offline list lets the locker check a code or a link itself, and holds neither', () => {
+  const crypto = require('node:crypto');
+  const p = stored(A2, 'small');
+  parcels.registerOrder('op-parcel-a', { orderNumber: 'OFF-OPENING', phone: '5550130' }, T0);
+  parcels.startDeposit(A2, { orderNumber: 'OFF-OPENING', size: 'big' }, T0);       // not stored: not listed
+  const r = call('GET', '/offline', { deviceCode: 'LKP-A2' });
+  assert.deepEqual(r.guards, ['requireMachineKey']);
+  const list = r.body.data;
+  assert.match(list.salt, /^[0-9a-f]{32}$/);
+  assert.equal(list.parcels.length, 1);
+  const e = list.parcels[0];
+  assert.equal(e.parcelId, p.parcelId);
+  assert.deepEqual(e.box, { n: p.box.n, board: 1, lock: p.box.lock });
+  const h = (v) => crypto.createHmac('sha256', list.salt).update(v, 'utf8').digest('hex');
+  assert.equal(e.codeHash, h(p.code));
+  assert.equal(e.tokenHash, h(p.token));
+  const text = JSON.stringify(list);
+  assert.equal(text.includes(p.code) || text.includes(p.token) || text.includes('5550100'), false);
+  assert.notEqual(call('GET', '/offline', { deviceCode: 'LKP-A2' }).body.data.salt, list.salt, 'a new salt every time');
+  assert.equal(call('GET', '/offline', { deviceCode: 'LKP-B1' }).body.data.parcels.length, 0, 'another locker\'s parcels are not in it');
+  empty(A2);
+});
+
+test('a pickup made offline is taken when it is reported, dated when it happened, and never refused', () => {
+  const t0 = Date.parse('2026-11-26T08:00:00Z'), H = 3600000;
+  const res = (m, id, body, now) => parcels.finishPickup(m, id, body, now);
+
+  const a = stored(A2, 'small', t0);
+  const done = res(A2, a.parcelId, { opened: true, offline: true, at: new Date(t0 + 2 * H).toISOString() }, t0 + 5 * H);
+  assert.deepEqual([done.ok, done.state], [true, 'collected']);
+  const view = parcels.getParcel(A2, a.parcelId);
+  assert.equal(view.parcel.endedAt, new Date(t0 + 2 * H).toISOString(), 'dated when the customer was there');
+  assert.equal(view.events.at(-1).type, 'collected');
+  assert.equal(view.events.at(-1).detail, 'offline');
+  // The same report again (the answer was lost): still 200, nothing changes.
+  assert.equal(res(A2, a.parcelId, { opened: true, offline: true, at: new Date(t0 + 2 * H).toISOString() }, t0 + 6 * H).state, 'collected');
+
+  // A locker clock that is wrong is not believed.
+  const b = stored(A2, 'small', t0);
+  res(A2, b.parcelId, { opened: true, offline: true, at: '2019-01-01T00:00:00Z' }, t0 + 3 * H);
+  assert.equal(parcels.getParcel(A2, b.parcelId).parcel.endedAt, new Date(t0 + 3 * H).toISOString());
+  const c = stored(A2, 'small', t0);
+  res(A2, c.parcelId, { opened: true, offline: true, at: 'nonsense' }, t0 + 3 * H);
+  assert.equal(parcels.getParcel(A2, c.parcelId).parcel.endedAt, new Date(t0 + 3 * H).toISOString());
+
+  // The operator cleared the box while the locker was offline; the customer still opened it.
+  const d = stored(A2, 'small', t0);
+  parcels.clearParcel(A2, d.parcelId, 'op@example.test', {}, t0 + H);
+  const late = res(A2, d.parcelId, { opened: true, offline: true, at: new Date(t0 + 2 * H).toISOString() }, t0 + 4 * H);
+  assert.deepEqual([late.ok, late.state], [true, 'cleared'], 'answered, and the operator\'s action stands');
+  assert.equal(parcels.getParcel(A2, d.parcelId).events.at(-1).type, 'offline_pickup_after');
+
+  // The door did not open offline: recorded, the parcel stays.
+  const e = stored(A2, 'small', t0);
+  assert.equal(res(A2, e.parcelId, { opened: false, offline: true, at: new Date(t0 + H).toISOString() }, t0 + 2 * H).state, 'stored');
+  assert.equal(parcels.getParcel(A2, e.parcelId).events.at(-1).detail, 'offline');
+  // Another locker's parcel is still not this locker's to report on.
+  assert.equal(res(A1, e.parcelId, { opened: true, offline: true }, t0 + 2 * H).code, 'parcel_not_found');
+  // Online, a result for a cleared parcel is still a refusal.
+  assert.equal(res(A2, d.parcelId, { opened: true }, t0 + 4 * H).code, 'wrong_state');
+  empty(A2);
+});
+
+test('after a cancelled deposit, a bigger box is a new parcel; the reasons are kept', () => {
+  parcels.registerOrder('op-parcel-a', { orderNumber: 'BIGGER', phone: '5550131' }, T0);
+  const first = parcels.startDeposit(A2, { orderNumber: 'BIGGER', size: 'small' }, T0);
+  parcels.finishDeposit(A2, first.parcelId, { outcome: 'cancelled', reason: 'bigger_box' }, T0);
+  assert.equal(parcels.lookupForDeposit(A2, 'BIGGER').resume, null, 'the cancelled parcel is not offered again');
+  const second = parcels.startDeposit(A2, { orderNumber: 'BIGGER', size: 'big' }, T0);
+  assert.equal(second.resumed, false);
+  assert.notEqual(second.parcelId, first.parcelId);
+  assert.equal(second.box.size, 'big');
+  assert.equal(parcels.getParcel(A2, first.parcelId).events.at(-1).detail, 'bigger_box');
+  empty(A2);
+});
+
+test('a locker\'s config carries what it shows and its doors; a coil machine\'s does not', () => {
+  const cfg = (deviceCode) => {
+    let text = '';
+    routes.find(r => r.method === 'GET' && r.pattern === '/api/v1/machines/:deviceCode/config')
+      .handler({ params: { deviceCode }, headers: {}, query: {} }, { writeHead() {}, setHeader() {}, end(b) { text = b ? b.toString() : ''; } });
+    return JSON.parse(text).data;
+  };
+  const locker = cfg('LKP-A1').locker;
+  assert.equal(locker.name, 'Skápur LKP-A1');
+  assert.equal(locker.address, 'Prufugata 1');
+  assert.deepEqual(locker.boxes[0], { n: 1, size: 'middle', board: 1, lock: 1 });
+  assert.equal(locker.boxes.length, 4);
+  assert.equal(JSON.stringify(locker).includes('messagingServiceSid'), false, 'the SMS sender is not the locker\'s business');
+  assert.equal(cfg('VMP-1').locker, undefined);
+});

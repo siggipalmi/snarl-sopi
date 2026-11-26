@@ -5,6 +5,7 @@
  *   first     when the door closes on a parcel: the order is ready, with the code and the link
  *   reminder  once, when a parcel has waited 48 hours
  *   resend    the first message again, when an operator asks
+ *   removed   the parcel was taken back out before pickup, when the operator chooses to say so
  *
  * Messages go through Twilio, from the Messaging Service set on the locker (settings.locker.sms).
  * Twilio is asked to report back on every message; each report (sent, delivered, undelivered,
@@ -38,7 +39,7 @@ const callbackUrl = () => cfg().callbackBase + CALLBACK_PATH;
 
 // The wording is the locker's own (settings.locker.messages), with defaults in src/lockers.js.
 function messageText(kind, f, record, linkBase) {
-  const template = kind === 'reminder' ? record.messages.reminder : record.messages.first;
+  const template = record.messages[kind === 'resend' ? 'first' : kind] || record.messages.first;
   return lockers.fillMessage(template, { order: f.orderNumber, locker: record.info.name, code: f.code, link: `${linkBase}/p/${f.token}` });
 }
 
@@ -64,7 +65,9 @@ let transport = async function twilioSend({ accountSid, authToken, messagingServ
 async function send(machine, parcelId, kind, actor, now = Date.now()) {
   const f = parcels.smsFacts(parcelId);
   if (!f || f.deviceCode !== machine.deviceCode) return { ok: false, status: 404, code: 'parcel_not_found', error: 'No such parcel at this locker.' };
-  if (f.state !== 'stored') return { ok: false, status: 409, code: 'wrong_state', error: `This parcel is ${f.state}; there is nothing to tell the customer.` };
+  // A parcel in its box can be announced; one the operator took back out can be told so, once it is out.
+  const fits = kind === 'removed' ? f.state === 'cleared' : f.state === 'stored';
+  if (!fits) return { ok: false, status: 409, code: 'wrong_state', error: `This parcel is ${f.state}; there is nothing to tell the customer.` };
   if (kind === 'reminder') parcels.noteEvent(f.id, 'reminder_attempted', actor, null, now);
   const refuse = (code, error, status) => { parcels.noteEvent(f.id, 'sms_not_sent', actor, `${kind}: ${error}`, now); return { ok: false, status: status || 424, code, error }; };
   const c = cfg();

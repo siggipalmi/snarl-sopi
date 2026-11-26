@@ -267,3 +267,56 @@ test('an operator writes the locker\'s messages; a locker without its own wordin
   assert.equal(back.body.data.messages.first, lockers.DEFAULT_MESSAGES.first);
   free(machineOf('LKS-1'), p.parcelId);
 });
+
+// ── 6.130.0: telling the customer a parcel was taken back out ─────────────────────────────────
+
+test('a removed parcel can be announced once it is out, without a code or link, and only then', async () => {
+  const lockers = require('../src/lockers');
+  const m = machineOf('LKS-1');
+  const p = stored(m);
+  assert.equal((await lockerSms.send(m, p.parcelId, 'removed', 'op@example.test', T0)).code, 'wrong_state', 'not while it is still in the box');
+  parcels.clearParcel(m, p.parcelId, 'op@example.test', { reason: 'returned' }, T0);
+  const r = await lockerSms.send(m, p.parcelId, 'removed', 'op@example.test', T0 + 1000);
+  assert.equal(r.ok, true);
+  const body = sentToTwilio.at(-1).body;
+  assert.equal(body, `Pöntunin þín ${p.orderNumber} hefur verið tekin úr skápnum AG Test og er ekki lengur þar. Kóðinn virkar ekki lengur.`);
+  assert.equal(body.includes(p.code) || body.includes(p.token), false);
+  assert.equal(parcels.getParcel(m, p.parcelId).events.at(-1).detail, 'removed');
+  assert.equal((await lockerSms.send(m, p.parcelId, 'first', 'backend', T0 + 2000)).code, 'wrong_state', 'a removed parcel is never announced as ready');
+
+  assert.equal(lockers.normalizeMessages({ removed: 'Tekin. Kóði {code}' }).ok, false, 'a dead code is not offered');
+  assert.equal(lockers.normalizeMessages({ removed: 'Sjá {link}' }).ok, false);
+  assert.equal(lockers.normalizeMessages({ removed: 'Pöntun {order} var tekin úr {locker}.' }).ok, true);
+  assert.equal(lockers.lockerRecord(m).messageDefaults.removed, lockers.DEFAULT_MESSAGES.removed);
+});
+
+test('clearing a box tells the customer only when the operator chose to, and only for a stored parcel', async () => {
+  const route = routes.find(r => r.method === 'POST' && r.pattern === '/api/v1/machines/:deviceCode/locker/parcels/:id/clear');
+  const clear = (id, body) => {
+    let text = '';
+    route.handler({ params: { deviceCode: 'LKS-1', id }, body, query: {}, headers: {}, user: { role: 'operator_admin', email: 'op@example.test', operatorId: 'op-sms-test' } }, { writeHead() {}, end(b) { text = b ? b.toString() : ''; } });
+    return JSON.parse(text);
+  };
+  const m = machineOf('LKS-1');
+  const settle = () => new Promise(r => setTimeout(r, 20));
+  const removedSent = () => sentToTwilio.filter(x => x.body.includes('hefur verið tekin')).length;
+  const before = removedSent();
+
+  const quiet = stored(m);
+  assert.equal(clear(quiet.parcelId, {}).data.parcel.state, 'cleared');
+  await settle();
+  assert.equal(removedSent(), before, 'nothing is sent unless asked');
+
+  const told = stored(m);
+  clear(told.parcelId, { notify: true });
+  await settle();
+  assert.equal(removedSent(), before + 1);
+  assert.ok(sentToTwilio.at(-1).body.includes(told.orderNumber));
+
+  // A deposit that never completed has no customer to tell.
+  parcels.registerOrder('op-sms-test', { orderNumber: 'NEVER-IN', phone: '5550133' }, T0);
+  const s = parcels.startDeposit(m, { orderNumber: 'NEVER-IN', size: 'small' }, T0);
+  assert.equal(clear(s.parcelId, { notify: true }).data.parcel.state, 'cancelled');
+  await settle();
+  assert.equal(removedSent(), before + 1);
+});
