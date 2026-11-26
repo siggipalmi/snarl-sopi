@@ -65,3 +65,10 @@ test('an unknown model still gets a label to show in the fleet list', () => {
   assert.equal(modelInfo('').labelEn, '(not set)');
   assert.equal(modelInfo('XX-9').labelEn, 'XX-9');
 });
+
+test('the 47-box cabinet is a catalogued locker on the locker release line', () => {
+  const mi = modelInfo('LK-AGV47');
+  assert.equal(mi.kind, 'locker');
+  assert.equal(mi.catalogued, true);
+  assert.equal(appLineFor('LK-AGV47'), 'locker');
+});

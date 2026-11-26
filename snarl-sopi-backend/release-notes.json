@@ -40,6 +40,17 @@
  },
  {
   "component": "backend",
+  "version": "6.136.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: a second cabinet model, LK-AGV47",
+  "notes": [
+   "A new locker model for the two-cabinet unit with 47 boxes (43 small, 4 big) on two lock boards. Pick it when adding the machine; under Locker details, edit box list offers to fill in its layout.",
+   "The Boxes tab draws it as four columns with the screen in the right-hand one. Which door is which on the cabinet has not been checked by opening doors, so the drawing and the door numbers are provisional."
+  ],
+  "check": "Add machine lists LK-AGV47. On such a locker, Locker details, edit box list, fill in the LK-AGV47 layout gives 47 boxes."
+ },
+ {
+  "component": "backend",
   "version": "6.135.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: a log of every parcel, behind the scenes",

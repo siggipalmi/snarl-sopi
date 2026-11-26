@@ -27,6 +27,8 @@ const KNOWN = {
   'VM-WM55DL':    { kind: 'coil',   app: 'coil',   is: 'Sjálfsali 55"',           en: 'Vending machine 55"' },
   // Lockers are built to AG Vending's order, so the code is ours: AGV + the number of boxes.
   'LK-AGV19':     { kind: 'locker', app: 'locker', is: 'Afhendingarskápur — 19 hólf', en: 'Parcel locker — 19 boxes' },
+  // Two cabinets side by side, two lock boards (22 + 25 locks). First of its kind: Macron, Skútuvogi.
+  'LK-AGV47':     { kind: 'locker', app: 'locker', is: 'Afhendingarskápur — 47 hólf', en: 'Parcel locker — 47 boxes' },
 };
 
 // A model we have not catalogued but whose family is unmistakable still gets

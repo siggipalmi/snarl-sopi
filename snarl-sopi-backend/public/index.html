@@ -8616,7 +8616,18 @@ var BX_LATE_HOURS = 48;
 var BX_COL = { occupied: '#F05A3C', free: '#CDEBD8', late: '#111111', out: '#E2DED7', opening: '#FFC72C', screen: '#2C3A68' };
 // How the doors sit on the front, by model: columns of [door, height in units]; door 0 is the
 // screen. A model not listed is drawn as two columns in door order, sized by box size.
+// LK-AGV47 as it is believed to stand, left to right: board 2's two columns, then board 1's with
+// the screen under its second big box. Not yet checked on the unit by opening doors.
+function bxAgv47Layout() {
+  var col = function (from, to, screenAfterFirst) {
+    var c = [];
+    for (var n = from; n <= to; n++) { c.push([n, n === from ? 3 : 1]); if (screenAfterFirst && n === from) c.push([0, 4]); }
+    return c;
+  };
+  return [col(23, 35), col(36, 47), col(1, 13), col(14, 22, true)];
+}
 var BX_LAYOUTS = {
+  'LK-AGV47': bxAgv47Layout(),
   'LK-AGV19': [
     [[1, 2], [2, 2], [3, 1], [4, 1], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [10, 1], [11, 3]],
     [[12, 2], [13, 2], [0, 2.5], [14, 1], [15, 1], [16, 1], [17, 1], [18, 1], [19, 3.5]],
@@ -9016,7 +9027,22 @@ var _lkRecord = null;      // the record as last read from the backend
 var _lkEditBoxes = null;   // a working copy of the box list while AG is editing it, else null
 var LK_SIZES = ['small', 'middle', 'big'];
 // Box layouts by model, so a new locker's list does not have to be typed door by door.
+// LK-AGV47: two lock boards. Board 1 has locks 1-22, board 2 has locks 1-26 without 16 (the
+// vendor's table for the first unit, 2026-11). Doors are numbered 1-22, then 23-47 in lock order.
+// Locks 1 and 14 on each board are the big boxes. Which door is which on the cabinet has not
+// been checked by opening doors.
+function lkAgv47Boxes() {
+  var out = [], n = 0;
+  [[1, 22], [2, 26]].forEach(function (bd) {
+    for (var lock = 1; lock <= bd[1]; lock++) {
+      if (bd[0] === 2 && lock === 16) continue;
+      out.push({ n: ++n, size: (lock === 1 || lock === 14) ? 'big' : 'small', board: bd[0], lock: lock });
+    }
+  });
+  return out;
+}
 var LK_PRESETS = {
+  'LK-AGV47': lkAgv47Boxes,
   'LK-AGV19': function () {
     var out = [];
     for (var n = 1; n <= 19; n++) {
@@ -14621,6 +14647,7 @@ const MACHINE_MODELS = [
   ['GR-WM22Z680',  'GR-WM22Z680 \u2014 fridge, single door (16 baskets, cabinet A)'],
   ['GR-WM22Z1260', 'GR-WM22Z1260 \u2014 fridge, double door (32 baskets, cabinets A+B)'],
   ['LK-AGV19',     'LK-AGV19 \u2014 parcel locker, 19 boxes'],
+  ['LK-AGV47',     'LK-AGV47 \u2014 parcel locker, 47 boxes (two cabinets)'],
 ];
 function isFridgeModel(model) { return /^GR-/.test(String(model || '')); }
 function isLockerModel(model) { return /^LK-/i.test(String(model || '')); }
