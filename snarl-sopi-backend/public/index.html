@@ -1161,7 +1161,7 @@ select.fi{cursor:pointer;}
             <div style="padding:14px 18px 18px">
               <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:12px">
                 <div id="bx-legend" style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;font-weight:600"></div>
-                <div><label class="fl" for="bx-search" style="display:block" data-i18n="bx.search">find an order, name or phone ending</label>
+                <div><label class="fl" for="bx-search" style="display:block" data-i18n="bx.search">find an order, name or phone number</label>
                   <input class="fi" id="bx-search" type="search" style="width:220px;max-width:100%" oninput="bxRenderCabinet()"></div>
               </div>
               <div id="bx-cabinet"></div>
@@ -2713,7 +2713,7 @@ const I18N = {
     'md.tab.boxes':'Boxes',
     'bx.title':'the locker, as it stands.',
     'bx.refresh':'refresh',
-    'bx.search':'find an order, name or phone ending',
+    'bx.search':'find an order, name or phone number',
     'bx.hint':'Drawn as the cabinet stands. Select a door to see its parcel.',
     'bx.load.fail':'Could not load the boxes',
     'bx.none':'This locker has no boxes yet. AG Vending sets them under Locker details.',
@@ -2736,7 +2736,6 @@ const I18N = {
     'bx.pick':'Select a door to see what is in it.',
     'bx.f.order':'Order',
     'bx.f.customer':'Customer',
-    'bx.f.phone':'phone ends {tail}',
     'bx.f.putin':'Put in',
     'bx.f.code':'Pickup code',
     'bx.f.started':'Started',
@@ -2793,7 +2792,7 @@ const I18N = {
     'bx.sms.k.resend':'sent again',
     'bx.a.sms':'send the SMS again',
     'bx.a.sms.help':'Same code and link, to the same number.',
-    'bx.q.sms':'Send the SMS for order {order} again, to the number ending {tail}?',
+    'bx.q.sms':'Send the SMS for order {order} again, to {phone}?',
     'bx.sms.asked':'Handed to Twilio. The delivery report appears in the history.',
     'bx.ev.sms_accepted':'SMS handed to Twilio',
     'bx.ev.sms_sending':'SMS being sent',
@@ -2821,7 +2820,7 @@ const I18N = {
     'od.col.customer':'Customer',
     'od.col.mobile':'Mobile',
     'od.col.from':'Came from',
-    'od.ends':'ends {tail}',
+
     'od.from.manual':'Added by hand',
     'od.from.shop':'The shop',
     'od.withdraw':'withdraw',
@@ -3283,7 +3282,7 @@ const I18N = {
     'md.tab.boxes':'Hólf',
     'bx.title':'skápurinn eins og hann stendur.',
     'bx.refresh':'uppfæra',
-    'bx.search':'finna pöntun, nafn eða endi símanúmers',
+    'bx.search':'finna pöntun, nafn eða símanúmer',
     'bx.hint':'Teiknað eins og skápurinn stendur. Veldu hurð til að sjá sendinguna.',
     'bx.load.fail':'Ekki tókst að sækja hólfin',
     'bx.none':'Þessi skápur hefur engin hólf enn. AG Vending setur þau undir Upplýsingar um skáp.',
@@ -3306,7 +3305,6 @@ const I18N = {
     'bx.pick':'Veldu hurð til að sjá hvað er í hólfinu.',
     'bx.f.order':'Pöntun',
     'bx.f.customer':'Viðskiptavinur',
-    'bx.f.phone':'sími endar á {tail}',
     'bx.f.putin':'Sett í',
     'bx.f.code':'Afhendingarkóði',
     'bx.f.started':'Hófst',
@@ -3363,7 +3361,7 @@ const I18N = {
     'bx.sms.k.resend':'sent aftur',
     'bx.a.sms':'senda SMS aftur',
     'bx.a.sms.help':'Sami kóði og hlekkur, í sama númer.',
-    'bx.q.sms':'Senda SMS fyrir pöntun {order} aftur, í númerið sem endar á {tail}?',
+    'bx.q.sms':'Senda SMS fyrir pöntun {order} aftur, í {phone}?',
     'bx.sms.asked':'Afhent Twilio. Staðfesting á afhendingu birtist í sögunni.',
     'bx.ev.sms_accepted':'SMS afhent Twilio',
     'bx.ev.sms_sending':'SMS í sendingu',
@@ -3391,7 +3389,7 @@ const I18N = {
     'od.col.customer':'Viðskiptavinur',
     'od.col.mobile':'Farsími',
     'od.col.from':'Kom frá',
-    'od.ends':'endar á {tail}',
+
     'od.from.manual':'Bætt við handvirkt',
     'od.from.shop':'Vefverslun',
     'od.withdraw':'afturkalla',
@@ -8911,7 +8909,7 @@ function lgRenderDetail() {
   var chip = { stored: ['#F05A3C', '#111111', 'lg.s.stored'], collected: ['#CDEBD8', '#0E5C2C', 'lg.s.collected'], cleared: ['#E2DED7', '#111111', 'lg.s.cleared'],
                cancelled: ['#E2DED7', '#111111', 'lg.s.cancelled'], opening: ['#FFC72C', '#111111', 'bx.lg.opening'] }[p.state] || ['#E2DED7', '#111111', 'lg.s.all'];
   var row = function (k, v) { return v ? '<span style="color:var(--muted)">' + rsEsc(t(k)) + '</span><span style="font-weight:600;min-width:0">' + rsEsc(v) + '</span>' : ''; };
-  var who = [p.firstName, p.phoneTail ? tv('bx.f.phone', { tail: p.phoneTail }) : ''].filter(Boolean).join(' · ');
+  var who = [p.firstName, lkPhone(p.phone)].filter(Boolean).join(' · ');
   var h = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px">' +
     '<div style="font-size:19px;font-weight:700">' + rsEsc(tv('lg.order', { order: p.orderNumber })) + '</div>' +
     '<span style="font-size:12px;font-weight:700;padding:3px 8px;background:' + chip[0] + ';color:' + chip[1] + '">' + rsEsc(t(chip[2])) + '</span></div>' +
@@ -9147,7 +9145,7 @@ function odRender() {
       var from = t(o.source === 'manual' ? 'od.from.manual' : 'od.from.shop') + ', ' + bxWhen(o.createdAt);
       return '<tr style="border-top:1px solid var(--cream-deep)"><td style="padding:8px 12px 8px 0;font-weight:700">' + rsEsc(o.orderNumber) + '</td>' +
         '<td style="padding:8px 12px 8px 0">' + rsEsc(o.firstName || '—') + '</td>' +
-        '<td style="padding:8px 12px 8px 0">' + rsEsc(o.phoneTail ? tv('od.ends', { tail: o.phoneTail }) : '—') + '</td>' +
+        '<td style="padding:8px 12px 8px 0">' + rsEsc(lkPhone(o.phone) || '—') + '</td>' +
         '<td style="padding:8px 12px 8px 0;color:var(--muted)">' + rsEsc(from) + '</td>' +
         '<td style="padding:5px 0;text-align:right">' + (o.status === 'expected'
           ? '<button class="btn btn-sm btn-ghost" aria-label="' + rsEsc(t('od.withdraw') + ' ' + o.orderNumber) + '" onclick="odWithdraw(' + Number(o.id) + ')"><span>' + rsEsc(t('od.withdraw')) + '</span></button>' : '') + '</td></tr>';
@@ -9208,7 +9206,8 @@ function bxRenderCabinet() {
     } else if (b.state === 'out_of_service') { text = t('bx.t.out'); bg = BX_COL.out; fg = '#555555'; label = text; }
     else { text = t('bx.t.free'); bg = BX_COL.free; fg = '#0E5C2C'; label = text; }
     if (b.doorOpenSince) label += ', ' + t('bx.door.open');
-    var hit = !q || (p && [p.orderNumber, p.firstName, p.phoneTail].some(function (v) { return String(v || '').toLowerCase().indexOf(q) >= 0; }));
+    var hit = !q || (p && ([p.orderNumber, p.firstName, p.phone].some(function (v) { return String(v || '').toLowerCase().indexOf(q) >= 0; }) ||
+      (/\d/.test(q) && String(p.phone || '').replace(/\D/g, '').indexOf(q.replace(/\D/g, '')) >= 0 && q.replace(/\D/g, '').length >= 3)));
     var ring = n === _bxSel ? 'outline:4px solid #FFC72C;outline-offset:-4px;' : '';
     return '<button type="button" onclick="bxSelect(' + n + ')" aria-pressed="' + (n === _bxSel) + '" aria-label="' + rsEsc(tv('bx.box', { n: n }) + ', ' + label) +
       '" style="' + base + flex + ring + 'background:' + bg + ';color:' + fg + ';opacity:' + (hit ? 1 : 0.3) + '">' +
@@ -9262,7 +9261,7 @@ function bxRenderDetail() {
     var shown = _bxCode && _bxCode.parcelId === p.id ? _bxCode.code : null;
     h += '<div style="display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13px;line-height:1.45">' +
       row('bx.f.order', rsEsc(p.orderNumber)) +
-      row('bx.f.customer', rsEsc([p.firstName, p.phoneTail ? tv('bx.f.phone', { tail: p.phoneTail }) : ''].filter(Boolean).join(' · ') || '—')) +
+      row('bx.f.customer', rsEsc([p.firstName, lkPhone(p.phone)].filter(Boolean).join(' · ') || '—')) +
       (b.state === 'occupied'
         ? row('bx.f.putin', rsEsc(bxWhen(p.storedAt) + ' (' + bxAge(p) + ')')) +
           row('bx.f.sms', rsEsc(bxSmsText(p))) +
@@ -9345,7 +9344,7 @@ function bxSmsDetail(detail) {
 }
 async function bxResend() {
   var b = bxBox(_bxSel); if (!b || !b.parcel) return;
-  if (!confirm(tv('bx.q.sms', { order: b.parcel.orderNumber, tail: b.parcel.phoneTail }))) return;
+  if (!confirm(tv('bx.q.sms', { order: b.parcel.orderNumber, phone: lkPhone(b.parcel.phone) }))) return;
   if (await bxPost('parcels/' + encodeURIComponent(b.parcel.id) + '/sms')) { showToast(t('bx.sms.asked')); renderLockerBoxView(_mdDeviceCode, true); }
 }
 async function bxShowCode() {
@@ -9593,6 +9592,12 @@ async function saveLockerInfo() {
   showToast(t('lk.saved'));
 }
 
+// A customer's number as people read it: an Icelandic one as "555 0177", any other with its country code.
+function lkPhone(v) {
+  var s = String(v || '');
+  var is = /^\+354(\d{3})(\d{4})$/.exec(s);
+  return is ? is[1] + ' ' + is[2] : s;
+}
 function lkSizeLabel(size) { return t('lk.size.' + size); }
 
 function renderLockerBoxes() {

@@ -5336,10 +5336,10 @@ function handleLockerOrders(req, res) {
   ok(res, { orders: parcels.listOrders(m.operatorId, { status: req.query.status, limit: req.query.limit }).map(lockerOrderForDashboard),
             counts: parcels.orderCounts(m.operatorId) });
 }
-// The dashboard is shown the last four digits of a customer's number, as on a parcel.
+// The dashboard is shown the customer's whole number (Siggi, 2026-11-26: it is on the order slip
+// anyway). It is blanked with the rest of the personal data, 30 days after the parcel left.
 function lockerOrderForDashboard(o) {
-  const { phone, ...rest } = o;
-  return { ...rest, phoneTail: phone ? String(phone).slice(-4) : '' };
+  return { ...o, phoneTail: o.phone ? String(o.phone).slice(-4) : '' };
 }
 function handleLockerOrderAdd(req, res) {
   const m = lockerMachineOr404(req, res); if (!m) return;
