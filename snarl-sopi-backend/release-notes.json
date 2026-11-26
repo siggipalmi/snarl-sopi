@@ -40,6 +40,17 @@
  },
  {
   "component": "backend",
+  "version": "6.142.2",
+  "date": "2026-11-26",
+  "title": "Locker screen pictures: ask for 1280×800",
+  "notes": [
+   "A locker's screen poster panel now asks for 1280×800 pictures, the size of the locker's screen, and says that a 1920×1080 picture still works but shows with a black band above and below.",
+   "Uploading a picture for a locker checks it against 1280×800 instead of 16:9, and the note after upload says where the black band will be."
+  ],
+  "check": "Open a locker → Locker details → screen poster: the text asks for 1280×800."
+ },
+ {
+  "component": "backend",
   "version": "6.142.1",
   "date": "2026-11-26",
   "title": "Parcel lockers: Knúið áfram af on the pickup page, and a note on screen saver picture sizes",
