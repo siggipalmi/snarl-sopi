@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.138.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: a parcel log, the boxes as the overview, and Staff as a role name",
+  "notes": [
+   "A locker has a Parcel log tab: every parcel it has held, newest first, with when it was put in, when it left, how (code, scanned link, offline, marked by the operator, cleared) and how long it was in the box. Search by order number, filter by date and status, and download what is shown as a spreadsheet.",
+   "Selecting an order in the log shows everything that happened to it, to the second, including Twilio's delivery reports.",
+   "On a locker the first tab, Overview, is now the boxes. Alerts show above the cabinet and the pairing code is on Controls. The separate Boxes tab is gone.",
+   "For an operator that runs only lockers, the Restocker role reads Staff (Starfsmaður) in the user screens and in the invitation and role emails, with a description of what staff do on a locker. The rules are unchanged."
+  ],
+  "check": "Open a locker: tabs are Overview (the cabinet), Parcel log, Locker details, Controls."
+ },
+ {
+  "component": "backend",
   "version": "6.137.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: a machine page without vending, and who may change what",

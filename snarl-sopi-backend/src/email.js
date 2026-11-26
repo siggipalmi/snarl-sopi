@@ -81,15 +81,15 @@ async function send({ to, subject, text, html, fromName, replyTo }) {
 /**
  * Send an invitation email to a new user.
  */
-async function sendInvitation({ to, name, inviterName, operatorName, role, inviteToken }) {
+async function sendInvitation({ to, name, inviterName, operatorName, role, locker, inviteToken }) {
   const link    = `${APP_URL}/?invite=${inviteToken}`;
   const subject = `${inviterName} hefur boðið þér aðgang að AG Vending`;
 
   const text = `Hæ ${name},
 
 ${inviterName} hefur boðið þér aðgang að rekstri ${operatorName} hjá AG Vending.
-Þú hefur fengið hlutverkið: ${roleLabel(role)}.
-${roleDescription(role)}
+Þú hefur fengið hlutverkið: ${roleLabel(role, locker)}.
+${roleDescription(role, locker)}
 
 Til að virkja aðganginn þinn og setja lykilorð, smelltu á tengilinn:
 
@@ -113,7 +113,7 @@ ${OPERATOR_BRAND}`;
 
         <p style="margin:0 0 16px;">Hæ <strong>${escapeHtml(name)}</strong>,</p>
         <p style="margin:0 0 16px;"><strong>${escapeHtml(inviterName)}</strong> hefur boðið þér aðgang að rekstri <strong>${escapeHtml(operatorName)}</strong> hjá AG Vending.</p>
-        <p style="margin:0 0 24px;">Þú hefur fengið hlutverkið: <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#F7F0E6;color:#8B6B3E;font-family:monospace;font-size:11px;">${escapeHtml(roleLabel(role))}</span><br><span style="font-size:13px;color:#6B6B6B;">${escapeHtml(roleDescription(role))}</span></p>
+        <p style="margin:0 0 24px;">Þú hefur fengið hlutverkið: <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#F7F0E6;color:#8B6B3E;font-family:monospace;font-size:11px;">${escapeHtml(roleLabel(role, locker))}</span><br><span style="font-size:13px;color:#6B6B6B;">${escapeHtml(roleDescription(role, locker))}</span></p>
 
         <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
           <tr><td style="background:#1A1A1A;border-radius:999px;">
@@ -168,13 +168,13 @@ ${OPERATOR_BRAND}`;
 }
 
 /** Sent when someone changes a user's role, so nobody discovers it by a button going missing. */
-async function sendRoleChanged({ to, name, operatorName, changedBy, role, machineNames }) {
+async function sendRoleChanged({ to, name, operatorName, changedBy, role, locker, machineNames }) {
   const subject = `Hlutverk þitt hjá ${operatorName} hefur breyst`;
   const machinesLine = machineNames && machineNames.length ? `Vélar: ${machineNames.join(', ')}.` : '';
   const text = `Hæ ${name},
 
-${changedBy} hefur breytt hlutverki þínu hjá ${operatorName} í: ${roleLabel(role)}.
-${roleDescription(role)}
+${changedBy} hefur breytt hlutverki þínu hjá ${operatorName} í: ${roleLabel(role, locker)}.
+${roleDescription(role, locker)}
 ${machinesLine}
 
 Breytingin tekur gildi strax: ${APP_URL}
@@ -188,8 +188,8 @@ ${OPERATOR_BRAND}`;
     <div style="font-weight:700;font-size:26px;letter-spacing:-.5px;margin-bottom:24px;">AG Vending</div>
     <p style="margin:0 0 16px;">Hæ <strong>${escapeHtml(name)}</strong>,</p>
     <p style="margin:0 0 16px;"><strong>${escapeHtml(changedBy)}</strong> hefur breytt hlutverki þínu hjá <strong>${escapeHtml(operatorName)}</strong> í:
-      <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#F7F0E6;color:#8B6B3E;font-family:monospace;font-size:11px;">${escapeHtml(roleLabel(role))}</span></p>
-    <p style="margin:0 0 16px;font-size:14px;color:#3A3A3A;">${escapeHtml(roleDescription(role))}</p>
+      <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#F7F0E6;color:#8B6B3E;font-family:monospace;font-size:11px;">${escapeHtml(roleLabel(role, locker))}</span></p>
+    <p style="margin:0 0 16px;font-size:14px;color:#3A3A3A;">${escapeHtml(roleDescription(role, locker))}</p>
     ${machinesLine ? `<p style="margin:0 0 16px;font-size:13px;color:#6B6B6B;">${escapeHtml(machinesLine)}</p>` : ''}
     <p style="margin:0;font-size:13px;color:#6B6B6B;">Breytingin tekur gildi strax.</p>
   </td></tr></table>
@@ -200,12 +200,13 @@ ${OPERATOR_BRAND}`;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // Labels and descriptions live in roles.js, so emails say what the dashboard says.
-function roleLabel(role) {
-  const r = require('./roles').roleInfo(role);
+// `locker`: the operator runs only parcel lockers, whose roles read differently (roles.LOCKER_TEXT).
+function roleLabel(role, locker) {
+  const r = require('./roles').roleInfo(role, locker);
   return r ? r.labelIs : role;
 }
-function roleDescription(role) {
-  const r = require('./roles').roleInfo(role);
+function roleDescription(role, locker) {
+  const r = require('./roles').roleInfo(role, locker);
   return r ? r.descriptionIs : '';
 }
 

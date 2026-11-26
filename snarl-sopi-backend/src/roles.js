@@ -44,6 +44,21 @@ const ROLES = [
 ];
 const ROLE_IDS = ROLES.map(r => r.id);
 
+// The same roles as an operator of parcel lockers reads them (Siggi, 2026-11-26). The rules are
+// the same table above; only the words differ, since a locker has nothing to restock or price.
+const LOCKER_TEXT = {
+  operator_admin: {
+    description: 'Everything for your company: users, the SMS texts, the web shop connection, and the lockers.',
+    descriptionIs: 'Allt fyrir fyrirtækið: notendur, SMS-textar, tenging við vefverslun og skáparnir.' },
+  operator_manager: {
+    description: 'Runs the lockers: boxes, orders and the details customers are told. No SMS texts, web shop or users.',
+    descriptionIs: 'Sér um skápana: hólf, pantanir og upplýsingar til viðskiptavina. Ekki SMS-textar, vefverslun né notendur.' },
+  operator_restocker: {
+    label: 'Staff', labelIs: 'Starfsmaður',
+    description: 'The day\'s work on the lockers chosen for them: see the boxes, add an order, open a box, mark a parcel picked up. Changes no settings.',
+    descriptionIs: 'Dagleg verk á þeim skápum sem valdir eru: sjá hólfin, bæta við pöntun, opna hólf og merkja sendingu sótta. Breytir engum stillingum.' },
+};
+
 function normalizeRole(role) {
   return role === 'operator_viewer' ? 'operator_restocker' : role;
 }
@@ -54,8 +69,9 @@ function can(user, cap) {
   return (CAPS[normalizeRole(user.role)] || []).includes(cap);
 }
 
-function roleInfo(role) {
-  return ROLES.find(r => r.id === normalizeRole(role)) || null;
+function roleInfo(role, locker) {
+  const r = ROLES.find(x => x.id === normalizeRole(role)) || null;
+  return r && locker && LOCKER_TEXT[r.id] ? { ...r, ...LOCKER_TEXT[r.id] } : r;
 }
 
 /** What changes going from one role to another, for the edit screen: { gains, loses } as CAP_TEXT. */
@@ -74,4 +90,4 @@ function grantableRoles(user) {
   return [];
 }
 
-module.exports = { CAPS, CAP_TEXT, ROLES, ROLE_IDS, normalizeRole, can, roleInfo, roleChange, grantableRoles };
+module.exports = { CAPS, CAP_TEXT, ROLES, ROLE_IDS, LOCKER_TEXT, normalizeRole, can, roleInfo, roleChange, grantableRoles };
