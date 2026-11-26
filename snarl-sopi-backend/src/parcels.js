@@ -230,6 +230,8 @@ const photoQ = {
 
 /** The locker hands in the picture it took: { image: base64 JPEG, at }. One per parcel; a second replaces the first. */
 function storePhoto(machine, parcelId, input, now = Date.now()) {
+  // Not switched on for this locker (its site has no sign yet): nothing is kept.
+  if (!lockers.lockerRecord(machine).pickupPhoto) return fail(409, 'photo_off', 'Pickup photos are switched off for this locker.');
   const p = q.parcelById.get(String(parcelId));
   if (!p || p.deviceCode !== machine.deviceCode) return fail(404, 'parcel_not_found', 'No such parcel at this locker.');
   const text = input && typeof input.image === 'string' ? input.image.replace(/^data:image\/jpeg;base64,/, '') : '';

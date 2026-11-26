@@ -664,6 +664,22 @@ test('the locker hands in a pickup photo; only an admin may see it, each look is
   const s = parcels.startPickup(A2, { code: p.code }, t0 + 3600000);
   parcels.finishPickup(A2, s.parcelId, { opened: true }, t0 + 3600000);
 
+  // Off until AG switches it on for this locker: nothing is kept, and the config says so.
+  const cfgOf = () => { let text = ''; routes.find(r => r.method === 'GET' && r.pattern === '/api/v1/machines/:deviceCode/config')
+    .handler({ params: { deviceCode: 'LKP-A2' }, headers: {}, query: {} }, { writeHead() {}, setHeader() {}, end(b) { text = b.toString(); } }); return JSON.parse(text).data.locker; };
+  assert.equal(cfgOf().pickupPhoto, false);
+  assert.equal(parcels.storePhoto(A2, p.parcelId, { image }, t0 + 3600000).code, 'photo_off');
+  const setRec = (body, role) => { let status = 0; routes.find(r => r.method === 'PUT' && r.pattern === BASE)
+    .handler({ params: { deviceCode: 'LKP-A2' }, body, query: {}, headers: {}, user: { role, email: 'who@example.test', operatorId: 'op-parcel-a' } }, { writeHead(s) { status = s; }, end() {} });
+    A2.settings = machines['LKP-A2'].settings;   // this file's own copy of the machine follows the stored one
+    return status; };
+  assert.equal(setRec({ pickupPhoto: true }, 'operator_admin'), 403, 'an operator cannot switch it on');
+  assert.equal(setRec({ pickupPhoto: 'yes' }, 'ag_admin'), 400);
+  assert.equal(setRec({ pickupPhoto: true }, 'ag_admin'), 200);
+  assert.equal(cfgOf().pickupPhoto, true);
+  assert.equal(setRec({ info: { findNote: 'Í anddyri' } }, 'operator_admin'), 200);
+  assert.equal(cfgOf().pickupPhoto, true, 'editing the details leaves the switch as it was');
+
   const store = routes.find(r => r.method === 'POST' && r.pattern === BASE + '/pickup/:id/photo');
   const view = routes.find(r => r.method === 'POST' && r.pattern === BASE + '/parcels/:id/photo');
   assert.deepEqual(store.middleware.map(f => f.name), ['requireMachineKey']);
@@ -674,7 +690,8 @@ test('the locker hands in a pickup photo; only an admin may see it, each look is
   assert.equal(parcels.storePhoto(A2, p.parcelId, { image: '<script>' }, t0 + 3600000).code, 'bad_image');
   const big = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF]), Buffer.alloc(parcels.PHOTO_MAX_BYTES)]).toString('base64');
   assert.equal(parcels.storePhoto(A2, p.parcelId, { image: big }, t0 + 3600000).code, 'too_large');
-  assert.equal(parcels.storePhoto(A1, p.parcelId, { image }, t0 + 3600000).code, 'parcel_not_found');
+  assert.equal(parcels.storePhoto(A1, p.parcelId, { image }, t0 + 3600000).code, 'photo_off', 'another locker, where it is not switched on');
+  assert.equal(parcels.storePhoto(A2, 'pcl_none', { image }, t0 + 3600000).code, 'parcel_not_found');
   assert.equal(parcels.getParcel(A2, p.parcelId).parcel.photoAt, null);
 
   const ok = call('POST', '/pickup/:id/photo', { deviceCode: 'LKP-A2', params: { id: p.parcelId }, body: { image, at: new Date().toISOString() } });
@@ -698,5 +715,9 @@ test('the locker hands in a pickup photo; only an admin may see it, each look is
   assert.ok(parcels.forgetOldPersonalData(t0 + 32 * DAY).photos >= 1);
   assert.equal(parcels.viewPhoto(A2, p.parcelId, 'x').code, 'no_photo');
   assert.equal(parcels.getParcel(A2, p.parcelId).parcel.photoAt, null);
+  // Switched off again: photos are refused from then on.
+  assert.equal(setRec({ pickupPhoto: false }, 'ag_admin'), 200);
+  assert.equal(cfgOf().pickupPhoto, false);
+  assert.equal(parcels.storePhoto(A2, none.parcelId, { image }, t0 + 33 * DAY).code, 'photo_off');
   empty(A2);
 });

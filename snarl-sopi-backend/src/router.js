@@ -3717,6 +3717,7 @@ function handleConfig(req, res) {
   const lockerBlock = machineModels.isLockerModel(machine.model) ? (() => {
     const r = lockerRecords.lockerRecord(machine);
     return { locker: { name: r.info.name, address: r.info.address, findNote: r.info.findNote, helpPhone: r.info.helpPhone,
+                       pickupPhoto: r.pickupPhoto,
                        boxes: r.boxes.map(b => ({ n: b.n, size: b.size, board: b.board, lock: b.lock })) } };
   })() : {};
   ok(res, { ...buildConfigResponse(machine), ...lockerBlock,
@@ -5216,7 +5217,12 @@ function handleSetLocker(req, res) {
   const m = lockerMachineOr404(req, res);
   if (!m) return;
   const body = req.body || {};
-  if (body.info === undefined && body.boxes === undefined && body.sms === undefined && body.messages === undefined) return badRequest(res, 'Send info, messages, boxes or sms.');
+  if (body.info === undefined && body.boxes === undefined && body.sms === undefined && body.messages === undefined && body.pickupPhoto === undefined) return badRequest(res, 'Send info, messages, boxes, sms or pickupPhoto.');
+  if (body.pickupPhoto !== undefined) {
+    // Photographing customers needs a sign at the site; AG switches it on once there is one.
+    if (req.user.role !== 'ag_admin') return json(res, 403, { ok: false, code: 'role_forbidden', error: 'Only AG Vending can switch pickup photos on or off.' });
+    if (typeof body.pickupPhoto !== 'boolean') return badRequest(res, 'pickupPhoto must be true or false.');
+  }
   // Who may change what (Siggi, 2026-11-26): the SMS wording is the operator admin's, the
   // customer-facing details need the right to change machine settings, and staff change neither.
   const lockerAdmin = req.user.role === 'ag_admin' || roles.normalizeRole(req.user.role) === 'operator_admin';
@@ -5241,6 +5247,7 @@ function handleSetLocker(req, res) {
     change.boxes = r.value;
   }
   if (body.messages !== undefined) change.messages = lockerRecords.normalizeMessages(body.messages).value;
+  if (body.pickupPhoto !== undefined) change.pickupPhoto = body.pickupPhoto;
   if (body.sms !== undefined) {
     // The sender decides whose name customers see on the message: AG sets it.
     if (req.user.role !== 'ag_admin') return json(res, 403, { ok: false, error: 'Only AG Vending can change a locker\'s SMS sender.' });
