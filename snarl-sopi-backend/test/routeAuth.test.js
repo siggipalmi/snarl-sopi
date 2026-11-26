@@ -36,6 +36,8 @@ const PUBLIC = new Map([
     'Returns the callers own IP, which the caller already knows.'],
   ['POST /api/v1/twilio/locker-sms-status',
     'Twilio delivery reports for locker SMS. The handler refuses anything Twilio did not sign (X-Twilio-Signature).'],
+  ['POST /api/v1/shops/woo/:hookId',
+    'Order deliveries from an operator\'s web shop. The handler refuses anything not signed with that connection\'s secret (X-WC-Webhook-Signature).'],
   ['GET /p/:token',
     'The page a locker SMS links to. The 12-character random token in the link is the key; it shows one parcel\'s code and no phone number.'],
   ['POST /api/v1/demo-request',

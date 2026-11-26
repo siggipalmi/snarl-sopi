@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.132.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: a web shop can report its locker orders straight to the backend",
+  "notes": [
+   "An operator's WooCommerce shop can be connected: the backend makes an address and a secret for the shop's order webhook. Orders using the locker shipping method then appear by themselves under orders on their way to a locker, with the customer's mobile and first name.",
+   "An order cancelled, refunded or moved to another delivery method in the shop is withdrawn, unless it is already in a box. An order withdrawn and reported again is expected again.",
+   "Each connection keeps a one-line record of its last delivery without personal data: received, not taken and why, or refused and why (no signature, wrong secret).",
+   "The secret is shown once and kept sealed. There is no form for this in the dashboard yet; that comes next."
+  ],
+  "check": "Nothing to see in the dashboard yet."
+ },
+ {
+  "component": "backend",
   "version": "6.131.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: open a box from the dashboard",
