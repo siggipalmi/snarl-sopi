@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.131.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: open a box from the dashboard",
+  "notes": [
+   "The box detail has an open box button, for a box with a parcel or an empty one. The locker fetches the request at its next poll, opens that door and answers whether it really opened.",
+   "The request, who made it, and the locker's answer are written to the history of the parcel in that box, or shown under the box when it is empty. A parcel stays on record and its code keeps working.",
+   "The lock that opens is taken from the locker's box list, never from the request. A request the locker does not fetch within five minutes expires.",
+   "Nothing opens until the locker runs an app that knows the command; an older app's answer is shown as the door did NOT open."
+  ],
+  "check": "A locker's Boxes tab: select a box, the detail shows open box."
+ },
+ {
+  "component": "backend",
   "version": "6.130.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: write the locker's messages yourself, and what the locker app needs to connect",

@@ -2788,6 +2788,16 @@ const I18N = {
     'bx.sms.k.removed':'parcel removed',
     'bx.offline':'offline',
     'bx.ev.offline_pickup_after':'Box opened by the customer while the locker was offline, after this',
+    'bx.a.open':'open box',
+    'bx.a.open.help':'Opens the door. The parcel stays on record and the customer’s code keeps working.',
+    'bx.a.open.help.empty':'Opens the door, to check the box or the lock.',
+    'bx.q.open':'Open box {n} now? Order {order} is in it.\n\nThe door opens at the locker within a minute. Make sure someone you trust is there.',
+    'bx.q.open.empty':'Open box {n} now?\n\nThe door opens at the locker within a minute.',
+    'bx.open.sent':'Sent to the locker. Whether the door opened appears in the history.',
+    'bx.recent':'lately at this box',
+    'bx.ev.open_requested':'Open box asked for from the dashboard',
+    'bx.ev.opened_by_operator':'Locker: door opened',
+    'bx.ev.open_failed':'Locker: door did NOT open',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3250,6 +3260,16 @@ const I18N = {
     'bx.sms.k.removed':'sending tekin',
     'bx.offline':'án nettengingar',
     'bx.ev.offline_pickup_after':'Viðskiptavinur opnaði hólfið án nettengingar, eftir þetta',
+    'bx.a.open':'opna hólf',
+    'bx.a.open.help':'Opnar hurðina. Sendingin er áfram skráð og kóði viðskiptavinarins virkar áfram.',
+    'bx.a.open.help.empty':'Opnar hurðina, til að athuga hólfið eða lásinn.',
+    'bx.q.open':'Opna hólf {n} núna? Pöntun {order} er í því.\n\nHurðin opnast á skápnum innan mínútu. Gakktu úr skugga um að einhver sem þú treystir sé á staðnum.',
+    'bx.q.open.empty':'Opna hólf {n} núna?\n\nHurðin opnast á skápnum innan mínútu.',
+    'bx.open.sent':'Sent á skápinn. Í sögunni sést hvort hurðin opnaðist.',
+    'bx.recent':'nýlega við þetta hólf',
+    'bx.ev.open_requested':'Beðið um að opna hólf úr stjórnborði',
+    'bx.ev.opened_by_operator':'Skápur: hurð opnuð',
+    'bx.ev.open_failed':'Skápur: hurðin opnaðist EKKI',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -8710,6 +8730,7 @@ function bxRenderDetail() {
       h += '<div style="font-size:12.5px;line-height:1.5;margin-top:12px">' + rsEsc(t('bx.opening.note')) + '</div>' + act(t('bx.a.free'), 'bxClear()', '', true);
     }
   }
+  h += act(t('bx.a.open'), 'bxOpen()', rsEsc(t(p ? 'bx.a.open.help' : 'bx.a.open.help.empty')), !p);
   if (b.outOfService) {
     h += '<div style="font-size:12.5px;line-height:1.5;margin-top:12px">' + rsEsc(tv('bx.out.note', { when: bxWhen(b.outOfService.at), reason: b.outOfService.reason ? ': ' + b.outOfService.reason : '' })) + '</div>' +
       act(t('bx.a.in'), 'bxService(false)', '');
@@ -8723,12 +8744,33 @@ function bxRenderDetail() {
         var key = 'bx.ev.' + e.type, label = t(key);
         if (label === key) label = e.type;
         var who = e.actor && e.actor.indexOf('@') > 0 ? ' · ' + e.actor : '';
-        var why = (e.type === 'cleared' || e.type === 'deposit_cancelled' || e.type.indexOf('sms_') === 0 || e.detail === 'offline') && e.detail ? ' (' + bxSmsDetail(e.detail) + ')' : '';
+        var why = (e.type === 'cleared' || e.type === 'deposit_cancelled' || e.type === 'open_failed' || e.type.indexOf('sms_') === 0 || e.detail === 'offline') && e.detail ? ' (' + bxSmsDetail(e.detail) + ')' : '';
         if (e.type === 'reminder_attempted') return '';
         return '<span style="color:var(--muted);white-space:nowrap">' + rsEsc(bxWhen(e.at)) + '</span><span>' + rsEsc(label + why + who) + '</span>';
       }).join('') + '</div>';
   }
+  if (!p && (b.recent || []).length) {
+    h += '<div style="font-size:12.5px;font-weight:700;margin:16px 0 6px">' + rsEsc(t('bx.recent')) + '</div>' +
+      '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;line-height:1.5">' +
+      b.recent.map(function (e) {
+        var key = 'bx.ev.' + e.type, label = t(key); if (label === key) label = e.type;
+        return '<span style="color:var(--muted);white-space:nowrap">' + rsEsc(bxWhen(e.at)) + '</span><span>' +
+          rsEsc(label + (e.detail ? ' (' + e.detail + ')' : '') + (e.actor && e.actor.indexOf('@') > 0 ? ' · ' + e.actor : '')) + '</span>';
+      }).join('') + '</div>';
+  }
   el.innerHTML = h;
+}
+
+// Opens one door from the dashboard. The locker fetches the command at its next poll and answers
+// whether the door really opened; the answer appears in the history, so the view is read again.
+async function bxOpen() {
+  var b = bxBox(_bxSel), code = _mdDeviceCode; if (!b) return;
+  if (!confirm(tv(b.parcel ? 'bx.q.open' : 'bx.q.open.empty', { n: b.n, order: b.parcel ? b.parcel.orderNumber : '' }))) return;
+  var r = null;
+  try { r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/commands', { type: 'open_box', params: { n: b.n } }); } catch (e) { r = null; }
+  if (!r || !r.ok) { showToast(t('bx.failed') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return; }
+  showToast(t('bx.open.sent'));
+  [4000, 12000, 30000].forEach(function (ms) { setTimeout(function () { if (code === _mdDeviceCode && _bxSel === b.n) renderLockerBoxView(code, true); }, ms); });
 }
 
 async function bxPost(tail, body) {
