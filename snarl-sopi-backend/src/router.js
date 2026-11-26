@@ -4304,7 +4304,7 @@ function validateLedPolicy(raw) {
   return { value: out };
 }
 
-const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update', 'set_basket_count', 'adb_wifi'];
+const CMD_TYPES = ['clear_aisle_fault', 'set_aisle_enabled', 'sync_price_tags', 'test_vend', 'dispense_log', 'config_health', 'set_machine_key', 'tare_all', 'read_all_trays', 'read_temp', 'launch_support', 'clear_device_owner', 'set_payment_port', 'set_drop_sensor', 'query_channel_status', 'restart_app', 'restart_machine', 'set_temp', 'set_cooling', 'defrost', 'fridge_open_door', 'set_led', 'scale_read', 'scale_calibrate', 'scale_tare', 'check_update', 'set_basket_count', 'adb_wifi', 'open_box'];
 const CMD_TTL_MS = 5 * 60 * 1000;
 // First coil build (0.80.18) that test-vends a coil while it is on sale.
 const TEST_VEND_OPEN_MIN_VC = 174;
@@ -4432,6 +4432,17 @@ function handleEnqueueCommand(req, res) {
     const action = String(params.action || 'status');
     if (!['status', 'on', 'off'].includes(action)) return badRequest(res, 'adb_wifi params.action must be status, on or off');
     params.action = action;
+  } else if (type === 'open_box') {
+    // A parcel locker opens one door for an operator. The caller names the door; the lock it is
+    // wired to comes from the box list here, so the locker is never sent a lock nobody checked.
+    const lk = machines[deviceCode];
+    if (!machineModels.isLockerModel(lk.model)) return badRequest(res, 'open_box is for parcel lockers.');
+    const n = Math.round(Number(params.n));
+    const box = lockerRecords.lockerRecord(lk).boxes.find(b => b.n === n);
+    if (!box) return badRequest(res, `open_box: this locker has no box ${params.n === undefined ? '?' : params.n}.`);
+    for (const k of Object.keys(params)) delete params[k];
+    params.n = box.n; params.board = box.board; params.lock = box.lock;
+    parcels.noteBoxEvent(lk, box.n, 'open_requested', (req.user && req.user.email) || 'operator', null);
   } else if (type === 'clear_device_owner') {
     // One-way door on a placed machine: surrendering Device Owner ends silent OTA, so every future
     // build needs someone on site with adb. Deliberately console-only — no dashboard button — and
@@ -4651,6 +4662,19 @@ function handleCommandResult(req, res) {
   // simply ignored by a build that doesn't implement it, silently, so a schedule can look saved and do
   // nothing forever. Record the verdict so the lighting panel can state it standing, rather than only
   // to whoever last pressed a test button.
+  // The locker's answer to "open box" goes into the history of the parcel in that box (or of the
+  // box, when it is empty): the operator sees whether the door really opened.
+  if (cmd.type === 'open_box') {
+    try {
+      let p = cmd.params; if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) { p = {}; } }
+      const opened = finalStatus === 'done' && (req.body || {}).opened !== false;
+      result.opened = opened;
+      if (machines[deviceCode] && p && p.n != null) {
+        parcels.noteBoxEvent(machines[deviceCode], Number(p.n), opened ? 'opened_by_operator' : 'open_failed', 'locker',
+          opened ? null : (finalStatus === 'unsupported' ? 'the locker app does not know this command' : (result.detail || '').slice(0, 80) || null));
+      }
+    } catch (e) { /* never block a command result on bookkeeping */ }
+  }
   if (cmd.type === 'set_led') {
     try {
       storage.setMeta('ledcap:' + deviceCode, JSON.stringify({

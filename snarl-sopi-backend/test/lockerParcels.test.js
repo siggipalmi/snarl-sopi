@@ -456,3 +456,56 @@ test('a locker\'s config carries what it shows and its doors; a coil machine\'s 
   assert.equal(JSON.stringify(locker).includes('messagingServiceSid'), false, 'the SMS sender is not the locker\'s business');
   assert.equal(cfg('VMP-1').locker, undefined);
 });
+
+// ── 6.131.0: an operator opens a door from the dashboard ──────────────────────────────────────
+
+test('open box: the backend names the lock, the locker answers, and both are in the history', () => {
+  const find = (m, p) => routes.find(r => r.method === m && r.pattern === p);
+  const send = (deviceCode, params, role = 'operator_admin') => {
+    let status = 0, text = '';
+    find('POST', '/api/v1/machines/:deviceCode/commands').handler(
+      { params: { deviceCode }, body: { type: 'open_box', params }, query: {}, headers: {}, user: { role, email: 'op@example.test', operatorId: 'op-parcel-a', name: 'Op' } },
+      { writeHead(s) { status = s; }, end(b) { text = b ? b.toString() : ''; } });
+    return { status, body: text ? JSON.parse(text) : null };
+  };
+  const pending = (deviceCode) => {
+    let text = '';
+    find('GET', '/api/v1/machines/:deviceCode/commands').handler({ params: { deviceCode }, headers: {}, query: {} }, { writeHead() {}, end(b) { text = b.toString(); } });
+    return JSON.parse(text).data.commands.filter(c => c.type === 'open_box');
+  };
+  const answer = (deviceCode, id, body) => {
+    let status = 0;
+    find('POST', '/api/v1/machines/:deviceCode/commands/:id/result').handler({ params: { deviceCode, id }, body, headers: {}, query: {} }, { writeHead(s) { status = s; }, end() {} });
+    return status;
+  };
+
+  assert.equal(send('VMP-1', { n: 1 }).status, 400, 'not on a coil machine');
+  assert.equal(send('LKP-A2', { n: 99 }).status, 400, 'not a box this locker has');
+  assert.equal(send('LKP-A2', {}).status, 400);
+
+  // A box with a parcel: the parcel stays stored and its code keeps working.
+  const p = stored(A2, 'big');
+  assert.equal(send('LKP-A2', { n: p.box.n, board: 9, lock: 9, extra: 'x' }).status, 200);
+  const cmd = pending('LKP-A2').at(-1);
+  assert.deepEqual(cmd.params, { n: 4, board: 1, lock: 4 }, 'the lock comes from the box list, whatever the caller sent');
+  assert.equal(answer('LKP-A2', cmd.id, { status: 'ok', opened: true }), 200);
+  const view = parcels.getParcel(A2, p.parcelId);
+  assert.deepEqual(view.events.slice(-2).map(e => [e.type, e.actor]), [['open_requested', 'op@example.test'], ['opened_by_operator', 'locker']]);
+  assert.equal(view.parcel.state, 'stored');
+  assert.equal(parcels.startPickup(A2, { code: p.code }, Date.now()).ok, true);
+
+  // The door did not open: said so, with the locker's reason.
+  send('LKP-A2', { n: p.box.n });
+  answer('LKP-A2', pending('LKP-A2').at(-1).id, { status: 'failed', opened: false, detail: 'open reply 00' });
+  const last = parcels.getParcel(A2, p.parcelId).events.at(-1);
+  assert.deepEqual([last.type, last.detail], ['open_failed', 'open reply 00']);
+
+  // An empty box: the history is the box's own.
+  send('LKP-A2', { n: 1 });
+  answer('LKP-A2', pending('LKP-A2').at(-1).id, { status: 'unsupported' });
+  const box = parcels.boxView(A2).boxes.find(b => b.n === 1);
+  assert.deepEqual(box.recent.map(e => e.type), ['open_failed', 'open_requested']);
+  assert.match(box.recent[0].detail, /does not know/);
+  assert.deepEqual(parcels.boxView(A2).boxes.find(b => b.n === 4).recent, [], 'a box with a parcel shows the parcel\'s history instead');
+  empty(A2);
+});

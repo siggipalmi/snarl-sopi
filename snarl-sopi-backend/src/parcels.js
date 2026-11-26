@@ -255,7 +255,7 @@ function boxView(machine, now = Date.now()) {
     counts[state]++;
     byBox.delete(b.n);
     return { n: b.n, size: b.size, state, outOfService: out ? { reason: s.reason || '', by: s.by || null, at: s.at } : null,
-             parcel: parcelView(p, now) };
+             parcel: parcelView(p, now), recent: p ? [] : boxEvents(machine, b.n, 3) };
   });
   // Parcels in a box number the box list no longer has: never hidden.
   const unplaced = [...byBox.values()].map(p => parcelView(p, now));
@@ -566,6 +566,20 @@ function noteEvent(parcelId, type, actor, detail, now = Date.now()) {
   const p = q.parcelById.get(String(parcelId));
   if (p) event(p.deviceCode, p.id, p.boxN, type, actor, detail, now);
 }
+/**
+ * Something happened to a box, not through a deposit or pickup (an operator had it opened):
+ * written to the history of the parcel holding the box, or to the box alone when it is empty.
+ */
+function noteBoxEvent(machine, boxN, type, actor, detail, now = Date.now()) {
+  const p = q.activeAtDevice.all(machine.deviceCode).find(x => x.boxN === Number(boxN));
+  event(machine.deviceCode, p ? p.id : null, Number(boxN), type, actor, detail, now);
+  return p ? p.id : null;
+}
+/** The last few things that happened to a box with no parcel in it, newest first. */
+function boxEvents(machine, boxN, limit = 10) {
+  return db.prepare(`SELECT type, actor, detail, boxN, at FROM locker_events WHERE deviceCode = ? AND boxN = ? AND parcelId IS NULL
+                     AND type NOT IN ('wrong_code','wrong_locker') ORDER BY id DESC LIMIT ?`).all(machine.deviceCode, Number(boxN), Math.max(1, Math.min(50, limit)));
+}
 /** Twilio took the message: it has a SID, and its delivery reports will name it. */
 function smsAccepted(parcelId, sid, kind, status, actor, now = Date.now()) {
   const p = q.parcelById.get(String(parcelId));
@@ -635,7 +649,7 @@ setInterval(forgetTick, 24 * 3600 * 1000).unref();
 
 module.exports = {
   KEEP_PERSONAL_DAYS, forgetOldPersonalData, revealCode,
-  smsFacts, noteEvent, smsAccepted, smsReport, parcelsNeedingReminder, byToken,
+  smsFacts, noteEvent, noteBoxEvent, boxEvents, smsAccepted, smsReport, parcelsNeedingReminder, byToken,
   WRONG_CODE_LIMIT, WRONG_CODE_WINDOW_MS,
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels,
