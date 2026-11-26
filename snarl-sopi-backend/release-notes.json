@@ -40,6 +40,17 @@
  },
  {
   "component": "backend",
+  "version": "6.141.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: the customer's whole phone number is shown",
+  "notes": [
+   "The box detail, the orders list and the Parcel log show the customer's whole mobile number, not only its last four digits. The box search finds a parcel by any part of the number.",
+   "Unchanged: the number is removed 30 days after a parcel has left its box, and the locker itself is never sent it."
+  ],
+  "check": "A box with a parcel shows the customer as name and full number."
+ },
+ {
+  "component": "backend",
   "version": "6.140.1",
   "date": "2026-11-26",
   "title": "Parcel lockers: the pickup photo switch can be seen",

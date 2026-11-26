@@ -325,11 +325,11 @@ function wiring(machine, boxN) {
   return b ? { n: b.n, size: b.size, board: b.board, lock: b.lock } : { n: boxN, size: null, board: null, lock: null };
 }
 
-/** A parcel as the dashboard shows it: the last four digits of the phone, and no pickup code. */
+/** A parcel as the dashboard shows it: with the customer's number (until it is blanked), and no pickup code. */
 function parcelView(p, now) {
   if (!p) return null;
   return {
-    id: p.id, deviceCode: p.deviceCode, boxN: p.boxN, orderNumber: p.orderNumber, firstName: p.firstName, phoneTail: p.phone ? p.phone.slice(-4) : '',
+    id: p.id, deviceCode: p.deviceCode, boxN: p.boxN, orderNumber: p.orderNumber, firstName: p.firstName, phone: p.phone || '', phoneTail: p.phone ? p.phone.slice(-4) : '',
     state: p.state, createdAt: p.createdAt, storedAt: p.storedAt, endedAt: p.endedAt, endedBy: p.endedBy, endReason: p.endReason,
     notifiedAt: p.notifiedAt, sms: q.lastSms.get(p.id) || null, photoAt: (photoQ.at.get(p.id) || {}).takenAt || null,
     hoursStored: p.state === 'stored' && p.storedAt ? Math.floor((now - Date.parse(p.storedAt)) / 3600000) : null,

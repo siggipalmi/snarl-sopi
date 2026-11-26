@@ -301,8 +301,7 @@ test('a machine that is not a locker has no parcels', () => {
 test('the dashboard sees the last four digits of the phone, and the code only by asking', () => {
   const p = stored(A1, 'small');
   const view = parcels.boxView(A1).boxes.find(b => b.n === p.box.n).parcel;
-  assert.equal(view.phoneTail, '0100');
-  assert.equal(view.phone, undefined);
+  assert.equal(view.phone, '+3545550100', 'the operator sees the whole number, as on the order slip');
   assert.equal(parcels.boxView(A1).model, 'LK-AGV19');
   const shown = call('POST', '/parcels/:id/code', { params: { id: p.parcelId } });
   assert.equal(shown.body.data.code, p.code);
@@ -328,6 +327,7 @@ test('thirty days after a parcel left its box its personal data is blanked; one 
   assert.ok(r.parcels >= 1 && r.orders >= 1);
   const after = parcels.getParcel(A2, gone.parcelId).parcel;
   assert.equal(after.phoneTail, '');
+  assert.equal(after.phone, '', 'after thirty days the number is gone from the dashboard too');
   assert.equal(after.firstName, '');
   assert.equal(after.orderNumber, gone.orderNumber, 'the order number and the history stay');
   assert.deepEqual(parcels._secretsOf(gone.parcelId), { code: null, token: null });
@@ -350,17 +350,16 @@ test('thirty days after a parcel left its box its personal data is blanked; one 
   empty(A2);
 });
 
-test('the orders list shows phone endings and counts per status, never a whole number', () => {
+test('the orders list shows the customer\'s number and counts per status', () => {
   const added = call('POST', '/orders', { body: { orderNumber: '70050', phone: '555 0177', firstName: 'Guðrún' } });
-  assert.equal(added.body.data.order.phoneTail, '0177');
-  assert.equal(added.body.data.order.phone, undefined);
+  assert.equal(added.body.data.order.phone, '+3545550177');
   const list = call('GET', '/orders', { query: { status: 'expected' } }).body.data;
-  assert.ok(list.orders.every(o => o.phone === undefined && o.status === 'expected'));
-  assert.equal(JSON.stringify(list).includes('5550177'), false);
+  assert.ok(list.orders.every(o => o.status === 'expected'));
+  assert.equal(list.orders.find(o => o.orderNumber === '70050').phone, '+3545550177');
   assert.equal(list.counts.expected, list.orders.length);
   assert.ok(list.counts.deposited >= 1 && list.counts.cancelled >= 1);
   const order = list.orders.find(o => o.orderNumber === '70050');
-  assert.equal(call('POST', '/orders/:id/cancel', { params: { id: String(order.id) } }).body.data.order.phone, undefined);
+  assert.equal(call('POST', '/orders/:id/cancel', { params: { id: String(order.id) } }).body.data.order.status, 'cancelled');
 });
 
 // ── 6.130.0: collecting with no connection, and the locker's config ───────────────────────────
@@ -633,7 +632,7 @@ test('the parcel log lists every parcel with its times and how it left, searchab
   assert.equal(first.storedAt, new Date(t0 + 60000).toISOString());
   assert.equal(first.endedAt, new Date(t0 + 5 * H).toISOString());
   assert.equal(first.hoursInBox, 5);
-  assert.equal(first.phone, undefined);
+  assert.equal(first.phone, '+3545550160');
   assert.equal(first.code, undefined);
 
   assert.deepEqual(log({ q: '#LOG-102' }).parcels.map(p => p.orderNumber), ['LOG-102']);
