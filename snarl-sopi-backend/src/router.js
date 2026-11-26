@@ -251,6 +251,7 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/start',         handler: handleLockerDepositStart,  middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/:id/result',    handler: handleLockerDepositResult, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup',                handler: handleLockerPickup,        middleware:[requireMachineKey] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/offline',               handler: handleLockerOffline,       middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup/:id/result',     handler: handleLockerPickupResult,  middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetrySeries, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/app-update',        handler: handleAppUpdate,      middleware:[requireMachineKey] },
@@ -3699,7 +3700,13 @@ function handleConfig(req, res) {
 
   // The admin PIN hash goes only to the machine itself, never into the dashboard's config preview.
   const pin = adminPinRecord(machine.deviceCode);
-  ok(res, { ...buildConfigResponse(machine),
+  // A parcel locker also gets what it shows and which doors it has (src/lockers.js).
+  const lockerBlock = machineModels.isLockerModel(machine.model) ? (() => {
+    const r = lockerRecords.lockerRecord(machine);
+    return { locker: { name: r.info.name, address: r.info.address, findNote: r.info.findNote, helpPhone: r.info.helpPhone,
+                       boxes: r.boxes.map(b => ({ n: b.n, size: b.size, board: b.board, lock: b.lock })) } };
+  })() : {};
+  ok(res, { ...buildConfigResponse(machine), ...lockerBlock,
             adminPin: pin ? { algo: pin.algo, iter: pin.iter, salt: pin.salt, hash: pin.hash } : null });
 }
 
@@ -5253,6 +5260,12 @@ function handleLockerParcelClear(req, res) {
   const m = lockerMachineOr404(req, res); if (!m) return;
   const r = parcels.clearParcel(m, req.params.id, lockerWho(req), req.body || {});
   if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} cleared ${m.deviceCode} box ${r.parcel.boxN}`);
+  // The operator chose to tell the customer their parcel is no longer there (only one that was stored).
+  if (r.ok && r.parcel.state === 'cleared' && (req.body || {}).notify === true) {
+    lockerSms.send(m, r.parcel.id, 'removed', lockerWho(req))
+      .then(x => { if (!x.ok) console.warn(`[LOCKER] ${m.deviceCode}: removal SMS not sent (${x.code})`); })
+      .catch(e => console.error('[LOCKER] removal SMS failed:', e.message));
+  }
   parcelAnswer(res, r, r.ok ? { parcel: r.parcel } : undefined);
 }
 // The pickup code, for an operator helping a customer. A POST: every showing is written to the
@@ -5343,6 +5356,12 @@ setInterval(() => {
 function handleLockerPickup(req, res) {
   const m = lockerAppMachine(req, res); if (!m) return;
   lockerAppAnswer(res, parcels.startPickup(m, req.body || {}));
+}
+// GET …/locker/offline — what the locker keeps so a customer can collect with no connection.
+function handleLockerOffline(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  if (typeof res.setHeader === 'function') res.setHeader('Cache-Control', 'no-store');
+  ok(res, parcels.offlineList(m));
 }
 function handleLockerPickupResult(req, res) {
   const m = lockerAppMachine(req, res); if (!m) return;

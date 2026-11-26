@@ -459,6 +459,7 @@ const finishPickup = db.transaction((machine, parcelId, input, now = Date.now())
   const p = q.parcelById.get(String(parcelId));
   if (!p || p.deviceCode !== machine.deviceCode) return fail(404, 'parcel_not_found', 'No such parcel at this locker.');
   if (!input || typeof input.opened !== 'boolean') return fail(400, 'bad_request', 'opened must be true or false.');
+  if (input.offline === true) return offlinePickupResult(machine, p, input, now);
   if (p.state === 'collected' && input.opened) return { ok: true, repeated: true, parcelId: p.id, state: 'collected' };
   if (p.state !== 'stored') return fail(409, 'wrong_state', `This parcel is ${p.state}.`);
   if (!input.opened) {
@@ -470,6 +471,43 @@ const finishPickup = db.transaction((machine, parcelId, input, now = Date.now())
   event(machine.deviceCode, p.id, p.boxN, 'collected', 'customer', null, now);
   return { ok: true, parcelId: p.id, state: 'collected' };
 });
+
+/**
+ * A pickup the locker handled while it could not reach the backend, reported afterwards. It
+ * has already happened, so it is never refused: whatever state the parcel is in by now, the
+ * report is written to its history and answered, and the locker's queue moves on.
+ */
+function offlinePickupResult(machine, p, input, now) {
+  const dev = machine.deviceCode;
+  // The locker's clock is believed only between the parcel being stored and now.
+  const claimed = Date.parse(input.at);
+  const from = p.storedAt ? Date.parse(p.storedAt) : Date.parse(p.createdAt);
+  const at = Number.isFinite(claimed) && claimed >= from && claimed <= now ? claimed : now;
+  if (!input.opened) {
+    event(dev, p.id, p.boxN, 'door_did_not_open', 'locker', 'offline', at);
+  } else if (p.state === 'stored') {
+    q.endParcel.run('collected', iso(at), 'customer', 'pickup, offline', p.id);
+    event(dev, p.id, p.boxN, 'collected', 'customer', 'offline', at);
+  } else {
+    event(dev, p.id, p.boxN, 'offline_pickup_after', 'customer', p.state, at);
+  }
+  return { ok: true, parcelId: p.id, state: q.parcelById.get(p.id).state, offline: true };
+}
+
+/**
+ * What a locker needs to hand over its own stored parcels with no connection: for each, the
+ * door and a keyed hash of its code and of its link token, under a salt made for this answer.
+ * The hash keeps codes out of files and logs on the locker; it is not what protects the doors.
+ */
+function offlineList(machine, now = Date.now()) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const h = (v) => crypto.createHmac('sha256', salt).update(String(v), 'utf8').digest('hex');
+  const list = q.activeAtDevice.all(machine.deviceCode).filter(p => p.state === 'stored' && p.code && p.token).map(p => {
+    const b = wiring(machine, p.boxN);
+    return { parcelId: p.id, box: { n: b.n, board: b.board, lock: b.lock }, codeHash: h(p.code), tokenHash: h(String(p.token).toLowerCase()) };
+  });
+  return { salt, generatedAt: iso(now), parcels: list };
+}
 
 // ── The operator's actions ────────────────────────────────────────────────────────────────────
 
@@ -602,7 +640,7 @@ module.exports = {
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels,
   registerOrder, listOrders, orderCounts, cancelOrder,
-  lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
+  offlineList, lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
   markCollected, clearParcel, setBoxService,
   // For the SMS and the pickup page, which are built on this next. Never sent to the dashboard.
   _secretsOf(parcelId) { const p = q.parcelById.get(String(parcelId)); return p ? { code: p.code, token: p.token } : null; },

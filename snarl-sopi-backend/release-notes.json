@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.130.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: write the locker's messages yourself, and what the locker app needs to connect",
+  "notes": [
+   "Locker details has a message editor in place of the fixed SMS sample: the first message, the reminder, and a new third one for when you take a parcel back out before pickup. Each shows a sample as the customer gets it, with the number of SMS parts, and can be put back to the standard text.",
+   "Clearing a box now offers to tell the customer by SMS that the parcel was removed (ticked by default). That message cannot carry a code or link, since they have stopped working.",
+   "For the locker app: the locker's config carries its name, address, help phone and box list; a new route gives it what it needs to hand over its own stored parcels with no connection (hashed codes, never the codes); and a pickup made offline is taken when the locker reports it, dated when it happened, and shown in the parcel's history as offline.",
+   "If a customer opens a box offline after the operator had already cleared it, the history says so."
+  ],
+  "check": "Locker details shows three message boxes under the customer details. Change one, save, and the sample beside it follows."
+ },
+ {
+  "component": "backend",
   "version": "6.129.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: enter expected orders by hand, and each locker's SMS wording is its own",

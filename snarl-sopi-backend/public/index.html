@@ -1227,17 +1227,22 @@ select.fi{cursor:pointer;}
           </div>
           <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:16px">
             <div class="panel">
-              <div class="ph"><div class="ph-title" data-i18n="lk.sms.title">the SMS.</div><div class="ph-action" id="lk-sms-parts" style="cursor:default"></div></div>
-              <div style="padding:14px 18px 16px">
-                <div id="lk-sms" style="font-size:13.5px;line-height:1.5;font-weight:500"></div>
-                <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45" data-i18n="lk.sms.hint">A sample with an invented order, code and link. Icelandic letters make each SMS part 67 characters.</div>
-              </div>
-            </div>
-            <div class="panel">
               <div class="ph"><div class="ph-title" data-i18n="lk.page.title">on the pickup page.</div></div>
               <div style="padding:14px 18px 16px">
                 <div id="lk-page" style="background:var(--cream-deep);padding:14px;font-size:13px;line-height:1.5"></div>
               </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title" data-i18n="lk.msg.title">the messages this locker sends.</div></div>
+          <div style="padding:14px 18px 18px">
+            <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px;max-width:760px" data-i18n="lk.msg.help">Write them in the language your customers read. The words in braces are filled in for each parcel. Changes apply to the next message sent.</div>
+            <div id="lk-msg-fields" style="display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center;font-size:12px;margin-bottom:6px"></div>
+            <div id="lk-msgs"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px;margin-top:14px">
+              <div style="font-size:11px;color:var(--muted);line-height:1.45;max-width:560px" data-i18n="lk.msg.hint">The samples use an invented order, code and link. Icelandic letters make each SMS part 67 characters.</div>
+              <button class="btn" id="lk-msg-save" onclick="saveLockerMessages()"><span data-i18n="lk.msg.save">save messages</span></button>
             </div>
           </div>
         </div>
@@ -2760,6 +2765,29 @@ const I18N = {
     'od.updated':'Order updated',
     'od.exists.used':'That order has already been put in a locker',
     'od.load.fail':'Could not load the orders',
+    'lk.msg.title':'the messages this locker sends.',
+    'lk.msg.save':'save messages',
+    'lk.msg.help':'Write them in the language your customers read. The words in braces are filled in for each parcel. Changes apply to the next message sent.',
+    'lk.msg.hint':'The samples use an invented order, code and link. Icelandic letters make each SMS part 67 characters.',
+    'lk.msg.fields':'Fields:',
+    'lk.msg.f.order':'order number',
+    'lk.msg.f.locker':'the locker’s name',
+    'lk.msg.f.code':'six-digit code (required when the parcel is waiting)',
+    'lk.msg.f.link':'link to the QR code',
+    'lk.msg.first':'When the parcel is in the box',
+    'lk.msg.first.when':'Sent when the door closes',
+    'lk.msg.reminder':'Reminder',
+    'lk.msg.reminder.when':'Sent once, after 48 hours, between 10 and 18',
+    'lk.msg.removed':'When you take a parcel back out',
+    'lk.msg.removed.when':'Sent when you clear a box, if you choose to. No code or link: they have stopped working',
+    'lk.msg.standard':'The standard text',
+    'lk.msg.own':'Your own text',
+    'lk.msg.standard.use':'use the standard text',
+    'lk.msg.sample':'As the customer gets it',
+    'bx.a.notify':'tell the customer by SMS that it was removed',
+    'bx.sms.k.removed':'parcel removed',
+    'bx.offline':'offline',
+    'bx.ev.offline_pickup_after':'Box opened by the customer while the locker was offline, after this',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3199,6 +3227,29 @@ const I18N = {
     'od.updated':'Pöntun uppfærð',
     'od.exists.used':'Þessi pöntun hefur þegar verið sett í skáp',
     'od.load.fail':'Ekki tókst að sækja pantanirnar',
+    'lk.msg.title':'skilaboðin sem þessi skápur sendir.',
+    'lk.msg.save':'vista skilaboð',
+    'lk.msg.help':'Skrifaðu þau á tungumáli viðskiptavina þinna. Orðin í slaufusvigum eru fyllt út fyrir hverja sendingu. Breytingar gilda frá næstu skilaboðum.',
+    'lk.msg.hint':'Sýnishornin nota tilbúna pöntun, kóða og hlekk. Íslenskir stafir gera hvern SMS-hluta 67 stafi.',
+    'lk.msg.fields':'Reitir:',
+    'lk.msg.f.order':'pöntunarnúmer',
+    'lk.msg.f.locker':'nafn skápsins',
+    'lk.msg.f.code':'sex stafa kóði (skylda þegar sending bíður)',
+    'lk.msg.f.link':'hlekkur á QR-kóðann',
+    'lk.msg.first':'Þegar sendingin er komin í hólf',
+    'lk.msg.first.when':'Sent þegar hurðin lokast',
+    'lk.msg.reminder':'Áminning',
+    'lk.msg.reminder.when':'Send einu sinni, eftir 48 klst., milli kl. 10 og 18',
+    'lk.msg.removed':'Þegar þú tekur sendingu aftur úr skápnum',
+    'lk.msg.removed.when':'Sent þegar þú tæmir hólf, ef þú velur það. Enginn kóði eða hlekkur: þeir virka ekki lengur',
+    'lk.msg.standard':'Staðlaður texti',
+    'lk.msg.own':'Þinn eigin texti',
+    'lk.msg.standard.use':'nota staðlaðan texta',
+    'lk.msg.sample':'Eins og viðskiptavinurinn fær það',
+    'bx.a.notify':'láta viðskiptavininn vita með SMS að sendingin var tekin',
+    'bx.sms.k.removed':'sending tekin',
+    'bx.offline':'án nettengingar',
+    'bx.ev.offline_pickup_after':'Viðskiptavinur opnaði hólfið án nettengingar, eftir þetta',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -8652,7 +8703,8 @@ function bxRenderDetail() {
     if (b.state === 'occupied') {
       h += act(t('bx.a.collected'), 'bxMarkCollected()', rsEsc(t('bx.a.collected.help')), true);
       h += act(t('bx.a.clear'), 'bxClear()', rsEsc(t('bx.a.clear.help')) +
-        '<label style="display:flex;gap:7px;align-items:center;margin-top:6px;color:var(--ink,#111111);font-weight:600"><input type="checkbox" id="bx-again"> ' + rsEsc(t('bx.a.again')) + '</label>');
+        '<label style="display:flex;gap:7px;align-items:center;margin-top:6px;color:var(--ink,#111111);font-weight:600"><input type="checkbox" id="bx-again"> ' + rsEsc(t('bx.a.again')) + '</label>' +
+        '<label style="display:flex;gap:7px;align-items:center;margin-top:4px;color:var(--ink,#111111);font-weight:600"><input type="checkbox" id="bx-notify" checked> ' + rsEsc(t('bx.a.notify')) + '</label>');
       h += act(t('bx.a.sms'), 'bxResend()', rsEsc(t('bx.a.sms.help')));
     } else {
       h += '<div style="font-size:12.5px;line-height:1.5;margin-top:12px">' + rsEsc(t('bx.opening.note')) + '</div>' + act(t('bx.a.free'), 'bxClear()', '', true);
@@ -8671,7 +8723,7 @@ function bxRenderDetail() {
         var key = 'bx.ev.' + e.type, label = t(key);
         if (label === key) label = e.type;
         var who = e.actor && e.actor.indexOf('@') > 0 ? ' · ' + e.actor : '';
-        var why = (e.type === 'cleared' || e.type === 'deposit_cancelled' || e.type.indexOf('sms_') === 0) && e.detail ? ' (' + bxSmsDetail(e.detail) + ')' : '';
+        var why = (e.type === 'cleared' || e.type === 'deposit_cancelled' || e.type.indexOf('sms_') === 0 || e.detail === 'offline') && e.detail ? ' (' + bxSmsDetail(e.detail) + ')' : '';
         if (e.type === 'reminder_attempted') return '';
         return '<span style="color:var(--muted);white-space:nowrap">' + rsEsc(bxWhen(e.at)) + '</span><span>' + rsEsc(label + why + who) + '</span>';
       }).join('') + '</div>';
@@ -8694,7 +8746,7 @@ function bxSmsText(p) {
   return label + ' · ' + bxWhen(m.updatedAt) + (m.kind === 'reminder' ? ' · ' + t('bx.sms.k.reminder') : '') + (m.errorCode ? ' · ' + tv('bx.sms.error', { code: m.errorCode }) : '');
 }
 function bxSmsDetail(detail) {
-  return String(detail).replace(/^first\b/, t('bx.sms.k.first')).replace(/^reminder\b/, t('bx.sms.k.reminder')).replace(/^resend\b/, t('bx.sms.k.resend'));
+  return String(detail).replace(/^first\b/, t('bx.sms.k.first')).replace(/^reminder\b/, t('bx.sms.k.reminder')).replace(/^resend\b/, t('bx.sms.k.resend')).replace(/^removed\b/, t('bx.sms.k.removed')).replace(/^offline$/, t('bx.offline'));
 }
 async function bxResend() {
   var b = bxBox(_bxSel); if (!b || !b.parcel) return;
@@ -8717,8 +8769,8 @@ async function bxClear() {
   var b = bxBox(_bxSel); if (!b || !b.parcel) return;
   var stored = b.state === 'occupied';
   if (!confirm(tv(stored ? 'bx.q.clear' : 'bx.q.free', { order: b.parcel.orderNumber, n: b.n }))) return;
-  var again = document.getElementById('bx-again');
-  if (await bxPost('parcels/' + encodeURIComponent(b.parcel.id) + '/clear', { again: !!(again && again.checked) })) { showToast(t('bx.done')); renderLockerBoxView(_mdDeviceCode, true); }
+  var again = document.getElementById('bx-again'), notify = document.getElementById('bx-notify');
+  if (await bxPost('parcels/' + encodeURIComponent(b.parcel.id) + '/clear', { again: !!(again && again.checked), notify: !!(stored && notify && notify.checked) })) { showToast(t('bx.done')); renderLockerBoxView(_mdDeviceCode, true); }
 }
 async function bxService(out) {
   var b = bxBox(_bxSel); if (!b) return;
@@ -8759,11 +8811,73 @@ async function renderLockerDetails(code) {
   if (!r || !r.ok || !r.data) { showToast(t('lk.load.fail') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return; }
   _lkRecord = r.data; _lkEditBoxes = null;
   lockerFillForm();
+  lkMsgRender();
   lockerPreview();
   renderLockerBoxes();
   var sp = document.getElementById('lk-sender-panel'), se = document.getElementById('lk-sender');
   if (sp) sp.style.display = lkIsAg() ? '' : 'none';
   if (se) se.value = (_lkRecord.sms && _lkRecord.sms.messagingServiceSid) || '';
+}
+
+// The wording of the locker's messages: one box per message, a sample beside it as the customer
+// gets it, and a way back to the standard text. The backend checks the fields.
+var LK_MSG_KINDS = ['first', 'reminder', 'removed'];
+function lkMsgRender() {
+  var el = document.getElementById('lk-msgs'); if (!el || !_lkRecord) return;
+  var msgs = _lkRecord.messages || {};
+  var fields = document.getElementById('lk-msg-fields');
+  if (fields) fields.innerHTML = '<span style="font-weight:700">' + rsEsc(t('lk.msg.fields')) + '</span>' + ['order', 'locker', 'code', 'link'].map(function (f) {
+    return '<span><span class="mono" style="background:var(--cream-deep);padding:2px 6px;font-weight:700">{' + f + '}</span> <span style="color:var(--muted)">' + rsEsc(t('lk.msg.f.' + f)) + '</span></span>';
+  }).join('');
+  el.innerHTML = LK_MSG_KINDS.map(function (k) {
+    return '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;border-top:1px solid var(--line);padding-top:14px;margin-top:14px">' +
+      '<div style="flex:999 1 380px;min-width:0">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">' +
+          '<label for="lk-msg-' + k + '" style="font-size:14px;font-weight:700">' + rsEsc(t('lk.msg.' + k)) + '</label>' +
+          '<span style="font-size:11px;color:var(--muted)">' + rsEsc(t('lk.msg.' + k + '.when')) + '</span></div>' +
+        '<textarea class="fi" id="lk-msg-' + k + '" rows="3" maxlength="320" oninput="lkMsgPreview()" style="resize:vertical;line-height:1.45;margin-top:6px">' + rsEsc(msgs[k] || '') + '</textarea>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px">' +
+          '<span id="lk-msg-state-' + k + '" style="font-size:11px;color:var(--muted)"></span>' +
+          '<button class="btn btn-sm btn-ghost" onclick="lkMsgStandard(\'' + k + '\')"><span>' + rsEsc(t('lk.msg.standard.use')) + '</span></button></div>' +
+      '</div>' +
+      '<div style="flex:1 1 280px;min-width:0">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="font-size:11px;font-weight:700">' + rsEsc(t('lk.msg.sample')) + '</span>' +
+          '<span id="lk-msg-parts-' + k + '" style="font-size:11px;font-weight:700;padding:2px 7px"></span></div>' +
+        '<div id="lk-msg-sample-' + k + '" style="background:#111111;color:#FFFFFF;padding:12px 14px;font-size:13px;line-height:1.5;font-weight:500;margin-top:6px;overflow-wrap:anywhere"></div>' +
+      '</div></div>';
+  }).join('');
+}
+function lkMsgStandard(k) {
+  var el = document.getElementById('lk-msg-' + k); if (!el || !_lkRecord) return;
+  el.value = (_lkRecord.messageDefaults || {})[k] || '';
+  lkMsgPreview();
+}
+function lkMsgPreview() {
+  if (!_lkRecord) return;
+  var name = lkVal('lk-name'), defs = _lkRecord.messageDefaults || {};
+  var vals = { order: '58754', locker: name, code: '523213', link: 'sms.agvending.is/p/7k3m9qx2rt5w' };
+  LK_MSG_KINDS.forEach(function (k) {
+    var el = document.getElementById('lk-msg-' + k); if (!el) return;
+    var text = String(el.value || '').replace(/\s+/g, ' ').trim();
+    var sample = (text || defs[k] || '').replace(/\{(order|locker|code|link)\}/g, function (m, f) { return vals[f]; }).replace(/\s+/g, ' ').replace(/ ([.,!?])/g, '$1').trim();
+    var sEl = document.getElementById('lk-msg-sample-' + k); if (sEl) sEl.textContent = sample;
+    var n = lkSmsParts(sample), pEl = document.getElementById('lk-msg-parts-' + k);
+    if (pEl) { pEl.textContent = n === 1 ? t('lk.sms.part1') : tv('lk.sms.parts', { n: n }); pEl.style.background = n > 2 ? '#FFC72C' : '#CDEBD8'; pEl.style.color = n > 2 ? '#111111' : '#0E5C2C'; }
+    var st = document.getElementById('lk-msg-state-' + k);
+    if (st) st.textContent = t(!text || text === defs[k] ? 'lk.msg.standard' : 'lk.msg.own');
+  });
+}
+async function saveLockerMessages() {
+  var code = _mdDeviceCode, defs = (_lkRecord && _lkRecord.messageDefaults) || {}, messages = {};
+  LK_MSG_KINDS.forEach(function (k) { var v = lkVal('lk-msg-' + k).replace(/\s+/g, ' '); messages[k] = v === defs[k] ? '' : v; });
+  var btn = document.getElementById('lk-msg-save'); if (btn) btn.disabled = true;
+  var r = null;
+  try { r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/locker', { messages: messages }); } catch (e) { r = null; }
+  if (btn) btn.disabled = false;
+  if (!r || !r.ok) { showToast(lkErrText(r) || t('lk.load.fail')); return; }
+  if (code !== _mdDeviceCode) return;
+  _lkRecord = r.data; lkMsgRender(); lkMsgPreview(); lockerFillForm();
+  showToast(t('lk.saved'));
 }
 
 async function saveLockerSender() {
@@ -8803,11 +8917,7 @@ function lockerPreview() {
   var name = lkVal('lk-name'), address = lkVal('lk-address'), find = lkVal('lk-find'), access = lkVal('lk-access');
   var cnt = document.getElementById('lk-access-count');
   if (cnt) cnt.textContent = access.length + ' / 240';
-  var sms = 'Pöntunin þín 58754 er tilbúin í skápnum' + (name ? ' ' + name : '') + '. Kóði: 523213. QR-kóði: sms.agvending.is/p/7K3M9QX2RT5W';
-  var smsEl = document.getElementById('lk-sms');
-  if (smsEl) smsEl.textContent = sms;
-  var parts = lkSmsParts(sms), partsEl = document.getElementById('lk-sms-parts');
-  if (partsEl) partsEl.textContent = parts === 1 ? t('lk.sms.part1') : tv('lk.sms.parts', { n: parts });
+  lkMsgPreview();
   var page = document.getElementById('lk-page');
   if (page) {
     var where = [address, find].filter(Boolean).join(', ');
