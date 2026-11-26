@@ -53,6 +53,9 @@ body{font-family:var(--sans);background:var(--cream-shadow);color:var(--ink);min
    viewport. Only the group holding the current page is open, so the whole nav fits without
    scrolling — and a collapsed group carries its children's badge count, or collapsing would hide
    the very thing you need to see. */
+/* A parcel locker's machine page: nothing about sales, stock, payment or cooling. */
+#page-machinedetail.is-locker .vend-only{display:none !important;}
+#page-machinedetail:not(.is-locker) .locker-only{display:none !important;}
 .nav-group{margin:2px 0;}
 .nav-group-h{display:flex;align-items:center;gap:9px;padding:8px 14px;margin:1px 8px;border-radius:var(--rsm);cursor:pointer;font-size:13px;color:var(--muted-2);user-select:none;transition:all .12s;}
 .nav-group-h:hover{background:var(--cream-deep);color:var(--ink);}
@@ -1141,9 +1144,9 @@ select.fi{cursor:pointer;}
         <div class="tab" data-mdtab="boxes" onclick="showMdTab('boxes',this)" id="md-tab-boxes" style="display:none" data-i18n="md.tab.boxes">Boxes</div>
         <div class="tab" data-mdtab="locker" onclick="showMdTab('locker',this)" id="md-tab-locker" style="display:none" data-i18n="md.tab.locker">Locker details</div>
         <div class="tab" data-mdtab="kiosk" onclick="openKioskDesigner(_mdDeviceCode)" id="md-tab-kiosk" style="display:none" data-i18n="md.tab.kiosk">Kiosk</div>
-        <div class="tab" data-mdtab="activity" onclick="showMdTab('activity',this)" data-i18n="md.tab.activity">Activity</div>
+        <div class="tab vend-only" data-mdtab="activity" onclick="showMdTab('activity',this)" data-i18n="md.tab.activity">Activity</div>
         <div class="tab" data-mdtab="controls" onclick="showMdTab('controls',this)" data-i18n="md.tab.controls">Controls</div>
-        <div class="tab" data-mdtab="notifications" onclick="showMdTab('notifications',this)" data-i18n="md.tab.notifications">Notifications</div>
+        <div class="tab vend-only" data-mdtab="notifications" onclick="showMdTab('notifications',this)" data-i18n="md.tab.notifications">Notifications</div>
       </div>
 
       <!-- ── BOXES (parcel lockers only): what is in each box, drawn as the cabinet stands ── -->
@@ -1282,7 +1285,7 @@ select.fi{cursor:pointer;}
 
       <!-- ── OVERVIEW ── -->
       <div class="md-tabpanel" data-panel="overview">
-        <div class="g4 mb" id="md-stats"></div>
+        <div class="g4 mb vend-only" id="md-stats"></div>
 
         <div class="panel" id="md-attention-panel" style="margin-bottom:16px;display:none">
           <div class="ph"><div class="ph-title" data-i18n="dash.alerts">needs attention.</div><div class="ph-action" onclick="go('alerts',document.querySelectorAll('.nav-item')[2])" data-i18n="common.viewAll">all alerts →</div></div>
@@ -1308,12 +1311,12 @@ select.fi{cursor:pointer;}
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;display:none" id="md-pay-panel">
+        <div class="panel vend-only" style="margin-bottom:16px;display:none" id="md-pay-panel">
           <div class="ph"><div class="ph-title" data-i18n="md.nayaxReader">Nayax reader.</div></div>
           <div style="padding:12px 18px 14px" id="md-pay-body"></div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;display:none" id="md-pin-panel">
+        <div class="panel vend-only" style="margin-bottom:16px;display:none" id="md-pin-panel">
           <div class="ph"><div class="ph-title" data-i18n="md.adminPin">admin PIN.</div></div>
           <div style="padding:14px 18px 16px">
             <div id="md-pin-status" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:11px"></div>
@@ -1325,7 +1328,7 @@ select.fi{cursor:pointer;}
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px" id="md-lang-panel">
+        <div class="panel vend-only" style="margin-bottom:16px" id="md-lang-panel">
           <div class="ph"><div class="ph-title" data-i18n="md.kioskLanguage">kiosk language.</div></div>
           <div style="padding:14px 18px 16px">
             <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:10px" data-i18n="md.languageHelp">
@@ -1336,19 +1339,19 @@ select.fi{cursor:pointer;}
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px">
+        <div class="panel vend-only" style="margin-bottom:16px">
           <div class="ph"><div class="ph-title" data-i18n="md.emptySlots">empty slots.</div></div>
           <div id="md-empty-slots" style="max-height:300px;overflow:auto"></div>
         </div>
 
-        <div class="panel">
+        <div class="panel vend-only">
           <div class="ph"><div class="ph-title" data-i18n="dash.soldOutRecent">recently sold out.</div><div class="ph-action" style="font-size:11px;color:var(--muted)">30d</div></div>
           <div id="md-sold-out" style="max-height:300px;overflow:auto;padding:0 4px"></div>
         </div>
 
         <!-- Last on the overview: the poster is set once and then left alone, while the
              buttons above it are what a visit to this page is usually for. -->
-        <div class="panel" id="md-ads-panel" style="margin-bottom:16px">
+        <div class="panel vend-only" id="md-ads-panel" style="margin-bottom:16px">
           <div class="ph">
             <div class="ph-title" data-i18n="md.screenPoster">screen poster.</div>
             <div class="ph-action" onclick="addAdSlot()" data-i18n="md.add">+ add</div>
@@ -1433,7 +1436,7 @@ select.fi{cursor:pointer;}
 
       <!-- ── CONTROLS ── -->
       <div class="md-tabpanel" data-panel="controls" style="display:none">
-        <div class="panel" id="md-temp-panel" style="margin-bottom:16px">
+        <div class="panel vend-only" id="md-temp-panel" style="margin-bottom:16px">
           <div class="ph">
             <div class="ph-title" data-i18n="md.cabinetTemp">cabinet temperature.</div>
             <div style="display:flex;align-items:center;gap:10px">
@@ -1446,7 +1449,7 @@ select.fi{cursor:pointer;}
           <div id="md-temp-body" style="padding:16px 18px"></div>
         </div>
 
-        <div class="panel" id="md-tags-panel" style="margin-bottom:16px">
+        <div class="panel vend-only" id="md-tags-panel" style="margin-bottom:16px">
           <div class="ph"><div class="ph-title" data-i18n="md.priceTags">shelf price tags.</div></div>
           <div style="padding:14px 18px 16px">
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:11px" data-i18n="md.priceTagsHelp">Pushes current prices to the LED shelf tags. Use force if a tag is showing the wrong price — it bypasses the machine's record of what it believes is already on each tag.</div>
@@ -1464,25 +1467,26 @@ select.fi{cursor:pointer;}
 
         <div class="panel" style="margin-bottom:16px">
           <div class="ph">
-            <div class="ph-title" data-i18n="md.configHealth">config health.</div>
+            <div class="ph-title vend-only" data-i18n="md.configHealth">config health.</div><div class="ph-title locker-only" data-i18n="lk.key.title">machine key.</div>
             <div style="display:flex;gap:12px">
               <div class="ph-action" onclick="showMachineKey(_mdDeviceCode)" data-i18n="md.showKey">show key</div>
-              <div class="ph-action" onclick="migrateMachineKey(_mdDeviceCode)" data-i18n="md.migrateKey">migrate key</div>
+              <div class="ph-action vend-only" onclick="migrateMachineKey(_mdDeviceCode)" data-i18n="md.migrateKey">migrate key</div>
               <div class="ph-action" onclick="revokeMachineKeyUi(_mdDeviceCode)" style="color:var(--alert)" data-i18n="md.revokeKey">revoke key</div>
-              <div class="ph-action" onclick="checkConfigHealth(_mdDeviceCode)" data-i18n="md.askMachine">↻ ask the machine</div>
+              <div class="ph-action vend-only" onclick="checkConfigHealth(_mdDeviceCode)" data-i18n="md.askMachine">↻ ask the machine</div>
             </div>
           </div>
           <div id="md-key-box" style="display:none;padding:0 18px 14px"></div>
-          <div style="padding:14px 18px 16px;font-size:12.5px;color:var(--muted)" data-i18n="md.configHealthHelp">Asks the kiosk which lanes it believes are closed, and whether it failed to decode any. Run this after closing lanes and before the machine takes money — the result appears as a banner at the top of this page.</div>
+          <div class="locker-only" style="padding:14px 18px 16px;font-size:12.5px;color:var(--muted)" data-i18n="lk.key.help">The key this locker signs its calls with. It gets one by pairing: Overview, pairing code. Revoking it cuts the locker off until it is paired again.</div>
+          <div class="vend-only" style="padding:14px 18px 16px;font-size:12.5px;color:var(--muted)" data-i18n="md.configHealthHelp">Asks the kiosk which lanes it believes are closed, and whether it failed to decode any. Run this after closing lanes and before the machine takes money — the result appears as a banner at the top of this page.</div>
         </div>
 
         <!-- Fridge lighting. Hidden on coil machines; filled by renderMachineLight(). -->
-        <div class="panel" id="md-light-panel" style="margin-bottom:16px;display:none">
+        <div class="panel vend-only" id="md-light-panel" style="margin-bottom:16px;display:none">
           <div class="ph"><div class="ph-title" data-i18n="lt.title">lighting.</div></div>
           <div id="md-light-body" style="padding:18px"></div>
         </div>
 
-        <div class="panel" id="md-scale-panel" style="margin-bottom:16px;display:none">
+        <div class="panel vend-only" id="md-scale-panel" style="margin-bottom:16px;display:none">
           <div class="ph"><div class="ph-title" data-i18n="md.scales">scales &amp; sensors.</div></div>
           <div style="padding:14px 18px 16px">
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:11px" data-i18n="md.scalesHelp">Zero the baskets after moving or reassembling the machine. Offsets of &plusmn;200&nbsp;g are normal on an untared cabinet.</div>
@@ -1494,7 +1498,7 @@ select.fi{cursor:pointer;}
           </div>
         </div>
 
-        <div class="panel" id="md-dispense-panel" style="margin-bottom:16px">
+        <div class="panel vend-only" id="md-dispense-panel" style="margin-bottom:16px">
           <div class="ph">
             <div class="ph-title" data-i18n="md.dispenseLog">dispense log.</div>
             <div class="ph-action" onclick="fetchDispenseLog(_mdDeviceCode)" data-i18n="md.fetchFromMachine">↻ fetch from machine</div>
@@ -2851,6 +2855,11 @@ const I18N = {
     'bx.door.open':'door open',
     'bx.door.since':'The door has stood open since {when}. An open box is not given to new orders.',
     'bx.door.unknown':'Whether this door is open is not known: the locker has not reported its doors in the last 10 minutes.',
+    'lk.key.title':'machine key.',
+    'lk.key.help':'The key this locker signs its calls with. It gets one by pairing: Overview, pairing code. Revoking it cuts the locker off until it is paired again.',
+    'lk.controls.help':'What has been sent to this locker, and what it answered. Open a box from the Boxes tab.',
+    'lk.qa.boxes':'Boxes and parcels',
+    'lk.msg.adminOnly':'Only an operator admin can change the messages.',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3361,6 +3370,11 @@ const I18N = {
     'bx.door.open':'hurð opin',
     'bx.door.since':'Hurðin hefur staðið opin síðan {when}. Opið hólf er ekki notað fyrir nýjar pantanir.',
     'bx.door.unknown':'Ekki er vitað hvort þessi hurð er opin: skápurinn hefur ekki tilkynnt stöðu hurða síðustu 10 mínútur.',
+    'lk.key.title':'lykill vélar.',
+    'lk.key.help':'Lykillinn sem þessi skápur notar til að auðkenna sig. Hann fær lykil við pörun: Yfirlit, pörunarkóði. Ef lykillinn er afturkallaður missir skápurinn sambandið þar til hann er paraður aftur.',
+    'lk.controls.help':'Það sem hefur verið sent á þennan skáp og hverju hann svaraði. Hólf er opnað á flipanum Hólf.',
+    'lk.qa.boxes':'Hólf og sendingar',
+    'lk.msg.adminOnly':'Aðeins rekstrarstjóri getur breytt skilaboðunum.',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -7736,6 +7750,12 @@ function renderMachineControls(code) {
   if (!el) return;
   // (temp render is defined below as renderMachineTemp)
   const m = DB.machines[code] || {};
+  if (isLockerModel(_mdModel || m.model)) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--muted);line-height:1.5">' + rsEsc(t('lk.controls.help')) + '</div>' +
+      '<div id="md-cmd-history" style="margin-top:16px"></div>';
+    renderCommandHistory(code);
+    return;
+  }
   el.innerHTML = closureControls(code, m) + `
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="restartMachineCmd('${code}','app')">↻ restart app</button>
@@ -7853,7 +7873,7 @@ async function setCooling(code, what) {
 async function renderCommandHistory(code) {
   const el = document.getElementById('md-cmd-history');
   if (!el) return;
-  const label = t => ({restart_app:'restart app', restart_machine:'restart machine', set_drop_sensor:'drop sensor', clear_aisle_fault:'clear aisle fault', query_channel_status:'query channels', set_aisle_enabled:'set aisle', set_temp:'set temperature', set_cooling:'cooling on/off', defrost:'defrost'}[t] || t);
+  const label = t => ({open_box:'open box', restart_app:'restart app', restart_machine:'restart machine', set_drop_sensor:'drop sensor', clear_aisle_fault:'clear aisle fault', query_channel_status:'query channels', set_aisle_enabled:'set aisle', set_temp:'set temperature', set_cooling:'cooling on/off', defrost:'defrost'}[t] || t);
   const statusPill = st => st==='done' ? pill('pill-up','ok') : st==='failed' ? pill('pill-dn','failed') : st==='unsupported' ? pill('pill-warn','unsupported') : pill('pill-out','pending');
   try {
     const r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/commands/history?limit=8');
@@ -8170,6 +8190,8 @@ async function renderMachineDetail() {
     // hydrate, or empty on a fresh browser. When it was wrong the scale panel simply never
     // appeared, on a real fridge, with no hint as to why.
     _mdModel = String(m.model || '');
+    const mdIsLocker = isLockerModel(_mdModel);
+    document.getElementById('page-machinedetail').classList.toggle('is-locker', mdIsLocker);
     renderMdPayment(dr.data.payment);
     document.getElementById('md-name').textContent = m.deviceName;
     document.getElementById('md-meta').innerHTML =
@@ -8186,7 +8208,7 @@ async function renderMachineDetail() {
           ? rsEsc(t('md.appPrefix')) + ' ' + (m.lastAppVersionName ? 'v' + rsEsc(m.lastAppVersionName) + ' ' : '') +
             (m.lastAppVersionCode != null ? '<span style="color:var(--muted)">(' + m.lastAppVersionCode + ')</span>' : '')
           : '<span style="color:var(--muted)">' + rsEsc(t('md.appUnknown')) + '</span>') +
-      '</span>' + mdKeyHeader(dr.data.configHealth, isFridgeModel(m.model)) + mdNayaxHeader(dr.data.payment);
+      '</span>' + (mdIsLocker ? '' : mdKeyHeader(dr.data.configHealth, isFridgeModel(m.model)) + mdNayaxHeader(dr.data.payment));
 
     renderMdLanguage(m);
     renderMdPairing();
@@ -8222,7 +8244,17 @@ async function renderMachineDetail() {
     renderMachineControls(code);
     renderMachineRecentOrders(code);
     renderMachineAds(code, m);
-    renderHealthBanner(dr.data.configHealth);
+    renderHealthBanner(mdIsLocker ? null : dr.data.configHealth);
+    // A locker's page opens on its boxes: that is what a visit to it is for. Nothing below this
+    // point (revenue, heatmap, top products) applies to a locker.
+    if (mdIsLocker) {
+      var lkMachine = Object.assign({}, DB.machines[code] || {}, { model: _mdModel });
+      renderMachineLayoutOrFridge(code, lkMachine);
+      renderMachineActions(code, lkMachine);
+      var bxTab = document.getElementById('md-tab-boxes');
+      if (bxTab && code === _mdDeviceCode) showMdTab('boxes', bxTab);
+      return;
+    }
     // Temperature and the log now load when the Controls tab is opened, not on every detail view.
   } catch (e) {
     document.getElementById('md-name').textContent = code;
@@ -8468,8 +8500,8 @@ function renderMachineActions(code, machine) {
   var isLocker = isLockerModel(machine && machine.model);
   if (isLocker) {
     // A locker has no bays to edit, nothing to restock and no Weimi record.
-    a.push({ t: t('lk.qa.details'), i: '▤', on: "showMdTab('locker',document.querySelector('#md-tabbar [data-mdtab=locker]'))", primary: true });
-    a.push({ t: t('md.qa.checkUpdate'), i: '↻', on: 'checkMachineUpdate(_mdDeviceCode)' });
+    a.push({ t: t('lk.qa.boxes'), i: '▦', on: "showMdTab('boxes',document.getElementById('md-tab-boxes'))", primary: true });
+    a.push({ t: t('lk.qa.details'), i: '▤', on: "showMdTab('locker',document.querySelector('#md-tabbar [data-mdtab=locker]'))" });
   } else if (isFridge) {
     // One "Open door" button PER cabinet the model has: single = A only, double = A + B.
     var model = String((machine && machine.model) || '');
@@ -8676,9 +8708,13 @@ async function renderLockerBoxView(code, keep) {
 // signed with a secret shown once. The secret is held in this variable only until the page moves on.
 var _shData = null, _shSecret = null;
 function shOp() { return _bxView && _bxView.operatorId; }
+// Operator admins (and AG) write the SMS texts and connect the shop; managers may change the
+// customer-facing details; everyone with the locker does the day's box work.
+function lkCanDetails() { return canDo('manage'); }
 function shCanEdit() { return !!(typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'ag_admin' || currentUser.role === 'operator_admin')); }
 async function shLoad() {
   var code = _mdDeviceCode, op = shOp(); if (!op) return;
+  if (!shCanEdit()) { var hide = document.getElementById('sh-list'); if (hide && hide.closest('.panel')) hide.closest('.panel').style.display = 'none'; return; }
   var r = null;
   try { r = await API.get('/api/v1/operators/' + encodeURIComponent(op) + '/locker-shops'); } catch (e) { r = null; }
   if (code !== _mdDeviceCode) return;
@@ -8693,6 +8729,7 @@ function shRender() {
   var el = document.getElementById('sh-list'), sec = document.getElementById('sh-secret'), form = document.getElementById('sh-new');
   if (!el) return;
   var edit = shCanEdit();
+  var shPanel = el.closest('.panel'); if (shPanel) shPanel.style.display = edit ? '' : 'none';
   if (form) form.style.display = edit ? 'flex' : 'none';
   if (sec) sec.innerHTML = _shSecret ? (
     '<div style="background:#FFC72C;color:#111111;padding:14px 16px;margin-bottom:12px">' +
@@ -9080,6 +9117,8 @@ async function renderLockerDetails(code) {
 var LK_MSG_KINDS = ['first', 'reminder', 'removed'];
 function lkMsgRender() {
   var el = document.getElementById('lk-msgs'); if (!el || !_lkRecord) return;
+  var canMsg = shCanEdit();
+  var saveBtn = document.getElementById('lk-msg-save'); if (saveBtn) saveBtn.style.display = canMsg ? '' : 'none';
   var msgs = _lkRecord.messages || {};
   var fields = document.getElementById('lk-msg-fields');
   if (fields) fields.innerHTML = '<span style="font-weight:700">' + rsEsc(t('lk.msg.fields')) + '</span>' + ['order', 'locker', 'code', 'link'].map(function (f) {
@@ -9091,10 +9130,10 @@ function lkMsgRender() {
         '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">' +
           '<label for="lk-msg-' + k + '" style="font-size:14px;font-weight:700">' + rsEsc(t('lk.msg.' + k)) + '</label>' +
           '<span style="font-size:11px;color:var(--muted)">' + rsEsc(t('lk.msg.' + k + '.when')) + '</span></div>' +
-        '<textarea class="fi" id="lk-msg-' + k + '" rows="3" maxlength="320" oninput="lkMsgPreview()" style="resize:vertical;line-height:1.45;margin-top:6px">' + rsEsc(msgs[k] || '') + '</textarea>' +
+        '<textarea class="fi" id="lk-msg-' + k + '" rows="3" maxlength="320"' + (canMsg ? '' : ' readonly') + ' oninput="lkMsgPreview()" style="resize:vertical;line-height:1.45;margin-top:6px">' + rsEsc(msgs[k] || '') + '</textarea>' +
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px">' +
           '<span id="lk-msg-state-' + k + '" style="font-size:11px;color:var(--muted)"></span>' +
-          '<button class="btn btn-sm btn-ghost" onclick="lkMsgStandard(\'' + k + '\')"><span>' + rsEsc(t('lk.msg.standard.use')) + '</span></button></div>' +
+          (canMsg ? '<button class="btn btn-sm btn-ghost" onclick="lkMsgStandard(\'' + k + '\')"><span>' + rsEsc(t('lk.msg.standard.use')) + '</span></button>' : '<span style="font-size:11px;color:var(--muted)">' + rsEsc(t('lk.msg.adminOnly')) + '</span>') + '</div>' +
       '</div>' +
       '<div style="flex:1 1 280px;min-width:0">' +
         '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="font-size:11px;font-weight:700">' + rsEsc(t('lk.msg.sample')) + '</span>' +
@@ -9151,6 +9190,9 @@ function lockerFillForm() {
   set('lk-name', info.name); set('lk-address', info.address); set('lk-find', info.findNote);
   set('lk-access', info.accessNote); set('lk-phone', info.helpPhone);
   set('lk-map', (typeof info.lat === 'number' && typeof info.lng === 'number') ? (info.lat + ', ' + info.lng) : '');
+  var canDet = lkCanDetails(), saveInfo = document.getElementById('lk-save');
+  if (saveInfo) saveInfo.style.display = canDet ? '' : 'none';
+  ['lk-name', 'lk-address', 'lk-find', 'lk-access', 'lk-phone', 'lk-map'].forEach(function (id) { var f = document.getElementById(id); if (f) f.readOnly = !canDet; });
   var ch = document.getElementById('lk-changed');
   if (ch) {
     ch.textContent = (_lkRecord && _lkRecord.updatedAt)

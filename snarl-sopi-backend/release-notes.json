@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.137.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: a machine page without vending, and who may change what",
+  "notes": [
+   "A locker's machine page no longer shows anything about sales, stock, payment or cooling: no revenue figures, Nayax reader, kiosk language, empty slots, sold out, screen poster, Activity or Notifications tabs, temperature, price tags, dispense log or vending controls. It opens on the Boxes tab.",
+   "Its Controls tab shows what was sent to the locker and what it answered, the machine key, and the machine log.",
+   "Roles on a locker: only an operator admin (and AG) can change the SMS texts and see or change the web shop connection. A manager can change the customer-facing details. Staff (the Restocker role) can do neither; they do the day's work: see the boxes, add an order, open a box, mark a parcel picked up, clear a box, send the SMS again.",
+   "Vending machines and fridges look and work as before."
+  ],
+  "check": "Open a locker: tabs are Overview, Boxes, Locker details, Controls, and it lands on Boxes. Open a fridge or coil machine: unchanged."
+ },
+ {
+  "component": "backend",
   "version": "6.136.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: a second cabinet model, LK-AGV47",
