@@ -321,10 +321,10 @@ test('clearing a box tells the customer only when the operator chose to, and onl
   assert.equal(removedSent(), before + 1);
 });
 
-test('every state of the pickup page ends with "Knúið af AG Vending", the logo and a link to our site', async () => {
+test('every state of the pickup page ends with "Knúið áfram af", the logo and a link to our site', async () => {
   const m = machineOf('LKS-1');
   const p = stored(m);
-  const footer = /<footer><a href="https:\/\/agvending\.is" rel="noopener">Knúið af <img src="data:image\/png;base64,[A-Za-z0-9+\/=]+" alt="AG Vending"><\/a><\/footer>/;
+  const footer = /<footer><a href="https:\/\/agvending\.is" rel="noopener">Knúið áfram af <img src="data:image\/png;base64,[A-Za-z0-9+\/=]+" alt="AG Vending"><\/a><\/footer>/;
   assert.match((await lockerSms.pickupPage(p.token, machineOf)).html, footer);
   assert.match((await lockerSms.pickupPage('abcdefgh2345', machineOf)).html, footer);
   const s = parcels.startPickup(m, { code: p.code }, T0 + 9 * 3600000);

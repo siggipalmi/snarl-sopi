@@ -40,6 +40,17 @@
  },
  {
   "component": "backend",
+  "version": "6.142.1",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: Knúið áfram af on the pickup page, and a note on screen saver picture sizes",
+  "notes": [
+   "The pickup page's last line now reads Knúið áfram af, followed by our logo.",
+   "A locker's screen poster panel says what the pictures are for and that a 1920×1080 picture shows with a black band above and below on the locker's 1280×800 screen."
+  ],
+  "check": "Open a pickup link: the page ends with Knúið áfram af and the logo."
+ },
+ {
+  "component": "backend",
   "version": "6.142.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: Knúið af AG Vending on the pickup page, screen saver pictures, mobile in the spreadsheet",
