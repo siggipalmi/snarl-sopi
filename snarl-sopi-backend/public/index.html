@@ -2848,6 +2848,9 @@ const I18N = {
     'sh.q.secret':'Make a new secret for {name}?\n\nThe old one stops working at once. Orders are refused until the new secret is in the shop’s webhook.',
     'sh.remove':'remove this shop',
     'sh.q.remove':'Remove the connection to {name}?\n\nIts orders stop arriving. Orders already received stay.',
+    'bx.door.open':'door open',
+    'bx.door.since':'The door has stood open since {when}. An open box is not given to new orders.',
+    'bx.door.unknown':'Whether this door is open is not known: the locker has not reported its doors in the last 10 minutes.',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3355,6 +3358,9 @@ const I18N = {
     'sh.q.secret':'Búa til nýjan leynilykil fyrir {name}?\n\nSá gamli hættir strax að virka. Pöntunum er hafnað þar til nýi lykillinn er kominn í vefkrók verslunarinnar.',
     'sh.remove':'fjarlægja þessa verslun',
     'sh.q.remove':'Fjarlægja tenginguna við {name}?\n\nPantanir hennar hætta að berast. Pantanir sem þegar hafa borist standa.',
+    'bx.door.open':'hurð opin',
+    'bx.door.since':'Hurðin hefur staðið opin síðan {when}. Opið hólf er ekki notað fyrir nýjar pantanir.',
+    'bx.door.unknown':'Ekki er vitað hvort þessi hurð er opin: skápurinn hefur ekki tilkynnt stöðu hurða síðustu 10 mínútur.',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -8836,12 +8842,14 @@ function bxRenderCabinet() {
       text = p.orderNumber + ' · ' + t('bx.t.opening'); bg = BX_COL.opening; fg = '#111111'; label = text;
     } else if (b.state === 'out_of_service') { text = t('bx.t.out'); bg = BX_COL.out; fg = '#555555'; label = text; }
     else { text = t('bx.t.free'); bg = BX_COL.free; fg = '#0E5C2C'; label = text; }
+    if (b.doorOpenSince) label += ', ' + t('bx.door.open');
     var hit = !q || (p && [p.orderNumber, p.firstName, p.phoneTail].some(function (v) { return String(v || '').toLowerCase().indexOf(q) >= 0; }));
     var ring = n === _bxSel ? 'outline:4px solid #FFC72C;outline-offset:-4px;' : '';
     return '<button type="button" onclick="bxSelect(' + n + ')" aria-pressed="' + (n === _bxSel) + '" aria-label="' + rsEsc(tv('bx.box', { n: n }) + ', ' + label) +
       '" style="' + base + flex + ring + 'background:' + bg + ';color:' + fg + ';opacity:' + (hit ? 1 : 0.3) + '">' +
       '<span style="font-size:14px;font-weight:800;min-width:20px">' + n + '</span>' +
-      '<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:600">' + rsEsc(text) + '</span>' + badge + '</button>';
+      '<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:600">' + rsEsc(text) + '</span>' +
+      (b.doorOpenSince ? '<span style="font-size:11px;font-weight:700;padding:2px 6px;white-space:nowrap;background:#FFC72C;color:#111111;outline:2px solid #111111">' + rsEsc(t('bx.door.open')) + '</span>' : '') + badge + '</button>';
   };
   var cols = bxLayout(_bxView);
   var units = Math.max.apply(null, cols.map(function (col) { return col.reduce(function (a, c) { return a + c[1]; }, 0); }));
@@ -8879,6 +8887,8 @@ function bxRenderDetail() {
     '<div style="font-size:19px;font-weight:700">' + rsEsc(tv('bx.box', { n: b.n })) + '</div>' +
     '<span style="font-size:12px;font-weight:700;padding:3px 8px;color:#111111;background:' + chipBg + '">' + rsEsc(t(chipKey) + ' · ' + lkSizeLabel(b.size).toLowerCase()) + '</span></div>';
   var row = function (k, v) { return '<span style="color:var(--muted)">' + rsEsc(t(k)) + '</span><span style="font-weight:600;min-width:0">' + v + '</span>'; };
+  if (b.doorOpenSince) h += '<div style="background:#FFC72C;color:#111111;padding:9px 12px;font-size:13px;font-weight:600;margin-bottom:12px">' + rsEsc(tv('bx.door.since', { when: bxWhen(b.doorOpenSince) })) + '</div>';
+  else if (_bxView && _bxView.doors && !_bxView.doors.known) h += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">' + rsEsc(t('bx.door.unknown')) + '</div>';
   var act = function (label, fn, help, primary) {
     return '<div style="margin-top:10px"><button class="btn' + (primary ? '' : ' btn-ghost') + '" style="width:100%;text-align:left" onclick="' + fn + '"><span>' + rsEsc(label) + '</span></button>' +
       (help ? '<div style="font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:4px">' + help + '</div>' : '') + '</div>';

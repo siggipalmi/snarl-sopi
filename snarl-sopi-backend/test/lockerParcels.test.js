@@ -549,3 +549,63 @@ test('a door that does not open for a customer raises an alert, and their parcel
   assert.equal(storage.db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE type = 'locker_door_failed' AND deviceCode = 'LKP-A2' AND severity = 'critical'").get().c, 1);
   empty(A2);
 });
+
+// ── 6.134.0: which doors stand open ───────────────────────────────────────────────────────────
+
+test('the locker reports its open doors: shown per box, kept out of new deposits, and forgotten when the news is old', () => {
+  const MIN = 60000, t0 = Date.now() - 60 * MIN;
+  const report = (open, now) => parcels.reportDoors(A2, { open, at: new Date(now).toISOString() }, now);
+  const box = (n, now) => parcels.boxView(A2, now).boxes.find(b => b.n === n);
+
+  assert.equal(parcels.boxView(A2, t0).doors.known, false, 'before any report nothing is known');
+  assert.equal(report([2], t0).ok, true);
+  assert.equal(box(2, t0).doorOpenSince, new Date(t0).toISOString());
+  assert.equal(box(3, t0).doorOpenSince, null);
+  assert.equal(parcels.boxView(A2, t0).doors.known, true);
+
+  // A small order goes to box 3: box 2's door is standing open.
+  parcels.registerOrder('op-parcel-a', { orderNumber: 'DOORS', phone: '5550150' }, t0);
+  assert.equal(parcels.lookupForDeposit(A2, 'DOORS').ok, true);
+  const s = parcels.startDeposit(A2, { orderNumber: 'DOORS', size: 'small' }, t0 + MIN);
+  assert.equal(s.box.n, 3);
+  parcels.finishDeposit(A2, s.parcelId, { outcome: 'cancelled', reason: 'staff_cancel' }, t0 + MIN);
+
+  // Still open at the next reports: the first-seen time is kept, and after ten minutes it is named.
+  assert.deepEqual(report([2], t0 + 5 * MIN).tooLong, []);
+  assert.deepEqual(report([2, 4], t0 + 10 * MIN).tooLong, [2]);
+  assert.equal(box(2, t0 + 10 * MIN).doorOpenSince, new Date(t0).toISOString());
+  // Shut again: gone, and the box is offered again.
+  assert.deepEqual(report([], t0 + 11 * MIN).open, []);
+  assert.equal(box(2, t0 + 11 * MIN).doorOpenSince, null);
+  assert.equal(parcels.startDeposit(A2, { orderNumber: 'DOORS', size: 'small' }, t0 + 11 * MIN).box.n, 2);
+  empty(A2);
+
+  // No news for more than ten minutes: an old "open" no longer blocks a box or shows as fact.
+  report([3], t0 + 12 * MIN);
+  assert.equal(box(3, t0 + 30 * MIN).doorOpenSince, null);
+  assert.equal(parcels.boxView(A2, t0 + 30 * MIN).doors.known, false);
+  // ...and when it is seen open again after the gap, the clock starts over.
+  assert.deepEqual(report([3], t0 + 31 * MIN).tooLong, []);
+  assert.equal(box(3, t0 + 31 * MIN).doorOpenSince, new Date(t0 + 31 * MIN).toISOString());
+
+  assert.equal(report([99], t0 + 32 * MIN).code, 'box_not_found');
+  assert.equal(parcels.reportDoors(A2, {}, t0).code, 'bad_request');
+  report([], Date.now());
+});
+
+test('the doors route takes the report with the machine key and raises one alert for a door left open', () => {
+  assert.deepEqual(routes.find(r => r.method === 'POST' && r.pattern === BASE + '/doors').middleware.map(f => f.name), ['requireMachineKey']);
+  const MIN = 60000;
+  // As a locker does: seen open 11 minutes ago, reported again at the 5-minute mark, and now.
+  parcels.reportDoors(B1, { open: [4] }, Date.now() - 11 * MIN);
+  parcels.reportDoors(B1, { open: [4] }, Date.now() - 6 * MIN);
+  const r = call('POST', '/doors', { deviceCode: 'LKP-B1', body: { open: [4], at: new Date().toISOString() } });
+  assert.deepEqual([r.status, r.body.data.open], [200, [4]]);
+  call('POST', '/doors', { deviceCode: 'LKP-B1', body: { open: [4] } });
+  const alerts = storage.db.prepare("SELECT title FROM alerts WHERE type = 'locker_door_left_open' AND deviceCode = 'LKP-B1'").all();
+  assert.equal(alerts.length, 1);
+  assert.match(alerts[0].title, /Box 4 has been open over 10 minutes/);
+  assert.equal(call('POST', '/doors', { deviceCode: 'LKP-B1', body: { open: 'all' } }).status, 400);
+  assert.equal(call('POST', '/doors', { deviceCode: 'VMP-1', body: { open: [] } }).body.error.code, 'not_a_locker');
+  call('POST', '/doors', { deviceCode: 'LKP-B1', body: { open: [] } });
+});
