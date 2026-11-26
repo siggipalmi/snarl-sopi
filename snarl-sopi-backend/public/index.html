@@ -1317,9 +1317,10 @@ select.fi{cursor:pointer;}
         <div class="panel" id="lk-photo-panel" style="margin-bottom:16px;display:none">
           <div class="ph"><div class="ph-title" data-i18n="lk.photo.title">photo at pickup.</div></div>
           <div style="padding:14px 18px 18px">
-            <div class="toggle-row" style="border:none;padding:0 0 8px">
+            <div class="toggle-row" style="border:none;padding:0 0 8px;justify-content:flex-start;gap:14px">
+              <label class="tgl"><input type="checkbox" id="lk-photo" aria-labelledby="lk-photo-label" onchange="saveLockerPhoto(this.checked)"><div class="tgl-track" style="box-shadow:inset 0 0 0 1.5px #111111"></div><div class="tgl-thumb" style="background:#111111"></div></label>
               <div><div class="tgl-label" id="lk-photo-label" data-i18n="lk.photo.label">photograph each pickup</div></div>
-              <label class="tgl"><input type="checkbox" id="lk-photo" aria-labelledby="lk-photo-label" onchange="saveLockerPhoto(this.checked)"><div class="tgl-track"></div><div class="tgl-thumb"></div></label>
+              <span id="lk-photo-state" style="font-size:12px;font-weight:700"></span>
             </div>
             <div style="font-size:11.5px;color:var(--muted);line-height:1.5;max-width:720px" data-i18n="lk.photo.help">The locker's camera takes one picture when a parcel is collected, as proof of delivery. Admins can see it in the Parcel log for 30 days. Switch it on only when the site has a sign telling customers a photo is taken at pickup. Only AG Vending sees and sets this; the locker follows within two minutes.</div>
           </div>
@@ -2958,6 +2959,7 @@ const I18N = {
     'lk.photo.label':'photograph each pickup',
     'lk.photo.help':'The locker’s camera takes one picture when a parcel is collected, as proof of delivery. Admins can see it in the Parcel log for 30 days. Switch it on only when the site has a sign telling customers a photo is taken at pickup. Only AG Vending sees and sets this; the locker follows within two minutes.',
     'lk.photo.q':'Switch on pickup photos for this locker?\n\nOnly if the site has a sign telling customers a photo is taken at pickup.',
+    'lk.photo.isOn':'On','lk.photo.isOff':'Off',
     'lk.photo.on':'Pickup photos switched on',
     'lk.photo.off':'Pickup photos switched off',
     'lk.boxes.title':'boxes.',
@@ -3527,6 +3529,7 @@ const I18N = {
     'lk.photo.label':'taka mynd við hverja afhendingu',
     'lk.photo.help':'Myndavél skápsins tekur eina mynd þegar sending er sótt, sem staðfestingu á afhendingu. Stjórnendur geta séð hana í sendingaskránni í 30 daga. Kveiktu aðeins á þessu þegar skilti á staðnum segir viðskiptavinum að mynd sé tekin við afhendingu. Aðeins AG Vending sér þetta og stillir; skápurinn fylgir innan tveggja mínútna.',
     'lk.photo.q':'Kveikja á myndatöku við afhendingu fyrir þennan skáp?\n\nAðeins ef skilti á staðnum segir viðskiptavinum að mynd sé tekin við afhendingu.',
+    'lk.photo.isOn':'Kveikt','lk.photo.isOff':'Slökkt',
     'lk.photo.on':'Kveikt á myndatöku við afhendingu',
     'lk.photo.off':'Slökkt á myndatöku við afhendingu',
     'lk.boxes.title':'hólf.',
@@ -9427,16 +9430,26 @@ async function renderLockerDetails(code) {
   var pp = document.getElementById('lk-photo-panel'), pc = document.getElementById('lk-photo');
   if (pp) pp.style.display = lkIsAg() ? '' : 'none';
   if (pc) pc.checked = !!_lkRecord.pickupPhoto;
+  lkPhotoState();
+}
+// Says the state in words beside the switch, and keeps the thumb visible on both track colours.
+function lkPhotoState() {
+  var pc = document.getElementById('lk-photo'), st = document.getElementById('lk-photo-state');
+  if (!pc) return;
+  var thumb = pc.parentNode.querySelector('.tgl-thumb'); if (thumb) thumb.style.background = pc.checked ? '#FFFFFF' : '#111111';
+  var track = pc.parentNode.querySelector('.tgl-track'); if (track) track.style.background = pc.checked ? '#111111' : '#E2DED7';
+  if (st) st.textContent = t(pc.checked ? 'lk.photo.isOn' : 'lk.photo.isOff');
 }
 
 async function saveLockerPhoto(on) {
   var code = _mdDeviceCode, box = document.getElementById('lk-photo');
-  if (on && !confirm(t('lk.photo.q'))) { if (box) box.checked = false; return; }
+  if (on && !confirm(t('lk.photo.q'))) { if (box) box.checked = false; lkPhotoState(); return; }
   var r = null;
   try { r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/locker', { pickupPhoto: !!on }); } catch (e) { r = null; }
-  if (!r || !r.ok) { showToast(lkErrText(r) || t('lk.load.fail')); if (box) box.checked = !on; return; }
+  if (!r || !r.ok) { showToast(lkErrText(r) || t('lk.load.fail')); if (box) box.checked = !on; lkPhotoState(); return; }
   if (code !== _mdDeviceCode) return;
   _lkRecord = r.data;
+  lkPhotoState();
   showToast(t(on ? 'lk.photo.on' : 'lk.photo.off'));
 }
 

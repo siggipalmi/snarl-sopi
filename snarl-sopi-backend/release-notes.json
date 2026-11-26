@@ -40,6 +40,16 @@
  },
  {
   "component": "backend",
+  "version": "6.140.1",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: the pickup photo switch can be seen",
+  "notes": [
+   "The photograph each pickup switch on Locker details was at the far right of the panel and too pale to see when off. It now sits beside its label, is outlined, and says On or Off next to it."
+  ],
+  "check": "As AG, Locker details, photo at pickup: a visible switch reading Off."
+ },
+ {
+  "component": "backend",
   "version": "6.140.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: pickup photos are switched on per locker, by AG",
