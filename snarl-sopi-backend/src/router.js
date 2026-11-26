@@ -5349,6 +5349,7 @@ function handleLockerDepositResult(req, res) {
   const m = lockerAppMachine(req, res); if (!m) return;
   const r = parcels.finishDeposit(m, req.params.id, req.body || {});
   lockerAppAnswer(res, r);
+  if (r.ok && r.boxClosed) lockerDoorAlert(m, r.boxN, 'deposit');
   // The door closed on the parcel: tell the customer. The locker is not kept waiting for Twilio.
   if (r.ok && r.state === 'stored' && !r.repeated) {
     lockerSms.send(m, r.parcelId, 'first', 'backend')
@@ -5426,7 +5427,27 @@ function handleLockerOffline(req, res) {
 }
 function handleLockerPickupResult(req, res) {
   const m = lockerAppMachine(req, res); if (!m) return;
-  lockerAppAnswer(res, parcels.finishPickup(m, req.params.id, req.body || {}));
+  const r = parcels.finishPickup(m, req.params.id, req.body || {});
+  lockerAppAnswer(res, r);
+  if (r.ok && r.doorFailed) lockerDoorAlert(m, r.boxN, 'pickup');
+}
+// A door that did not open is a customer or a staff member standing at a locker that let them
+// down. The operator is told in the dashboard's alerts, once per box per day.
+function lockerDoorAlert(m, boxN, during) {
+  try {
+    const id = 'alert_locker_door_' + m.deviceCode + '_' + boxN + '_' + during + '_' + Math.floor(Date.now() / (24 * 3600 * 1000));
+    if (storage.getAlert(id)) return;
+    const name = m.deviceName || m.deviceCode;
+    storage.insertAlert({
+      id, type: 'locker_door_failed', severity: during === 'pickup' ? 'critical' : 'warning',
+      title: `Box ${boxN} did not open — ${name}`,
+      detail: during === 'pickup'
+        ? `${m.deviceCode} · a customer's code was accepted but the door of box ${boxN} did not open. Their parcel is still inside. Check the lock, and use "open box" or hand the parcel over and mark it picked up.`
+        : `${m.deviceCode} · the door of box ${boxN} did not open when staff tried to put an order in it. The box has been taken out of service so it is not offered again. Check the lock, then put the box back in service on the Boxes tab.`,
+      deviceCode: m.deviceCode, resolved: false, createdAt: new Date().toISOString(),
+    });
+    console.warn(`[LOCKER] ${m.deviceCode}: box ${boxN} did not open during a ${during}`);
+  } catch (e) { /* never let alerting break the locker's call */ }
 }
 
 function handleGetKioskLogs(req, res) {

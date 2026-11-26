@@ -259,7 +259,7 @@ function boxView(machine, now = Date.now()) {
   });
   // Parcels in a box number the box list no longer has: never hidden.
   const unplaced = [...byBox.values()].map(p => parcelView(p, now));
-  return { deviceCode: machine.deviceCode, model: machine.model || '', boxes, counts, unplaced };
+  return { deviceCode: machine.deviceCode, operatorId: machine.operatorId || null, model: machine.model || '', boxes, counts, unplaced };
 }
 
 function getParcel(machine, parcelId, now = Date.now()) {
@@ -412,7 +412,15 @@ const finishDeposit = db.transaction((machine, parcelId, input, now = Date.now()
     const reason = cleanText(input.reason, 60) || 'cancelled';
     q.endParcel.run('cancelled', iso(now), 'locker', reason, p.id);
     event(machine.deviceCode, p.id, p.boxN, 'deposit_cancelled', 'locker', reason, now);
-    return { ok: true, parcelId: p.id, state: 'cancelled' };
+    // A door that would not open is not offered again: the next deposit would be sent to the
+    // same broken lock. The box is out of service until an operator has looked at it.
+    let boxClosed = false;
+    if (reason === 'not_opened') {
+      q.setBoxState.run(machine.deviceCode, p.boxN, 1, 'the door did not open during a deposit', 'locker', iso(now));
+      event(machine.deviceCode, null, p.boxN, 'box_out_of_service', 'locker', 'the door did not open during a deposit', now);
+      boxClosed = true;
+    }
+    return { ok: true, parcelId: p.id, state: 'cancelled', boxN: p.boxN, boxClosed };
   }
   let code = newCode();
   for (let i = 0; i < 50 && q.storedByCode.get(machine.deviceCode, code); i++) code = newCode();
@@ -477,7 +485,7 @@ const finishPickup = db.transaction((machine, parcelId, input, now = Date.now())
   if (!input.opened) {
     // The customer stands at a door that stayed shut: the parcel is still theirs to collect.
     event(machine.deviceCode, p.id, p.boxN, 'door_did_not_open', 'locker', null, now);
-    return { ok: true, parcelId: p.id, state: 'stored' };
+    return { ok: true, parcelId: p.id, state: 'stored', boxN: p.boxN, doorFailed: true };
   }
   q.endParcel.run('collected', iso(now), 'customer', 'pickup', p.id);
   event(machine.deviceCode, p.id, p.boxN, 'collected', 'customer', null, now);
@@ -497,6 +505,7 @@ function offlinePickupResult(machine, p, input, now) {
   const at = Number.isFinite(claimed) && claimed >= from && claimed <= now ? claimed : now;
   if (!input.opened) {
     event(dev, p.id, p.boxN, 'door_did_not_open', 'locker', 'offline', at);
+    return { ok: true, parcelId: p.id, state: p.state, offline: true, boxN: p.boxN, doorFailed: p.state === 'stored' };
   } else if (p.state === 'stored') {
     q.endParcel.run('collected', iso(at), 'customer', 'pickup, offline', p.id);
     event(dev, p.id, p.boxN, 'collected', 'customer', 'offline', at);
