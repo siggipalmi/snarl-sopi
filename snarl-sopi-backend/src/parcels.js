@@ -341,6 +341,40 @@ function listParcels(machine, { state, limit } = {}, now = Date.now()) {
   return q.listParcels.all(machine.deviceCode, st, st, n).map(p => parcelView(p, now));
 }
 
+/**
+ * The log of a locker's parcels, newest first: every parcel that was ever given a box, with
+ * when it was started, stored and ended, how it ended, and how it was collected. For answering
+ * "the customer says they never got it". Search by order number; page with `before`.
+ */
+function parcelLog(machine, opts = {}, now = Date.now()) {
+  const where = ['deviceCode = ?'], args = [machine.deviceCode];
+  const text = cleanText(opts.q, 40).replace(/^#\s*/, '');
+  if (text) { where.push("orderNumber LIKE ? ESCAPE '\\' COLLATE NOCASE"); args.push('%' + text.replace(/[\\%_]/g, '\\$&') + '%'); }
+  const states = ['opening', 'stored', 'collected', 'cleared', 'cancelled'];
+  if (opts.state && states.includes(String(opts.state))) { where.push('state = ?'); args.push(String(opts.state)); }
+  const day = (v, end) => { const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? v + (end ? 'T23:59:59.999Z' : 'T00:00:00.000Z') : NaN); return Number.isFinite(t) ? iso(t) : null; };
+  const from = day(opts.from, false), to = day(opts.to, true);
+  if (from) { where.push('createdAt >= ?'); args.push(from); }
+  if (to) { where.push('createdAt <= ?'); args.push(to); }
+  if (opts.before && Number.isFinite(Date.parse(opts.before))) { where.push('createdAt < ?'); args.push(iso(Date.parse(opts.before))); }
+  const limit = Math.max(1, Math.min(200, Number(opts.limit) || 50));
+  const rows = db.prepare(`SELECT * FROM locker_parcels WHERE ${where.join(' AND ')} ORDER BY createdAt DESC, rowid DESC LIMIT ?`).all(...args, limit + 1);
+  const more = rows.length > limit;
+  const lastPickup = db.prepare(`SELECT type, detail FROM locker_events WHERE parcelId = ? AND type IN ('pickup_started','collected') ORDER BY id DESC LIMIT 4`);
+  const out = rows.slice(0, limit).map(p => {
+    const v = parcelView(p, now);
+    // How it left the box: the customer by code, by scanned link or offline, or the operator.
+    let how = null;
+    if (p.state === 'collected') {
+      const ev = lastPickup.all(p.id);
+      const done = ev.find(e => e.type === 'collected'), start = ev.find(e => e.type === 'pickup_started');
+      how = p.endedBy !== 'customer' ? 'operator' : done && done.detail === 'offline' ? 'offline' : start && start.detail === 'scan' ? 'scan' : start ? 'code' : 'customer';
+    }
+    return { ...v, how, hoursInBox: p.storedAt ? Math.round((Date.parse(p.endedAt || iso(now)) - Date.parse(p.storedAt)) / 360000) / 10 : null };
+  });
+  return { parcels: out, more, next: more ? out[out.length - 1].createdAt : null };
+}
+
 // ── Orders ────────────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -728,7 +762,7 @@ module.exports = {
   smsFacts, noteEvent, noteBoxEvent, boxEvents, smsAccepted, smsReport, parcelsNeedingReminder, byToken,
   WRONG_CODE_LIMIT, WRONG_CODE_WINDOW_MS,
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
-  boxView, getParcel, listParcels,
+  boxView, getParcel, listParcels, parcelLog,
   registerOrder, listOrders, orderCounts, cancelOrder, withdrawOrderByNumber,
   offlineList, reportDoors, doorState, DOORS_FRESH_MS, DOOR_OPEN_TOO_LONG_MS, lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
   markCollected, clearParcel, setBoxService,

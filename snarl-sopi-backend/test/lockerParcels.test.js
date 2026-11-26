@@ -609,3 +609,46 @@ test('the doors route takes the report with the machine key and raises one alert
   assert.equal(call('POST', '/doors', { deviceCode: 'VMP-1', body: { open: [] } }).body.error.code, 'not_a_locker');
   call('POST', '/doors', { deviceCode: 'LKP-B1', body: { open: [] } });
 });
+
+// ── 6.135.0: the parcel log ───────────────────────────────────────────────────────────────────
+
+test('the parcel log lists every parcel with its times and how it left, searchable and paged', () => {
+  const H = 3600000, t0 = Date.parse('2027-02-01T09:00:00Z');
+  const mk = (n, at) => { parcels.registerOrder('op-parcel-b', { orderNumber: n, phone: '5550160', firstName: 'Log' }, at); const s = parcels.startDeposit(B1, { orderNumber: n, size: 'small' }, at); parcels.finishDeposit(B1, s.parcelId, { outcome: 'stored' }, at + 60000); return { ...s, ...parcels._secretsOf(s.parcelId) }; };
+  const a = mk('LOG-100', t0);
+  const pa = parcels.startPickup(B1, { code: a.code }, t0 + 5 * H); parcels.finishPickup(B1, pa.parcelId, { opened: true }, t0 + 5 * H);
+  const b = mk('LOG-101', t0 + 24 * H);
+  const pb = parcels.startPickup(B1, { scan: 'https://sms.agvending.is/p/' + b.token }, t0 + 26 * H); parcels.finishPickup(B1, pb.parcelId, { opened: true }, t0 + 26 * H);
+  const c = mk('LOG-102', t0 + 48 * H);
+  parcels.finishPickup(B1, c.parcelId, { opened: true, offline: true, at: new Date(t0 + 49 * H).toISOString() }, t0 + 50 * H);
+  const d = mk('LOG-103', t0 + 72 * H); parcels.markCollected(B1, d.parcelId, 'op@example.test', t0 + 73 * H);
+  const e = mk('LOG-104', t0 + 96 * H); parcels.clearParcel(B1, e.parcelId, 'op@example.test', {}, t0 + 97 * H);
+
+  const log = (query) => call('GET', '/parcels', { deviceCode: 'LKP-B1', query: { log: '1', ...query } }).body.data;
+  const mine = log({ q: 'log-10' });
+  assert.deepEqual(mine.parcels.map(p => p.orderNumber), ['LOG-104', 'LOG-103', 'LOG-102', 'LOG-101', 'LOG-100'], 'newest first, whatever the case typed');
+  assert.deepEqual(mine.parcels.map(p => [p.state, p.how]), [['cleared', null], ['collected', 'operator'], ['collected', 'offline'], ['collected', 'scan'], ['collected', 'code']]);
+  const first = mine.parcels.at(-1);
+  assert.equal(first.createdAt, new Date(t0).toISOString());
+  assert.equal(first.storedAt, new Date(t0 + 60000).toISOString());
+  assert.equal(first.endedAt, new Date(t0 + 5 * H).toISOString());
+  assert.equal(first.hoursInBox, 5);
+  assert.equal(first.phone, undefined);
+  assert.equal(first.code, undefined);
+
+  assert.deepEqual(log({ q: '#LOG-102' }).parcels.map(p => p.orderNumber), ['LOG-102']);
+  assert.deepEqual(log({ q: 'log-10', state: 'cleared' }).parcels.map(p => p.orderNumber), ['LOG-104']);
+  assert.deepEqual(log({ q: 'log-10', from: '2027-02-02', to: '2027-02-03' }).parcels.map(p => p.orderNumber), ['LOG-102', 'LOG-101']);
+  assert.equal(log({ q: '100%' }).parcels.length, 0, 'a % typed in the search is a character, not a wildcard');
+
+  const page1 = log({ q: 'log-10', limit: '2' });
+  assert.deepEqual([page1.parcels.length, page1.more], [2, true]);
+  const page2 = log({ q: 'log-10', limit: '2', before: page1.next });
+  assert.deepEqual(page2.parcels.map(p => p.orderNumber), ['LOG-102', 'LOG-101']);
+  const page3 = log({ q: 'log-10', limit: '2', before: page2.next });
+  assert.deepEqual([page3.parcels.map(p => p.orderNumber), page3.more], [['LOG-100'], false]);
+  // Another locker's log does not hold them.
+  assert.equal(call('GET', '/parcels', { deviceCode: 'LKP-A1', query: { log: '1', q: 'log-10' } }).body.data.parcels.length, 0);
+  // Without ?log the route answers as before.
+  assert.ok(Array.isArray(call('GET', '/parcels', { deviceCode: 'LKP-B1' }).body.data.parcels));
+});
