@@ -349,3 +349,16 @@ test('thirty days after a parcel left its box its personal data is blanked; one 
   assert.equal(parcels.getParcel(A2, still.parcelId).parcel.phoneTail, '0100', 'ninety days on, the parcel still in its box is intact');
   empty(A2);
 });
+
+test('the orders list shows phone endings and counts per status, never a whole number', () => {
+  const added = call('POST', '/orders', { body: { orderNumber: '70050', phone: '555 0177', firstName: 'Guðrún' } });
+  assert.equal(added.body.data.order.phoneTail, '0177');
+  assert.equal(added.body.data.order.phone, undefined);
+  const list = call('GET', '/orders', { query: { status: 'expected' } }).body.data;
+  assert.ok(list.orders.every(o => o.phone === undefined && o.status === 'expected'));
+  assert.equal(JSON.stringify(list).includes('5550177'), false);
+  assert.equal(list.counts.expected, list.orders.length);
+  assert.ok(list.counts.deposited >= 1 && list.counts.cancelled >= 1);
+  const order = list.orders.find(o => o.orderNumber === '70050');
+  assert.equal(call('POST', '/orders/:id/cancel', { params: { id: String(order.id) } }).body.data.order.phone, undefined);
+});

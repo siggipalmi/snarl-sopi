@@ -105,6 +105,43 @@ function normalizeSms(input) {
   return { ok: true, value: { messagingServiceSid: sid } };
 }
 
+// The wording of a locker's messages. {order} {locker} {code} {link} are filled in when one is
+// sent. These are what a locker says until its operator writes something else.
+const DEFAULT_MESSAGES = {
+  first: 'Pöntunin þín {order} er tilbúin í skápnum {locker}. Kóði: {code}. QR-kóði: {link}',
+  reminder: 'Áminning: Pöntunin þín {order} bíður þín enn í skápnum {locker}. Kóði: {code}. QR-kóði: {link}',
+};
+const MESSAGE_MAX = 320;
+const MESSAGE_FIELDS = ['order', 'locker', 'code', 'link'];
+
+/**
+ * Checks message wording: { first?, reminder? }. An empty string puts a message back to the
+ * default. A message must carry {code}, or the customer cannot open the box with it, and may
+ * use only the four known fields, so a typo like {kodi} is caught here and not on a phone.
+ */
+function normalizeMessages(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return fail('messages must be an object');
+  const out = {};
+  for (const kind of Object.keys(input)) {
+    if (!(kind in DEFAULT_MESSAGES)) return fail(`unknown message: ${kind}`);
+    const text = cleanText(input[kind]);
+    if (text.length > MESSAGE_MAX) return fail(`${kind} is too long (${text.length} characters, at most ${MESSAGE_MAX})`);
+    if (text) {
+      const unknown = (text.match(/\{[^{}]*\}/g) || []).filter(f => !MESSAGE_FIELDS.includes(f.slice(1, -1)));
+      if (unknown.length) return fail(`${kind}: ${unknown[0]} is not a field. Use ${MESSAGE_FIELDS.map(f => '{' + f + '}').join(' ')}`);
+      if (!text.includes('{code}')) return fail(`${kind} must contain {code}, the customer's pickup code`);
+    }
+    out[kind] = text;
+  }
+  return { ok: true, value: out };
+}
+
+/** A message with its fields filled in. An empty locker name leaves no gap behind. */
+function fillMessage(template, values) {
+  return String(template).replace(/\{(order|locker|code|link)\}/g, (m, k) => String(values[k] == null ? '' : values[k]))
+    .replace(/\s+/g, ' ').replace(/ ([.,!?])/g, '$1').trim();
+}
+
 function boxCounts(boxes) {
   const counts = { small: 0, middle: 0, big: 0 };
   for (const b of boxes || []) if (counts[b.size] !== undefined) counts[b.size]++;
@@ -144,6 +181,9 @@ function lockerRecord(machine) {
     info, mapUrl: mapUrl(info),
     boxes, boxCounts: boxCounts(boxes),
     sms: { messagingServiceSid: (stored.sms && stored.sms.messagingServiceSid) || '' },
+    messages: { first: (stored.messages && stored.messages.first) || DEFAULT_MESSAGES.first,
+                reminder: (stored.messages && stored.messages.reminder) || DEFAULT_MESSAGES.reminder },
+    messagesCustom: { first: !!(stored.messages && stored.messages.first), reminder: !!(stored.messages && stored.messages.reminder) },
     updatedAt: stored.updatedAt || null, updatedBy: stored.updatedBy || null,
   };
 }
@@ -170,10 +210,14 @@ function applyChange(machine, change, who, nowIso) {
   if (change.boxes) next.boxes = change.boxes;
   if (stored.sms) next.sms = stored.sms;
   if (change.sms) next.sms = change.sms;
+  if (stored.messages || change.messages) {
+    next.messages = { ...(stored.messages || {}) };
+    for (const [k, v] of Object.entries(change.messages || {})) { if (v) next.messages[k] = v; else delete next.messages[k]; }
+  }
   next.updatedAt = nowIso;
   next.updatedBy = who || null;
   return next;
 }
 
-module.exports = { BOX_SIZES, MAX_BOXES, INFO_TEXT_FIELDS, normalizeInfo, normalizeBoxes, normalizeSms, boxCounts, mapUrl,
+module.exports = { BOX_SIZES, MAX_BOXES, INFO_TEXT_FIELDS, normalizeInfo, normalizeBoxes, normalizeSms, normalizeMessages, fillMessage, DEFAULT_MESSAGES, MESSAGE_MAX, boxCounts, mapUrl,
                    lockerRecord, publicInfo, applyChange };

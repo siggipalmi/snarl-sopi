@@ -34,13 +34,12 @@ const cfg = () => ({
 });
 const callbackUrl = () => cfg().callbackBase + CALLBACK_PATH;
 
-// ── Wording (Icelandic; the customer's language) ──────────────────────────────────────────────
+// ── Wording ──────────────────────────────────────────────
 
-function messageText(kind, f, lockerName, linkBase) {
-  const where = lockerName ? ` í skápnum ${lockerName}` : ' í skápnum';
-  const tail = `Kóði: ${f.code}. QR-kóði: ${linkBase}/p/${f.token}`;
-  if (kind === 'reminder') return `Áminning: Pöntunin þín ${f.orderNumber} bíður þín enn${where}. ${tail}`;
-  return `Pöntunin þín ${f.orderNumber} er tilbúin${where}. ${tail}`;
+// The wording is the locker's own (settings.locker.messages), with defaults in src/lockers.js.
+function messageText(kind, f, record, linkBase) {
+  const template = kind === 'reminder' ? record.messages.reminder : record.messages.first;
+  return lockers.fillMessage(template, { order: f.orderNumber, locker: record.info.name, code: f.code, link: `${linkBase}/p/${f.token}` });
 }
 
 // ── Sending ───────────────────────────────────────────────────────────────────────────────────
@@ -76,7 +75,7 @@ async function send(machine, parcelId, kind, actor, now = Date.now()) {
   let r;
   try {
     r = await transport({ accountSid: c.sid, authToken: c.token, messagingServiceSid: record.sms.messagingServiceSid, to: f.phone,
-                          body: messageText(kind, f, record.info.name, c.linkBase), statusCallback: callbackUrl() });
+                          body: messageText(kind, f, record, c.linkBase), statusCallback: callbackUrl() });
   } catch (e) { r = { ok: false, error: 'Twilio could not be reached' }; }
   if (!r.ok) return refuse('twilio_refused', r.error || 'Twilio refused the message');
   parcels.smsAccepted(f.id, r.sid, kind, r.status, actor, now);

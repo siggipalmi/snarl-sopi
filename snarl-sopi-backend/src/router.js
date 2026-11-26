@@ -5170,7 +5170,12 @@ function handleSetLocker(req, res) {
   const m = lockerMachineOr404(req, res);
   if (!m) return;
   const body = req.body || {};
-  if (body.info === undefined && body.boxes === undefined && body.sms === undefined) return badRequest(res, 'Send info, boxes or sms.');
+  if (body.info === undefined && body.boxes === undefined && body.sms === undefined && body.messages === undefined) return badRequest(res, 'Send info, messages, boxes or sms.');
+  if (body.messages !== undefined) {
+    // The wording of the locker's SMS: the operator's to write, like the details above.
+    const r = lockerRecords.normalizeMessages(body.messages);
+    if (!r.ok) return badRequest(res, r.error);
+  }
   const change = {};
   if (body.info !== undefined) {
     const r = lockerRecords.normalizeInfo(body.info);
@@ -5183,6 +5188,7 @@ function handleSetLocker(req, res) {
     if (!r.ok) return badRequest(res, r.error);
     change.boxes = r.value;
   }
+  if (body.messages !== undefined) change.messages = lockerRecords.normalizeMessages(body.messages).value;
   if (body.sms !== undefined) {
     // The sender decides whose name customers see on the message: AG sets it.
     if (req.user.role !== 'ag_admin') return json(res, 403, { ok: false, error: 'Only AG Vending can change a locker\'s SMS sender.' });
@@ -5260,18 +5266,24 @@ function handleLockerParcelCode(req, res) {
 // Orders belong to the locker's operator; the machine in the path decides which operator that is.
 function handleLockerOrders(req, res) {
   const m = lockerMachineOr404(req, res); if (!m) return;
-  ok(res, { orders: parcels.listOrders(m.operatorId, { status: req.query.status, limit: req.query.limit }) });
+  ok(res, { orders: parcels.listOrders(m.operatorId, { status: req.query.status, limit: req.query.limit }).map(lockerOrderForDashboard),
+            counts: parcels.orderCounts(m.operatorId) });
+}
+// The dashboard is shown the last four digits of a customer's number, as on a parcel.
+function lockerOrderForDashboard(o) {
+  const { phone, ...rest } = o;
+  return { ...rest, phoneTail: phone ? String(phone).slice(-4) : '' };
 }
 function handleLockerOrderAdd(req, res) {
   const m = lockerMachineOr404(req, res); if (!m) return;
   const b = req.body || {};
   const r = parcels.registerOrder(m.operatorId, { orderNumber: b.orderNumber, phone: b.phone, firstName: b.firstName, source: 'manual' });
-  parcelAnswer(res, r, r.ok ? { order: r.order, created: r.created, unchanged: !!r.unchanged } : undefined);
+  parcelAnswer(res, r, r.ok ? { order: lockerOrderForDashboard(r.order), created: r.created, unchanged: !!r.unchanged } : undefined);
 }
 function handleLockerOrderCancel(req, res) {
   const m = lockerMachineOr404(req, res); if (!m) return;
   const r = parcels.cancelOrder(m.operatorId, req.params.id);
-  parcelAnswer(res, r, r.ok ? { order: r.order } : undefined);
+  parcelAnswer(res, r, r.ok ? { order: lockerOrderForDashboard(r.order) } : undefined);
 }
 
 function lockerAppMachine(req, res) {
