@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.133.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: connect a web shop from the dashboard, and a door that will not open is dealt with",
+  "notes": [
+   "The Boxes tab has a web shop panel. Connect a shop and it shows a delivery URL and a secret, the secret once only; both go into the shop's WooCommerce webhook. Each connection shows whether it is working, its last delivery, and why a delivery was refused.",
+   "The locker shipping method is set per shop. Until it is set no order is taken, and the last delivery lists the shop's shipping methods so the right word can be picked.",
+   "A box whose door did not open when staff tried to put an order in it is taken out of service by itself, so the next order is not sent to the same broken lock. It is put back on the Boxes tab.",
+   "A door that does not open, for staff or for a customer with a valid code, now raises an alert. For a customer it is marked critical: their parcel is still inside."
+  ],
+  "check": "A locker's Boxes tab ends with a web shop panel. Alerts show a locker door failure when a locker reports one."
+ },
+ {
+  "component": "backend",
   "version": "6.132.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: a web shop can report its locker orders straight to the backend",

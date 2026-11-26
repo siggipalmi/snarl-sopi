@@ -1187,6 +1187,21 @@ select.fi{cursor:pointer;}
             <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.45" data-i18n="od.foot">Withdraw an order that will not be delivered through a locker. An order still expected after 90 days is withdrawn by itself.</div>
           </div>
         </div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title" data-i18n="sh.title">web shop.</div><div class="ph-action" onclick="shLoad()" data-i18n="bx.refresh">refresh</div></div>
+          <div style="padding:14px 18px 18px">
+            <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px;max-width:760px" data-i18n="sh.help">Connect your WooCommerce shop and its locker orders arrive in the list above by themselves, with the customer's mobile number. Nothing is changed in the shop except one webhook.</div>
+            <div id="sh-secret"></div>
+            <div id="sh-list"></div>
+            <div id="sh-new" style="display:none;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--cream-deep);padding:14px;margin-top:12px">
+              <div style="flex:1 1 220px"><label class="fl" for="sh-name" style="display:block" data-i18n="sh.name">shop (its web address)</label>
+                <input class="fi" id="sh-name" style="background:#FFFFFF" maxlength="60" autocomplete="off"></div>
+              <div style="flex:1 1 220px"><label class="fl" for="sh-new-match" style="display:block" data-i18n="sh.match.new">locker shipping method (can be set later)</label>
+                <input class="fi" id="sh-new-match" style="background:#FFFFFF" maxlength="200" autocomplete="off"></div>
+              <button class="btn" id="sh-add" onclick="shCreate()"><span data-i18n="sh.connect">connect a shop</span></button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ── LOCKER DETAILS (parcel lockers only, model LK-*) ── -->
@@ -2798,6 +2813,41 @@ const I18N = {
     'bx.ev.open_requested':'Open box asked for from the dashboard',
     'bx.ev.opened_by_operator':'Locker: door opened',
     'bx.ev.open_failed':'Locker: door did NOT open',
+    'sh.title':'web shop.',
+    'sh.help':'Connect your WooCommerce shop and its locker orders arrive in the list above by themselves, with the customer’s mobile number. Nothing is changed in the shop except one webhook.',
+    'sh.name':'shop (its web address)',
+    'sh.match.new':'locker shipping method (can be set later)',
+    'sh.connect':'connect a shop',
+    'sh.none':'No shop is connected. Without one, orders are added by hand above.',
+    'sh.none.ro':'No shop is connected.',
+    'sh.load.fail':'Could not load the shop connections',
+    'sh.need.name':'Give the shop a name, such as its web address',
+    'sh.st.waiting':'Waiting for the first delivery',
+    'sh.st.refused':'Refused · {when}',
+    'sh.st.working':'Working · last delivery {when}',
+    'sh.last':'Last delivery',
+    'sh.last.none':'Nothing has arrived from the shop yet.',
+    'sh.refused.help':'Make a new secret and paste it into the shop’s webhook. WooCommerce switches a webhook off after several refused deliveries: set it back to Active.',
+    'sh.sofar':'So far',
+    'sh.sofar.v':'{received} deliveries, {stored} locker orders taken',
+    'sh.match':'Locker shipping method',
+    'sh.match.hint':'A word from the name of the shipping method customers pick for the locker. Orders with any other method are left alone. Several: separate with commas.',
+    'sh.match.missing':'Not set, so no order is taken yet. After the shop’s first delivery, "last delivery" lists the shop’s shipping methods: enter a word from the locker one.',
+    'sh.url':'Delivery URL',
+    'sh.copy':'copy',
+    'sh.copied.url':'Delivery URL copied',
+    'sh.copy.fail':'Could not copy. Select the text and copy it by hand.',
+    'sh.secret':'Secret',
+    'sh.secret.once':'Shown once, when it was made',
+    'sh.secret.new':'make a new secret',
+    'sh.secret.title':'Copy the secret for {name} now. It is not shown again.',
+    'sh.copy.secret':'copy secret',
+    'sh.copied.secret':'Secret copied',
+    'sh.secret.done':'I have it',
+    'sh.secret.how':'In WooCommerce: Settings, Advanced, Webhooks, Add webhook. Topic "Order updated", the delivery URL below, and this secret. Status Active, then save.',
+    'sh.q.secret':'Make a new secret for {name}?\n\nThe old one stops working at once. Orders are refused until the new secret is in the shop’s webhook.',
+    'sh.remove':'remove this shop',
+    'sh.q.remove':'Remove the connection to {name}?\n\nIts orders stop arriving. Orders already received stay.',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3270,6 +3320,41 @@ const I18N = {
     'bx.ev.open_requested':'Beðið um að opna hólf úr stjórnborði',
     'bx.ev.opened_by_operator':'Skápur: hurð opnuð',
     'bx.ev.open_failed':'Skápur: hurðin opnaðist EKKI',
+    'sh.title':'vefverslun.',
+    'sh.help':'Tengdu WooCommerce-verslunina þína og pantanir sem fara í skáp koma sjálfkrafa á listann hér að ofan, með farsímanúmeri viðskiptavinar. Engu er breytt í versluninni nema einum vefkrók (webhook).',
+    'sh.name':'verslun (vefslóð hennar)',
+    'sh.match.new':'sendingarmáti fyrir skáp (má setja síðar)',
+    'sh.connect':'tengja verslun',
+    'sh.none':'Engin verslun er tengd. Án hennar er pöntunum bætt við handvirkt hér að ofan.',
+    'sh.none.ro':'Engin verslun er tengd.',
+    'sh.load.fail':'Ekki tókst að sækja tengingar við verslanir',
+    'sh.need.name':'Gefðu versluninni nafn, til dæmis vefslóð hennar',
+    'sh.st.waiting':'Beðið eftir fyrstu sendingu',
+    'sh.st.refused':'Hafnað · {when}',
+    'sh.st.working':'Virkar · síðasta sending {when}',
+    'sh.last':'Síðasta sending',
+    'sh.last.none':'Ekkert hefur borist frá versluninni enn.',
+    'sh.refused.help':'Búðu til nýjan leynilykil og límdu hann í vefkrók verslunarinnar. WooCommerce slekkur á vefkrók eftir nokkrar hafnanir: stilltu hann aftur á Active.',
+    'sh.sofar':'Hingað til',
+    'sh.sofar.v':'{received} sendingar, {stored} skápapantanir mótteknar',
+    'sh.match':'Sendingarmáti fyrir skáp',
+    'sh.match.hint':'Orð úr heiti sendingarmátans sem viðskiptavinir velja fyrir skápinn. Pantanir með öðrum sendingarmáta eru látnar vera. Fleiri en einn: aðskildu með kommum.',
+    'sh.match.missing':'Ekki stillt, svo engin pöntun er tekin enn. Eftir fyrstu sendingu frá versluninni sýnir „síðasta sending“ sendingarmáta hennar: sláðu inn orð úr þeim sem á við skápinn.',
+    'sh.url':'Slóð fyrir sendingar',
+    'sh.copy':'afrita',
+    'sh.copied.url':'Slóð afrituð',
+    'sh.copy.fail':'Ekki tókst að afrita. Veldu textann og afritaðu handvirkt.',
+    'sh.secret':'Leynilykill',
+    'sh.secret.once':'Sýndur einu sinni, þegar hann var búinn til',
+    'sh.secret.new':'búa til nýjan leynilykil',
+    'sh.secret.title':'Afritaðu leynilykilinn fyrir {name} núna. Hann er ekki sýndur aftur.',
+    'sh.copy.secret':'afrita leynilykil',
+    'sh.copied.secret':'Leynilykill afritaður',
+    'sh.secret.done':'Ég er með hann',
+    'sh.secret.how':'Í WooCommerce: Settings, Advanced, Webhooks, Add webhook. Topic „Order updated“, slóðin hér að neðan og þessi leynilykill. Status Active og vista.',
+    'sh.q.secret':'Búa til nýjan leynilykil fyrir {name}?\n\nSá gamli hættir strax að virka. Pöntunum er hafnað þar til nýi lykillinn er kominn í vefkrók verslunarinnar.',
+    'sh.remove':'fjarlægja þessa verslun',
+    'sh.q.remove':'Fjarlægja tenginguna við {name}?\n\nPantanir hennar hætta að berast. Pantanir sem þegar hafa borist standa.',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -8567,6 +8652,99 @@ async function renderLockerBoxView(code, keep) {
   bxRenderStats(); bxRenderCabinet(); bxRenderDetail();
   bxLoadEvents();
   odLoad();
+  shLoad();
+}
+
+// The operator's web shop connections: the shop posts its order webhook to an address made here,
+// signed with a secret shown once. The secret is held in this variable only until the page moves on.
+var _shData = null, _shSecret = null;
+function shOp() { return _bxView && _bxView.operatorId; }
+function shCanEdit() { return !!(typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'ag_admin' || currentUser.role === 'operator_admin')); }
+async function shLoad() {
+  var code = _mdDeviceCode, op = shOp(); if (!op) return;
+  var r = null;
+  try { r = await API.get('/api/v1/operators/' + encodeURIComponent(op) + '/locker-shops'); } catch (e) { r = null; }
+  if (code !== _mdDeviceCode) return;
+  if (!r || !r.ok || !r.data) { var el = document.getElementById('sh-list'); if (el) el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">' + rsEsc(t('sh.load.fail')) + '</div>'; return; }
+  _shData = r.data.shops || []; shRender();
+}
+function shCopy(text, okKey) {
+  var done = function () { showToast(t(okKey)); };
+  try { navigator.clipboard.writeText(text).then(done, function () { showToast(t('sh.copy.fail')); }); } catch (e) { showToast(t('sh.copy.fail')); }
+}
+function shRender() {
+  var el = document.getElementById('sh-list'), sec = document.getElementById('sh-secret'), form = document.getElementById('sh-new');
+  if (!el) return;
+  var edit = shCanEdit();
+  if (form) form.style.display = edit ? 'flex' : 'none';
+  if (sec) sec.innerHTML = _shSecret ? (
+    '<div style="background:#FFC72C;color:#111111;padding:14px 16px;margin-bottom:12px">' +
+    '<div style="font-size:13.5px;font-weight:700">' + rsEsc(tv('sh.secret.title', { name: _shSecret.name })) + '</div>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0">' +
+      '<span class="mono" id="sh-secret-value" style="background:#FFFFFF;padding:8px 10px;font-size:12.5px;overflow-wrap:anywhere;min-width:0">' + rsEsc(_shSecret.secret) + '</span>' +
+      '<button class="btn btn-sm" onclick="shCopy(_shSecret.secret, \'sh.copied.secret\')"><span>' + rsEsc(t('sh.copy.secret')) + '</span></button>' +
+      '<button class="btn btn-sm btn-ghost" onclick="_shSecret=null;shRender()"><span>' + rsEsc(t('sh.secret.done')) + '</span></button></div>' +
+    '<div style="font-size:12px;line-height:1.5">' + rsEsc(t('sh.secret.how')) + '</div></div>') : '';
+  if (!_shData || !_shData.length) { el.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">' + rsEsc(t(edit ? 'sh.none' : 'sh.none.ro')) + '</div>'; return; }
+  el.innerHTML = _shData.map(function (sh) {
+    var refused = /^refused/.test(sh.lastResult || ''), never = !sh.lastAt;
+    var chip = never ? ['#FFC72C', '#111111', t('sh.st.waiting')] : refused ? ['#F05A3C', '#111111', tv('sh.st.refused', { when: bxWhen(sh.lastAt) })] : ['#CDEBD8', '#0E5C2C', tv('sh.st.working', { when: bxWhen(sh.lastAt) })];
+    var row = function (k, v) { return '<span style="color:var(--muted)">' + rsEsc(t(k)) + '</span><span style="min-width:0">' + v + '</span>'; };
+    var id = "'" + rsEsc(sh.id) + "'";
+    return '<div style="border:1px solid var(--line);padding:14px 16px;margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px">' +
+        '<span style="font-size:15px;font-weight:700">' + rsEsc(sh.name) + '</span>' +
+        '<span style="font-size:11.5px;font-weight:700;padding:3px 8px;background:' + chip[0] + ';color:' + chip[1] + '">' + rsEsc(chip[2]) + '</span></div>' +
+      '<div style="display:grid;grid-template-columns:minmax(110px,160px) 1fr;gap:8px 14px;font-size:13px;line-height:1.45;align-items:center">' +
+        row('sh.last', '<span style="font-weight:600">' + rsEsc(never ? t('sh.last.none') : sh.lastResult) + '</span>' +
+          (refused ? '<div style="font-size:11.5px;color:var(--muted);margin-top:3px">' + rsEsc(t('sh.refused.help')) + '</div>' : '')) +
+        row('sh.sofar', rsEsc(tv('sh.sofar.v', { received: sh.received || 0, stored: sh.stored || 0 }))) +
+        row('sh.match', (edit
+          ? '<span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input class="fi" id="sh-match-' + rsEsc(sh.id) + '" aria-label="' + rsEsc(t('sh.match')) + '" maxlength="200" style="flex:1 1 200px" value="' + rsEsc(sh.shippingMatch || '') + '">' +
+            '<button class="btn btn-sm" onclick="shSaveMatch(' + id + ')"><span>' + rsEsc(t('lk.save')) + '</span></button></span>'
+          : '<span style="font-weight:600">' + rsEsc(sh.shippingMatch || '—') + '</span>') +
+          '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">' + rsEsc(t(sh.shippingMatch ? 'sh.match.hint' : 'sh.match.missing')) + '</div>') +
+        row('sh.url', '<span style="display:flex;gap:8px;align-items:center;min-width:0"><span class="mono" style="font-size:12px;min-width:0;overflow-wrap:anywhere">' + rsEsc(sh.url) + '</span>' +
+          '<button class="btn btn-sm btn-ghost" style="flex:none" onclick="shCopy(' + "'" + rsEsc(sh.url) + "'" + ', \'sh.copied.url\')"><span>' + rsEsc(t('sh.copy')) + '</span></button></span>') +
+        row('sh.secret', '<span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>' + rsEsc(t('sh.secret.once')) + '</span>' +
+          (edit ? '<button class="btn btn-sm btn-ghost" onclick="shNewSecret(' + id + ')"><span>' + rsEsc(t('sh.secret.new')) + '</span></button>' : '') + '</span>') +
+      '</div>' +
+      (edit ? '<div style="text-align:right;margin-top:8px"><button class="btn btn-sm btn-ghost" onclick="shRemove(' + id + ')"><span>' + rsEsc(t('sh.remove')) + '</span></button></div>' : '') +
+      '</div>';
+  }).join('');
+}
+async function shCall(method, tail, body) {
+  var code = _mdDeviceCode, op = shOp(), r = null, url = '/api/v1/operators/' + encodeURIComponent(op) + '/locker-shops' + (tail || '');
+  try { r = await API.req(method, url, body); } catch (e) { r = null; }
+  if (!r || !r.ok) { showToast(t('bx.failed') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return null; }
+  return code === _mdDeviceCode ? r : null;
+}
+async function shCreate() {
+  var name = lkVal('sh-name'); if (!name) { showToast(t('sh.need.name')); return; }
+  var r = await shCall('POST', '', { name: name, shippingMatch: lkVal('sh-new-match') });
+  if (!r || !r.data) return;
+  _shSecret = { name: r.data.shop.name, secret: r.data.secret };
+  ['sh-name', 'sh-new-match'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  await shLoad();
+  var sec = document.getElementById('sh-secret'); if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: 'center' });
+}
+async function shSaveMatch(id) {
+  var r = await shCall('PUT', '/' + encodeURIComponent(id), { shippingMatch: lkVal('sh-match-' + id) });
+  if (r) { showToast(t('lk.saved')); shLoad(); }
+}
+async function shNewSecret(id) {
+  var sh = (_shData || []).find(function (x) { return x.id === id; });
+  if (!sh || !confirm(tv('sh.q.secret', { name: sh.name }))) return;
+  var r = await shCall('POST', '/' + encodeURIComponent(id) + '/secret');
+  if (!r || !r.data) return;
+  _shSecret = { name: sh.name, secret: r.data.secret };
+  await shLoad();
+  var sec = document.getElementById('sh-secret'); if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: 'center' });
+}
+async function shRemove(id) {
+  var sh = (_shData || []).find(function (x) { return x.id === id; });
+  if (!sh || !confirm(tv('sh.q.remove', { name: sh.name }))) return;
+  if (await shCall('DELETE', '/' + encodeURIComponent(id))) { showToast(t('bx.done')); shLoad(); }
 }
 
 // Orders on their way to a locker: the list a deposit is checked against. They belong to the

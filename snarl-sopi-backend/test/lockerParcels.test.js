@@ -509,3 +509,43 @@ test('open box: the backend names the lock, the locker answers, and both are in 
   assert.deepEqual(parcels.boxView(A2).boxes.find(b => b.n === 4).recent, [], 'a box with a parcel shows the parcel\'s history instead');
   empty(A2);
 });
+
+// ── 6.133.0: a door that does not open ────────────────────────────────────────────────────────
+
+test('a box whose door did not open on a deposit is taken out of service and not offered again', () => {
+  parcels.registerOrder('op-parcel-a', { orderNumber: 'STUCK', phone: '5550140' }, T0);
+  const first = call('POST', '/deposit/start', { deviceCode: 'LKP-A2', body: { orderNumber: 'STUCK', size: 'small' } }).body.data;
+  assert.equal(first.box.n, 2);
+  const res = call('POST', '/deposit/:id/result', { deviceCode: 'LKP-A2', params: { id: first.parcelId }, body: { outcome: 'cancelled', reason: 'not_opened' } }).body.data;
+  assert.equal(res.boxClosed, true);
+  const box = parcels.boxView(A2).boxes.find(b => b.n === 2);
+  assert.equal(box.state, 'out_of_service');
+  assert.match(box.outOfService.reason, /did not open/);
+  assert.equal(box.outOfService.by, 'locker');
+  // The same order, straight away: another box, not the broken one.
+  const second = call('POST', '/deposit/start', { deviceCode: 'LKP-A2', body: { orderNumber: 'STUCK', size: 'small' } }).body.data;
+  assert.equal(second.box.n, 3);
+  assert.notEqual(second.parcelId, first.parcelId);
+  const alert = storage.db.prepare("SELECT title, detail, severity FROM alerts WHERE type = 'locker_door_failed' AND deviceCode = 'LKP-A2'").all();
+  assert.equal(alert.length, 1);
+  assert.match(alert[0].title, /Box 2 did not open/);
+  // Giving up for another reason leaves the box in service.
+  call('POST', '/deposit/:id/result', { deviceCode: 'LKP-A2', params: { id: second.parcelId }, body: { outcome: 'cancelled', reason: 'staff_cancel' } });
+  assert.equal(parcels.boxView(A2).boxes.find(b => b.n === 3).state, 'vacant');
+  parcels.setBoxService(A2, 2, { outOfService: false }, 'op@example.test');
+});
+
+test('a door that does not open for a customer raises an alert, and their parcel stays theirs', () => {
+  const p = stored(A2, 'middle');
+  const s = call('POST', '/pickup', { deviceCode: 'LKP-A2', body: { code: p.code } }).body.data;
+  const r = call('POST', '/pickup/:id/result', { deviceCode: 'LKP-A2', params: { id: s.parcelId }, body: { opened: false } }).body.data;
+  assert.equal(r.state, 'stored');
+  const alerts = storage.db.prepare("SELECT severity, detail FROM alerts WHERE type = 'locker_door_failed' AND deviceCode = 'LKP-A2' AND severity = 'critical'").all();
+  assert.equal(alerts.length, 1);
+  assert.match(alerts[0].detail, /still inside/);
+  assert.equal(JSON.stringify(alerts).includes(p.code), false);
+  // A second failure the same day is the same alert.
+  call('POST', '/pickup/:id/result', { deviceCode: 'LKP-A2', params: { id: s.parcelId }, body: { opened: false } });
+  assert.equal(storage.db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE type = 'locker_door_failed' AND deviceCode = 'LKP-A2' AND severity = 'critical'").get().c, 1);
+  empty(A2);
+});
