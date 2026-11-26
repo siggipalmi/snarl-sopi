@@ -40,6 +40,18 @@
  },
  {
   "component": "backend",
+  "version": "6.129.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: enter expected orders by hand, and each locker's SMS wording is its own",
+  "notes": [
+   "The Boxes tab has a panel, orders on their way to a locker: add an order by hand (order number, mobile, first name), see what is expected, what has been put in a locker and what was withdrawn, and withdraw an order. Only the last four digits of a mobile number are shown.",
+   "The wording of a locker's first SMS and its reminder is stored on the locker instead of in the code, with {order} {locker} {code} {link} filled in when a message is sent. A message must contain {code}, and a mistyped field is refused. A locker with no wording of its own uses the standard text.",
+   "The wording can be set through the locker record today; the form for it in the dashboard comes next."
+  ],
+  "check": "A locker's Boxes tab shows the orders panel under the cabinet. Add an order: it appears under Expected."
+ },
+ {
+  "component": "backend",
   "version": "6.128.0",
   "date": "2026-11-25",
   "title": "Parcel lockers: the SMS, Twilio's delivery reports, and the pickup page",

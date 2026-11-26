@@ -1168,6 +1168,25 @@ select.fi{cursor:pointer;}
             <div id="bx-detail" style="padding:16px 18px 18px"></div>
           </div>
         </div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="ph"><div class="ph-title" data-i18n="od.title">orders on their way to a locker.</div><div class="ph-action" id="od-count" style="cursor:default"></div></div>
+          <div style="padding:14px 18px 18px">
+            <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px;max-width:760px" data-i18n="od.help">Staff can only put an order in a locker if it is on this list. Orders from the shop arrive here by themselves. Add one by hand when the shop has not sent it. They apply to all your lockers.</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--cream-deep);padding:14px">
+              <div style="flex:1 1 150px"><label class="fl" for="od-number" style="display:block" data-i18n="od.number">order number</label>
+                <input class="fi" id="od-number" style="background:#FFFFFF" maxlength="40" autocomplete="off"></div>
+              <div style="flex:1 1 150px"><label class="fl" for="od-phone" style="display:block" data-i18n="od.phone">customer's mobile</label>
+                <input class="fi" id="od-phone" style="background:#FFFFFF" maxlength="20" inputmode="tel" autocomplete="off"></div>
+              <div style="flex:1 1 150px"><label class="fl" for="od-name" style="display:block" data-i18n="od.name">first name (optional)</label>
+                <input class="fi" id="od-name" style="background:#FFFFFF" maxlength="40" autocomplete="off"></div>
+              <button class="btn" id="od-add" onclick="odAdd()"><span data-i18n="od.add">add order</span></button>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin:6px 0 14px;line-height:1.45" data-i18n="od.form.hint">The mobile number is where the pickup SMS goes. The order number is what staff scan or type at the locker.</div>
+            <div id="od-tabs" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px"></div>
+            <div id="od-list" style="overflow-x:auto"></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.45" data-i18n="od.foot">Withdraw an order that will not be delivered through a locker. An order still expected after 90 days is withdrawn by itself.</div>
+          </div>
+        </div>
       </div>
 
       <!-- ── LOCKER DETAILS (parcel lockers only, model LK-*) ── -->
@@ -2712,6 +2731,35 @@ const I18N = {
     'bx.ev.sms_undelivered':'Twilio: SMS NOT delivered',
     'bx.ev.sms_failed':'Twilio: SMS failed',
     'bx.ev.sms_not_sent':'SMS not sent',
+    'od.title':'orders on their way to a locker.',
+    'od.count':'{n} expected',
+    'od.help':'Staff can only put an order in a locker if it is on this list. Orders from the shop arrive here by themselves. Add one by hand when the shop has not sent it. They apply to all your lockers.',
+    'od.number':'order number',
+    'od.phone':'customer’s mobile',
+    'od.name':'first name (optional)',
+    'od.add':'add order',
+    'od.form.hint':'The mobile number is where the pickup SMS goes. The order number is what staff scan or type at the locker.',
+    'od.foot':'Withdraw an order that will not be delivered through a locker. An order still expected after 90 days is withdrawn by itself.',
+    'od.tab.expected':'Expected',
+    'od.tab.deposited':'Put in a locker',
+    'od.tab.cancelled':'Withdrawn',
+    'od.none.expected':'No orders are expected.',
+    'od.none.deposited':'No order has been put in a locker yet.',
+    'od.none.cancelled':'No order has been withdrawn.',
+    'od.col.order':'Order',
+    'od.col.customer':'Customer',
+    'od.col.mobile':'Mobile',
+    'od.col.from':'Came from',
+    'od.ends':'ends {tail}',
+    'od.from.manual':'Added by hand',
+    'od.from.shop':'The shop',
+    'od.withdraw':'withdraw',
+    'od.q.withdraw':'Withdraw order {order}?\n\nStaff will no longer be able to put it in a locker.',
+    'od.need':'Enter an order number and a mobile number',
+    'od.added':'Order added',
+    'od.updated':'Order updated',
+    'od.exists.used':'That order has already been put in a locker',
+    'od.load.fail':'Could not load the orders',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3122,6 +3170,35 @@ const I18N = {
     'bx.ev.sms_undelivered':'Twilio: SMS komst EKKI til skila',
     'bx.ev.sms_failed':'Twilio: SMS mistókst',
     'bx.ev.sms_not_sent':'SMS ekki sent',
+    'od.title':'pantanir á leið í skáp.',
+    'od.count':'{n} væntanlegar',
+    'od.help':'Starfsfólk getur aðeins sett pöntun í skáp ef hún er á þessum lista. Pantanir úr vefversluninni koma hingað sjálfkrafa. Bættu pöntun við handvirkt ef verslunin hefur ekki sent hana. Listinn gildir fyrir alla skápana þína.',
+    'od.number':'pöntunarnúmer',
+    'od.phone':'farsími viðskiptavinar',
+    'od.name':'fornafn (valfrjálst)',
+    'od.add':'bæta við pöntun',
+    'od.form.hint':'SMS með afhendingarkóða fer í farsímanúmerið. Pöntunarnúmerið er það sem starfsfólk skannar eða slær inn við skápinn.',
+    'od.foot':'Afturkallaðu pöntun sem verður ekki afhent í gegnum skáp. Pöntun sem er enn væntanleg eftir 90 daga er afturkölluð sjálfkrafa.',
+    'od.tab.expected':'Væntanlegar',
+    'od.tab.deposited':'Settar í skáp',
+    'od.tab.cancelled':'Afturkallaðar',
+    'od.none.expected':'Engar pantanir eru væntanlegar.',
+    'od.none.deposited':'Engin pöntun hefur verið sett í skáp enn.',
+    'od.none.cancelled':'Engin pöntun hefur verið afturkölluð.',
+    'od.col.order':'Pöntun',
+    'od.col.customer':'Viðskiptavinur',
+    'od.col.mobile':'Farsími',
+    'od.col.from':'Kom frá',
+    'od.ends':'endar á {tail}',
+    'od.from.manual':'Bætt við handvirkt',
+    'od.from.shop':'Vefverslun',
+    'od.withdraw':'afturkalla',
+    'od.q.withdraw':'Afturkalla pöntun {order}?\n\nStarfsfólk getur þá ekki lengur sett hana í skáp.',
+    'od.need':'Sláðu inn pöntunarnúmer og farsímanúmer',
+    'od.added':'Pöntun bætt við',
+    'od.updated':'Pöntun uppfærð',
+    'od.exists.used':'Þessi pöntun hefur þegar verið sett í skáp',
+    'od.load.fail':'Ekki tókst að sækja pantanirnar',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -8418,6 +8495,59 @@ async function renderLockerBoxView(code, keep) {
   _bxEvents = null; _bxCode = null;
   bxRenderStats(); bxRenderCabinet(); bxRenderDetail();
   bxLoadEvents();
+  odLoad();
+}
+
+// Orders on their way to a locker: the list a deposit is checked against. They belong to the
+// locker's operator, so the same list shows on each of that operator's lockers.
+var _odStatus = 'expected', _odData = null;
+async function odLoad() {
+  var code = _mdDeviceCode, r = null;
+  try { r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/locker/orders?limit=200&status=' + encodeURIComponent(_odStatus)); } catch (e) { r = null; }
+  if (code !== _mdDeviceCode) return;
+  if (!r || !r.ok || !r.data) { showToast(t('od.load.fail') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return; }
+  _odData = r.data; odRender();
+}
+function odTab(status) { _odStatus = status; odLoad(); }
+function odRender() {
+  var d = _odData || { orders: [], counts: {} }, c = d.counts || {};
+  var cnt = document.getElementById('od-count'); if (cnt) cnt.textContent = tv('od.count', { n: c.expected || 0 });
+  var tabs = document.getElementById('od-tabs');
+  if (tabs) tabs.innerHTML = [['expected', 'od.tab.expected'], ['deposited', 'od.tab.deposited'], ['cancelled', 'od.tab.cancelled']].map(function (x) {
+    var on = x[0] === _odStatus;
+    return '<button type="button" class="btn btn-sm' + (on ? '' : ' btn-ghost') + '" aria-pressed="' + on + '" onclick="odTab(\'' + x[0] + '\')"><span>' + rsEsc(t(x[1]) + ' · ' + (c[x[0]] || 0)) + '</span></button>';
+  }).join('');
+  var el = document.getElementById('od-list'); if (!el) return;
+  if (!d.orders.length) { el.innerHTML = '<div style="font-size:12.5px;color:var(--muted);padding:8px 0">' + rsEsc(t('od.none.' + _odStatus)) + '</div>'; return; }
+  var th = function (k) { return '<th style="padding:6px 12px 6px 0;font-weight:500">' + (k ? rsEsc(t(k)) : '') + '</th>'; };
+  el.innerHTML = '<table style="border-collapse:collapse;font-size:13px;width:100%;min-width:480px">' +
+    '<tr style="text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">' +
+    th('od.col.order') + th('od.col.customer') + th('od.col.mobile') + th('od.col.from') + th('') + '</tr>' +
+    d.orders.map(function (o) {
+      var from = t(o.source === 'manual' ? 'od.from.manual' : 'od.from.shop') + ', ' + bxWhen(o.createdAt);
+      return '<tr style="border-top:1px solid var(--cream-deep)"><td style="padding:8px 12px 8px 0;font-weight:700">' + rsEsc(o.orderNumber) + '</td>' +
+        '<td style="padding:8px 12px 8px 0">' + rsEsc(o.firstName || '—') + '</td>' +
+        '<td style="padding:8px 12px 8px 0">' + rsEsc(o.phoneTail ? tv('od.ends', { tail: o.phoneTail }) : '—') + '</td>' +
+        '<td style="padding:8px 12px 8px 0;color:var(--muted)">' + rsEsc(from) + '</td>' +
+        '<td style="padding:5px 0;text-align:right">' + (o.status === 'expected'
+          ? '<button class="btn btn-sm btn-ghost" aria-label="' + rsEsc(t('od.withdraw') + ' ' + o.orderNumber) + '" onclick="odWithdraw(' + Number(o.id) + ')"><span>' + rsEsc(t('od.withdraw')) + '</span></button>' : '') + '</td></tr>';
+    }).join('') + '</table>';
+}
+async function odAdd() {
+  var body = { orderNumber: lkVal('od-number'), phone: lkVal('od-phone'), firstName: lkVal('od-name') };
+  if (!body.orderNumber || !body.phone) { showToast(t('od.need')); return; }
+  var btn = document.getElementById('od-add'); if (btn) btn.disabled = true;
+  var r = await bxPost('orders', body);
+  if (btn) btn.disabled = false;
+  if (!r) return;
+  showToast(t(r.data && r.data.unchanged ? 'od.exists.used' : (r.data && r.data.created ? 'od.added' : 'od.updated')));
+  if (!(r.data && r.data.unchanged)) ['od-number', 'od-phone', 'od-name'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  _odStatus = 'expected'; odLoad();
+}
+async function odWithdraw(id) {
+  var o = ((_odData && _odData.orders) || []).find(function (x) { return x.id === id; });
+  if (!o || !confirm(tv('od.q.withdraw', { order: o.orderNumber }))) return;
+  if (await bxPost('orders/' + id + '/cancel')) { showToast(t('bx.done')); odLoad(); }
 }
 
 function bxRenderStats() {

@@ -317,6 +317,13 @@ function listOrders(operatorId, { status, limit } = {}) {
   return q.listOrders.all(operatorId, st, st, Math.max(1, Math.min(500, Number(limit) || 100))).map(orderView);
 }
 
+/** How many of an operator's orders are in each status: { expected, deposited, cancelled }. */
+function orderCounts(operatorId) {
+  const out = { expected: 0, deposited: 0, cancelled: 0 };
+  for (const r of db.prepare('SELECT status, COUNT(*) AS c FROM locker_orders WHERE operatorId = ? GROUP BY status').all(operatorId)) out[r.status] = r.c;
+  return out;
+}
+
 /** Withdraws an order that has not been put in a locker. */
 function cancelOrder(operatorId, orderId, now = Date.now()) {
   const o = q.orderById.get(Number(orderId));
@@ -594,7 +601,7 @@ module.exports = {
   WRONG_CODE_LIMIT, WRONG_CODE_WINDOW_MS,
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels,
-  registerOrder, listOrders, cancelOrder,
+  registerOrder, listOrders, orderCounts, cancelOrder,
   lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
   markCollected, clearParcel, setBoxService,
   // For the SMS and the pickup page, which are built on this next. Never sent to the dashboard.

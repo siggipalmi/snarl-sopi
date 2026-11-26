@@ -231,3 +231,39 @@ test('routes: the report and the page are open, resending needs a signed-in user
   find('POST', lockerSms.CALLBACK_PATH).handler({ rawBody: 'MessageSid=SMx&MessageStatus=delivered', headers: {}, params: {}, query: {} }, { writeHead(s) { status = s; }, end() {} });
   assert.equal(status, 403);
 });
+
+// ── 6.129.0: the wording is the locker's own ──────────────────────────────────────────────────
+
+test('an operator writes the locker\'s messages; a locker without its own wording keeps the default', async () => {
+  const lockers = require('../src/lockers');
+  const find = (m, p) => routes.find(r => r.method === m && r.pattern === p);
+  const put = (body) => {
+    let status = 0, text = '';
+    find('PUT', '/api/v1/machines/:deviceCode/locker').handler({ params: { deviceCode: 'LKS-1' }, body, query: {}, headers: {}, user: { role: 'operator_admin', email: 'op@example.test', operatorId: 'op-sms-test' } },
+      { writeHead(s) { status = s; }, end(b) { text = b ? b.toString() : ''; } });
+    return { status, body: JSON.parse(text) };
+  };
+  assert.equal(put({ messages: { first: 'Sendingin er komin.' } }).status, 400, 'a message without {code} cannot open a box');
+  assert.equal(put({ messages: { first: 'Kóði {code}, {kodi}' } }).status, 400, 'a mistyped field is caught');
+  assert.equal(put({ messages: { third: 'Kóði {code}' } }).status, 400);
+  assert.equal(put({ messages: { first: 'x{code}'.padEnd(lockers.MESSAGE_MAX + 1, 'x') } }).status, 400);
+
+  const saved = put({ messages: { first: 'Hæ! Pöntun {order} bíður í {locker}. Kóði {code} eða {link}' } });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.data.messagesCustom.first, true);
+  assert.equal(saved.body.data.messagesCustom.reminder, false);
+  assert.equal(saved.body.data.messages.reminder, lockers.DEFAULT_MESSAGES.reminder);
+  assert.equal(saved.body.data.sms.messagingServiceSid, SENDER, 'the sender is untouched');
+
+  const p = stored(machineOf('LKS-1'));
+  await lockerSms.send(machineOf('LKS-1'), p.parcelId, 'first', 'backend', T0);
+  assert.equal(sentToTwilio.at(-1).body, `Hæ! Pöntun ${p.orderNumber} bíður í AG Test. Kóði ${p.code} eða sms.agvending.is/p/${p.token}`);
+  await lockerSms.send(machineOf('LKS-1'), p.parcelId, 'reminder', 'backend', T0 + 120000);
+  assert.ok(sentToTwilio.at(-1).body.startsWith('Áminning: '), 'the reminder is still the default');
+
+  // An empty string puts the message back to the default.
+  const back = put({ messages: { first: '' } });
+  assert.equal(back.body.data.messagesCustom.first, false);
+  assert.equal(back.body.data.messages.first, lockers.DEFAULT_MESSAGES.first);
+  free(machineOf('LKS-1'), p.parcelId);
+});
