@@ -40,6 +40,19 @@
  },
  {
   "component": "backend",
+  "version": "6.139.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: the backend can keep a photo taken at pickup",
+  "notes": [
+   "A locker can hand in one photo per parcel, taken by its camera when the parcel is collected, as proof of delivery.",
+   "In the parcel log the photo is hidden until an operator admin (or AG) presses show photo. Managers and staff are told a photo exists but cannot see it. Each viewing is written to the parcel's history with who looked.",
+   "Photos are kept in the backend's own database and deleted 30 days after the parcel left its box, with the customer's name and number.",
+   "Nothing is photographed until the locker app sends photos, and that should wait for a sign at the locker saying a photo is taken at pickup."
+  ],
+  "check": "Nothing to see until a locker sends a photo; then the order's detail in the Parcel log shows photo at pickup."
+ },
+ {
+  "component": "backend",
   "version": "6.138.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: a parcel log, the boxes as the overview, and Staff as a role name",

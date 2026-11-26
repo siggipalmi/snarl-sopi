@@ -262,6 +262,9 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup',                handler: handleLockerPickup,        middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/offline',               handler: handleLockerOffline,       middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/doors',                 handler: handleLockerDoors,         middleware:[requireMachineKey] },
+  // The photo taken at pickup: handed in by the locker, shown to an admin who asks.
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup/:id/photo',      handler: handleLockerPhotoStore,    middleware:[requireMachineKey] },
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/parcels/:id/photo',     handler: handleLockerPhotoView,     middleware:[requireAuth, requireMachineAccess, requireOperatorAdmin] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup/:id/result',     handler: handleLockerPickupResult,  middleware:[requireMachineKey] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/telemetry',         handler: handleTelemetrySeries, middleware:[requireAuth, requireMachineAccess] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/app-update',        handler: handleAppUpdate,      middleware:[requireMachineKey] },
@@ -5441,6 +5444,20 @@ function handleLockerPickupResult(req, res) {
   const r = parcels.finishPickup(m, req.params.id, req.body || {});
   lockerAppAnswer(res, r);
   if (r.ok && r.doorFailed) lockerDoorAlert(m, r.boxN, 'pickup');
+}
+// POST …/locker/pickup/:id/photo { image: base64 JPEG, at } — from the locker.
+function handleLockerPhotoStore(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  lockerAppAnswer(res, parcels.storePhoto(m, req.params.id, req.body || {}));
+}
+// POST …/locker/parcels/:id/photo — an operator admin or AG asks to see it. A POST, because each
+// showing is written to the parcel's history with who looked (Siggi, 2026-11-26: admins only).
+function handleLockerPhotoView(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const r = parcels.viewPhoto(m, req.params.id, lockerWho(req));
+  if (r.ok) console.log(`[LOCKER] ${lockerWho(req)} looked at a pickup photo at ${m.deviceCode}`);
+  if (r.ok && typeof res.setHeader === 'function') res.setHeader('Cache-Control', 'no-store');
+  parcelAnswer(res, r, r.ok ? { takenAt: r.takenAt, image: r.image } : undefined);
 }
 // POST …/locker/doors { open: [door numbers], at } — which doors stand open, as the lock board
 // reads them. A door open for more than ten minutes is told to the operator, once per box per day.

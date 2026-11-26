@@ -2935,6 +2935,15 @@ const I18N = {
     'lg.order':'Order {order}',
     'lg.forgotten':'removed (older than 30 days)',
     'lg.events':'everything that happened',
+    'lg.photo':'photo at pickup',
+    'lg.photo.alt':'Photo taken at the pickup of order {order}',
+    'lg.photo.hidden':'Hidden. Press "show photo" to see it.',
+    'lg.photo.adminOnly':'A photo was taken. Only an operator admin can see it.',
+    'lg.photo.taken':'Taken {when} by the locker’s camera. Deleted 30 days after pickup.',
+    'lg.photo.show':'show photo',
+    'lg.photo.note':'Each viewing is written to the history below, with who looked.',
+    'bx.ev.photo_taken':'Photo taken at the locker',
+    'bx.ev.photo_viewed':'Pickup photo viewed',
     'lk.boxes.title':'boxes.',
     'lk.boxes.help':'The number on each door, its size, and the lock that opens it. A wrong list sends a customer to the wrong door, so only AG Vending can change it.',
     'lk.boxes.none':'No boxes are listed yet.','lk.boxes.counts':'{small} small · {middle} middle · {big} big',
@@ -3489,6 +3498,15 @@ const I18N = {
     'lg.order':'Pöntun {order}',
     'lg.forgotten':'fjarlægt (eldra en 30 dagar)',
     'lg.events':'allt sem gerðist',
+    'lg.photo':'mynd við afhendingu',
+    'lg.photo.alt':'Mynd tekin við afhendingu pöntunar {order}',
+    'lg.photo.hidden':'Falin. Ýttu á „sýna mynd“ til að sjá hana.',
+    'lg.photo.adminOnly':'Mynd var tekin. Aðeins rekstrarstjóri getur séð hana.',
+    'lg.photo.taken':'Tekin {when} með myndavél skápsins. Eytt 30 dögum eftir afhendingu.',
+    'lg.photo.show':'sýna mynd',
+    'lg.photo.note':'Hver skoðun er skráð í söguna hér að neðan, ásamt því hver skoðaði.',
+    'bx.ev.photo_taken':'Mynd tekin við skápinn',
+    'bx.ev.photo_viewed':'Mynd við afhendingu skoðuð',
     'lk.boxes.title':'hólf.',
     'lk.boxes.help':'Númerið á hverri hurð, stærð hólfsins og lásinn sem opnar það. Rangur listi sendir viðskiptavin að rangri hurð, svo aðeins AG Vending getur breytt honum.',
     'lk.boxes.none':'Engin hólf eru skráð enn.','lk.boxes.counts':'{small} lítil · {middle} miðstærð · {big} stór',
@@ -8844,7 +8862,17 @@ function lgRender() {
         '<td style="padding:8px 0;white-space:nowrap">' + rsEsc(lgDuration(p.hoursInBox)) + '</td></tr>';
     }).join('') + '</table>';
 }
+var _lgPhoto = null;
+async function lgShowPhoto() {
+  var id = _lgSel, code = _mdDeviceCode, r = null;
+  try { r = await API.post('/api/v1/machines/' + encodeURIComponent(code) + '/locker/parcels/' + encodeURIComponent(id) + '/photo', {}); } catch (e) { r = null; }
+  if (!r || !r.ok || !r.data) { showToast(t('bx.failed') + (lkErrText(r) ? ': ' + lkErrText(r) : '')); return; }
+  if (code !== _mdDeviceCode || _lgSel !== id) return;
+  _lgPhoto = { parcelId: id, image: /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(r.data.image) ? r.data.image : '' };
+  lgSelect(id);
+}
 async function lgSelect(id) {
+  if (!_lgPhoto || _lgPhoto.parcelId !== id) _lgPhoto = null;
   _lgSel = id; _lgDetail = null; lgRender(); lgRenderDetail();
   var code = _mdDeviceCode, r = null;
   try { r = await API.get('/api/v1/machines/' + encodeURIComponent(code) + '/locker/parcels/' + encodeURIComponent(id)); } catch (e) { r = null; }
@@ -8866,6 +8894,17 @@ function lgRenderDetail() {
     row('lg.col.box', String(p.boxN)) + row('bx.f.customer', who || t('lg.forgotten')) +
     row('lg.col.in', lgWhen(p.storedAt, true)) + row('lg.col.out', p.endedAt ? lgWhen(p.endedAt, true) + (lgHow(p) ? ', ' + lgHow(p).toLowerCase() : '') : '') +
     row('lg.col.dur', lgDuration(p.hoursInBox)) + '</div>';
+  // The photo the locker took at pickup. Hidden until an admin asks; the asking is recorded.
+  if (p.photoAt) {
+    var shown = _lgPhoto && _lgPhoto.parcelId === p.id ? _lgPhoto.image : null;
+    h += '<div style="font-size:12.5px;font-weight:700;margin:16px 0 6px">' + rsEsc(t('lg.photo')) + '</div>' +
+      (shown ? '<img src="' + shown + '" alt="' + rsEsc(tv('lg.photo.alt', { order: p.orderNumber })) + '" style="display:block;width:100%;height:auto;background:#111111">'
+             : '<div style="background:#111111;color:#FFFFFF;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;text-align:center;padding:14px">' + rsEsc(t(shCanEdit() ? 'lg.photo.hidden' : 'lg.photo.adminOnly')) + '</div>') +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px">' +
+        '<span style="font-size:11.5px;color:var(--muted);line-height:1.45">' + rsEsc(tv('lg.photo.taken', { when: lgWhen(p.photoAt, true) })) + '</span>' +
+        (shCanEdit() && !shown ? '<button class="btn btn-sm" onclick="lgShowPhoto()"><span>' + rsEsc(t('lg.photo.show')) + '</span></button>' : '') + '</div>' +
+      (shCanEdit() ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + rsEsc(t('lg.photo.note')) + '</div>' : '');
+  }
   var ev = _lgDetail && _lgDetail.parcel && _lgDetail.parcel.id === p.id ? _lgDetail.events : null;
   h += '<div style="font-size:12.5px;font-weight:700;margin:16px 0 6px">' + rsEsc(t('lg.events')) + '</div>';
   if (!ev) h += '<div style="font-size:12px;color:var(--muted)">…</div>';
