@@ -40,6 +40,17 @@
  },
  {
   "component": "backend",
+  "version": "6.135.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: a log of every parcel, behind the scenes",
+  "notes": [
+   "The backend can now list every parcel a locker has ever held, newest first, with when it was put in, when it left, how long it was in the box, and how it left: by code, by scanned link, offline, marked by the operator, or cleared.",
+   "Searchable by order number and by date. The page for it in the dashboard comes next."
+  ],
+  "check": "Nothing to see in the dashboard yet."
+ },
+ {
+  "component": "backend",
   "version": "6.134.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: the dashboard knows which doors stand open",

@@ -5277,6 +5277,8 @@ function handleLockerBoxService(req, res) {
 }
 function handleLockerParcels(req, res) {
   const m = lockerMachineOr404(req, res); if (!m) return;
+  // With ?log=1: the parcel log, searchable by order number and date, paged with `before`.
+  if (req.query.log) return ok(res, { deviceCode: m.deviceCode, ...parcels.parcelLog(m, req.query) });
   ok(res, { deviceCode: m.deviceCode, parcels: parcels.listParcels(m, { state: req.query.state, limit: req.query.limit }) });
 }
 function handleLockerParcel(req, res) {
