@@ -652,3 +652,51 @@ test('the parcel log lists every parcel with its times and how it left, searchab
   // Without ?log the route answers as before.
   assert.ok(Array.isArray(call('GET', '/parcels', { deviceCode: 'LKP-B1' }).body.data.parcels));
 });
+
+// ── 6.139.0: the photo taken at pickup ────────────────────────────────────────────────────────
+
+test('the locker hands in a pickup photo; only an admin may see it, each look is recorded, and it is deleted after 30 days', () => {
+  const DAY = 86400000, t0 = Date.parse('2027-04-01T10:00:00Z');
+  // A tiny stand-in for a JPEG: the right first bytes, invented content.
+  const jpeg = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.from('invented picture bytes')]);
+  const image = jpeg.toString('base64');
+  const p = stored(A2, 'small', t0);
+  const s = parcels.startPickup(A2, { code: p.code }, t0 + 3600000);
+  parcels.finishPickup(A2, s.parcelId, { opened: true }, t0 + 3600000);
+
+  const store = routes.find(r => r.method === 'POST' && r.pattern === BASE + '/pickup/:id/photo');
+  const view = routes.find(r => r.method === 'POST' && r.pattern === BASE + '/parcels/:id/photo');
+  assert.deepEqual(store.middleware.map(f => f.name), ['requireMachineKey']);
+  assert.deepEqual(view.middleware.map(f => f.name), ['requireAuth', 'requireMachineAccess', 'requireOperatorAdmin'], 'staff and managers are stopped before the handler');
+
+  // Refused: not a JPEG, too big, another locker's parcel.
+  assert.equal(parcels.storePhoto(A2, p.parcelId, { image: Buffer.from('not a picture').toString('base64') }, t0 + 3600000).code, 'bad_image');
+  assert.equal(parcels.storePhoto(A2, p.parcelId, { image: '<script>' }, t0 + 3600000).code, 'bad_image');
+  const big = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF]), Buffer.alloc(parcels.PHOTO_MAX_BYTES)]).toString('base64');
+  assert.equal(parcels.storePhoto(A2, p.parcelId, { image: big }, t0 + 3600000).code, 'too_large');
+  assert.equal(parcels.storePhoto(A1, p.parcelId, { image }, t0 + 3600000).code, 'parcel_not_found');
+  assert.equal(parcels.getParcel(A2, p.parcelId).parcel.photoAt, null);
+
+  const ok = call('POST', '/pickup/:id/photo', { deviceCode: 'LKP-A2', params: { id: p.parcelId }, body: { image, at: new Date().toISOString() } });
+  assert.deepEqual([ok.status, ok.body.data.stored], [200, true]);
+  const viewOf = parcels.getParcel(A2, p.parcelId);
+  assert.ok(viewOf.parcel.photoAt);
+  assert.equal(JSON.stringify(viewOf).includes(image), false, 'the picture is not part of the parcel or its history');
+  assert.equal(JSON.stringify(parcels.parcelLog(A2, {})).includes(image), false);
+
+  const seen = call('POST', '/parcels/:id/photo', { deviceCode: 'LKP-A2', params: { id: p.parcelId } });
+  assert.equal(seen.body.data.image, 'data:image/jpeg;base64,' + image);
+  const last = parcels.getParcel(A2, p.parcelId).events.at(-1);
+  assert.deepEqual([last.type, last.actor], ['photo_viewed', 'op@example.test']);
+  assert.equal(parcels.viewPhoto(A1, p.parcelId, 'x').code, 'parcel_not_found');
+  const none = stored(A2, 'small', t0);
+  assert.equal(parcels.viewPhoto(A2, none.parcelId, 'x').code, 'no_photo');
+
+  // Kept while the 30 days run, gone after; a parcel still in its box keeps its (none) data.
+  storage.db.prepare('UPDATE locker_photos SET createdAt = createdAt WHERE parcelId = ?').run(p.parcelId);
+  assert.equal(parcels.forgetOldPersonalData(t0 + 29 * DAY).photos, 0);
+  assert.ok(parcels.forgetOldPersonalData(t0 + 32 * DAY).photos >= 1);
+  assert.equal(parcels.viewPhoto(A2, p.parcelId, 'x').code, 'no_photo');
+  assert.equal(parcels.getParcel(A2, p.parcelId).parcel.photoAt, null);
+  empty(A2);
+});

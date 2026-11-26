@@ -83,6 +83,13 @@ db.exec(`
     updatedAt  TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_locker_sms_parcel ON locker_sms(parcelId, createdAt);
+  CREATE TABLE IF NOT EXISTS locker_photos (
+    parcelId   TEXT PRIMARY KEY,
+    deviceCode TEXT NOT NULL,
+    takenAt    TEXT NOT NULL,
+    jpeg       BLOB NOT NULL,
+    createdAt  TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS locker_doors (
     deviceCode TEXT PRIMARY KEY,
     openSince  TEXT NOT NULL,
@@ -206,6 +213,48 @@ function freeCounts(boxes, busy, closed) {
   return counts;
 }
 
+// ── The photo at pickup ───────────────────────────────────────────────────────────────────────
+// The locker's camera takes one picture when a parcel is collected, as proof of delivery. It is
+// a picture of a person: kept in this database only, shown to an admin who asks (each showing
+// is written to the parcel's history), and deleted thirty days after the parcel left its box.
+
+const PHOTO_MAX_BYTES = 300 * 1024;
+const photoQ = {
+  at: db.prepare('SELECT takenAt FROM locker_photos WHERE parcelId = ?'),
+  get: db.prepare('SELECT * FROM locker_photos WHERE parcelId = ?'),
+  put: db.prepare(`INSERT INTO locker_photos (parcelId, deviceCode, takenAt, jpeg, createdAt) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(parcelId) DO UPDATE SET takenAt = excluded.takenAt, jpeg = excluded.jpeg, createdAt = excluded.createdAt`),
+  old: db.prepare(`DELETE FROM locker_photos WHERE parcelId IN
+                   (SELECT id FROM locker_parcels WHERE state NOT IN ('opening','stored') AND endedAt < ?)`),
+};
+
+/** The locker hands in the picture it took: { image: base64 JPEG, at }. One per parcel; a second replaces the first. */
+function storePhoto(machine, parcelId, input, now = Date.now()) {
+  const p = q.parcelById.get(String(parcelId));
+  if (!p || p.deviceCode !== machine.deviceCode) return fail(404, 'parcel_not_found', 'No such parcel at this locker.');
+  const text = input && typeof input.image === 'string' ? input.image.replace(/^data:image\/jpeg;base64,/, '') : '';
+  if (!text || !/^[A-Za-z0-9+/=\s]+$/.test(text)) return fail(400, 'bad_image', 'image must be a base64 JPEG.');
+  const jpeg = Buffer.from(text, 'base64');
+  if (jpeg.length < 4 || jpeg[0] !== 0xFF || jpeg[1] !== 0xD8 || jpeg[2] !== 0xFF) return fail(400, 'bad_image', 'image must be a JPEG.');
+  if (jpeg.length > PHOTO_MAX_BYTES) return fail(413, 'too_large', `The photo is ${Math.round(jpeg.length / 1024)} kB; at most ${PHOTO_MAX_BYTES / 1024} kB.`);
+  const claimed = Date.parse(input.at);
+  const at = Number.isFinite(claimed) && claimed <= now && claimed >= Date.parse(p.createdAt) ? claimed : now;
+  const replaced = !!photoQ.at.get(p.id);
+  photoQ.put.run(p.id, p.deviceCode, iso(at), jpeg, iso(now));
+  event(p.deviceCode, p.id, p.boxN, 'photo_taken', 'locker', replaced ? 'replaced' : null, at);
+  return { ok: true, stored: true };
+}
+
+/** The picture, for an admin who asked. The asking is written to the parcel's history. */
+function viewPhoto(machine, parcelId, who, now = Date.now()) {
+  const p = q.parcelById.get(String(parcelId));
+  if (!p || p.deviceCode !== machine.deviceCode) return fail(404, 'parcel_not_found', 'No such parcel at this locker.');
+  const row = photoQ.get.get(p.id);
+  if (!row) return fail(404, 'no_photo', 'There is no photo for this parcel.');
+  event(p.deviceCode, p.id, p.boxN, 'photo_viewed', who || 'admin', null, now);
+  return { ok: true, takenAt: row.takenAt, image: 'data:image/jpeg;base64,' + Buffer.from(row.jpeg).toString('base64') };
+}
+
 // ── Doors ─────────────────────────────────────────────────────────────────────────────────────
 // The locker reports which doors stand open. Only the latest report is kept, with the time
 // each open door was first seen open. A report older than DOORS_FRESH_MS says nothing: the
@@ -280,7 +329,7 @@ function parcelView(p, now) {
   return {
     id: p.id, deviceCode: p.deviceCode, boxN: p.boxN, orderNumber: p.orderNumber, firstName: p.firstName, phoneTail: p.phone ? p.phone.slice(-4) : '',
     state: p.state, createdAt: p.createdAt, storedAt: p.storedAt, endedAt: p.endedAt, endedBy: p.endedBy, endReason: p.endReason,
-    notifiedAt: p.notifiedAt, sms: q.lastSms.get(p.id) || null,
+    notifiedAt: p.notifiedAt, sms: q.lastSms.get(p.id) || null, photoAt: (photoQ.at.get(p.id) || {}).takenAt || null,
     hoursStored: p.state === 'stored' && p.storedAt ? Math.floor((now - Date.parse(p.storedAt)) / 3600000) : null,
   };
 }
@@ -746,12 +795,13 @@ const forget = {
 function forgetOldPersonalData(now = Date.now()) {
   const before = iso(now - KEEP_PERSONAL_DAYS * 86400000);
   const stale = forget.stale.run(iso(now), iso(now - DROP_EXPECTED_DAYS * 86400000)).changes;
-  return { parcels: forget.parcels.run(before).changes, orders: forget.orders.run(before).changes, stale };
+  const photos = photoQ.old.run(before).changes;
+  return { parcels: forget.parcels.run(before).changes, orders: forget.orders.run(before).changes, stale, photos };
 }
 function forgetTick() {
   try {
     const r = forgetOldPersonalData();
-    if (r.parcels || r.orders || r.stale) console.log(`[LOCKER] personal data blanked on ${r.parcels} parcel(s) and ${r.orders} order(s); ${r.stale} stale order(s) withdrawn`);
+    if (r.parcels || r.orders || r.stale || r.photos) console.log(`[LOCKER] personal data blanked on ${r.parcels} parcel(s) and ${r.orders} order(s); ${r.stale} stale order(s) withdrawn; ${r.photos} photo(s) deleted`);
   } catch (e) { console.error('[LOCKER] forgetting failed:', e.message); }
 }
 setTimeout(forgetTick, 60 * 1000).unref();
@@ -764,7 +814,7 @@ module.exports = {
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels, parcelLog,
   registerOrder, listOrders, orderCounts, cancelOrder, withdrawOrderByNumber,
-  offlineList, reportDoors, doorState, DOORS_FRESH_MS, DOOR_OPEN_TOO_LONG_MS, lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
+  storePhoto, viewPhoto, PHOTO_MAX_BYTES, offlineList, reportDoors, doorState, DOORS_FRESH_MS, DOOR_OPEN_TOO_LONG_MS, lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
   markCollected, clearParcel, setBoxService,
   // For the SMS and the pickup page, which are built on this next. Never sent to the dashboard.
   _secretsOf(parcelId) { const p = q.parcelById.get(String(parcelId)); return p ? { code: p.code, token: p.token } : null; },
