@@ -154,7 +154,7 @@ a{color:#111111;font-size:15px;font-weight:800;margin-top:4px}
 footer{padding:18px 24px 26px;display:flex;justify-content:center}
 footer a{display:flex;align-items:center;gap:10px;margin:0;font-size:12px;font-weight:700;letter-spacing:.4px;color:#555555;text-decoration:none}
 footer img{height:30px;width:auto;display:block}
-</style></head><body><main>${body}<footer><a href="https://agvending.is" rel="noopener">Knúið af <img src="${AG_LOGO}" alt="AG Vending"></a></footer></main></body></html>`;
+</style></head><body><main>${body}<footer><a href="https://agvending.is" rel="noopener">Knúið áfram af <img src="${AG_LOGO}" alt="AG Vending"></a></footer></main></body></html>`;
 }
 
 function lockerBlock(info) {
