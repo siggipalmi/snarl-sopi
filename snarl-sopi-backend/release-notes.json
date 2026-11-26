@@ -40,6 +40,18 @@
  },
  {
   "component": "backend",
+  "version": "6.142.0",
+  "date": "2026-11-26",
+  "title": "Parcel lockers: Knúið af AG Vending on the pickup page, screen saver pictures, mobile in the spreadsheet",
+  "notes": [
+   "The page a pickup SMS links to ends with Knúið af AG Vending and our logo, linking to agvending.is.",
+   "A locker's Locker details now has the screen poster panel: the pictures or videos its screen shows when nobody is at it. As for other machines, a locker with none of its own uses its operator's. They show once the locker app has a screen saver.",
+   "The Parcel log's spreadsheet download includes the customer's first name and mobile number (empty once they have been removed after 30 days)."
+  ],
+  "check": "Open any pickup link: the page ends with Knúið af AG Vending. A locker's Locker details has a screen poster panel."
+ },
+ {
+  "component": "backend",
   "version": "6.141.0",
   "date": "2026-11-26",
   "title": "Parcel lockers: the customer's whole phone number is shown",
