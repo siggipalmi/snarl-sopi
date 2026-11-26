@@ -84,3 +84,37 @@ test('a machine that is not a locker has no locker record, and an unknown machin
   assert.equal(storage.getMachine('VMT1').settings.locker, undefined);
   assert.equal(call('GET', 'NOPE').status, 404);
 });
+
+// ── 6.137.0: who may change what ──────────────────────────────────────────────────────────────
+
+test('staff do the box work but change neither the messages nor the details; a manager changes details only', () => {
+  const put = (body, role) => call('PUT', 'LKT1', body, role);
+  const msg = { messages: { first: 'Kóði {code}' } }, info = { info: { findNote: 'Við innganginn' } };
+  // Regular staff (restocker, and the old viewer role, which is treated as one).
+  for (const role of ['operator_restocker', 'operator_viewer']) {
+    assert.equal(put(msg, role).status, 403, role + ' messages');
+    assert.equal(put(info, role).status, 403, role + ' details');
+    assert.equal(call('GET', 'LKT1', undefined, role).status, 200, role + ' may still read the record');
+  }
+  // A manager runs the locker but does not write what customers are texted.
+  assert.equal(put(msg, 'operator_manager').status, 403);
+  assert.equal(put(info, 'operator_manager').status, 200);
+  // The operator admin and AG do both.
+  assert.equal(put(msg, 'operator_admin').status, 200);
+  assert.equal(put({ messages: { first: '' } }, 'ag_admin').status, 200);
+  // A refused call changed nothing.
+  assert.equal(storage.getMachine('LKT1').settings.locker.info.findNote, 'Við innganginn');
+  assert.equal(storage.getMachine('LKT1').settings.locker.messages && storage.getMachine('LKT1').settings.locker.messages.first, undefined);
+});
+
+test('open box is within a staff member\'s reach; other machine commands are not', () => {
+  const enqueue = routes.find(r => r.method === 'POST' && r.pattern === '/api/v1/machines/:deviceCode/commands');
+  const send = (type, params, role) => {
+    let status = 0;
+    enqueue.handler({ params: { deviceCode: 'LKT1' }, body: { type, params }, query: {}, headers: {}, user: { role, email: 'staff@example.test', operatorId: 'op-locker-test', name: 'Staff' } },
+      { writeHead(s) { status = s; }, end() {} });
+    return status;
+  };
+  assert.equal(send('open_box', { n: 1 }, 'operator_restocker'), 200);
+  assert.equal(send('restart_machine', {}, 'operator_restocker'), 403);
+});

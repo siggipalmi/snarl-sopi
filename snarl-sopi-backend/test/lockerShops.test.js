@@ -138,8 +138,8 @@ test('routes: deliveries are open and signed; managing connections needs an oper
   const find = (m, p) => routes.find(r => r.method === m && r.pattern === p);
   assert.deepEqual(find('POST', '/api/v1/shops/woo/:hookId').middleware, []);
   const base = '/api/v1/operators/:operatorId/locker-shops';
-  assert.deepEqual(find('GET', base).middleware.map(f => f.name), ['requireAuth', 'requireOperatorAccess']);
-  for (const [m, t] of [['POST', ''], ['PUT', '/:id'], ['POST', '/:id/secret'], ['DELETE', '/:id']]) {
+  // Staff see nothing of the connection: its address is half of what a shop needs to post orders.
+  for (const [m, t] of [['GET', ''], ['POST', ''], ['PUT', '/:id'], ['POST', '/:id/secret'], ['DELETE', '/:id']]) {
     assert.deepEqual(find(m, base + t).middleware.map(f => f.name), ['requireAuth', 'requireOperatorAccess', 'requireOperatorAdmin'], m + ' ' + t);
   }
   // Through the route: created, listed without the secret, and a delivery lands.

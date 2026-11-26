@@ -247,7 +247,7 @@ const routes = [
   // Web shops reporting orders for a locker (6.132.0). The shop's delivery is authenticated by its
   // own signature; the connections are the operator's to manage.
   { method:'POST', pattern:lockerShops.PATH + ':hookId',                                handler: handleLockerShopDelivery,  middleware:[] },
-  { method:'GET',  pattern:'/api/v1/operators/:operatorId/locker-shops',                handler: handleLockerShopsList,     middleware:[requireAuth, requireOperatorAccess] },
+  { method:'GET',  pattern:'/api/v1/operators/:operatorId/locker-shops',                handler: handleLockerShopsList,     middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'POST', pattern:'/api/v1/operators/:operatorId/locker-shops',                handler: handleLockerShopCreate,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'PUT',  pattern:'/api/v1/operators/:operatorId/locker-shops/:id',            handler: handleLockerShopUpdate,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'POST', pattern:'/api/v1/operators/:operatorId/locker-shops/:id/secret',     handler: handleLockerShopSecret,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
@@ -4321,7 +4321,9 @@ const TEST_VEND_OPEN_MIN_VC = 174;
 const CMD_AG_ONLY = new Set(['clear_device_owner', 'set_payment_port', 'set_machine_key', 'adb_wifi']);
 // What a restocker may send: open a door, count, read the scales, clear a jam, test a vend.
 const CMD_RESTOCK = new Set(['fridge_open_door', 'set_basket_count', 'scale_read', 'read_all_trays', 'read_temp',
-  'clear_aisle_fault', 'test_vend', 'sync_price_tags', 'query_channel_status', 'config_health']);
+  'clear_aisle_fault', 'test_vend', 'sync_price_tags', 'query_channel_status', 'config_health',
+  // A locker's staff open a box as part of the day's work, as a restocker opens a fridge door.
+  'open_box']);
 
 // ── Payment serial port ───────────────────────────────────────────────────────────────────────
 // This used to refuse any port that did not match a per-machine-type rule (coil ttyS3, double
@@ -5212,10 +5214,16 @@ function handleSetLocker(req, res) {
   if (!m) return;
   const body = req.body || {};
   if (body.info === undefined && body.boxes === undefined && body.sms === undefined && body.messages === undefined) return badRequest(res, 'Send info, messages, boxes or sms.');
+  // Who may change what (Siggi, 2026-11-26): the SMS wording is the operator admin's, the
+  // customer-facing details need the right to change machine settings, and staff change neither.
+  const lockerAdmin = req.user.role === 'ag_admin' || roles.normalizeRole(req.user.role) === 'operator_admin';
   if (body.messages !== undefined) {
-    // The wording of the locker's SMS: the operator's to write, like the details above.
+    if (!lockerAdmin) return json(res, 403, { ok: false, code: 'role_forbidden', error: 'Only an operator admin can change a locker\'s messages.' });
     const r = lockerRecords.normalizeMessages(body.messages);
     if (!r.ok) return badRequest(res, r.error);
+  }
+  if (body.info !== undefined && !roles.can(req.user, 'manage')) {
+    return json(res, 403, { ok: false, code: 'role_forbidden', error: 'Your role can\'t change a locker\'s details.' });
   }
   const change = {};
   if (body.info !== undefined) {
