@@ -131,3 +131,12 @@ test('a file from another locker is flagged, and only AG can import', () => {
   const route = routes.find(r => r.method === 'POST' && r.pattern === '/api/v1/machines/:deviceCode/locker/import');
   assert.deepEqual(route.middleware.map(f => f.name), ['requireAuth', 'requireAgAdmin']);
 });
+
+test('the list of deposited orders says where each parcel is now', () => {
+  const listed = parcels.listOrders('op-import', { status: 'deposited', limit: 500 });
+  const gone = listed.find(o => o.orderNumber === '70103'), here = listed.find(o => o.orderNumber === '70101');
+  assert.equal(gone.parcel.state, 'collected');
+  assert.ok(gone.parcel.endedAt);
+  assert.deepEqual([here.parcel.state, here.parcel.boxN], ['stored', 1]);
+  assert.equal(parcels.listOrders('op-import', { status: 'expected' }).some(o => 'parcel' in o), false);
+});

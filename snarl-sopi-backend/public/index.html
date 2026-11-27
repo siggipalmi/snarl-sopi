@@ -2856,6 +2856,7 @@ const I18N = {
     'od.foot':'Withdraw an order that will not be delivered through a locker. An order still expected after 90 days is withdrawn by itself.',
     'od.tab.expected':'Expected',
     'od.tab.deposited':'Put in a locker',
+    'od.where.stored':'In box {n}','od.where.opening':'Being put in box {n}','od.where.collected':'Picked up {when}','od.where.cleared':'Taken out {when}',
     'od.tab.cancelled':'Withdrawn',
     'od.none.expected':'No orders are expected.',
     'od.none.deposited':'No order has been put in a locker yet.',
@@ -3459,6 +3460,7 @@ const I18N = {
     'od.foot':'Afturkallaðu pöntun sem verður ekki afhent í gegnum skáp. Pöntun sem er enn væntanleg eftir 90 daga er afturkölluð sjálfkrafa.',
     'od.tab.expected':'Væntanlegar',
     'od.tab.deposited':'Settar í skáp',
+    'od.where.stored':'Í hólfi {n}','od.where.opening':'Verið að setja í hólf {n}','od.where.collected':'Sótt {when}','od.where.cleared':'Tekin úr skáp {when}',
     'od.tab.cancelled':'Afturkallaðar',
     'od.none.expected':'Engar pantanir eru væntanlegar.',
     'od.none.deposited':'Engin pöntun hefur verið sett í skáp enn.',
@@ -9243,7 +9245,8 @@ function odRender() {
         '<td style="padding:8px 12px 8px 0">' + rsEsc(lkPhone(o.phone) || '—') + '</td>' +
         '<td style="padding:8px 12px 8px 0;color:var(--muted)">' + rsEsc(from) + '</td>' +
         '<td style="padding:5px 0;text-align:right">' + (o.status === 'expected'
-          ? '<button class="btn btn-sm btn-ghost" aria-label="' + rsEsc(t('od.withdraw') + ' ' + o.orderNumber) + '" onclick="odWithdraw(' + Number(o.id) + ')"><span>' + rsEsc(t('od.withdraw')) + '</span></button>' : '') + '</td></tr>';
+          ? '<button class="btn btn-sm btn-ghost" aria-label="' + rsEsc(t('od.withdraw') + ' ' + o.orderNumber) + '" onclick="odWithdraw(' + Number(o.id) + ')"><span>' + rsEsc(t('od.withdraw')) + '</span></button>'
+          : (o.parcel ? '<span style="font-weight:' + (o.parcel.state === 'stored' || o.parcel.state === 'opening' ? '700' : '400;color:var(--muted)') + '">' + rsEsc(odWhere(o.parcel)) + '</span>' : '')) + '</td></tr>';
     }).join('') + '</table>';
 }
 // ── Parcels already in a locker when it comes to us (AG only) ──
@@ -9287,6 +9290,13 @@ function imRender(d) {
     h += '<div style="margin-top:12px"><button class="btn btn-sm" onclick="imRun(false)"><span>' + rsEsc(tv('im.go', { n: d.total })) + '</span></button></div>';
   } else if (d.problems) h += '<div style="font-size:12px;color:var(--muted);margin-top:10px">' + rsEsc(t('im.fix')) + '</div>';
   el.innerHTML = h;
+}
+// Where a deposited order's parcel is now: still in its box, or gone and when.
+function odWhere(p) {
+  if (p.state === 'stored') return tv('od.where.stored', { n: p.boxN });
+  if (p.state === 'opening') return tv('od.where.opening', { n: p.boxN });
+  if (p.state === 'collected') return tv('od.where.collected', { when: bxWhen(p.endedAt) });
+  return tv('od.where.cleared', { when: bxWhen(p.endedAt) });
 }
 async function odAdd() {
   var body = { orderNumber: lkVal('od-number'), phone: lkVal('od-phone'), firstName: lkVal('od-name') };

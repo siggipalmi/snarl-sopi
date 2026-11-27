@@ -40,6 +40,16 @@
  },
  {
   "component": "backend",
+  "version": "6.145.1",
+  "date": "2026-11-27",
+  "title": "Lockers: the order list says where a deposited parcel is now",
+  "notes": [
+   "In a locker's list of orders, the tab \"Put in a locker\" now says for each order whether its parcel is still in its box (and which), or was picked up or taken out, and when. Before, a collected order sat in that tab with nothing to show it had left."
+  ],
+  "check": "Open the tab \"Put in a locker\" on a locker's Overview: a collected order reads \"Picked up\" with the time."
+ },
+ {
+  "component": "backend",
   "version": "6.145.0",
   "date": "2026-11-27",
   "title": "Lockers: take over the parcels already in a locker",
