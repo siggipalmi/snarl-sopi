@@ -1054,6 +1054,7 @@ select.fi{cursor:pointer;}
             <div class="tabs" id="whatsnew-tabs">
               <div class="tab active" data-app="coil"    onclick="setWhatsNewTab('coil', this)" data-i18n="dash.wn.coil">coil app</div>
               <div class="tab"        data-app="fridge"  onclick="setWhatsNewTab('fridge', this)" data-i18n="dash.wn.fridge">fridge app</div>
+              <div class="tab"        data-app="locker"  onclick="setWhatsNewTab('locker', this)" data-i18n="dash.wn.locker" id="whatsnew-tab-locker" style="display:none">locker app</div>
               <div class="tab ag-only" data-app="backend" onclick="setWhatsNewTab('backend', this)" data-i18n="dash.wn.backend">backend</div>
             </div>
           </div>
@@ -2610,7 +2611,7 @@ const I18N = {
     'dash.restockDue':'restock due.','dash.tryNewLayout':'Try the new layout →',
     'dash.sum.revenueTrends':'revenue & trends','dash.sum.machinePerformance':'machine performance',
     'dash.sum.soldOut':'currently sold out',
-    'dash.sum.whatsNew':"what's new",'dash.whatsNew':"what's new.",'dash.wn.on':'on {n} of {m} machines','dash.wn.none':'on no machine yet','dash.wn.superseded':'superseded','dash.wn.published':'published','dash.wn.live':'live','dash.wn.canary':'canary','dash.wn.all':'all machines','dash.wn.rolloutOff':'rollout off','dash.wn.check':'to check:','dash.wn.empty':'no notes yet.','dash.wn.coil':'coil app','dash.wn.fridge':'fridge app','dash.wn.backend':'backend',
+    'dash.sum.whatsNew':"what's new",'dash.whatsNew':"what's new.",'dash.wn.on':'on {n} of {m} machines','dash.wn.none':'on no machine yet','dash.wn.superseded':'superseded','dash.wn.published':'published','dash.wn.live':'live','dash.wn.canary':'canary','dash.wn.all':'all machines','dash.wn.rolloutOff':'rollout off','dash.wn.check':'to check:','dash.wn.empty':'no notes yet.','dash.wn.coil':'coil app','dash.wn.fridge':'fridge app','dash.wn.locker':'locker app','dash.wn.backend':'backend',
     'dash.neverRestocked':'never restocked','dash.pctFull':'{n}% full','dash.soldOutN':'{n} sold out',
     'dash.nothingDue':'Nothing due — the fleet is stocked.',
     'dash.peakDay':'peak day','dash.avgPerDay':'avg / day','dash.totalOrders':'total · {n} orders',
@@ -3217,7 +3218,7 @@ const I18N = {
     'dash.restockDue':'áfylling.','dash.tryNewLayout':'Prófa nýja útlitið →',
     'dash.sum.revenueTrends':'tekjur og þróun','dash.sum.machinePerformance':'frammistaða véla',
     'dash.sum.soldOut':'uppselt núna',
-    'dash.sum.whatsNew':'nýtt í kerfinu','dash.whatsNew':'nýtt í kerfinu.','dash.wn.on':'á {n} af {m} vélum','dash.wn.none':'á engri vél enn','dash.wn.superseded':'úrelt','dash.wn.published':'gefin út','dash.wn.live':'í keyrslu','dash.wn.canary':'prufuvél','dash.wn.all':'allar vélar','dash.wn.rolloutOff':'dreifing slökkt','dash.wn.check':'athuga:','dash.wn.empty':'engar færslur enn.','dash.wn.coil':'sjálfsalaforrit','dash.wn.fridge':'kæliforrit','dash.wn.backend':'bakendi',
+    'dash.sum.whatsNew':'nýtt í kerfinu','dash.whatsNew':'nýtt í kerfinu.','dash.wn.on':'á {n} af {m} vélum','dash.wn.none':'á engri vél enn','dash.wn.superseded':'úrelt','dash.wn.published':'gefin út','dash.wn.live':'í keyrslu','dash.wn.canary':'prufuvél','dash.wn.all':'allar vélar','dash.wn.rolloutOff':'dreifing slökkt','dash.wn.check':'athuga:','dash.wn.empty':'engar færslur enn.','dash.wn.coil':'sjálfsalaforrit','dash.wn.fridge':'kæliforrit','dash.wn.locker':'skápaapp','dash.wn.backend':'bakendi',
     'dash.neverRestocked':'aldrei fyllt á','dash.pctFull':'{n}% fullt','dash.soldOutN':'{n} uppseld',
     'dash.nothingDue':'Ekkert í bið — flotinn er fullur.',
     'dash.peakDay':'besti dagur','dash.avgPerDay':'meðaltal á dag','dash.totalOrders':'samtals · {n} afgreiðslur',
@@ -5241,6 +5242,9 @@ async function renderWhatsNew(force) {
     }
   }
   const d = _whatsNewData || { entries: [], live: null };
+  // The locker tab is for those who have a locker.
+  const lkTab = document.getElementById('whatsnew-tab-locker');
+  if (lkTab) lkTab.style.display = d.live && d.live.locker && d.live.locker.total > 0 ? '' : 'none';
   const list = (d.entries || []).filter(e => e.component === _whatsNewTab)
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (Number(b.versionCode) || 0) - (Number(a.versionCode) || 0) || String(b.version).localeCompare(String(a.version), undefined, { numeric: true }));
   el.innerHTML = list.length ? list.map(e => wnEntryHtml(e, d.live)).join('')
@@ -14463,10 +14467,10 @@ async function renderAppUpdates() {
   if (!el) return;
   if (!backendOnline || !API_TOKEN) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Backend offline.</div>'; return; }
   el.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
-  let rel = null, relFridge = null, list = [];
+  let rel = null, relFridge = null, relLocker = null, list = [];
   try {
     const r = await API.get('/api/v1/app-release');
-    if (r && r.ok && r.data) { rel = r.data.release; relFridge = r.data.releaseFridge || null; list = r.data.machines || []; }
+    if (r && r.ok && r.data) { rel = r.data.release; relFridge = r.data.releaseFridge || null; relLocker = r.data.releaseLocker || null; list = r.data.machines || []; }
   } catch (e) { el.innerHTML = '<div style="color:var(--alert);font-size:12px">Error: ' + rsEsc(e.message) + '</div>'; return; }
 
   // Current release per app line. The fridge line used to have no card here at all, so what the
@@ -14480,7 +14484,7 @@ async function renderAppUpdates() {
     window._appCohort[app] = rel.cohort.slice();
     const name = code => { const m = list.find(x => x.deviceCode === code); return m ? (m.deviceName || code) : code; };
     const inList = rel.cohort.map(c => `<span class="pill pill-out" title="${rsEsc(c)}">${rsEsc(name(c))}</span>`).join(' ');
-    const others = list.filter(m => !rel.cohort.includes(m.deviceCode));
+    const others = list.filter(m => m.app === app && !rel.cohort.includes(m.deviceCode));
     const opts = others.map(m => `<option value="${rsEsc(m.deviceCode)}">${rsEsc(m.deviceName || m.deviceCode)} · ${rsEsc(m.deviceCode)}</option>`).join('');
     return `<div style="margin-top:8px;font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="color:var(--muted)">canary:</span> ${inList}
@@ -14510,11 +14514,12 @@ async function renderAppUpdates() {
     </div>`;
   };
   const relCoil = rel;
-  const cur = releaseCard(rel, 'coil', 'Coil kiosk') + releaseCard(relFridge, 'fridge', 'Fridge');
+  const hasLockers = list.some(m => m.app === 'locker');
+  const cur = releaseCard(rel, 'coil', 'Coil kiosk') + releaseCard(relFridge, 'fridge', 'Fridge') + (hasLockers || relLocker ? releaseCard(relLocker, 'locker', 'Parcel locker') : '');
 
   // publish form
   const machineCheckboxes = list.map(m =>
-    `<label style="display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px;cursor:pointer">
+    `<label class="ota-cm-row" data-app="${rsEsc(m.app || '')}" style="display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px;cursor:pointer">
       <input type="checkbox" class="ota-cm" value="${rsEsc(m.deviceCode)}">
       <span>${rsEsc(m.deviceName || m.deviceCode)} <span style="color:var(--muted);font-family:var(--mono)">${rsEsc(m.deviceCode)}</span></span>
     </label>`).join('');
@@ -14525,8 +14530,9 @@ async function renderAppUpdates() {
     <div id="ota-latest"></div>
     <div class="field"><div class="fl">app <span style="color:var(--muted);font-weight:400">· which build line</span></div>
       <div style="display:flex;gap:16px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="coil" checked>coil kiosk</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="fridge">fridge</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="coil" checked onchange="otaAppChanged()">coil kiosk</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="fridge" onchange="otaAppChanged()">fridge</label>
+        ${hasLockers ? '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="ota-app" value="locker" onchange="otaAppChanged()">parcel locker</label>' : ''}
       </div>
     </div>
     <div class="g2">
@@ -14548,7 +14554,7 @@ async function renderAppUpdates() {
   const rows = list.slice().sort((a, b) => (a.deviceName || '').localeCompare(b.deviceName || '')).map(m => {
     // Each machine against its OWN line's release — a fridge measured against the coil build reads
     // as "behind" or "up to date" for reasons that have nothing to do with it.
-    const rel = m.app === 'fridge' ? relFridge : relCoil;
+    const rel = m.app === 'fridge' ? relFridge : m.app === 'locker' ? relLocker : relCoil;
     const target = rel ? rel.targetVersionCode : null;                                // for the rejected-badge history
     const healthyTarget = (rel && rel.rolloutEnabled) ? rel.targetVersionCode : null; // "behind" only counts a healthy, rolling build
     let st;
@@ -14578,6 +14584,18 @@ async function renderAppUpdates() {
     </table></div>`;
 
   el.innerHTML = cur + form + table;
+  otaAppChanged();
+}
+// The canary list offers only the machines on the line being published: ticking a fridge for a
+// locker build would publish to a machine that can never take it.
+function otaAppChanged() {
+  const app = (document.querySelector('input[name="ota-app"]:checked') || {}).value || 'coil';
+  document.querySelectorAll('.ota-cm-row').forEach(row => {
+    const on = row.getAttribute('data-app') === app;
+    row.style.display = on ? 'flex' : 'none';
+    if (!on) { const c = row.querySelector('.ota-cm'); if (c) c.checked = false; }
+  });
+  const box = document.getElementById('ota-latest'); if (box) box.innerHTML = '';
 }
 
 async function publishAppUpdate() {
@@ -14616,7 +14634,7 @@ async function publishAppUpdate() {
 async function loadLatestBuild() {
   const btn = document.getElementById('ota-load-latest');
   const box = document.getElementById('ota-latest');
-  const app = ((document.querySelector('input[name="ota-app"]:checked') || {}).value === 'fridge') ? 'fridge' : 'coil';
+  const app = (document.querySelector('input[name="ota-app"]:checked') || {}).value || 'coil';
   if (btn) { btn.disabled = true; btn.textContent = 'loading…'; }
   try {
     const r = await API.get('/api/v1/app-release/latest-build?app=' + app);
@@ -14649,7 +14667,7 @@ async function loadLatestBuild() {
 async function widenAppRelease(app) {
   if (!confirm('Roll the current ' + app + ' release out to ALL machines?\n\nMachines on a lower version will silently update on their next check (≤30 min).')) return;
   try {
-    const r = await API.post('/api/v1/app-release/cohort', { app: app === 'fridge' ? 'fridge' : 'coil', cohort: 'all' });
+    const r = await API.post('/api/v1/app-release/cohort', { app: app, cohort: 'all' });
     if (r && r.ok) { showToast('Rolling out to all machines'); renderAppUpdates(); }
     else showToast('failed: ' + ((r && r.error) || 'unknown'));
   } catch (e) { showToast('error: ' + e.message); }
@@ -14662,7 +14680,7 @@ async function addToAppCohort(app) {
   const current = (window._appCohort && window._appCohort[app]) || [];
   if (!confirm('Add ' + code + ' to the current ' + app + ' release?\n\nIt will silently update on its next check (≤30 min, or send check_update).')) return;
   try {
-    const r = await API.post('/api/v1/app-release/cohort', { app: app === 'fridge' ? 'fridge' : 'coil', cohort: current.concat([code]) });
+    const r = await API.post('/api/v1/app-release/cohort', { app: app, cohort: current.concat([code]) });
     if (r && r.ok) { showToast(code + ' added to the canary'); renderAppUpdates(); }
     else showToast('failed: ' + ((r && r.error) || 'unknown'));
   } catch (e) { showToast('error: ' + e.message); }
@@ -14671,7 +14689,7 @@ async function addToAppCohort(app) {
 async function haltAppRollout(on, app) {
   if (!on && !confirm('Halt the rollout?\n\nMachines that haven’t updated yet will stop pulling this build. Machines already updated stay as they are (Android can’t downgrade).')) return;
   try {
-    const r = await API.post('/api/v1/app-release/rollout', { on: !!on, app: app === 'fridge' ? 'fridge' : 'coil' });
+    const r = await API.post('/api/v1/app-release/rollout', { on: !!on, app: app });
     if (r && r.ok) { showToast(on ? 'Rollout resumed' : 'Rollout halted'); renderAppUpdates(); }
     else showToast('failed: ' + ((r && r.error) || 'unknown'));
   } catch (e) { showToast('error: ' + e.message); }
