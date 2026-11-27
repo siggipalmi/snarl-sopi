@@ -581,6 +581,75 @@ const finishDeposit = db.transaction((machine, parcelId, input, now = Date.now()
   return { ok: true, parcelId: p.id, state: 'stored', sms: 'pending' };
 });
 
+// ── Parcels that were in the locker before it came to this backend ───────────────────────────
+
+/**
+ * Records parcels a locker already holds, each in its box with the pickup code its customer
+ * was sent by the system that ran the locker before (src/lockerImport.js reads that system's
+ * list). Nothing is sent to anyone. All or nothing: with one row that cannot be taken, none
+ * are, and the answer says which and why. `dryRun` checks without recording.
+ *
+ * rows: [{ line, box:{board,lock}, label, orderNumber, phone, code, storedAt (ms) }]
+ */
+const importStored = db.transaction((machine, rows, actor, { dryRun, source } = {}, now = Date.now()) => {
+  const boxes = boxesOf(machine);
+  if (!boxes.length) return fail(409, 'no_boxes', 'This locker has no box list yet.');
+  const busy = new Map(q.activeAtDevice.all(machine.deviceCode).map(p => [p.boxN, p]));
+  const seenBox = new Set(), seenCode = new Set(), seenOrder = new Set();
+  const out = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const res = { line: row.line, box: row.label || '', boxN: null, orderNumber: '', storedAt: null, problem: null };
+    const box = row.box && boxes.find(b => b.board === row.box.board && b.lock === row.box.lock);
+    const orderNumber = normalizeOrderNumber(row.orderNumber);
+    const phone = normalizePhone(row.phone);
+    const code = String(row.code == null ? '' : row.code).trim();
+    const storedAt = Number.isFinite(row.storedAt) && row.storedAt <= now ? row.storedAt : null;
+    res.orderNumber = orderNumber || ''; res.boxN = box ? box.n : null; res.storedAt = storedAt == null ? null : iso(storedAt);
+    const existing = orderNumber ? q.orderByNumber.get(machine.operatorId, orderNumber) : null;
+    if (!box) res.problem = 'no_such_box';
+    else if (seenBox.has(box.n)) res.problem = 'box_twice';
+    else if (busy.has(box.n)) res.problem = 'box_in_use';
+    else if (!orderNumber) res.problem = 'no_order_number';
+    else if (seenOrder.has(orderNumber.toLowerCase())) res.problem = 'order_twice';
+    else if (existing && q.activeForOrder.get(existing.id)) res.problem = 'order_in_a_locker';
+    else if (existing && existing.status === 'deposited') res.problem = 'order_used';
+    else if (!phone) res.problem = 'bad_phone';
+    else if (!/^\d{6}$/.test(code)) res.problem = 'bad_code';
+    else if (seenCode.has(code) || q.storedByCode.get(machine.deviceCode, code)) res.problem = 'code_twice';
+    else if (storedAt == null) res.problem = 'bad_time';
+    if (box) seenBox.add(box.n);
+    if (orderNumber) seenOrder.add(orderNumber.toLowerCase());
+    seenCode.add(code);
+    out.push({ res, box, orderNumber, phone, code, storedAt, existing });
+  }
+  const problems = out.filter(x => x.res.problem).length;
+  const answer = { ok: true, dryRun: !!dryRun, total: out.length, problems, imported: 0, rows: out.map(x => x.res) };
+  if (!out.length || problems || dryRun) return answer;
+  for (const x of out) {
+    // The order is marked as in a locker, so staff cannot deposit it a second time and the
+    // shop's later news about it changes nothing.
+    let orderId = x.existing ? x.existing.id : null;
+    if (x.existing) { if (x.existing.status !== 'deposited') q.setOrderStatus.run('deposited', iso(now), orderId); }
+    else {
+      orderId = q.insertOrder.run(machine.operatorId, x.orderNumber, x.phone, '', 'import', 0, iso(x.storedAt), iso(now)).lastInsertRowid;
+      q.setOrderStatus.run('deposited', iso(now), orderId);
+    }
+    const o = q.orderById.get(orderId);
+    const id = 'pcl_' + crypto.randomBytes(8).toString('hex');
+    let token = newToken();
+    for (let i = 0; i < 5 && q.byToken.get(token); i++) token = newToken();
+    q.insertParcel.run(id, machine.deviceCode, machine.operatorId, x.box.n, orderId, x.orderNumber, x.phone, o.firstName || '', iso(x.storedAt));
+    q.storeParcel.run(x.code, token, iso(x.storedAt), id);
+    q.setNotified.run(iso(x.storedAt), id);
+    event(machine.deviceCode, id, x.box.n, 'imported', actor || 'operator', source || null, now);
+    // One waiting more than two days was reminded by the system that ran the locker; a second
+    // reminder from here would be one too many. Younger ones get ours when their time comes.
+    if (now - x.storedAt >= 48 * 3600000) event(machine.deviceCode, id, x.box.n, 'reminder_attempted', 'import', 'left to the previous system', now);
+  }
+  answer.imported = out.length;
+  return answer;
+});
+
 // ── Pickup (the locker) ───────────────────────────────────────────────────────────────────────
 
 /**
@@ -843,7 +912,7 @@ module.exports = {
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels, parcelLog,
   registerOrder, listOrders, orderCounts, cancelOrder, withdrawOrderByNumber,
-  storePhoto, viewPhoto, PHOTO_MAX_BYTES, offlineList, reportDoors, doorState, DOORS_FRESH_MS, DOOR_OPEN_TOO_LONG_MS, lookupForDeposit, startDeposit, finishDeposit, depositSms, startPickup, finishPickup,
+  storePhoto, viewPhoto, PHOTO_MAX_BYTES, offlineList, reportDoors, doorState, DOORS_FRESH_MS, DOOR_OPEN_TOO_LONG_MS, lookupForDeposit, startDeposit, finishDeposit, depositSms, importStored, startPickup, finishPickup,
   markCollected, clearParcel, setBoxService,
   // For the SMS and the pickup page, which are built on this next. Never sent to the dashboard.
   _secretsOf(parcelId) { const p = q.parcelById.get(String(parcelId)); return p ? { code: p.code, token: p.token } : null; },

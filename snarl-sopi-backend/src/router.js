@@ -46,6 +46,7 @@ const lockerRecords = require('./lockers');
 const parcels = require('./parcels');
 const lockerSms = require('./lockerSms');
 const lockerShops = require('./lockerShops');
+const lockerImport = require('./lockerImport');
 
 // Which app a machine runs, for release lines and version counts. A parcel locker is told by its
 // model family (LK-*, machineModels.js). For everything else the long-standing rule stands
@@ -254,6 +255,8 @@ const routes = [
   { method:'DELETE', pattern:'/api/v1/operators/:operatorId/locker-shops/:id',          handler: handleLockerShopRemove,    middleware:[requireAuth, requireOperatorAccess, requireOperatorAdmin] },
   { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrders,        middleware:[requireAuth, requireMachineAccess] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders',                handler: handleLockerOrderAdd,      middleware:[requireAuth, requireMachineAccess] },
+  // Taking over a locker already in use: its parcels, with the codes their customers hold. AG only.
+  { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/import',                handler: handleLockerImport,        middleware:[requireAuth, requireAgAdmin] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/orders/:id/cancel',     handler: handleLockerOrderCancel,   middleware:[requireAuth, requireMachineAccess] },
   // ...and the locker's own, with its machine key:
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/lookup',        handler: handleLockerDepositLookup, middleware:[requireMachineKey] },
@@ -5360,6 +5363,15 @@ function handleLockerOrderAdd(req, res) {
   const b = req.body || {};
   const r = parcels.registerOrder(m.operatorId, { orderNumber: b.orderNumber, phone: b.phone, firstName: b.firstName, source: 'manual' });
   parcelAnswer(res, r, r.ok ? { order: lockerOrderForDashboard(r.order), created: r.created, unchanged: !!r.unchanged } : undefined);
+}
+// POST …/locker/import { csv, dryRun } — the previous system's list of parcels in the locker.
+// With dryRun it only checks. The answer and the log name boxes and orders, never numbers or codes.
+function handleLockerImport(req, res) {
+  const m = lockerMachineOr404(req, res); if (!m) return;
+  const b = req.body || {};
+  const r = lockerImport.importMinnoExport(m, b.csv, lockerWho(req), { dryRun: b.dryRun !== false });
+  if (r.ok && r.imported) console.log(`[LOCKER] ${lockerWho(req)} imported ${r.imported} parcels already in ${m.deviceCode}`);
+  parcelAnswer(res, r);
 }
 function handleLockerOrderCancel(req, res) {
   const m = lockerMachineOr404(req, res); if (!m) return;

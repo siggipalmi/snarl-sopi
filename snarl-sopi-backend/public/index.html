@@ -1192,6 +1192,17 @@ select.fi{cursor:pointer;}
             <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.45" data-i18n="od.foot">Withdraw an order that will not be delivered through a locker. An order still expected after 90 days is withdrawn by itself.</div>
           </div>
         </div>
+        <div class="panel" id="im-panel" style="margin-bottom:16px;display:none">
+          <div class="ph"><div class="ph-title" data-i18n="im.title">parcels already in the locker.</div></div>
+          <div style="padding:14px 18px 18px">
+            <div style="font-size:12.5px;line-height:1.5;max-width:760px;margin-bottom:12px" data-i18n="im.intro">For a locker that comes to us with parcels in it. Choose the list of stored parcels exported from MINNO. Each parcel is put in its box with the pickup code its customer already has. No SMS is sent.</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <input type="file" id="im-file" accept=".xls,.csv,.txt,text/csv" aria-label="MINNO export" style="font-size:12.5px;max-width:100%">
+              <button class="btn btn-sm" id="im-check" onclick="imRun(true)"><span data-i18n="im.check">check the file</span></button>
+            </div>
+            <div id="im-result" style="margin-top:12px"></div>
+          </div>
+        </div>
         <div class="panel" style="margin-bottom:16px">
           <div class="ph"><div class="ph-title" data-i18n="sh.title">web shop.</div><div class="ph-action" onclick="shLoad()" data-i18n="bx.refresh">refresh</div></div>
           <div style="padding:14px 18px 18px">
@@ -2768,6 +2779,35 @@ const I18N = {
     'bx.ev.deposit_started':'Order scanned at the locker, box opened',
     'bx.ev.deposit_resumed':'Order scanned again, same box reopened',
     'bx.ev.deposit_cancelled':'Deposit given up',
+    'im.title':'parcels already in the locker.',
+    'im.intro':'For a locker that comes to us with parcels in it. Choose the list of stored parcels exported from MINNO. Each parcel is put in its box with the pickup code its customer already has. No SMS is sent.',
+    'im.check':'check the file',
+    'im.nofile':'Choose the exported file first',
+    'im.q':'Record these parcels as stored in this locker? Do this at the moment the locker changes over to our app, not before.',
+    'im.done':'{n} parcels recorded as stored',
+    'im.sum.ok':'{n} parcels in the file, all can be taken. Nothing is recorded yet.',
+    'im.sum.bad':'{n} parcels in the file, {bad} cannot be taken. Nothing is recorded.',
+    'im.other':'The file names another locker ({ids}). Check it is the right file.',
+    'im.status':'{n} rows are not marked "Stored & Not-collected" in the file.',
+    'im.col.box':'Box',
+    'im.col.order':'Order',
+    'im.col.since':'In the box since',
+    'im.col.state':'Check',
+    'im.ok':'ready',
+    'im.go':'record {n} parcels',
+    'im.fix':'Correct the file, or free the boxes named, and check it again. Nothing is taken until every row is right.',
+    'im.p.no_such_box':'no such box in this locker',
+    'im.p.box_twice':'the box is in the file twice',
+    'im.p.box_in_use':'the box already holds a parcel here',
+    'im.p.no_order_number':'no order number',
+    'im.p.order_twice':'the order is in the file twice',
+    'im.p.order_in_a_locker':'the order is already in a locker',
+    'im.p.order_used':'the order has already been through a locker',
+    'im.p.bad_phone':'no usable mobile number',
+    'im.p.bad_code':'the pickup code is not six digits',
+    'im.p.code_twice':'the pickup code is used twice',
+    'im.p.bad_time':'no usable deposit time',
+    'bx.ev.imported':'Was in the locker when it came to us, recorded with its code',
     'bx.ev.stored':'Door closed, parcel stored',
     'bx.ev.pickup_started':'Code accepted, door opening',
     'bx.ev.door_did_not_open':'The door did not open',
@@ -3342,6 +3382,35 @@ const I18N = {
     'bx.ev.deposit_started':'Pöntun skönnuð við skápinn, hólf opnað',
     'bx.ev.deposit_resumed':'Pöntun skönnuð aftur, sama hólf opnað',
     'bx.ev.deposit_cancelled':'Hætt við að setja í',
+    'im.title':'sendingar sem eru þegar í skápnum.',
+    'im.intro':'Fyrir skáp sem kemur til okkar með sendingar í. Veldu listann yfir geymdar sendingar sem fluttur var út úr MINNO. Hver sending er sett í sitt hólf með kóðanum sem viðskiptavinurinn hefur þegar fengið. Ekkert SMS er sent.',
+    'im.check':'yfirfara skrána',
+    'im.nofile':'Veldu fyrst skrána sem flutt var út',
+    'im.q':'Skrá þessar sendingar sem geymdar í þessum skáp? Gerðu þetta um leið og skápurinn skiptir yfir í appið okkar, ekki fyrr.',
+    'im.done':'{n} sendingar skráðar sem geymdar',
+    'im.sum.ok':'{n} sendingar í skránni, allar má taka. Ekkert hefur verið skráð enn.',
+    'im.sum.bad':'{n} sendingar í skránni, {bad} er ekki hægt að taka. Ekkert er skráð.',
+    'im.other':'Skráin nefnir annan skáp ({ids}). Athugaðu að þetta sé rétt skrá.',
+    'im.status':'{n} línur eru ekki merktar „Stored & Not-collected“ í skránni.',
+    'im.col.box':'Hólf',
+    'im.col.order':'Pöntun',
+    'im.col.since':'Í hólfinu síðan',
+    'im.col.state':'Athugun',
+    'im.ok':'tilbúið',
+    'im.go':'skrá {n} sendingar',
+    'im.fix':'Lagaðu skrána, eða tæmdu hólfin sem nefnd eru, og yfirfarðu aftur. Ekkert er tekið fyrr en allar línur eru réttar.',
+    'im.p.no_such_box':'ekkert slíkt hólf í þessum skáp',
+    'im.p.box_twice':'hólfið er tvisvar í skránni',
+    'im.p.box_in_use':'hólfið geymir þegar sendingu hér',
+    'im.p.no_order_number':'ekkert pöntunarnúmer',
+    'im.p.order_twice':'pöntunin er tvisvar í skránni',
+    'im.p.order_in_a_locker':'pöntunin er þegar í skáp',
+    'im.p.order_used':'pöntunin hefur þegar farið í gegnum skáp',
+    'im.p.bad_phone':'ekkert nothæft farsímanúmer',
+    'im.p.bad_code':'kóðinn er ekki sex tölustafir',
+    'im.p.code_twice':'kóðinn er notaður tvisvar',
+    'im.p.bad_time':'enginn nothæfur innlagnartími',
+    'bx.ev.imported':'Var í skápnum þegar hann kom til okkar, skráð með sínum kóða',
     'bx.ev.stored':'Hurð lokað, sending geymd',
     'bx.ev.pickup_started':'Kóði samþykktur, hurð opnast',
     'bx.ev.door_did_not_open':'Hurðin opnaðist ekki',
@@ -9032,6 +9101,7 @@ async function renderLockerBoxView(code, keep) {
   bxLoadEvents();
   odLoad();
   shLoad();
+  imReset();
 }
 
 // The operator's web shop connections: the shop posts its order webhook to an address made here,
@@ -9175,6 +9245,48 @@ function odRender() {
         '<td style="padding:5px 0;text-align:right">' + (o.status === 'expected'
           ? '<button class="btn btn-sm btn-ghost" aria-label="' + rsEsc(t('od.withdraw') + ' ' + o.orderNumber) + '" onclick="odWithdraw(' + Number(o.id) + ')"><span>' + rsEsc(t('od.withdraw')) + '</span></button>' : '') + '</td></tr>';
     }).join('') + '</table>';
+}
+// ── Parcels already in a locker when it comes to us (AG only) ──
+var _imCsv = null;
+function imReset() {
+  var p = document.getElementById('im-panel'); if (p) p.style.display = currentUser && currentUser.role === 'ag_admin' ? '' : 'none';
+  _imCsv = null;
+  var f = document.getElementById('im-file'); if (f) f.value = '';
+  var r = document.getElementById('im-result'); if (r) r.innerHTML = '';
+}
+async function imRun(dryRun) {
+  if (dryRun) {
+    var f = document.getElementById('im-file');
+    if (!f || !f.files || !f.files[0]) { showToast(t('im.nofile')); return; }
+    try { _imCsv = await f.files[0].text(); } catch (e) { _imCsv = null; }
+  }
+  if (!_imCsv) { showToast(t('im.nofile')); return; }
+  if (!dryRun && !confirm(t('im.q'))) return;
+  var r = await bxPost('import', { csv: _imCsv, dryRun: !!dryRun });
+  if (!r || !r.data) return;
+  imRender(r.data);
+  if (!dryRun && r.data.imported) { showToast(tv('im.done', { n: r.data.imported })); _imCsv = null; renderLockerBoxView(_mdDeviceCode, true); }
+}
+function imRender(d) {
+  var el = document.getElementById('im-result'); if (!el) return;
+  var th = function (k) { return '<th style="padding:6px 12px 6px 0;font-weight:500">' + rsEsc(t(k)) + '</th>'; };
+  var h = '';
+  if (d.imported) h += '<div style="font-size:13px;font-weight:700;margin-bottom:8px">' + rsEsc(tv('im.done', { n: d.imported })) + '</div>';
+  else h += '<div style="font-size:13px;font-weight:700;margin-bottom:8px">' + rsEsc(tv(d.problems ? 'im.sum.bad' : 'im.sum.ok', { n: d.total, bad: d.problems })) + '</div>';
+  if (d.otherDevices && d.otherDevices.length) h += '<div style="font-size:12.5px;color:var(--bad,#b3261e);margin-bottom:8px">' + rsEsc(tv('im.other', { ids: d.otherDevices.join(', ') })) + '</div>';
+  if (d.notStoredStatus) h += '<div style="font-size:12.5px;color:var(--bad,#b3261e);margin-bottom:8px">' + rsEsc(tv('im.status', { n: d.notStoredStatus })) + '</div>';
+  h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;width:100%;min-width:420px">' +
+    '<tr style="text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">' + th('im.col.box') + th('im.col.order') + th('im.col.since') + th('im.col.state') + '</tr>' +
+    (d.rows || []).map(function (x) {
+      return '<tr style="border-top:1px solid var(--cream-deep)"><td style="padding:6px 12px 6px 0;font-weight:700">' + rsEsc(x.box || '—') + (x.boxN ? ' <span style="font-weight:400;color:var(--muted)">· ' + Number(x.boxN) + '</span>' : '') + '</td>' +
+        '<td style="padding:6px 12px 6px 0">' + rsEsc(x.orderNumber || '—') + '</td>' +
+        '<td style="padding:6px 12px 6px 0;color:var(--muted)">' + rsEsc(bxWhen(x.storedAt) || '—') + '</td>' +
+        '<td style="padding:6px 0;' + (x.problem ? 'font-weight:700' : 'color:var(--muted)') + '">' + rsEsc(t(x.problem ? 'im.p.' + x.problem : 'im.ok')) + '</td></tr>';
+    }).join('') + '</table></div>';
+  if (!d.imported && !d.problems && d.total && !(d.otherDevices && d.otherDevices.length)) {
+    h += '<div style="margin-top:12px"><button class="btn btn-sm" onclick="imRun(false)"><span>' + rsEsc(tv('im.go', { n: d.total })) + '</span></button></div>';
+  } else if (d.problems) h += '<div style="font-size:12px;color:var(--muted);margin-top:10px">' + rsEsc(t('im.fix')) + '</div>';
+  el.innerHTML = h;
 }
 async function odAdd() {
   var body = { orderNumber: lkVal('od-number'), phone: lkVal('od-phone'), firstName: lkVal('od-name') };
