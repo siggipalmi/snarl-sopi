@@ -465,8 +465,18 @@ function registerOrder(operatorId, input, now = Date.now()) {
 
 function listOrders(operatorId, { status, limit } = {}) {
   const st = status ? String(status) : null;
-  return q.listOrders.all(operatorId, st, st, Math.max(1, Math.min(500, Number(limit) || 100))).map(orderView);
+  return q.listOrders.all(operatorId, st, st, Math.max(1, Math.min(500, Number(limit) || 100))).map(o => {
+    const v = orderView(o);
+    // "Put in a locker" is true of an order for good; where its parcel is now is the parcel's story.
+    if (o.status === 'deposited') {
+      const p = lastParcelOfOrder.get(o.id);
+      v.parcel = p ? { state: p.state, boxN: p.boxN, deviceCode: p.deviceCode, storedAt: p.storedAt, endedAt: p.endedAt } : null;
+    }
+    return v;
+  });
 }
+const lastParcelOfOrder = db.prepare(`SELECT state, boxN, deviceCode, storedAt, endedAt FROM locker_parcels WHERE orderId = ? AND state != 'cancelled'
+                                      ORDER BY createdAt DESC, rowid DESC LIMIT 1`);
 
 /** How many of an operator's orders are in each status: { expected, deposited, cancelled }. */
 function orderCounts(operatorId) {
