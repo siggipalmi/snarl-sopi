@@ -40,6 +40,20 @@
  },
  {
   "component": "backend",
+  "version": "6.147.0",
+  "date": "2026-11-27",
+  "title": "Lockers: app updates over the air",
+  "notes": [
+   "Fleet → Releases has a third line, Parcel locker: publish a build, canary on chosen lockers, halt, and roll out to all, as for coil and fridge. A locker app that checks for updates is offered its own line's build and never another app's.",
+   "\"Load latest build\" works for lockers. Their builds are in a private repository, so the backend needs a read-only token for it (LOCKER_RELEASES_TOKEN in Railway); without one the button says so.",
+   "The canary list in the publish form now shows only machines on the line being published.",
+   "\"What's new\" has a locker app tab for those who have a locker.",
+   "An app line the backend does not know is refused; before, an unknown line's APK address answered with the coil app's."
+  ],
+  "check": "Fleet → Releases: choose parcel locker, press load latest build, publish to the test locker only, and watch its version in the fleet table."
+ },
+ {
+  "component": "backend",
   "version": "6.146.0",
   "date": "2026-11-27",
   "title": "Lockers: a switch to send SMS without Icelandic letters",

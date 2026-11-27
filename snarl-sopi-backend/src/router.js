@@ -5723,12 +5723,35 @@ const APK_DIR = (process.env.APK_DIR) || (require('path').dirname(storage.dbPath
 // TLS chain it already trusts — not GitHub's, whose newer ISRG X2 root some older kiosk tablets
 // don't have; (2) a publish whose source URL 404s FAILS here, so an unusable release pointing at a
 // dead URL can never be stored (the gap we hit before). Only the current APK per app is kept.
+// The three app lines. Anything else is nobody's line: a typo must never fall through to coil.
+const APP_LINES = ['coil', 'fridge', 'locker'];
+const appLineParam = (v) => (APP_LINES.includes(v) ? v : null);
+
+// Where each line's builds are attached as GitHub releases. The locker app lives in its own
+// repository, which is private: listing its releases and downloading an asset both need a token
+// that can read it (LOCKER_RELEASES_TOKEN, else GITHUB_TOKEN if that one happens to cover it).
+const LOCKER_RELEASES_REPO = process.env.LOCKER_RELEASES_REPO || 'siggipalmi/ag-locker';
+const releasesRepoFor = (appKey) => (appKey === 'locker' ? LOCKER_RELEASES_REPO : (process.env.RELEASES_REPO || 'siggipalmi/snarl-sopi'));
+const releasesTokenFor = (appKey) => (appKey === 'locker' ? (process.env.LOCKER_RELEASES_TOKEN || process.env.GITHUB_TOKEN || '') : (process.env.GITHUB_TOKEN || ''));
+
+// A private repository's release asset is fetched through GitHub's API, with the token. The
+// token goes to that one address shape on api.github.com and nowhere else: GitHub answers with a
+// redirect to a signed storage link, and fetch drops the Authorization header when it follows it.
+function apkFetchOptions(url, appKey) {
+  const token = releasesTokenFor(appKey);
+  const privateAsset = new RegExp('^https://api\\.github\\.com/repos/' + releasesRepoFor(appKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/releases/assets/\\d+$');
+  if (appKey === 'locker' && privateAsset.test(String(url))) {
+    return { headers: { Accept: 'application/octet-stream', 'User-Agent': 'snarl-sopi-backend', ...(token ? { Authorization: 'Bearer ' + token } : {}) } };
+  }
+  return {};
+}
+
 async function fetchAndStoreApk(url, appKey) {
   const fs = require('fs'); const path = require('path');
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 90000);
   try {
-    const r = await fetch(url, { redirect: 'follow', signal: ctrl.signal });
+    const r = await fetch(url, { redirect: 'follow', signal: ctrl.signal, ...apkFetchOptions(url, appKey) });
     if (!r.ok) throw new Error('HTTP ' + r.status + ' fetching apkUrl');
     const buf = Buffer.from(await r.arrayBuffer());
     if (buf.length < 1024) throw new Error('apk suspiciously small (' + buf.length + ' bytes)');
@@ -5833,7 +5856,9 @@ function handleAppUpdate(req, res) {
 // means the machine uses the TLS chain it already trusts for every other call.
 function handleServeApk(req, res) {
   const fs = require('fs'); const path = require('path');
-  const appKey = (req.params.app === 'fridge') ? 'fridge' : 'coil';
+  // An unknown line used to be served the coil APK. It is nobody's.
+  const appKey = appLineParam(req.params.app);
+  if (!appKey) return notFound(res, 'No such app line');
   const file = path.join(APK_DIR, appKey + '.apk');
   if (!fs.existsSync(file)) return notFound(res, 'No APK stored for ' + appKey);
   const stat = fs.statSync(file);
@@ -5912,8 +5937,8 @@ async function handlePublishAppRelease(req, res) {
   //     (b.app === 'fridge') ? 'fridge' : 'coil'
   // so a typo, or the field going missing, silently published to the coil line.
   // Say it explicitly or not at all.
-  if (b.app != null && b.app !== 'fridge' && b.app !== 'coil') {
-    return badRequest(res, `app must be 'fridge' or 'coil' (got ${JSON.stringify(b.app)})`);
+  if (b.app != null && !appLineParam(b.app)) {
+    return badRequest(res, `app must be 'fridge', 'coil' or 'locker' (got ${JSON.stringify(b.app)})`);
   }
   const appKey = b.app || 'coil';
 
@@ -5929,6 +5954,15 @@ async function handlePublishAppRelease(req, res) {
   if (apkName) {
     const looksFridge = apkName.includes('fridge');
     const looksCoil = apkName.includes('coil');
+    const looksLocker = apkName.includes('locker');
+    if (appKey === 'locker' && (looksFridge || looksCoil) && !looksLocker) {
+      return badRequest(res, `Refusing to publish "${apkName}" to the locker line — that filename says ${looksFridge ? 'fridge' : 'coil'}. ` +
+        `Every locker would download that app. Check the release you picked.`);
+    }
+    if (appKey !== 'locker' && looksLocker) {
+      return badRequest(res, `Refusing to publish "${apkName}" to the ${appKey} line — that filename says locker. ` +
+        `Every ${appKey} machine would download the locker app. Check the release you picked.`);
+    }
     if (appKey === 'fridge' && looksCoil && !looksFridge) {
       return badRequest(res, `Refusing to publish "${apkName}" to the fridge line — that filename says coil. ` +
         `Every fridge would download the coil app. Check the release you picked.`);
@@ -5994,7 +6028,8 @@ async function handlePublishAppRelease(req, res) {
     // storage would install it and immediately 401 — hard-failed connection, site visit. Publish a
     // generic build with requiresStoredKey:true and the manifest will refuse to offer it to any
     // machine that hasn't confirmed keySource:'stored'.
-    requiresStoredKey: b.requiresStoredKey === true,
+    // A locker only ever holds a key from pairing, so the guard has nothing to guard there.
+    requiresStoredKey: appKey !== 'locker' && b.requiresStoredKey === true,
     app: appKey,
     publishedAt: new Date().toISOString(),
     publishedBy: (req.user && (req.user.name || req.user.email)) || null,
@@ -6033,7 +6068,9 @@ function handleRevertReport(req, res) {
 
 // POST halt/resume the rollout (ag-admin). body { on: bool, app?: 'coil'|'fridge' }
 function handleSetAppRollout(req, res) {
-  const appKey = (req.body && req.body.app === 'fridge') ? 'fridge' : 'coil';
+  const asked = req.body && req.body.app;
+  if (asked != null && !appLineParam(asked)) return badRequest(res, `app must be 'fridge', 'coil' or 'locker' (got ${JSON.stringify(asked)})`);
+  const appKey = asked || 'coil';
   const rel = storage.getAppRelease(appKey);
   if (!rel) return notFound(res, `No active ${appKey} release to halt`);
   rel.rolloutEnabled = !!(req.body && req.body.on === true);
@@ -6048,7 +6085,9 @@ function handleSetAppRollout(req, res) {
 // refuses to publish the same versionCode twice, so without this the only way from canary to fleet
 // was a version bump that changed nothing. Same APK, same sha256; only the cohort moves.
 function handleSetAppCohort(req, res) {
-  const appKey = (req.body && req.body.app === 'fridge') ? 'fridge' : 'coil';
+  const asked = req.body && req.body.app;
+  if (asked != null && !appLineParam(asked)) return badRequest(res, `app must be 'fridge', 'coil' or 'locker' (got ${JSON.stringify(asked)})`);
+  const appKey = asked || 'coil';
   const rel = storage.getAppRelease(appKey);
   if (!rel) return notFound(res, `No active ${appKey} release`);
   const c = req.body && req.body.cohort;
@@ -6074,14 +6113,23 @@ function handleSetAppCohort(req, res) {
 // but a hand-made `coil-v*` release with an APK and a versionCode reads exactly the same here.
 const RELEASES_REPO = process.env.RELEASES_REPO || 'siggipalmi/snarl-sopi';
 async function handleLatestBuild(req, res) {
-  const appKey = (req.query && req.query.app) === 'coil' ? 'coil' : 'fridge';
+  const appKey = appLineParam(req.query && req.query.app) || 'fridge';
+  const RELEASES_REPO = releasesRepoFor(appKey), token = releasesTokenFor(appKey);
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 15000);
   let list;
   try {
     const headers = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'snarl-sopi-backend' };
-    if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
+    if (token) headers.Authorization = 'Bearer ' + token;
     const r = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=50`, { headers, signal: ctrl.signal });
+    // The locker app's repository is private: without a token that can read it GitHub says 404
+    // (or 401 for a token it does not accept), which would otherwise read as "no such repository".
+    if (appKey === 'locker' && (r.status === 404 || r.status === 401 || r.status === 403) && r.headers.get('x-ratelimit-remaining') !== '0') {
+      console.warn(`[RELEASES] GitHub HTTP ${r.status} listing locker releases (LOCKER_RELEASES_TOKEN ${process.env.LOCKER_RELEASES_TOKEN ? 'set' : 'NOT set'})`);
+      return json(res, 424, { ok: false, error: `The backend cannot read the locker app's builds: ${RELEASES_REPO} is private and GitHub answered ${r.status}. ` +
+        (process.env.LOCKER_RELEASES_TOKEN ? 'LOCKER_RELEASES_TOKEN is set but GitHub does not accept it for that repository: check it has read access to Contents there and has not expired.'
+          : 'Set LOCKER_RELEASES_TOKEN in Railway: a fine-grained token with read-only access to Contents of that one repository.') });
+    }
     if (!r.ok) {
       // *** NOT 502. A 502 from us was replaced by the proxy's own error page, so the dashboard showed
       // "Backend may be restarting" instead of this (2026-10-23). 424: we're fine, GitHub said no.
@@ -6110,7 +6158,7 @@ async function handleLatestBuild(req, res) {
 // The prefix must stay anchored - coil's own early tags are bare `v0.74.3`, with no app in the
 // name, and must not be mistaken for either line.
 function latestAppBuild(releases, appKey) {
-  const prefix = (appKey === 'coil' ? 'coil' : 'fridge') + '-v';
+  const prefix = (appLineParam(appKey) || 'fridge') + '-v';
   let best = null;
   for (const rel of (Array.isArray(releases) ? releases : [])) {
     if (!rel || rel.draft || typeof rel.tag_name !== 'string' || !rel.tag_name.startsWith(prefix)) continue;
@@ -6122,7 +6170,10 @@ function latestAppBuild(releases, appKey) {
       app: appKey,
       versionCode: Number(m[1]),
       versionName: rel.tag_name.slice(prefix.length),
-      apkUrl: asset.browser_download_url,
+      // The locker's repository is private, where the browser link answers 404 to anyone not
+      // signed in; its asset is fetched through the API address instead (see apkFetchOptions).
+      apkUrl: appKey === 'locker' ? (asset.url || asset.browser_download_url) : asset.browser_download_url,
+      apkName: asset.name || null,
       tag: rel.tag_name,
       releaseUrl: rel.html_url || null,
       publishedAt: rel.published_at || null,
