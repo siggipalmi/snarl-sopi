@@ -40,6 +40,18 @@
  },
  {
   "component": "backend",
+  "version": "6.143.0",
+  "date": "2026-11-27",
+  "title": "Lockers: the deposit screen can show whether the SMS went out",
+  "notes": [
+   "A locker can ask how the customer's first SMS is doing after a parcel is stored, and is told one word: pending, sent, delivered or failed. It is never given the phone number or Twilio's error; the reason stays in the parcel's history in the dashboard.",
+   "The answer to a stored deposit carries the same word, so the screen has a state from the first moment.",
+   "Needs locker app 0.4.9 or newer to show on the screen; older apps are unaffected."
+  ],
+  "check": "Deposit a parcel on the test locker with app 0.4.9: the screen should go from sending to delivered within seconds."
+ },
+ {
+  "component": "backend",
   "version": "6.142.2",
   "date": "2026-11-26",
   "title": "Locker screen pictures: ask for 1280×800",

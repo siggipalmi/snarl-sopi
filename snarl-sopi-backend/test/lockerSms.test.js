@@ -331,3 +331,46 @@ test('every state of the pickup page ends with "Knúið áfram af", the logo and
   parcels.finishPickup(m, s.parcelId, { opened: true }, T0 + 9 * 3600000);
   assert.match((await lockerSms.pickupPage(p.token, machineOf)).html, footer);
 });
+
+test('the locker can ask how the first message is doing, and is told one word and nothing else', async () => {
+  const orderNumber = '6' + String(++seq).padStart(4, '0');
+  parcels.registerOrder(M.operatorId, { orderNumber, phone: '5550100', firstName: 'Anna' }, T0);
+  const s = parcels.startDeposit(M, { orderNumber, size: 'small' }, T0);
+  const fin = parcels.finishDeposit(M, s.parcelId, { outcome: 'stored' }, T0);
+  assert.equal(fin.sms, 'pending', 'the answer to stored already carries the state');
+  assert.deepEqual(parcels.depositSms(M, s.parcelId), { ok: true, sms: 'pending' });
+
+  const MessageSid = 'SMword' + orderNumber;
+  nextAnswer = { ok: true, sid: MessageSid, status: 'queued' };
+  await lockerSms.send(M, s.parcelId, 'first', 'backend', T0);
+  nextAnswer = null;
+  const report = (status, extra) => { const params = { MessageSid, MessageStatus: status, ...(extra || {}) }; lockerSms.handleReport(form(params), sign(params), T0 + 5000); };
+  assert.equal(parcels.depositSms(M, s.parcelId).sms, 'pending', 'accepted by Twilio is still pending');
+  report('sending'); assert.equal(parcels.depositSms(M, s.parcelId).sms, 'pending');
+  report('sent'); assert.equal(parcels.depositSms(M, s.parcelId).sms, 'sent');
+  report('delivered'); assert.equal(parcels.depositSms(M, s.parcelId).sms, 'delivered');
+  assert.equal(parcels.finishDeposit(M, s.parcelId, { outcome: 'stored' }, T0).sms, 'delivered', 'a repeated stored answers with the state now');
+  assert.equal(parcels.depositSms(BARE, s.parcelId).code, 'parcel_not_found', 'another locker cannot ask');
+  free(M, s.parcelId);
+
+  // Twilio says it did not arrive.
+  const u = stored(M);
+  nextAnswer = { ok: true, sid: 'SMwordU' + u.orderNumber, status: 'queued' };
+  await lockerSms.send(M, u.parcelId, 'first', 'backend', T0);
+  nextAnswer = null;
+  const up = { MessageSid: 'SMwordU' + u.orderNumber, MessageStatus: 'undelivered', ErrorCode: '30003' };
+  lockerSms.handleReport(form(up), sign(up), T0 + 5000);
+  const answer = parcels.depositSms(M, u.parcelId);
+  assert.deepEqual(answer, { ok: true, sms: 'failed' });
+  assert.equal(JSON.stringify(answer).includes('30003'), false);
+  free(M, u.parcelId);
+
+  // The backend could not send at all (this locker has no sender).
+  const b = stored(BARE);
+  assert.equal((await lockerSms.send(BARE, b.parcelId, 'first', 'backend', T0)).ok, false);
+  assert.deepEqual(parcels.depositSms(BARE, b.parcelId), { ok: true, sms: 'failed' });
+  free(BARE, b.parcelId);
+
+  const route = routes.find(r => r.method === 'GET' && r.pattern === '/api/v1/machines/:deviceCode/locker/deposit/:id/sms');
+  assert.ok(route && route.middleware.length === 1 && route.middleware[0].name === 'requireMachineKey');
+});
