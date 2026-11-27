@@ -114,14 +114,21 @@ const TOKEN_LENGTH = 12;
 // No 0/o, 1/l/i: the token is also read aloud to support and typed from a screenshot.
 const TOKEN_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 
+// An order the customer asked to fetch in the shop, which staff may put in a locker instead
+// (6.144.0). It is an expected order like any other; the mark is for the people choosing
+// what goes in when boxes are short.
+if (!db.prepare('PRAGMA table_info(locker_orders)').all().some(c => c.name === 'optional')) {
+  db.exec('ALTER TABLE locker_orders ADD COLUMN optional INTEGER NOT NULL DEFAULT 0');
+}
+
 const q = {
   orderByNumber: db.prepare('SELECT * FROM locker_orders WHERE operatorId = ? AND orderNumber = ?'),
   orderById: db.prepare('SELECT * FROM locker_orders WHERE id = ?'),
-  insertOrder: db.prepare(`INSERT INTO locker_orders (operatorId, orderNumber, phone, firstName, source, status, createdAt, updatedAt)
-                           VALUES (?, ?, ?, ?, ?, 'expected', ?, ?)`),
-  updateOrder: db.prepare('UPDATE locker_orders SET phone = ?, firstName = ?, source = ?, updatedAt = ? WHERE id = ?'),
+  insertOrder: db.prepare(`INSERT INTO locker_orders (operatorId, orderNumber, phone, firstName, source, optional, status, createdAt, updatedAt)
+                           VALUES (?, ?, ?, ?, ?, ?, 'expected', ?, ?)`),
+  updateOrder: db.prepare('UPDATE locker_orders SET phone = ?, firstName = ?, source = ?, optional = ?, updatedAt = ? WHERE id = ?'),
   setOrderStatus: db.prepare('UPDATE locker_orders SET status = ?, updatedAt = ? WHERE id = ?'),
-  listOrders: db.prepare('SELECT * FROM locker_orders WHERE operatorId = ? AND (? IS NULL OR status = ?) ORDER BY id DESC LIMIT ?'),
+  listOrders: db.prepare('SELECT * FROM locker_orders WHERE operatorId = ? AND (? IS NULL OR status = ?) ORDER BY optional, id DESC LIMIT ?'),
 
   parcelById: db.prepare('SELECT * FROM locker_parcels WHERE id = ?'),
   activeAtDevice: db.prepare(`SELECT * FROM locker_parcels WHERE deviceCode = ? AND state IN ('opening','stored') ORDER BY boxN`),
@@ -337,7 +344,7 @@ function parcelView(p, now) {
 }
 
 function orderView(o) {
-  return o && { id: o.id, orderNumber: o.orderNumber, phone: o.phone, firstName: o.firstName, source: o.source, status: o.status,
+  return o && { id: o.id, orderNumber: o.orderNumber, phone: o.phone, firstName: o.firstName, source: o.source, optional: !!o.optional, status: o.status,
                 createdAt: o.createdAt, updatedAt: o.updatedAt };
 }
 
@@ -440,15 +447,16 @@ function registerOrder(operatorId, input, now = Date.now()) {
   if (!phone) return fail(400, 'bad_phone', 'phone must be a phone number: 7 digits, or with a country code.');
   const firstName = firstNameOf(input && input.firstName);
   const source = cleanText((input && input.source) || 'manual', 20) || 'manual';
+  const optional = input && input.optional ? 1 : 0;
   const existing = q.orderByNumber.get(operatorId, orderNumber);
   if (!existing) {
-    const r = q.insertOrder.run(operatorId, orderNumber, phone, firstName, source, iso(now), iso(now));
+    const r = q.insertOrder.run(operatorId, orderNumber, phone, firstName, source, optional, iso(now), iso(now));
     return { ok: true, created: true, order: orderView(q.orderById.get(r.lastInsertRowid)) };
   }
   // An order withdrawn and then reported again (the shop un-cancelled it, or it was withdrawn
   // by mistake) is expected once more. One that has been in a locker stays used.
   if ((existing.status === 'expected' || existing.status === 'cancelled') && !q.activeForOrder.get(existing.id)) {
-    q.updateOrder.run(phone, firstName, source, iso(now), existing.id);
+    q.updateOrder.run(phone, firstName, source, optional, iso(now), existing.id);
     if (existing.status === 'cancelled') q.setOrderStatus.run('expected', iso(now), existing.id);
     return { ok: true, created: false, order: orderView(q.orderById.get(existing.id)) };
   }
@@ -503,7 +511,7 @@ function lookupForDeposit(machine, rawOrderNumber) {
   const { busy, closed } = occupancy(machine);
   const held = q.activeForOrder.get(r.order.id);
   if (held && held.deviceCode !== machine.deviceCode) return fail(409, 'order_used', 'This order is being put in another locker.');
-  return { ok: true, order: { orderNumber: r.order.orderNumber, firstName: r.order.firstName },
+  return { ok: true, order: { orderNumber: r.order.orderNumber, firstName: r.order.firstName, optional: !!r.order.optional },
            free: freeCounts(boxesOf(machine), busy, closed), resume: held ? { parcelId: held.id, box: wiring(machine, held.boxN) } : null };
 }
 

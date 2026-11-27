@@ -37,11 +37,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_locker_shops_operator ON locker_shops(operatorId);
 `);
 
+// A second list of shipping methods (6.144.0): orders the customer fetches in the shop, which
+// staff may put in a locker instead. They are taken as expected orders, marked optional.
+if (!db.prepare('PRAGMA table_info(locker_shops)').all().some(c => c.name === 'optionalMatch')) {
+  db.exec("ALTER TABLE locker_shops ADD COLUMN optionalMatch TEXT NOT NULL DEFAULT ''");
+}
+
 const q = {
   byId: db.prepare('SELECT * FROM locker_shops WHERE id = ?'),
   ofOperator: db.prepare('SELECT * FROM locker_shops WHERE operatorId = ? ORDER BY createdAt'),
   insert: db.prepare('INSERT INTO locker_shops (id, operatorId, kind, name, shippingMatch, secretSealed, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
-  update: db.prepare('UPDATE locker_shops SET name = ?, shippingMatch = ? WHERE id = ?'),
+  update: db.prepare('UPDATE locker_shops SET name = ?, shippingMatch = ?, optionalMatch = ? WHERE id = ?'),
   setSecret: db.prepare('UPDATE locker_shops SET secretSealed = ? WHERE id = ?'),
   remove: db.prepare('DELETE FROM locker_shops WHERE id = ?'),
   note: db.prepare('UPDATE locker_shops SET lastAt = ?, lastResult = ?, received = received + ?, stored = stored + ? WHERE id = ?'),
@@ -85,7 +91,7 @@ const baseUrl = () => (process.env.APP_URL || 'https://admin.agvending.is').repl
 
 /** A connection as the dashboard shows it: never the secret. */
 function view(s) {
-  return s && { id: s.id, kind: s.kind, name: s.name, shippingMatch: s.shippingMatch, url: baseUrl() + PATH + s.id,
+  return s && { id: s.id, kind: s.kind, name: s.name, shippingMatch: s.shippingMatch, optionalMatch: s.optionalMatch || '', url: baseUrl() + PATH + s.id,
                 createdAt: s.createdAt, createdBy: s.createdBy, lastAt: s.lastAt, lastResult: s.lastResult, received: s.received, stored: s.stored };
 }
 function list(operatorId) { return q.ofOperator.all(operatorId).map(view); }
@@ -112,7 +118,8 @@ function update(operatorId, id, input) {
   if (!s) return fail(404, 'shop_not_found', 'No such shop connection.');
   const name = input && input.name !== undefined ? clean(input.name, 60) : s.name;
   if (!name) return fail(400, 'bad_name', 'Give the shop a name, such as its web address.');
-  q.update.run(name, input && input.shippingMatch !== undefined ? clean(input.shippingMatch, 200) : s.shippingMatch, s.id);
+  q.update.run(name, input && input.shippingMatch !== undefined ? clean(input.shippingMatch, 200) : s.shippingMatch,
+               input && input.optionalMatch !== undefined ? clean(input.optionalMatch, 200) : (s.optionalMatch || ''), s.id);
   return { ok: true, shop: view(q.byId.get(s.id)) };
 }
 
@@ -169,21 +176,23 @@ function handleDelivery(hookId, rawBody, signature, now = Date.now()) {
 
   const shipping = (Array.isArray(order.shipping_lines) ? order.shipping_lines : []).map(l => ({ id: String((l && l.method_id) || ''), title: String((l && l.method_title) || '') }));
   const status = String(order.status || '');
-  const wanted = names(s.shippingMatch);
-  if (!wanted.length) {
+  const wanted = names(s.shippingMatch), maybe = names(s.optionalMatch);
+  if (!wanted.length && !maybe.length) {
     const seen = shipping.map(x => clean(x.title || x.id, 80)).filter(Boolean).join(' | ') || 'none';
     return done(200, `order ${number} not taken: no locker shipping method is set for this shop yet. Its shipping: ${seen}`, { status: 'ignored' });
   }
-  const isLocker = shipping.some(x => wanted.some(n => n === x.id.toLowerCase() || x.title.toLowerCase().includes(n)));
+  const has = (list) => shipping.some(x => list.some(n => n === x.id.toLowerCase() || x.title.toLowerCase().includes(n)));
+  // A locker method wins when an order somehow matches both lists.
+  const forLocker = has(wanted), optional = !forLocker && has(maybe), isLocker = forLocker || optional;
   if (!isLocker || DEAD_STATUSES.includes(status)) {
     // It may have been a locker order before it was changed or cancelled in the shop.
     const withdrawn = parcels.withdrawOrderByNumber(s.operatorId, number, now);
     return done(200, `order ${number} ${withdrawn ? 'withdrawn' : 'not taken'}: ${isLocker ? 'it is ' + clean(status, 20) : 'not a locker order'}`, { status: 'ignored' });
   }
   const billing = order.billing || {}, ship = order.shipping || {};
-  const r = parcels.registerOrder(s.operatorId, { orderNumber: number, phone: billing.phone || ship.phone, firstName: billing.first_name || ship.first_name, source: 'woocommerce' }, now);
+  const r = parcels.registerOrder(s.operatorId, { orderNumber: number, phone: billing.phone || ship.phone, firstName: billing.first_name || ship.first_name, source: 'woocommerce', optional }, now);
   if (!r.ok) return done(200, `order ${number} not taken: ${r.code === 'bad_phone' ? 'it has no usable mobile number' : r.error}`, { status: 'ignored', reason: r.code });
-  return done(200, `order ${number} ${r.unchanged ? 'already in a locker, left as it is' : r.created ? 'received' : 'updated'}`, { status: 'stored' }, !r.unchanged);
+  return done(200, `order ${number} ${r.unchanged ? 'already in a locker, left as it is' : r.created ? 'received' : 'updated'}${optional && !r.unchanged ? ' (shop pickup, may go in the locker)' : ''}`, { status: 'stored' }, !r.unchanged);
 }
 
 module.exports = { PATH, list, create, update, newSecretFor, remove, handleDelivery, signatureMatches };
