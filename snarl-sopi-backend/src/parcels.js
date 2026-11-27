@@ -545,7 +545,7 @@ const finishDeposit = db.transaction((machine, parcelId, input, now = Date.now()
   const outcome = input && input.outcome;
   if (outcome !== 'stored' && outcome !== 'cancelled') return fail(400, 'bad_outcome', 'outcome must be stored or cancelled.');
   if (p.state !== 'opening') {
-    if (p.state === outcome) return { ok: true, repeated: true, parcelId: p.id, state: p.state };
+    if (p.state === outcome) return { ok: true, repeated: true, parcelId: p.id, state: p.state, ...(outcome === 'stored' ? { sms: smsWord(p.id) } : {}) };
     return fail(409, 'wrong_state', `This parcel is ${p.state}.`);
   }
   if (outcome === 'cancelled') {
@@ -569,7 +569,8 @@ const finishDeposit = db.transaction((machine, parcelId, input, now = Date.now()
   q.storeParcel.run(code, token, iso(now), p.id);
   if (p.orderId != null) q.setOrderStatus.run('deposited', iso(now), p.orderId);
   event(machine.deviceCode, p.id, p.boxN, 'stored', 'locker', null, now);
-  return { ok: true, parcelId: p.id, state: 'stored' };
+  // The message goes out after this answer, so for the locker it starts as pending.
+  return { ok: true, parcelId: p.id, state: 'stored', sms: 'pending' };
 });
 
 // ── Pickup (the locker) ───────────────────────────────────────────────────────────────────────
@@ -764,6 +765,24 @@ function smsReport(sid, status, errorCode, now = Date.now()) {
   if (p) event(p.deviceCode, p.id, p.boxN, 'sms_' + st, 'twilio', m.kind + (errorCode ? ', error ' + String(errorCode).slice(0, 12) : ''), now);
   return { ok: true, parcelId: m.parcelId, status: st };
 }
+/**
+ * For the locker's deposit screen: how the customer's first message is doing, as one word.
+ * Read from the parcel's history, where every attempt and every report from Twilio is a line;
+ * the newest line about the first message decides. No number, no error text: the reason is
+ * for the dashboard.
+ */
+const SMS_WORD = { sms_not_sent: 'failed', sms_failed: 'failed', sms_undelivered: 'failed', sms_delivered: 'delivered', sms_sent: 'sent' };
+const lastFirstSmsEvent = db.prepare(`SELECT type FROM locker_events WHERE parcelId = ? AND type LIKE 'sms!_%' ESCAPE '!'
+                                      AND (detail = 'first' OR detail LIKE 'first,%' OR detail LIKE 'first:%') ORDER BY id DESC LIMIT 1`);
+function smsWord(parcelId) {
+  const e = lastFirstSmsEvent.get(String(parcelId));
+  return e ? (SMS_WORD[e.type] || 'pending') : 'pending';
+}
+function depositSms(machine, parcelId) {
+  const p = q.parcelById.get(String(parcelId));
+  if (!p || p.deviceCode !== machine.deviceCode) return fail(404, 'parcel_not_found', 'No such parcel at this locker.');
+  return { ok: true, sms: smsWord(p.id) };
+}
 /** Stored parcels older than `hours` for which no reminder has been attempted. */
 function parcelsNeedingReminder(hours, now = Date.now()) {
   return q.needReminder.all(iso(now - hours * 3600000)).map(r => r.id);
@@ -816,7 +835,7 @@ module.exports = {
   normalizeOrderNumber, normalizePhone, firstNameOf, newCode, newToken, tokenFromScan, pickBox, freeCounts,
   boxView, getParcel, listParcels, parcelLog,
   registerOrder, listOrders, orderCounts, cancelOrder, withdrawOrderByNumber,
-  storePhoto, viewPhoto, PHOTO_MAX_BYTES, offlineList, reportDoors, doorState, DOORS_FRESH_MS, DOOR_OPEN_TOO_LONG_MS, lookupForDeposit, startDeposit, finishDeposit, startPickup, finishPickup,
+  storePhoto, viewPhoto, PHOTO_MAX_BYTES, offlineList, reportDoors, doorState, DOORS_FRESH_MS, DOOR_OPEN_TOO_LONG_MS, lookupForDeposit, startDeposit, finishDeposit, depositSms, startPickup, finishPickup,
   markCollected, clearParcel, setBoxService,
   // For the SMS and the pickup page, which are built on this next. Never sent to the dashboard.
   _secretsOf(parcelId) { const p = q.parcelById.get(String(parcelId)); return p ? { code: p.code, token: p.token } : null; },

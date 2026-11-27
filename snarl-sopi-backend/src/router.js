@@ -260,7 +260,8 @@ const routes = [
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/start',         handler: handleLockerDepositStart,  middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/deposit/:id/result',    handler: handleLockerDepositResult, middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup',                handler: handleLockerPickup,        middleware:[requireMachineKey] },
-  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/offline',               handler: handleLockerOffline,       middleware:[requireMachineKey] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/deposit/:id/sms',       handler: handleLockerDepositSms,    middleware:[requireMachineKey] },
+  { method:'GET',  pattern:'/api/v1/machines/:deviceCode/locker/offline',              handler: handleLockerOffline,       middleware:[requireMachineKey] },
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/doors',                 handler: handleLockerDoors,         middleware:[requireMachineKey] },
   // The photo taken at pickup: handed in by the locker, shown to an admin who asks.
   { method:'POST', pattern:'/api/v1/machines/:deviceCode/locker/pickup/:id/photo',      handler: handleLockerPhotoStore,    middleware:[requireMachineKey] },
@@ -5390,6 +5391,13 @@ function handleLockerDepositResult(req, res) {
       .then(x => { if (!x.ok) console.warn(`[LOCKER] ${m.deviceCode}: first SMS not sent (${x.code})`); })
       .catch(e => console.error('[LOCKER] first SMS failed:', e.message));
   }
+}
+// GET …/locker/deposit/:id/sms — the locker asks how the customer's message is doing, so staff
+// see it went out. One word only: pending, sent, delivered or failed.
+function handleLockerDepositSms(req, res) {
+  const m = lockerAppMachine(req, res); if (!m) return;
+  if (typeof res.setHeader === 'function') res.setHeader('Cache-Control', 'no-store');
+  lockerAppAnswer(res, parcels.depositSms(m, req.params.id));
 }
 
 // POST …/locker/parcels/:id/sms — an operator asks for the customer's message again.
