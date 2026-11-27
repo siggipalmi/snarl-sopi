@@ -40,6 +40,17 @@
  },
  {
   "component": "backend",
+  "version": "6.146.0",
+  "date": "2026-11-27",
+  "title": "Lockers: a switch to send SMS without Icelandic letters",
+  "notes": [
+   "Some messages reached phones with þ, ð and accented letters garbled (\"P|ntunin pin\"), although Twilio's log holds them intact. A locker's SMS sender panel (AG only) now has \"Send without Icelandic letters\": its messages then go out as \"Pontunin thin … Kodi:\".",
+   "The locker's wording is not changed by it, and it covers the order number and the locker's name too. Switch it off and the letters are back."
+  ],
+  "check": "Tick it on the locker's Locker details → SMS sender, save, deposit a test parcel and read the SMS on a phone."
+ },
+ {
+  "component": "backend",
   "version": "6.145.1",
   "date": "2026-11-27",
   "title": "Lockers: the order list says where a deposited parcel is now",

@@ -79,7 +79,8 @@ async function send(machine, parcelId, kind, actor, now = Date.now()) {
   let r;
   try {
     r = await transport({ accountSid: c.sid, authToken: c.token, messagingServiceSid: record.sms.messagingServiceSid, to: f.phone,
-                          body: messageText(kind, f, record, c.linkBase), statusCallback: callbackUrl() });
+                          body: record.sms.plainLetters ? lockers.plainLetters(messageText(kind, f, record, c.linkBase)) : messageText(kind, f, record, c.linkBase),
+                          statusCallback: callbackUrl() });
   } catch (e) { r = { ok: false, error: 'Twilio could not be reached' }; }
   if (!r.ok) return refuse('twilio_refused', r.error || 'Twilio refused the message');
   parcels.smsAccepted(f.id, r.sid, kind, r.status, actor, now);
