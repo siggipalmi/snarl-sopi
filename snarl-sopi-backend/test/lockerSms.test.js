@@ -18,6 +18,7 @@ const { routes } = require('../src/router');
 const { machines, storage } = require('../src/db');
 const parcels = require('../src/parcels');
 const lockerSms = require('../src/lockerSms');
+const lockers = require('../src/lockers');
 
 const SENDER = 'MG' + '0123456789abcdef'.repeat(2);
 function machine(deviceCode, sms) {
@@ -373,4 +374,24 @@ test('the locker can ask how the first message is doing, and is told one word an
 
   const route = routes.find(r => r.method === 'GET' && r.pattern === '/api/v1/machines/:deviceCode/locker/deposit/:id/sms');
   assert.ok(route && route.middleware.length === 1 && route.middleware[0].name === 'requireMachineKey');
+});
+
+test('with the plain-letters switch a locker\'s messages go out without Icelandic letters, wording untouched', async () => {
+  assert.equal(lockers.plainLetters('Pöntunin þín er tilbúin í skápnum. Kóði: 1. Þórður Æsa Ýr „x“ – é'), 'Pontunin thin er tilbuin i skapnum. Kodi: 1. Thordur Aesa Yr "x" - e');
+  const before = M.settings.locker.sms;
+  M.settings.locker.sms = { ...before, plainLetters: true };
+  M.settings.locker.info = { ...M.settings.locker.info, name: 'Skápur Þórs' };
+  const p = stored(M);
+  await lockerSms.send(M, p.parcelId, 'first', 'backend', T0);
+  assert.equal(sentToTwilio.at(-1).body, `Pontunin thin ${p.orderNumber} er tilbuin i skapnum Skapur Thors. Kodi: ${p.code}. QR-kodi: sms.agvending.is/p/${p.token}`);
+  assert.equal(/[^\x20-\x7e]/.test(sentToTwilio.at(-1).body), false, 'nothing outside plain ASCII is left');
+  assert.equal(lockers.lockerRecord(M).messages.first.includes('Pöntunin þín'), true, 'the stored wording keeps its letters');
+  free(M, p.parcelId);
+  M.settings.locker.sms = before;
+  const q2 = stored(M);
+  await lockerSms.send(M, q2.parcelId, 'first', 'backend', T0);
+  assert.match(sentToTwilio.at(-1).body, /^Pöntunin þín/);
+  free(M, q2.parcelId);
+  assert.deepEqual(lockers.normalizeSms({ messagingServiceSid: SENDER, plainLetters: true }).value, { messagingServiceSid: SENDER, plainLetters: true });
+  assert.equal(lockers.normalizeSms({ messagingServiceSid: SENDER }).value.plainLetters, false);
 });

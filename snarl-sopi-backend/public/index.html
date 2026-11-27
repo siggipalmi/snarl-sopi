@@ -1323,6 +1323,11 @@ select.fi{cursor:pointer;}
             <div class="field" style="max-width:460px"><label class="fl" for="lk-sender" style="display:block" data-i18n="lk.sender">Twilio Messaging Service</label>
               <input class="fi mono" id="lk-sender" maxlength="34" placeholder="MG…" autocomplete="off">
               <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.45" data-i18n="lk.sender.hint">The service this locker's messages go out through; it decides the sender name customers see. Without it no SMS is sent. Only AG Vending sees and sets this.</div></div>
+            <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin:2px 0 6px;max-width:620px">
+              <input type="checkbox" id="lk-plain" style="margin-top:3px">
+              <span style="font-size:13px;line-height:1.45"><span data-i18n="lk.plain">Send without Icelandic letters</span>
+                <span style="display:block;font-size:11px;color:var(--muted);margin-top:2px" data-i18n="lk.plain.hint">For when messages reach phones with þ, ð and accented letters garbled. They then go out as th, d and plain letters: "Pontunin thin … Kodi:". The wording itself is not changed; switch this off and the letters are back.</span></span>
+            </label>
             <button class="btn btn-sm" onclick="saveLockerSender()"><span data-i18n="lk.sender.save">save sender</span></button>
           </div>
         </div>
@@ -2819,6 +2824,8 @@ const I18N = {
     'lk.sender.title':'SMS sender.',
     'lk.sender':'Twilio Messaging Service',
     'lk.sender.save':'save sender',
+    'lk.plain':'Send without Icelandic letters',
+    'lk.plain.hint':'For when messages reach phones with þ, ð and accented letters garbled. They then go out as th, d and plain letters: "Pontunin thin … Kodi:". The wording itself is not changed; switch this off and the letters are back.',
     'lk.sender.hint':'The service this locker’s messages go out through; it decides the sender name customers see. Without it no SMS is sent. Only AG Vending sees and sets this.',
     'bx.f.sms':'SMS',
     'bx.sms.none':'none sent yet',
@@ -2868,6 +2875,7 @@ const I18N = {
 
     'od.from.manual':'Added by hand',
     'od.from.shop':'The shop',
+    'od.from.import':'Was in the locker',
     'od.optional':'Shop pickup · locker if there is room',
     'od.withdraw':'withdraw',
     'od.q.withdraw':'Withdraw order {order}?\n\nStaff will no longer be able to put it in a locker.',
@@ -3423,6 +3431,8 @@ const I18N = {
     'lk.sender.title':'SMS-sendandi.',
     'lk.sender':'Twilio Messaging Service',
     'lk.sender.save':'vista sendanda',
+    'lk.plain':'Senda án íslenskra stafa',
+    'lk.plain.hint':'Fyrir þegar skilaboð berast í síma með þ, ð og broddstafi brenglaða. Þau fara þá út sem th, d og stafir án brodda: „Pontunin thin … Kodi:“. Orðalaginu sjálfu er ekki breytt; slökktu á þessu og stafirnir koma aftur.',
     'lk.sender.hint':'Þjónustan sem skilaboð þessa skáps fara í gegnum; hún ræður nafni sendanda sem viðskiptavinir sjá. Án hennar er ekkert SMS sent. Aðeins AG Vending sér þetta og stillir.',
     'bx.f.sms':'SMS',
     'bx.sms.none':'ekkert sent enn',
@@ -3472,6 +3482,7 @@ const I18N = {
 
     'od.from.manual':'Bætt við handvirkt',
     'od.from.shop':'Vefverslun',
+    'od.from.import':'Var í skápnum',
     'od.optional':'Sótt í verslun · skápur ef pláss',
     'od.withdraw':'afturkalla',
     'od.q.withdraw':'Afturkalla pöntun {order}?\n\nStarfsfólk getur þá ekki lengur sett hana í skáp.',
@@ -9238,7 +9249,7 @@ function odRender() {
     '<tr style="text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">' +
     th('od.col.order') + th('od.col.customer') + th('od.col.mobile') + th('od.col.from') + th('') + '</tr>' +
     d.orders.map(function (o) {
-      var from = t(o.source === 'manual' ? 'od.from.manual' : 'od.from.shop') + ', ' + bxWhen(o.createdAt);
+      var from = t(o.source === 'manual' ? 'od.from.manual' : o.source === 'import' ? 'od.from.import' : 'od.from.shop') + ', ' + bxWhen(o.createdAt);
       return '<tr style="border-top:1px solid var(--cream-deep)"><td style="padding:8px 12px 8px 0;font-weight:700">' + rsEsc(o.orderNumber) +
         (o.optional ? ' <span style="font-size:11px;font-weight:600;padding:2px 7px;margin-left:6px;border:1px solid var(--line);color:var(--muted);white-space:nowrap">' + rsEsc(t('od.optional')) + '</span>' : '') + '</td>' +
         '<td style="padding:8px 12px 8px 0">' + rsEsc(o.firstName || '—') + '</td>' +
@@ -9573,6 +9584,7 @@ async function renderLockerDetails(code) {
   var sp = document.getElementById('lk-sender-panel'), se = document.getElementById('lk-sender');
   if (sp) sp.style.display = lkIsAg() ? '' : 'none';
   if (se) se.value = (_lkRecord.sms && _lkRecord.sms.messagingServiceSid) || '';
+  var pl = document.getElementById('lk-plain'); if (pl) pl.checked = !!(_lkRecord.sms && _lkRecord.sms.plainLetters);
   var pp = document.getElementById('lk-photo-panel'), pc = document.getElementById('lk-photo');
   if (pp) pp.style.display = lkIsAg() ? '' : 'none';
   if (pc) pc.checked = !!_lkRecord.pickupPhoto;
@@ -9664,7 +9676,7 @@ async function saveLockerMessages() {
 
 async function saveLockerSender() {
   var code = _mdDeviceCode, r = null;
-  try { r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/locker', { sms: { messagingServiceSid: lkVal('lk-sender') } }); } catch (e) { r = null; }
+  try { r = await API.put('/api/v1/machines/' + encodeURIComponent(code) + '/locker', { sms: { messagingServiceSid: lkVal('lk-sender'), plainLetters: !!(document.getElementById('lk-plain') || {}).checked } }); } catch (e) { r = null; }
   if (!r || !r.ok) { showToast(lkErrText(r) || t('lk.load.fail')); return; }
   if (code !== _mdDeviceCode) return;
   _lkRecord = r.data;

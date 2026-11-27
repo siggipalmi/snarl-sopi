@@ -102,7 +102,17 @@ function normalizeSms(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return fail('sms must be an object');
   const sid = cleanText(input.messagingServiceSid);
   if (sid && !/^MG[0-9a-f]{32}$/i.test(sid)) return fail('messagingServiceSid must be MG followed by 32 hex characters');
-  return { ok: true, value: { messagingServiceSid: sid } };
+  return { ok: true, value: { messagingServiceSid: sid, plainLetters: input.plainLetters === true } };
+}
+
+// Some routes to Icelandic phones deliver þ, ð and the accented letters as other characters
+// ("P|ntunin pin"). With a locker's plainLetters switch on, its messages go out in letters every
+// route carries: þ as th, æ as ae, ð as d, and the rest without their accents.
+const PLAIN = { 'þ': 'th', 'Þ': 'Th', 'ð': 'd', 'Ð': 'D', 'æ': 'ae', 'Æ': 'Ae', 'ö': 'o', 'Ö': 'O', 'ø': 'o', 'Ø': 'O', 'ß': 'ss',
+                '\u2018': "'", '\u2019': "'", '\u201C': '"', '\u201D': '"', '\u201E': '"', '\u2013': '-', '\u2014': '-', '\u2026': '...' };
+function plainLetters(text) {
+  return String(text == null ? '' : text).replace(/[þÞðÐæÆöÖøØß\u2018\u2019\u201C\u201D\u201E\u2013\u2014\u2026]/g, ch => PLAIN[ch])
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 // The wording of a locker's messages. {order} {locker} {code} {link} are filled in when one is
@@ -186,7 +196,7 @@ function lockerRecord(machine) {
     deviceCode: machine ? machine.deviceCode : null,
     info, mapUrl: mapUrl(info),
     boxes, boxCounts: boxCounts(boxes),
-    sms: { messagingServiceSid: (stored.sms && stored.sms.messagingServiceSid) || '' },
+    sms: { messagingServiceSid: (stored.sms && stored.sms.messagingServiceSid) || '', plainLetters: !!(stored.sms && stored.sms.plainLetters) },
     // Whether the locker photographs each pickup. Off unless AG switched it on for this locker,
     // which is done once its site has a sign saying so.
     pickupPhoto: stored.pickupPhoto === true,
@@ -230,5 +240,5 @@ function applyChange(machine, change, who, nowIso) {
   return next;
 }
 
-module.exports = { BOX_SIZES, MAX_BOXES, INFO_TEXT_FIELDS, normalizeInfo, normalizeBoxes, normalizeSms, normalizeMessages, fillMessage, DEFAULT_MESSAGES, MESSAGE_MAX, boxCounts, mapUrl,
+module.exports = { plainLetters, BOX_SIZES, MAX_BOXES, INFO_TEXT_FIELDS, normalizeInfo, normalizeBoxes, normalizeSms, normalizeMessages, fillMessage, DEFAULT_MESSAGES, MESSAGE_MAX, boxCounts, mapUrl,
                    lockerRecord, publicInfo, applyChange };
