@@ -40,6 +40,18 @@
  },
  {
   "component": "backend",
+  "version": "6.145.0",
+  "date": "2026-11-27",
+  "title": "Lockers: take over the parcels already in a locker",
+  "notes": [
+   "A locker that comes to us from MINNO with parcels in it: on its Overview, AG can choose MINNO's exported list of stored parcels. Each parcel is recorded in its box with the pickup code its customer already has, and no SMS is sent.",
+   "The file is checked first and shown row by row; nothing is recorded until every row is right and you confirm. A box that already holds a parcel, a code that is not six digits or a file from another locker stops it.",
+   "Imported orders count as already in a locker, so staff cannot deposit them again. Parcels that had waited more than 48 hours get no second reminder from us; younger ones get ours when their time comes."
+  ],
+  "check": "Choose the export on the locker's Overview, press check, and compare the boxes listed with the doors that are full."
+ },
+ {
+  "component": "backend",
   "version": "6.144.0",
   "date": "2026-11-27",
   "title": "Lockers: shop-pickup orders that may go in the locker",
