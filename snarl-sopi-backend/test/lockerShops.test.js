@@ -150,3 +150,37 @@ test('routes: deliveries are open and signed; managing connections needs an oper
   const r = call('POST', '/api/v1/shops/woo/:hookId', { params: { hookId: created.shop.id }, rawBody: body, headers: { 'x-wc-webhook-signature': sign(body, created.secret) } });
   assert.deepEqual([r.status, r.body.status], [200, 'stored']);
 });
+
+test('an order the customer fetches in the shop is taken when the shop says so, and marked as second in line', () => {
+  // Its own connection: an earlier test removed the first one.
+  const { shop, secret } = shops.create('op-shop-a', { name: 'pickup.example.test', shippingMatch: 'afhendingarkassa' }, 'op@example.test');
+  const deliver = (body, sig) => shops.handleDelivery(shop.id, body, sig);
+  const last = () => shops.list('op-shop-a').find(x => x.id === shop.id);
+  const pickup = (n) => order(n, { shipping_lines: [{ method_id: 'local_pickup', method_title: 'Sótt í VERSLUN Prufugötu 11' }] });
+  const a = pickup(58901);
+  assert.equal(deliver(a, sign(a, secret)).body.status, 'ignored', 'not taken until the shop connection names the method');
+  assert.equal(shops.update('op-shop-a', shop.id, { optionalMatch: 'sótt í verslun' }).shop.optionalMatch, 'sótt í verslun');
+  assert.equal(last().shippingMatch, 'afhendingarkassa', 'the locker method is untouched');
+
+  assert.equal(deliver(a, sign(a, secret)).body.status, 'stored');
+  assert.equal(last().lastResult, 'order 58901 received (shop pickup, may go in the locker)');
+  assert.equal(parcels.listOrders('op-shop-a').find(o => o.orderNumber === '58901').optional, true);
+  const look = parcels.lookupForDeposit(M, '58901');
+  assert.equal(look.ok, true, 'the locker can take it');
+  assert.equal(look.order.optional, true);
+
+  // A locker order is not marked, and is listed before the optional ones.
+  const b = order(58902);
+  deliver(b, sign(b, secret));
+  const listed = parcels.listOrders('op-shop-a', { status: 'expected' });
+  assert.equal(listed.find(o => o.orderNumber === '58902').optional, false);
+  assert.ok(listed.findIndex(o => o.orderNumber === '58902') < listed.findIndex(o => o.orderNumber === '58901'));
+
+  // The customer changes their mind in the shop: the mark follows; another method withdraws it.
+  const moved = order(58901);
+  deliver(moved, sign(moved, secret));
+  assert.equal(parcels.listOrders('op-shop-a').find(o => o.orderNumber === '58901').optional, false);
+  const home = order(58901, { shipping_lines: [{ method_id: 'flat_rate', method_title: 'Heimsending' }] });
+  deliver(home, sign(home, secret));
+  assert.equal(parcels.listOrders('op-shop-a').find(o => o.orderNumber === '58901').status, 'cancelled');
+});

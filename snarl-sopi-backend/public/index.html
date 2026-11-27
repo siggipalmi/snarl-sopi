@@ -2827,6 +2827,7 @@ const I18N = {
 
     'od.from.manual':'Added by hand',
     'od.from.shop':'The shop',
+    'od.optional':'Shop pickup · locker if there is room',
     'od.withdraw':'withdraw',
     'od.q.withdraw':'Withdraw order {order}?\n\nStaff will no longer be able to put it in a locker.',
     'od.need':'Enter an order number and a mobile number',
@@ -2885,6 +2886,8 @@ const I18N = {
     'sh.sofar':'So far',
     'sh.sofar.v':'{received} deliveries, {stored} locker orders taken',
     'sh.match':'Locker shipping method',
+    'sh.opt':'Shop pickup, may go in the locker',
+    'sh.opt.hint':'Optional. A word from the name of the method customers pick to fetch the order in the shop. These orders can be put in the locker too, come second, and are marked in the list of orders. Several: separate with commas.',
     'sh.match.hint':'A word from the name of the shipping method customers pick for the locker. Orders with any other method are left alone. Several: separate with commas.',
     'sh.match.missing':'Not set, so no order is taken yet. After the shop’s first delivery, "last delivery" lists the shop’s shipping methods: enter a word from the locker one.',
     'sh.url':'Delivery URL',
@@ -3398,6 +3401,7 @@ const I18N = {
 
     'od.from.manual':'Bætt við handvirkt',
     'od.from.shop':'Vefverslun',
+    'od.optional':'Sótt í verslun · skápur ef pláss',
     'od.withdraw':'afturkalla',
     'od.q.withdraw':'Afturkalla pöntun {order}?\n\nStarfsfólk getur þá ekki lengur sett hana í skáp.',
     'od.need':'Sláðu inn pöntunarnúmer og farsímanúmer',
@@ -3456,6 +3460,8 @@ const I18N = {
     'sh.sofar':'Hingað til',
     'sh.sofar.v':'{received} sendingar, {stored} skápapantanir mótteknar',
     'sh.match':'Sendingarmáti fyrir skáp',
+    'sh.opt':'Sótt í verslun, má fara í skáp',
+    'sh.opt.hint':'Valfrjálst. Orð úr heiti sendingarmátans sem viðskiptavinir velja til að sækja pöntun í verslun. Þessar pantanir má líka setja í skápinn, þær koma á eftir hinum og eru merktar í pantanalistanum. Fleiri en einn: aðskildu með kommum.',
     'sh.match.hint':'Orð úr heiti sendingarmátans sem viðskiptavinir velja fyrir skápinn. Pantanir með öðrum sendingarmáta eru látnar vera. Fleiri en einn: aðskildu með kommum.',
     'sh.match.missing':'Ekki stillt, svo engin pöntun er tekin enn. Eftir fyrstu sendingu frá versluninni sýnir „síðasta sending“ sendingarmáta hennar: sláðu inn orð úr þeim sem á við skápinn.',
     'sh.url':'Slóð fyrir sendingar',
@@ -9082,6 +9088,11 @@ function shRender() {
             '<button class="btn btn-sm" onclick="shSaveMatch(' + id + ')"><span>' + rsEsc(t('lk.save')) + '</span></button></span>'
           : '<span style="font-weight:600">' + rsEsc(sh.shippingMatch || '—') + '</span>') +
           '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">' + rsEsc(t(sh.shippingMatch ? 'sh.match.hint' : 'sh.match.missing')) + '</div>') +
+        row('sh.opt', (edit
+          ? '<span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input class="fi" id="sh-opt-' + rsEsc(sh.id) + '" aria-label="' + rsEsc(t('sh.opt')) + '" maxlength="200" style="flex:1 1 200px" value="' + rsEsc(sh.optionalMatch || '') + '">' +
+            '<button class="btn btn-sm" onclick="shSaveOpt(' + id + ')"><span>' + rsEsc(t('lk.save')) + '</span></button></span>'
+          : '<span style="font-weight:600">' + rsEsc(sh.optionalMatch || '—') + '</span>') +
+          '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">' + rsEsc(t('sh.opt.hint')) + '</div>') +
         row('sh.url', '<span style="display:flex;gap:8px;align-items:center;min-width:0"><span class="mono" style="font-size:12px;min-width:0;overflow-wrap:anywhere">' + rsEsc(sh.url) + '</span>' +
           '<button class="btn btn-sm btn-ghost" style="flex:none" onclick="shCopy(' + "'" + rsEsc(sh.url) + "'" + ', \'sh.copied.url\')"><span>' + rsEsc(t('sh.copy')) + '</span></button></span>') +
         row('sh.secret', '<span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>' + rsEsc(t('sh.secret.once')) + '</span>' +
@@ -9108,6 +9119,10 @@ async function shCreate() {
 }
 async function shSaveMatch(id) {
   var r = await shCall('PUT', '/' + encodeURIComponent(id), { shippingMatch: lkVal('sh-match-' + id) });
+  if (r) { showToast(t('lk.saved')); shLoad(); }
+}
+async function shSaveOpt(id) {
+  var r = await shCall('PUT', '/' + encodeURIComponent(id), { optionalMatch: lkVal('sh-opt-' + id) });
   if (r) { showToast(t('lk.saved')); shLoad(); }
 }
 async function shNewSecret(id) {
@@ -9152,7 +9167,8 @@ function odRender() {
     th('od.col.order') + th('od.col.customer') + th('od.col.mobile') + th('od.col.from') + th('') + '</tr>' +
     d.orders.map(function (o) {
       var from = t(o.source === 'manual' ? 'od.from.manual' : 'od.from.shop') + ', ' + bxWhen(o.createdAt);
-      return '<tr style="border-top:1px solid var(--cream-deep)"><td style="padding:8px 12px 8px 0;font-weight:700">' + rsEsc(o.orderNumber) + '</td>' +
+      return '<tr style="border-top:1px solid var(--cream-deep)"><td style="padding:8px 12px 8px 0;font-weight:700">' + rsEsc(o.orderNumber) +
+        (o.optional ? ' <span style="font-size:11px;font-weight:600;padding:2px 7px;margin-left:6px;border:1px solid var(--line);color:var(--muted);white-space:nowrap">' + rsEsc(t('od.optional')) + '</span>' : '') + '</td>' +
         '<td style="padding:8px 12px 8px 0">' + rsEsc(o.firstName || '—') + '</td>' +
         '<td style="padding:8px 12px 8px 0">' + rsEsc(lkPhone(o.phone) || '—') + '</td>' +
         '<td style="padding:8px 12px 8px 0;color:var(--muted)">' + rsEsc(from) + '</td>' +

@@ -40,6 +40,18 @@
  },
  {
   "component": "backend",
+  "version": "6.144.0",
+  "date": "2026-11-27",
+  "title": "Lockers: shop-pickup orders that may go in the locker",
+  "notes": [
+   "A shop connection has a second field, \"Shop pickup, may go in the locker\": a word from the shipping method customers pick to fetch an order in the shop. Those orders are taken too, so staff can put them in the locker.",
+   "They are marked \"Shop pickup · locker if there is room\" in the locker's list of orders and listed after the locker orders. Nothing stops staff from depositing one; the mark is there so locker orders go in first.",
+   "An order that moves from one method to the other in the shop is re-marked; one moved to any other method is withdrawn, as before."
+  ],
+  "check": "On the locker's Overview, in the web shop card, enter a word from the shop-pickup method, update such an order in the shop, and look for it in the list of orders with its mark."
+ },
+ {
+  "component": "backend",
   "version": "6.143.0",
   "date": "2026-11-27",
   "title": "Lockers: the deposit screen can show whether the SMS went out",
